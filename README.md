@@ -1,44 +1,31 @@
 # CanMakan
 
-CanMakan is an AI-powered barcode ingredient interpreter planned to help users scan packaged food, understand its ingredients, and receive clear, useful dietary information.
+CanMakan is an AI-powered barcode ingredient interpreter planned to help users
+scan packaged food, understand its ingredients, and receive clear, useful
+dietary information.
 
-## Planned System Components
+## Confirmed technology
 
-- Client applications:
-  - Mobile application for barcode scanning and user-facing results
-  - Web application for browser-based access and administration
-- Server components:
-  - Backend services for business logic, authentication, and integrations
-  - Machine-learning services for ingredient interpretation and classification
-  - Agentic AI workflows for contextual explanations and recommendations
-- Database layer for application, product, and ingredient data
-- Deployment configuration for development and production environments
+- Mobile: Android with Jetpack Compose
+- Web: React with Vite using JavaScript
+- Backend: Spring Boot with Maven and Java 21
 
-## Planned Technology Stack
-
-The stack is provisional and will be confirmed during architecture and requirements planning.
-
-- Mobile: Android
-- Web: React and Node.js tooling
-- Backend: Java with Spring Boot
-- Machine learning: Python
-- Agentic AI: Python-based AI orchestration and model integrations
-- Database: Relational database technology to be selected
-- Deployment: Container and cloud tooling to be selected
+The machine-learning, agentic AI, database, and deployment technology choices
+remain pending.
 
 ## Repository Structure
 
 ```text
 .
 |-- client/
-|   |-- mobile/             # Future Android mobile application
-|   `-- web/                # Future React web application
+|   |-- mobile/             # Android Jetpack Compose project
+|   `-- web/                # React and Vite project
 |-- server/
-|   |-- backend/            # Future Spring Boot backend services
-|   |-- machine-learning/   # Future ML models, pipelines, and evaluation
-|   `-- agentic-ai/         # Future agentic AI workflows and integrations
-|-- database/               # Future schemas, migrations, and seed data
-|-- deployment/             # Future deployment and infrastructure configuration
+|   |-- backend/            # Spring Boot, Maven, Java 21
+|   |-- machine-learning/   # Reserved ML component
+|   `-- agentic-ai/         # Reserved Agentic AI and RAG component
+|-- database/               # Reserved database area
+|-- deployment/             # Reserved deployment and infrastructure area
 |-- docs/
 |   |-- architecture/       # Architecture decisions and system designs
 |   |-- requirements/       # Functional and non-functional requirements
@@ -48,6 +35,36 @@ The stack is provisional and will be confirmed during architecture and requireme
 `-- .github/                # Pull request and issue templates
 ```
 
-## Current Status
+## Local start
 
-Initial repository setup only. No application, framework, database, deployment, or runtime project has been initialized.
+Android debug build (requires JDK 17 and Android SDK 34):
+
+```powershell
+cd client/mobile
+.\gradlew.bat :app:assembleDebug
+```
+
+Web development server:
+
+```powershell
+cd client/web
+npm install
+npm run dev
+```
+
+Backend application (requires Java 21):
+
+```powershell
+cd server/backend
+.\mvnw.cmd spring-boot:run
+```
+
+The backend health endpoint is
+`http://localhost:8080/actuator/health`.
+
+## Current status
+
+The mobile directory contains the supplied UI prototype and sample data. The web
+and backend directories are runnable initial skeletons only. Barcode camera
+integration, backend business APIs, authentication, databases, machine
+learning, agentic AI, and deployment configuration are not implemented.

@@ -22,3 +22,21 @@ Use a concise, descriptive branch name. Examples:
 - `docs/document-name`
 - `fix/issue-name`
 - `chore/task-name`
+
+## Component checks
+
+Run the checks relevant to the component you changed before requesting review:
+
+```powershell
+# Android (from client/mobile)
+.\gradlew.bat :app:assembleDebug
+
+# Web (from client/web)
+npm run build
+
+# Backend (from server/backend)
+.\mvnw.cmd test
+```
+
+Do not commit generated output such as `build/`, `dist/`, `target/`,
+`node_modules/`, local environment files, or IDE caches.
