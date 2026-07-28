@@ -25,6 +25,8 @@ captures/
 target/
 *.class
 *.jar
+!**/gradle-wrapper.jar
+!**/maven-wrapper.jar
 *.war
 *.ear
 *.log
