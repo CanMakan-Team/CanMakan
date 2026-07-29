@@ -1,4 +1,4 @@
-package com.example.canmakan.ui.components
+package sg.edu.nus.iss.canmakan.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,11 +32,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.canmakan.data.DietaryProfile
-import com.example.canmakan.ui.theme.AvoidRed
-import com.example.canmakan.ui.theme.DrawerBackground
-import com.example.canmakan.ui.theme.DrawerTextMuted
-import com.example.canmakan.ui.theme.PrimaryGreen
+import sg.edu.nus.iss.canmakan.data.DietaryProfile
+import sg.edu.nus.iss.canmakan.ui.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.ui.theme.DrawerBackground
+import sg.edu.nus.iss.canmakan.ui.theme.DrawerTextMuted
+import sg.edu.nus.iss.canmakan.ui.theme.PrimaryGreen
 
 // Content shown inside the side drawer: the active profile, the list of
 // profiles to switch between, quick navigation links, and sign out.

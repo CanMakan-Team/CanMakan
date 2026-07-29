@@ -1,4 +1,4 @@
-package com.example.canmakan
+package sg.edu.nus.iss.canmakan
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -18,13 +18,13 @@ import androidx.compose.runtime.setValue
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.canmakan.data.SampleData
-import com.example.canmakan.ui.components.ProfileDrawerContent
-import com.example.canmakan.ui.screens.EditDietaryRequirementsSheet
-import com.example.canmakan.ui.screens.HistoryScreen
-import com.example.canmakan.ui.screens.ProductDetailScreen
-import com.example.canmakan.ui.screens.ScannerScreen
-import com.example.canmakan.ui.theme.CanMakanTheme
+import sg.edu.nus.iss.canmakan.data.SampleData
+import sg.edu.nus.iss.canmakan.ui.components.ProfileDrawerContent
+import sg.edu.nus.iss.canmakan.ui.screens.EditDietaryRequirementsSheet
+import sg.edu.nus.iss.canmakan.ui.screens.HistoryScreen
+import sg.edu.nus.iss.canmakan.ui.screens.ProductDetailScreen
+import sg.edu.nus.iss.canmakan.ui.screens.ScannerScreen
+import sg.edu.nus.iss.canmakan.ui.theme.CanMakanTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {

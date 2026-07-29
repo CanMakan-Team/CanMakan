@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.canmakan"
+    namespace = "sg.edu.nus.iss.canmakan"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.canmakan"
+        applicationId = "sg.edu.nus.iss.canmakan"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

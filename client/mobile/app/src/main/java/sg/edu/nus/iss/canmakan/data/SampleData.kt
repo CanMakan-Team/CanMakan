@@ -1,4 +1,4 @@
-package com.example.canmakan.data
+package sg.edu.nus.iss.canmakan.data
 
 // Sample data used to fill the screens while there is no backend or
 // database connected yet. In a later version this would come from a
@@ -78,6 +78,7 @@ object SampleData {
     fun allergyOptions() = listOf(
         DietaryOption("Dairy-Free"),
         DietaryOption("Egg Allergy"),
+        DietaryOption("Gluten Allergy"),
         DietaryOption("Lactose Intolerant"),
         DietaryOption("Peanut Allergy"),
         DietaryOption("Sesame Allergy"),
@@ -85,7 +86,6 @@ object SampleData {
     )
 
     fun specificDietOptions() = listOf(
-        DietaryOption("Gluten-Free"),
         DietaryOption("Keto Diet"),
         DietaryOption("Low Cholesterol"),
         DietaryOption("Low Salt")
