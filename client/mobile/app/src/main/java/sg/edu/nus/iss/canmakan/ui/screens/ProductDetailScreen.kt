@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import sg.edu.nus.iss.canmakan.data.AlternativeProduct
 import sg.edu.nus.iss.canmakan.data.Product
 import sg.edu.nus.iss.canmakan.data.ProductFlag
@@ -82,7 +83,7 @@ fun ProductDetailScreen(
             ) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextSecondary)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Back to scanner", color = TextSecondary)
+                Text("Back to history", color = TextSecondary)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -92,7 +93,7 @@ fun ProductDetailScreen(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(65.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(AvoidRed),
                     contentAlignment = Alignment.Center
@@ -100,11 +101,12 @@ fun ProductDetailScreen(
                     Icon(Icons.Default.Close, contentDescription = "Avoid", tint = Color.White)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("AVOID", color = AvoidRed, fontWeight = FontWeight.Bold)
+                Text("AVOID", color = AvoidRed, fontWeight = FontWeight.Bold, fontSize = 25.sp)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     product.name,
                     fontWeight = FontWeight.Bold,
+                    fontSize = 30.sp,
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(product.brand, color = TextSecondary)
