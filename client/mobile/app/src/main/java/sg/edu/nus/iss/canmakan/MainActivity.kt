@@ -27,6 +27,7 @@ import sg.edu.nus.iss.canmakan.ui.screens.ScannerScreen
 import sg.edu.nus.iss.canmakan.ui.theme.CanMakanTheme
 import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
