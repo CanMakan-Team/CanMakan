@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- res/xml/backup_rules.xml -->
 <full-backup-content>
-    <!-- Prevent the encrypted shared preferences from being backed up -->
+    <!-- Prevent shared preferences (including encrypted prefs) from being backed up -->
     <exclude domain="sharedpref" path="." />
 </full-backup-content>
