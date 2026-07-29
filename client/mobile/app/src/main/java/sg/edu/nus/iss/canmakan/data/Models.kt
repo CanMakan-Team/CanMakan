@@ -1,4 +1,4 @@
-package com.example.canmakan.data
+package sg.edu.nus.iss.canmakan.data
 
 // Represents a single food product that has been scanned or is being reviewed.
 data class Product(

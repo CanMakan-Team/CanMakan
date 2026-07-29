@@ -1,4 +1,4 @@
-package com.example.canmakan.ui.theme
+package sg.edu.nus.iss.canmakan.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
