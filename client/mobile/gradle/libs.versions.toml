@@ -1,8 +1,9 @@
 [versions]
 # Check your project's current Android Gradle Plugin version
-agp = "8.5.0"
-hilt = "2.51.1"
-kotlin = "2.0.0"
+agp = "9.2.0"
+hilt = "2.59.2"
+kotlin = "2.2.10"
+ksp = "2.2.10-2.0.2"
 androidxHiltNavigationCompose = "1.2.0"
 
 [libraries]
@@ -16,5 +17,5 @@ androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navig
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
