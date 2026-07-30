@@ -1,8 +1,45 @@
 # CanMakan Backend
 
-This directory contains the initial CanMakan backend skeleton. It deliberately
-does not yet implement users, authentication, barcode scanning, ingredient
-assessment, databases, rule engines, AI, RAG, or other business features.
+Java Spring Boot backend for the Barcode AI Ingredient Interpreter.
+
+## Package Philosophy
+
+The backend is organised by **feature** (vertical slices) rather than by technical layer.
+
+Each top-level package represents a cohesive business capability. This makes the codebase easier to navigate, own, and evolve as the product grows.
+
+### Design Principles
+
+1. **Feature over layer**  
+   Related behaviour stays together (e.g. scanning, verdict, recommendation and history all live under `product`).
+
+2. **Thin common package**  
+   `common` contains only technical cross-cutting concerns (config, security infrastructure, exceptions, utilities). No business logic.
+
+3. **Clear boundaries**  
+   - Business features → their own packages  
+   - External systems → `integration`  
+   - Domain knowledge → `knowledgebase`
+
+4. **Pragmatic granularity**  
+   Packages are intentionally not too fine-grained. Tightly coupled flows are kept together to reduce friction during early development.
+
+## Package Overview
+
+```
+| Package            | Purpose                                              |
+|--------------------|------------------------------------------------------|
+| `common`           | Shared technical foundation (config, security, util) |
+| `auth`             | Login, logout, tokens, sessions                      |
+| `dietaryprofile`   | Individual dietary needs and restrictions            |
+| `family`           | Family membership and active profile switching       |
+| `product`          | Scanning, verdicts, recommendations, history         |
+| `analytics`        | Trends, statistics, AI metrics, exports              |
+| `admin`            | Account, role, health and subscription management    |
+| `knowledgebase`    | Ingredient aliases, E-numbers, dietary rules         |
+| `integration`      | External API clients (Open Food Facts, OpenRouter…)  |
+```
+See individual package README files for detailed responsibilities.
 
 ## Technology
 
