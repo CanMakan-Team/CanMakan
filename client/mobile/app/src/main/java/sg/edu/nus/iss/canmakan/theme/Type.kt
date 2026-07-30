@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.ui.theme
+package sg.edu.nus.iss.canmakan.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
