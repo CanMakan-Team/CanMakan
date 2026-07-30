@@ -3,7 +3,7 @@
 agp = "9.2.0"
 hilt = "2.59.2"
 kotlin = "2.2.10"
-ksp = "2.2.10-2.0.2"
+ksp = "2.3.10"
 androidxHiltNavigationCompose = "1.2.0"
 
 [libraries]
