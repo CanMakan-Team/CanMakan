@@ -14,22 +14,41 @@ navigation, theme, and supporting sample models and sample data.
 Barcode camera integration and backend integration are not implemented yet. All
 product and profile information shown by the prototype is sample data.
 
+## Design Principles
+
+1. **Feature packages match backend & web names** for easier cross-platform reasoning.
+2. **core** contains only technical shared code (network, DI, UI kit, utils).
+3. Business logic and screens live inside their feature.
+4. Start as a single module. Extract real Gradle modules later only if needed.
+
+## Feature Overview
+
+```
+| Feature            | Purpose                                      |
+|--------------------|----------------------------------------------|
+| `auth`             | Login, logout, session handling              |
+| `dietaryprofile`   | User dietary preferences and constraints     |
+| `family`           | Family members and active profile switching  |
+| `product`          | Scanning, verdicts, recommendations, history |
+| `analytics`        | Lightweight trends / stats (optional)        |
+```
+
 ## Technology
 
 - Android with Jetpack Compose
 - Package/application ID: `com.example.canmakan`
-- Compile SDK and target SDK: 34
+- Compile SDK and target SDK: 37
 - Minimum SDK: 26
 - Android Gradle Plugin: 8.5.0
 - Kotlin: 1.9.24
-- Java and Kotlin JVM target: 17
+- Java and Kotlin JVM target: 21
 - Gradle Wrapper: 8.7
 
 ## Build and run
 
 Prerequisites:
 
-- JDK 17 (Android builds remain on JVM 17)
+- JDK 21 (Android builds remain on JVM 21)
 - Android SDK Platform 34
 - Android Studio or an Android SDK configured through the normal local
   environment

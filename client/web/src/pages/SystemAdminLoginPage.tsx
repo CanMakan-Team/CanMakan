@@ -1,4 +1,4 @@
-import { PrototypeLoginForm } from '../components/PrototypeLoginForm'
+import { PrototypeLoginForm } from '../shared/ui/PrototypeLoginForm'
 
 export function SystemAdminLoginPage() {
   return (

@@ -18,21 +18,62 @@ remain pending.
 ```text
 .
 |-- client/
-|   |-- mobile/             # Android Jetpack Compose project
-|   `-- web/                # React and Vite project
+|   |-- mobile/                    # Android Kotlin + Jetpack Compose
+|   |   `-- app/src/main/java/sg/edu/nus/iss/canmakan/
+|   |       |-- shared/            # DI, network, UI kit, shared models, utils
+|   |       |-- features/
+|   |       |   |-- auth/
+|   |       |   |-- dietaryprofile/
+|   |       |   |-- family/
+|   |       |   |-- product/       # scan, verdict, recommendation, history, reporting
+|   |       |   `-- analytics/     # lightweight / optional on mobile
+|   |       |-- navigation/        # root NavHost
+|   |       |-- MainActivity.kt
+|   |       `-- CanMakanApplication.kt
+|   |
+|   `-- web/                       # React + Vite + TypeScript
+|       `-- src/
+|           |-- app/
+|           |   `-- router/        # AppRoutes
+|           |-- shared/
+|           |   |-- api/           # apiClient, apiErrors, shared types
+|           |   |-- model/         # truly shared models only
+|           |   |-- ui/            # PortalLayout + shared components
+|           |   `-- lib/           # optional hooks/utils
+|           |-- features/
+|           |   |-- auth/
+|           |   |-- family/
+|           |   |-- admin/
+|           |   `-- analytics/
+|           |-- mocks/
+|           |-- pages/             # temporary login entry pages
+|           |-- styles/
+|           `-- main.tsx
+|
 |-- server/
-|   |-- backend/            # Spring Boot, Maven, Java 21
-|   |-- machine-learning/   # Reserved ML component
-|   `-- agentic-ai/         # Reserved Agentic AI and RAG component
-|-- database/               # Reserved database area
-|-- deployment/             # Reserved deployment and infrastructure area
+|   |-- backend/                   # Spring Boot, Maven, Java 21
+|   |   `-- src/main/java/com/canmakan/backend/
+|   |       |-- common/            # config, security, exception, util
+|   |       |-- auth/
+|   |       |-- dietaryprofile/
+|   |       |-- family/
+|   |       |-- product/           # scan, verdict, recommendation, history, reporting
+|   |       |-- analytics/
+|   |       |-- admin/
+|   |       |-- knowledgebase/
+|   |       `-- integration/       # Open Food Facts, OpenRouter, etc.
+|   |-- machine-learning/          # Reserved ML component
+|   `-- agentic-ai/                # Reserved Agentic AI and RAG component
+|
+|-- database/                      # Reserved database area
+|-- deployment/                    # Reserved deployment and infrastructure area
 |-- docs/
-|   |-- architecture/       # Architecture decisions and system designs
-|   |-- requirements/       # Functional and non-functional requirements
-|   |-- api/                # API specifications and integration notes
-|   |-- database/           # Data models and database documentation
-|   `-- sprint/             # Sprint plans, reviews, and supporting notes
-`-- .github/                # Pull request and issue templates
+|   |-- architecture/
+|   |-- requirements/
+|   |-- api/
+|   |-- database/
+|   `-- sprint/
+`-- .github/                       # Pull request and issue templates
 ```
 
 ## Local start

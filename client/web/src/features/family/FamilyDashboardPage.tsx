@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getErrorMessage } from '../../api/apiErrors'
-import { familyService } from '../../api/familyService'
-import type { ActiveProfile, FamilyMember, ScanRecord } from '../../api/types'
-import { ErrorState, LoadingState } from '../../components/PageState'
-import { StatusBadge } from '../../components/StatusBadge'
+import { getErrorMessage } from '../../shared/api/apiErrors'
+import { familyService } from './familyService'
+import type { ActiveProfile, FamilyMember, ScanRecord } from '../../shared/api/types'
+import { ErrorState, LoadingState } from '../../shared/ui/PageState'
+import { StatusBadge } from '../../shared/ui/StatusBadge'
 
 export function FamilyDashboardPage() {
   const [members, setMembers] = useState<FamilyMember[]>([])

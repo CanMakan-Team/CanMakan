@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { getErrorMessage } from '../../api/apiErrors'
-import { familyService } from '../../api/familyService'
-import type { ActiveProfile, FamilyMember } from '../../api/types'
-import { StatusBadge } from '../../components/StatusBadge'
+import { getErrorMessage } from '../../shared/api/apiErrors'
+import { familyService } from './familyService'
+import type { ActiveProfile, FamilyMember } from '../../shared/api/types'
+import { StatusBadge } from '../../shared/ui/StatusBadge'
 
 export function ActiveProfileSelector({
   members,

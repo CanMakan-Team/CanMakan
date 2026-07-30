@@ -1,4 +1,4 @@
-import type { AuthenticatedSession, Portal } from '../api/types'
+import type { AuthenticatedSession, Portal } from '../shared/api/types'
 
 export async function mockLogin(portal: Portal): Promise<AuthenticatedSession> {
   await new Promise((resolve) => window.setTimeout(resolve, 450))

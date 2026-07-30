@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getErrorMessage } from '../../api/apiErrors'
-import { familyService } from '../../api/familyService'
-import type { FamilyMember } from '../../api/types'
-import { EmptyState, ErrorState, LoadingState } from '../../components/PageState'
+import { getErrorMessage } from '../../shared/api/apiErrors'
+import { familyService } from './familyService'
+import type { FamilyMember } from '../../shared/api/types'
+import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
 import { summaryRestrictions } from './profileOptions'
 
 export function FamilyRestrictionSummaryPage() {

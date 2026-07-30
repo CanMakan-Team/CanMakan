@@ -1,11 +1,11 @@
-import { ApiError } from '../api/apiErrors'
+import { ApiError } from '../shared/api/apiErrors'
 import type {
   ActiveProfile,
   ExistingUserSearchResult,
   FamilyMember,
   FamilyProfileInput,
   ScanRecord,
-} from '../api/types'
+} from '../shared/api/types'
 import {
   existingUsers,
   initialFamilyState,
