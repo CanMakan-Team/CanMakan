@@ -1,4 +1,4 @@
-# common/util
+# shared/util
 
 Pure technical utility classes.
 

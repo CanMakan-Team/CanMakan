@@ -1,4 +1,4 @@
-# common/security
+# shared/security
 
 Security infrastructure (not the login feature).
 

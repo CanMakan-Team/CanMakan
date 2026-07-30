@@ -1,4 +1,4 @@
-# common/config
+# shared/config
 
 Spring Boot configuration classes.
 

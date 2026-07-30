@@ -1,4 +1,4 @@
-# common/exception
+# shared/exception
 
 Global exception handling.
 
