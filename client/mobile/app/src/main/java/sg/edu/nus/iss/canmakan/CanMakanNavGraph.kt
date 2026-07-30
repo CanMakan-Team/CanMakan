@@ -18,7 +18,7 @@ import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import sg.edu.nus.iss.canmakan.data.SampleData
 import sg.edu.nus.iss.canmakan.utils.ProfileDrawerContent
-import sg.edu.nus.iss.canmakan.dietaryreq.EditDietaryRequirementsSheet
+import sg.edu.nus.iss.canmakan.dietaryrestriction.EditDietaryRequirementsSheet
 import sg.edu.nus.iss.canmakan.history.HistoryScreen
 import sg.edu.nus.iss.canmakan.productdetail.ProductDetailScreen
 import sg.edu.nus.iss.canmakan.scanner.ScannerScreen
