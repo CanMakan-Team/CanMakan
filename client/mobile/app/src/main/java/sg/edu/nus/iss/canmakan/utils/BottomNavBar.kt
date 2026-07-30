@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.ui.components
+package sg.edu.nus.iss.canmakan.utils
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,8 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import sg.edu.nus.iss.canmakan.ui.theme.PrimaryGreen
-import sg.edu.nus.iss.canmakan.ui.theme.TextSecondary
+import sg.edu.nus.iss.canmakan.theme.PrimaryGreen
+import sg.edu.nus.iss.canmakan.theme.TextSecondary
 
 // The two possible tabs in the bottom navigation bar.
 enum class BottomTab { SCAN, HISTORY }
