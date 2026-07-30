@@ -1,7 +1,7 @@
 [versions]
 # Check your project's current Android Gradle Plugin version
 activityCompose = "1.13.0"
-agp = "9.3.1"
+agp = "9.2.1"
 barcodeScanning = "17.3.0"
 biometric = "1.1.0"
 cameraCore = "1.6.1"

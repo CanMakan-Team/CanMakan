@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useSession } from '../../auth/useSession'
+import { useSession } from '../auth/useSession'
 
 export function FamilyTestPage() {
   const { session } = useSession()

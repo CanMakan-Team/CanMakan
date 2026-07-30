@@ -1,4 +1,4 @@
-import { useSession } from '../../auth/useSession'
+import { useSession } from '../auth/useSession'
 
 export function FamilyAccountPage() {
   const { session } = useSession()

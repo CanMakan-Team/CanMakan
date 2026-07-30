@@ -6,7 +6,7 @@ import type {
   FamilyMember,
   ScanRecord,
   UserAccessSummary,
-} from '../api/types'
+} from '../shared/api/types'
 
 export interface MockFamilyState {
   members: FamilyMember[]

@@ -4,7 +4,7 @@ import type {
   FamilyProfileInput,
   Relationship,
   RestrictionCode,
-} from '../../api/types'
+} from '../../shared/api/types'
 import {
   ageGroupOptions,
   relationshipOptions,
