@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.ui.components
+package sg.edu.nus.iss.canmakan.utils
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,8 +25,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import sg.edu.nus.iss.canmakan.data.DietaryProfile
-import sg.edu.nus.iss.canmakan.ui.theme.PrimaryGreen
-import sg.edu.nus.iss.canmakan.ui.theme.TextPrimary
+import sg.edu.nus.iss.canmakan.theme.PrimaryGreen
+import sg.edu.nus.iss.canmakan.theme.TextPrimary
 
 // Top row with the menu button, the app name, and the notification bell.
 // This is reused at the top of both the Scanner and History screens.

@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.ui.components
+package sg.edu.nus.iss.canmakan.utils
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
@@ -9,12 +9,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import sg.edu.nus.iss.canmakan.data.ScanStatus
-import sg.edu.nus.iss.canmakan.ui.theme.AvoidRed
-import sg.edu.nus.iss.canmakan.ui.theme.LightAmberBackground
-import sg.edu.nus.iss.canmakan.ui.theme.LightGreenBackground
-import sg.edu.nus.iss.canmakan.ui.theme.LightRedBackground
-import sg.edu.nus.iss.canmakan.ui.theme.PrimaryGreen
-import sg.edu.nus.iss.canmakan.ui.theme.WarningAmber
+import sg.edu.nus.iss.canmakan.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.theme.LightAmberBackground
+import sg.edu.nus.iss.canmakan.theme.LightGreenBackground
+import sg.edu.nus.iss.canmakan.theme.LightRedBackground
+import sg.edu.nus.iss.canmakan.theme.PrimaryGreen
+import sg.edu.nus.iss.canmakan.theme.WarningAmber
 
 // Small colored pill used to show whether a product is safe, needs
 // caution, or should be avoided.

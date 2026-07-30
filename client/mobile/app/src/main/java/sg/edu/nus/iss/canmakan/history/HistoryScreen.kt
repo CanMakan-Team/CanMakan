@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.ui.screens
+package sg.edu.nus.iss.canmakan.history
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,15 +27,15 @@ import androidx.compose.ui.unit.dp
 import sg.edu.nus.iss.canmakan.data.DietaryProfile
 import sg.edu.nus.iss.canmakan.data.ScanHistoryEntry
 import sg.edu.nus.iss.canmakan.data.ScanStatus
-import sg.edu.nus.iss.canmakan.ui.components.ActiveProfileChip
-import sg.edu.nus.iss.canmakan.ui.components.AppBottomNavBar
-import sg.edu.nus.iss.canmakan.ui.components.AppTopBar
-import sg.edu.nus.iss.canmakan.ui.components.BottomTab
-import sg.edu.nus.iss.canmakan.ui.components.StatusBadge
-import sg.edu.nus.iss.canmakan.ui.components.statusAccentColor
-import sg.edu.nus.iss.canmakan.ui.theme.AvoidRed
-import sg.edu.nus.iss.canmakan.ui.theme.TextSecondary
-import sg.edu.nus.iss.canmakan.ui.theme.WarningAmber
+import sg.edu.nus.iss.canmakan.utils.ActiveProfileChip
+import sg.edu.nus.iss.canmakan.utils.AppBottomNavBar
+import sg.edu.nus.iss.canmakan.utils.AppTopBar
+import sg.edu.nus.iss.canmakan.utils.BottomTab
+import sg.edu.nus.iss.canmakan.utils.StatusBadge
+import sg.edu.nus.iss.canmakan.utils.statusAccentColor
+import sg.edu.nus.iss.canmakan.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.theme.TextSecondary
+import sg.edu.nus.iss.canmakan.theme.WarningAmber
 
 // Shows the list of previously scanned products for the active profile.
 @Composable
