@@ -1,4 +1,4 @@
-package com.example.canmakan.ui.screens
+package sg.edu.nus.iss.canmakan.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -25,13 +25,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.canmakan.data.DietaryProfile
-import com.example.canmakan.ui.components.ActiveProfileChip
-import com.example.canmakan.ui.components.AppBottomNavBar
-import com.example.canmakan.ui.components.AppTopBar
-import com.example.canmakan.ui.components.BottomTab
-import com.example.canmakan.ui.theme.PrimaryGreen
-import com.example.canmakan.ui.theme.TextSecondary
+import sg.edu.nus.iss.canmakan.data.DietaryProfile
+import sg.edu.nus.iss.canmakan.ui.components.ActiveProfileChip
+import sg.edu.nus.iss.canmakan.ui.components.AppBottomNavBar
+import sg.edu.nus.iss.canmakan.ui.components.AppTopBar
+import sg.edu.nus.iss.canmakan.ui.components.BottomTab
+import sg.edu.nus.iss.canmakan.ui.theme.PrimaryGreen
+import sg.edu.nus.iss.canmakan.ui.theme.TextSecondary
 
 // The main scanner screen. Shows a placeholder camera preview, the
 // "Tap to Scan" action, and the currently active restrictions.

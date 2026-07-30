@@ -1,4 +1,4 @@
-package com.example.canmakan.ui.screens
+package sg.edu.nus.iss.canmakan.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,10 +33,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.canmakan.data.DietaryOption
-import com.example.canmakan.ui.theme.LightGreenBackground
-import com.example.canmakan.ui.theme.PrimaryGreen
-import com.example.canmakan.ui.theme.TextSecondary
+import sg.edu.nus.iss.canmakan.data.DietaryOption
+import sg.edu.nus.iss.canmakan.ui.theme.LightGreenBackground
+import sg.edu.nus.iss.canmakan.ui.theme.PrimaryGreen
+import sg.edu.nus.iss.canmakan.ui.theme.TextSecondary
 
 // Content shown in the "Edit dietary requirements" bottom sheet.
 // Religious diet allows only one choice; allergies and specific diets
