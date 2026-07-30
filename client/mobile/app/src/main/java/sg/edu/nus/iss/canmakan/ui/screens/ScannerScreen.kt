@@ -1,5 +1,21 @@
 package sg.edu.nus.iss.canmakan.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.collection.intFloatMapOf
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,22 +35,34 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import sg.edu.nus.iss.canmakan.data.DietaryProfile
 import sg.edu.nus.iss.canmakan.ui.components.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.ui.components.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.ui.components.AppTopBar
 import sg.edu.nus.iss.canmakan.ui.components.BottomTab
+import sg.edu.nus.iss.canmakan.ui.theme.DepressedBlue
+import sg.edu.nus.iss.canmakan.ui.theme.MutedBlue
 import sg.edu.nus.iss.canmakan.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.ui.theme.TextSecondary
+import timber.log.Timber
 
-// The main scanner screen. Shows a placeholder camera preview, the
-// "Tap to Scan" action, and the currently active restrictions.
+// The main scanner screen.
 @Composable
 fun ScannerScreen(
     activeProfile: DietaryProfile,
@@ -43,6 +71,29 @@ fun ScannerScreen(
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            hasCameraPermission = granted
+        }
+    )
+
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
     Scaffold(
         topBar = {
             Column {
@@ -61,9 +112,9 @@ fun ScannerScreen(
     ) { innerPadding ->
         Column(
             modifier = Modifier
+                .fillMaxSize()
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
-                .fillMaxSize()
         ) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
@@ -71,46 +122,43 @@ fun ScannerScreen(
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.headlineSmall
             )
-            Text("Point camera at a product barcode", color = TextSecondary)
-
+            Text("Point Camera at a Product Barcode", color = TextSecondary)
             Spacer(modifier = Modifier.height(16.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(260.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFF10151C)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Align barcode within frame", color = Color(0xFF8FA0AE))
-            }
 
-            Spacer(modifier = Modifier.height(20.dp))
-            Button(
-                onClick = onScanClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Tap to Scan", fontWeight = FontWeight.Bold)
+            if (hasCameraPermission) {
+                CameraPreview(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(DepressedBlue),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Camera Permission is Required", color = MutedBlue)
+                }
             }
-
             Spacer(modifier = Modifier.height(20.dp))
             Card(
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "ACTIVE RESTRICTIONS \u2014 ${activeProfile.name.uppercase()}",
+                        "ACTIVE RESTRICTIONS - ${activeProfile.name.uppercase()}",
                         color = TextSecondary
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Row {
                         activeRestrictions.forEach { restriction ->
-                            RestrictionPill(text = restriction)
+                            RestrictPill(text = restriction)
                             Spacer(modifier = Modifier.width(8.dp))
                         }
                     }
@@ -121,7 +169,65 @@ fun ScannerScreen(
 }
 
 @Composable
-private fun RestrictionPill(text: String) {
+fun CameraPreview(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "RedLineTransition")
+    val lineProgress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "LineProgress"
+    )
+
+    Box(modifier = modifier.fillMaxSize()) {
+        AndroidView(
+            modifier = modifier,
+            factory = { ctx ->
+                val previewView = PreviewView(ctx)
+                val executor = ContextCompat.getMainExecutor(ctx)
+
+                cameraProviderFuture.addListener({
+                    val cameraProvider = cameraProviderFuture.get()
+                    val preview = Preview.Builder().build().also {
+                        it.surfaceProvider = previewView.surfaceProvider
+                    }
+                    val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+                    try {
+                        cameraProvider.unbindAll()
+                        cameraProvider.bindToLifecycle(
+                            lifecycleOwner,
+                            cameraSelector,
+                            preview
+                        )
+                    } catch (e: Exception) {
+                        Timber.e(e, "Camera Use Case Binding Failed")
+                    }
+                }, executor)
+                previewView
+            }
+        )
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val currentY = size.height * lineProgress
+
+            drawLine(
+                color = Color.Red,
+                start = Offset(0f, currentY),
+                end = Offset(x = size.width, y = currentY),
+                strokeWidth = 6f
+            )
+        }
+    }
+}
+@Composable
+private fun RestrictPill(text: String) {
     Text(
         text = text,
         color = PrimaryGreen,
