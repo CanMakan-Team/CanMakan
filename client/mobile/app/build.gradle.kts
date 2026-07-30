@@ -1,19 +1,22 @@
 import com.android.build.api.dsl.ApplicationExtension
 
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.plugin.compose")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.hilt.android)
+    alias(libs.plugins.ksp)
     id("kotlin-parcelize")
+
 }
 
 extensions.configure<ApplicationExtension> {
-    namespace = "com.example.canmakan"
+    namespace = "sg.edu.nus.iss.canmakan"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.example.canmakan"
+        applicationId = "sg.edu.nus.iss.canmakan"
         minSdk = 26
-targetSdk = 37
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
@@ -67,11 +70,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
 
     // 3. CameraX (For real-time barcode scanning feed)
-    val cameraxVersion = "1.6.1"
-    implementation("androidx.camera:camera-core:${cameraxVersion}")
-    implementation("androidx.camera:camera-camera2:${cameraxVersion}")
-    implementation("androidx.camera:camera-lifecycle:${cameraxVersion}")
-    implementation("androidx.camera:camera-view:${cameraxVersion}")
+    implementation("androidx.camera:camera-core:1.6.1")
+    implementation("androidx.camera:camera-camera2:1.6.1")
+    implementation("androidx.camera:camera-lifecycle:1.6.1")
+    implementation("androidx.camera:camera-view:1.6.1")
 
     // 4. Google ML Kit (Barcode Scanning)
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
@@ -95,4 +97,8 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
 }
