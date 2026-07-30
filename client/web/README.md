@@ -86,10 +86,15 @@ In mock mode, try:
 
 ## Mock architecture and persistence
 
-Pages depend on `src/api/familyService.ts`, `src/api/adminService.ts` and
-`src/api/authService.ts`. Endpoint paths and request/response types are isolated
-under `src/api`. The services delegate either to the mock repositories or the
-HTTP client, so switching transport does not require page rewrites.
+Pages depend on the shared API layer under `src/shared/api/`, including
+`familyService.ts`, `adminService.ts` and `authService.ts`. Endpoint paths and
+request/response types are isolated under `src/shared/api`. The services
+delegate either to the mock repositories or the HTTP client, so switching
+transport does not require page rewrites.
+
+The frontend is organised around feature folders such as `src/features/family`,
+`src/features/admin`, `src/features/analytics` and `src/features/auth`, with shared
+UI and application wiring under `src/shared/ui` and `src/app/router`.
 
 Mock repositories:
 

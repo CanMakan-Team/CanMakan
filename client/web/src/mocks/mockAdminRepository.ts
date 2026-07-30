@@ -1,10 +1,10 @@
-import { ApiError } from '../api/apiErrors'
+import { ApiError } from '../shared/api/apiErrors'
 import type {
   AccessUpdate,
   AuditEntry,
   ConsumerTrendResponse,
   UserAccessSummary,
-} from '../api/types'
+} from '../shared/api/types'
 import { consumerTrends, initialAudit, initialUsers } from './mockData'
 
 interface AdminState {

@@ -110,3 +110,16 @@ $RECYCLE.BIN/
 *.swp
 *.swo
 *~
+
+# JVM heap dumps (do not commit — can be 1GB+)
+*.hprof
+hs_err_pid*
+replay_pid*
+
+# Android signing / local device noise
+*.jks
+*.keystore
+*.hprof
+*.lock
+.navigation/
+*.apk.d

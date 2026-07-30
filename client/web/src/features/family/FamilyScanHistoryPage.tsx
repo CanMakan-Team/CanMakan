@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { getErrorMessage } from '../../api/apiErrors'
-import { familyService } from '../../api/familyService'
+import { getErrorMessage } from '../../shared/api/apiErrors'
+import { familyService } from './familyService'
 import type {
   DataCompleteness,
   FamilyMember,
   ScanRecord,
   Verdict,
-} from '../../api/types'
-import { Modal } from '../../components/Modal'
-import { EmptyState, ErrorState, LoadingState } from '../../components/PageState'
-import { StatusBadge } from '../../components/StatusBadge'
+} from '../../shared/api/types'
+import { Modal } from '../../shared/ui/Modal'
+import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
+import { StatusBadge } from '../../shared/ui/StatusBadge'
 
 type Period = 'ALL' | '7' | '30'
 

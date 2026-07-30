@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { getErrorMessage } from '../../api/apiErrors'
-import { familyService } from '../../api/familyService'
-import type { ExistingUserSearchResult } from '../../api/types'
-import { Modal } from '../../components/Modal'
+import { getErrorMessage } from '../../shared/api/apiErrors'
+import { familyService } from './familyService'
+import type { ExistingUserSearchResult } from '../../shared/api/types'
+import { Modal } from '../../shared/ui/Modal'
 
 type SearchState =
   | 'initial'
