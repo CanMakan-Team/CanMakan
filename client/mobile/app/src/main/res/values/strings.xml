@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">CanMakan</string>
+    <string name="scanner_barcode">Barcode Scanner</string>
+    <string name="scanner_instructions">Point Camera at a Product Barcode</string>
+    <string name="scanner_camera_failed">Camera Use Case Binding Failed</string>
+    <string name="scanner_camera_permission_required">Camera Permission is Required</string>
+    <string name="scanner_redlines_transition">RedLineTransition</string>
+    <string name="scanner_redlines_progress">RedLineProgress</string>"
+    <string name="dietary_profile_restrictions">Active Restrictions</string>
 </resources>

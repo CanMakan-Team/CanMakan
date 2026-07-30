@@ -46,17 +46,20 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import sg.edu.nus.iss.canmakan.R
 import sg.edu.nus.iss.canmakan.data.DietaryProfile
 import sg.edu.nus.iss.canmakan.utils.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.utils.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.utils.AppTopBar
 import sg.edu.nus.iss.canmakan.utils.BottomTab
 import sg.edu.nus.iss.canmakan.theme.DepressedBlue
+import sg.edu.nus.iss.canmakan.theme.LightGreenBackground
 import sg.edu.nus.iss.canmakan.theme.MutedBlue
 import sg.edu.nus.iss.canmakan.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.theme.TextSecondary
@@ -118,11 +121,11 @@ fun ScannerScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                "Barcode Scanner",
+                text = stringResource(id = R.string.scanner_barcode),
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.headlineSmall
             )
-            Text("Point Camera at a Product Barcode", color = TextSecondary)
+            Text(text = stringResource(id = R.string.scanner_instructions), color = TextSecondary)
             Spacer(modifier = Modifier.height(16.dp))
 
             if (hasCameraPermission) {
@@ -141,7 +144,7 @@ fun ScannerScreen(
                         .background(DepressedBlue),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Camera Permission is Required", color = MutedBlue)
+                    Text(text = stringResource(id = R.string.scanner_camera_permission_required), color = MutedBlue)
                 }
             }
             Spacer(modifier = Modifier.height(20.dp))
@@ -152,7 +155,7 @@ fun ScannerScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "ACTIVE RESTRICTIONS - ${activeProfile.name.uppercase()}",
+                        "${stringResource(id = R.string.dietary_profile_restrictions).uppercase()} - ${activeProfile.name.uppercase()}",
                         color = TextSecondary
                     )
                     Spacer(modifier = Modifier.height(10.dp))
@@ -174,7 +177,7 @@ fun CameraPreview(modifier: Modifier = Modifier) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "RedLineTransition")
+    val infiniteTransition = rememberInfiniteTransition(label = stringResource(id = R.string.scanner_redlines_transition))
     val lineProgress by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
@@ -182,7 +185,7 @@ fun CameraPreview(modifier: Modifier = Modifier) {
             animation = tween(durationMillis = 2500, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "LineProgress"
+        label = stringResource(id = R.string.scanner_redlines_progress)
     )
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -233,7 +236,7 @@ private fun RestrictPill(text: String) {
         color = PrimaryGreen,
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFDCF0E6))
+            .background(LightGreenBackground)
             .padding(horizontal = 12.dp, vertical = 6.dp)
     )
 }
