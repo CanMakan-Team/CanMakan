@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.dietaryreq
+package sg.edu.nus.iss.canmakan.dietaryrestriction
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
