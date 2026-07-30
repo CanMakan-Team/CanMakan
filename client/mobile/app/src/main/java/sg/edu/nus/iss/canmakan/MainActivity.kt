@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import dagger.hilt.android.AndroidEntryPoint
 import sg.edu.nus.iss.canmakan.data.SampleData
 import sg.edu.nus.iss.canmakan.ui.components.ProfileDrawerContent
 import sg.edu.nus.iss.canmakan.ui.screens.EditDietaryRequirementsSheet
