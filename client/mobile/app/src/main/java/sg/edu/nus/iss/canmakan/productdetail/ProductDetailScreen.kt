@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.ui.screens
+package sg.edu.nus.iss.canmakan.productdetail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,12 +37,12 @@ import androidx.compose.ui.unit.sp
 import sg.edu.nus.iss.canmakan.data.AlternativeProduct
 import sg.edu.nus.iss.canmakan.data.Product
 import sg.edu.nus.iss.canmakan.data.ProductFlag
-import sg.edu.nus.iss.canmakan.ui.components.AppBottomNavBar
-import sg.edu.nus.iss.canmakan.ui.components.BottomTab
-import sg.edu.nus.iss.canmakan.ui.theme.AvoidRed
-import sg.edu.nus.iss.canmakan.ui.theme.LightGreenBackground
-import sg.edu.nus.iss.canmakan.ui.theme.PrimaryGreen
-import sg.edu.nus.iss.canmakan.ui.theme.TextSecondary
+import sg.edu.nus.iss.canmakan.utils.AppBottomNavBar
+import sg.edu.nus.iss.canmakan.utils.BottomTab
+import sg.edu.nus.iss.canmakan.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.theme.LightGreenBackground
+import sg.edu.nus.iss.canmakan.theme.PrimaryGreen
+import sg.edu.nus.iss.canmakan.theme.TextSecondary
 
 private enum class DetailTab { FLAGS, ALTERNATIVES }
 

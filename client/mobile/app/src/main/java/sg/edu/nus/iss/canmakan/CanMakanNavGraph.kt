@@ -17,11 +17,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import sg.edu.nus.iss.canmakan.data.SampleData
-import sg.edu.nus.iss.canmakan.ui.components.ProfileDrawerContent
-import sg.edu.nus.iss.canmakan.ui.screens.EditDietaryRequirementsSheet
-import sg.edu.nus.iss.canmakan.ui.screens.HistoryScreen
-import sg.edu.nus.iss.canmakan.ui.screens.ProductDetailScreen
-import sg.edu.nus.iss.canmakan.ui.screens.ScannerScreen
+import sg.edu.nus.iss.canmakan.utils.ProfileDrawerContent
+import sg.edu.nus.iss.canmakan.dietaryreq.EditDietaryRequirementsSheet
+import sg.edu.nus.iss.canmakan.history.HistoryScreen
+import sg.edu.nus.iss.canmakan.productdetail.ProductDetailScreen
+import sg.edu.nus.iss.canmakan.scanner.ScannerScreen
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
