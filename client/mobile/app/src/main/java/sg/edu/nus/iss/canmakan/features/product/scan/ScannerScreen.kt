@@ -224,7 +224,7 @@ fun CameraPreview(
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     val previewView = remember { PreviewView(context) }
 
-    // 1. Retain a reference to the analyzer
+    // 1. Retain a reference to the analyzer and ensure it is cleaned up.
     val barcodeAnalyzer = remember {
         BarcodeAnalyzer { barcode ->
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -232,7 +232,7 @@ fun CameraPreview(
         }
     }
 
-    // 2. Clean up ML Kit resources when the composable is disposed
+    // 2. Clean up resources when the composable is disposed
     DisposableEffect(Unit) {
         onDispose {
             barcodeAnalyzer.close()
@@ -240,35 +240,39 @@ fun CameraPreview(
     }
 
     LaunchedEffect(lifecycleOwner) {
-        val cameraProvider = cameraProviderFuture.get()
-        val preview = Preview.Builder().build().apply {
-            surfaceProvider = previewView.surfaceProvider
-        }
+        val executor = ContextCompat.getMainExecutor(context)
+        cameraProviderFuture.addListener({
+            try {
+                val cameraProvider = cameraProviderFuture.get()
+                val preview = Preview.Builder().build().apply {
+                    surfaceProvider = previewView.surfaceProvider
+                }
 
-        val imageAnalysis = ImageAnalysis.Builder()
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .build()
-            .also {
-                it.setAnalyzer(
-                    ContextCompat.getMainExecutor(context),
-                    BarcodeAnalyzer { barcode ->
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        currentOnBarcodeScanned(barcode)
+                val imageAnalysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+                    .also {
+                        it.setAnalyzer(executor, barcodeAnalyzer)
                     }
-                )
-            }
 
-        try {
-            cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
-                lifecycleOwner,
-                CameraSelector.DEFAULT_BACK_CAMERA,
-                preview,
-                imageAnalysis
-            )
-        } catch (e: Exception) {
-            Timber.e(e)
-        }
+                // Explicitly unbind all to avoid session conflicts, but catch potential errors
+                // from previous sessions that might be in an error state.
+                try {
+                    cameraProvider.unbindAll()
+                } catch (e: Exception) {
+                    Timber.e(e, "Error unbinding camera use cases")
+                }
+
+                cameraProvider.bindToLifecycle(
+                    lifecycleOwner,
+                    CameraSelector.DEFAULT_BACK_CAMERA,
+                    preview,
+                    imageAnalysis
+                )
+            } catch (e: Exception) {
+                Timber.e(e, "Camera binding failed")
+            }
+        }, executor)
     }
 
     Box(modifier = modifier.fillMaxSize()) {

@@ -1,7 +1,6 @@
 package sg.edu.nus.iss.canmakan
 
 import android.app.Application
-import com.google.android.datatransport.BuildConfig
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import timber.log.Timber.DebugTree
@@ -15,6 +14,8 @@ class CanMakanApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        if (BuildConfig.DEBUG) Timber.plant(DebugTree())
+        if (sg.edu.nus.iss.canmakan.BuildConfig.DEBUG) {
+            Timber.plant(DebugTree())
+        }
     }
 }

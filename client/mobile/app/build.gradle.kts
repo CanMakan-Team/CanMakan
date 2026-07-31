@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.ApplicationExtension
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -9,7 +10,14 @@ plugins {
 
 }
 
-val baseUrl = project.findProperty("BASE_URL")?.toString() ?: "http://10.0.2.2:8080/api/"
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+}
+val baseUrl = localProperties.getProperty("BASE_URL")
+    ?: project.findProperty("BASE_URL")?.toString()
+    ?: "http://10.0.2.2:8080/api/"
 
 extensions.configure<ApplicationExtension> {
     namespace = "sg.edu.nus.iss.canmakan"

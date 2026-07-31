@@ -1,5 +1,7 @@
 package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data
 
+// Retrofit API contract for dietary restriction endpoints on the backend.
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PUT
@@ -19,5 +21,5 @@ interface DietaryRestrictionApiService {
     suspend fun saveDietaryRestrictionSelections(
         @Path("profileId") profileId: Long,
         @Body selections: Map<Long, String>
-    )
+    ): Response<Unit>
 }
