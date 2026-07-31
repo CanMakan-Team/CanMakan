@@ -31,15 +31,18 @@ public class DietaryProfileController {
     // Returns list of restrictions
     @GetMapping("/restrictions")
     public List<DietaryProfileService.DietaryRestrictionDto> getAllDietaryRestrictions() {
+        List<DietaryProfileService.DietaryRestrictionDto> resp = dietaryProfileService
+            .getAllDietaryRestrictions();
         log.info("GET /restrictions → 200");
-        return dietaryProfileService.getAllDietaryRestrictions();
+        return resp;
     }
 
     // Returns restrictions set for specific profile
     @GetMapping("/profiles/{profileId}/restrictions")
     public Map<Long, String> getDietaryRestrictionsForProfile(@PathVariable Long profileId) {
+        Map<Long, String> resp = dietaryProfileService.getDietaryRestrictionsForProfile(profileId);
         log.info("GET /profiles/{profileId}/restrictions → 200");
-        return dietaryProfileService.getDietaryRestrictionsForProfile(profileId);
+        return resp;
     }
 
     // Inserts/updates saved dietary restrictions for specific profile

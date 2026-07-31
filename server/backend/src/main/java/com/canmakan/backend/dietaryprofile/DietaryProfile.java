@@ -14,9 +14,9 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 
 import java.util.HashSet;
@@ -28,11 +28,11 @@ import java.util.Set;
  * 
  * @author Amelia Wong
  */
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(callSuper = true)
-@EqualsAndHashCode(callSuper = false)
+@ToString(callSuper = true, exclude = "profileRestrictions")
 @Entity
 @Table(name = "dietary_profiles")
 public class DietaryProfile extends AuditableEntity {

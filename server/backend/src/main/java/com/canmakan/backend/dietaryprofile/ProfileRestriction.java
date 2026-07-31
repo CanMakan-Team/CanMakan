@@ -8,17 +8,21 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 /**
  * Join entity linking a dietary profile to a selected dietary restriction and severity level
  * 
  * @author Amelia Wong
  */
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString(exclude = {"dietaryProfile", "dietaryRestriction"})
 @Entity
 @Table(name = "profile_restrictions")
 public class ProfileRestriction {
