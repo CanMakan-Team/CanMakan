@@ -9,6 +9,8 @@ plugins {
 
 }
 
+val baseUrl = project.findProperty("BASE_URL")?.toString() ?: "http://10.0.2.2:8080/api/"
+
 extensions.configure<ApplicationExtension> {
     namespace = "sg.edu.nus.iss.canmakan"
     compileSdk = 37
@@ -19,6 +21,7 @@ extensions.configure<ApplicationExtension> {
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
