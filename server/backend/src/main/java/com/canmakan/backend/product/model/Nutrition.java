@@ -1,4 +1,4 @@
-package com.canmakan.backend.assessment.model;
+package com.canmakan.backend.product.model;
 
 import java.math.BigDecimal;
 
