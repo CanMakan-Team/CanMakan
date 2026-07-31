@@ -103,6 +103,34 @@ cd server/backend
 The backend health endpoint is
 `http://localhost:8080/actuator/health`.
 
+## DevSecOps Implementation
+
+### Branch Protection
+
+- Require pull request
+- No direct pushes to main
+
+### Secrets Management
+
+- Environment variables, credentials, and secrets are included in gitignore to prevent secrets leakage
+
+### Dependabot
+
+This repository uses [GitHub Dependabot](https://docs.github.com/en/code-security/dependabot) to keep third-party dependencies current and to surface known security advisories.
+
+Configuration: [`.github/dependabot.yml`](.github/dependabot.yml)
+
+| Ecosystem | Directory | Schedule |
+|-----------|-----------|----------|
+| npm | `client/web` | Weekly |
+| Maven | `server/backend` | Weekly |
+| Gradle | `client/mobile` | Weekly |
+| GitHub Actions | `/` | Weekly |
+
+Dependabot opens pull requests for version and security updates. Review and run the relevant CI checks before merging.
+
+> **Note:** Dependabot does not replace application security controls (e.g. Spring Security RBAC, secret management). It only monitors dependency risk.
+
 ## Current status
 
 The mobile directory contains the supplied UI prototype and sample data. The web
