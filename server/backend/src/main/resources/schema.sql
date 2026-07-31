@@ -365,6 +365,3 @@ CREATE TABLE admin_audit_logs (
         FOREIGN KEY (admin_user_id) REFERENCES users(id)
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Optional seed (dictionary examples)
-INSERT INTO roles (name) VALUES ('USER'), ('ADMIN');
