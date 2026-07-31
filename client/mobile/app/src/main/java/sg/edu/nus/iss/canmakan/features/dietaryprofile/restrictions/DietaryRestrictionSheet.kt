@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.userprofile
+package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
