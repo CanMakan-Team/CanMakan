@@ -44,18 +44,18 @@ INSERT INTO product_ingredients (barcode, ingredient_id) VALUES
 ('8850581172007', 58), -- Salt
 ('8850581172007', 59), -- Sugar
 
--- Barcode: 885014850160 (Fried Seaweed / Tempura)
-('885014850160', 2),  -- Whole Wheat Flour
-('885014850160', 6),  -- Corn Starch
-('885014850160', 22), -- Soya Bean Oil
-('885014850160', 28), -- Crab Stick (Fish Surimi)
-('885014850160', 29), -- Crab Meat
-('885014850160', 30), -- Crab Flavour
-('885014850160', 37), -- E1420 (Starch Acetate)
-('885014850160', 52), -- E621 (Monosodium Glutamate)
-('885014850160', 56), -- Dried Seaweed
-('885014850160', 58), -- Salt
-('885014850160', 59), -- Sugar
+-- Barcode: 8885014850160 (Fried Seaweed / Tempura)
+('8885014850160', 2),  -- Whole Wheat Flour
+('8885014850160', 6),  -- Corn Starch
+('8885014850160', 22), -- Soya Bean Oil
+('8885014850160', 28), -- Crab Stick (Fish Surimi)
+('8885014850160', 29), -- Crab Meat
+('8885014850160', 30), -- Crab Flavour
+('8885014850160', 37), -- E1420 (Starch Acetate)
+('8885014850160', 52), -- E621 (Monosodium Glutamate)
+('8885014850160', 56), -- Dried Seaweed
+('8885014850160', 58), -- Salt
+('8885014850160', 59), -- Sugar
 
 -- Barcode: 8854651008845 (Mango Biscuits)
 ('8854651008845', 2),  -- Whole Wheat Flour
@@ -126,36 +126,36 @@ INSERT INTO product_ingredients (barcode, ingredient_id) VALUES
 ('8888279640019', 58), -- Salt
 ('8888279640019', 59), -- Sugar
 
--- Barcode: 888077102092 (Flavoured Biscuit)
-('888077102092', 2),  -- Whole Wheat Flour
-('888077102092', 3),  -- Malted Barley Extract
-('888077102092', 9),  -- Milk Fat
-('888077102092', 13), -- Yoghurt Powder
-('888077102092', 15), -- Whey Powder
-('888077102092', 16), -- Lactose
-('888077102092', 17), -- Skimmed Milk Powder
-('888077102092', 18), -- Whole Milk Powder
-('888077102092', 23), -- Soy Lecithin
-('888077102092', 32), -- Palm Oil
-('888077102092', 35), -- E500(ii) (Sodium Bicarbonate)
-('888077102092', 49), -- E627 (Disodium Guanylate)
-('888077102092', 50), -- E631 (Disodium Inosinate)
-('888077102092', 51), -- INS 150a (Plain Caramel)
-('888077102092', 58), -- Salt
-('888077102092', 59), -- Sugar
+-- Barcode: 8888077102092 (Flavoured Biscuit)
+('8888077102092', 2),  -- Whole Wheat Flour
+('8888077102092', 3),  -- Malted Barley Extract
+('8888077102092', 9),  -- Milk Fat
+('8888077102092', 13), -- Yoghurt Powder
+('8888077102092', 15), -- Whey Powder
+('8888077102092', 16), -- Lactose
+('8888077102092', 17), -- Skimmed Milk Powder
+('8888077102092', 18), -- Whole Milk Powder
+('8888077102092', 23), -- Soy Lecithin
+('8888077102092', 32), -- Palm Oil
+('8888077102092', 35), -- E500(ii) (Sodium Bicarbonate)
+('8888077102092', 49), -- E627 (Disodium Guanylate)
+('8888077102092', 50), -- E631 (Disodium Inosinate)
+('8888077102092', 51), -- INS 150a (Plain Caramel)
+('8888077102092', 58), -- Salt
+('8888077102092', 59), -- Sugar
 
--- Barcode: 888077103259 (Simple Wheat Snack)
-('888077103259', 2),  -- Whole Wheat Flour
-('888077103259', 32), -- Palm Oil
+-- Barcode: 8888077103259 (Simple Wheat Snack)
+('8888077103259', 2),  -- Whole Wheat Flour
+('8888077103259', 32), -- Palm Oil
 
--- Barcode: 888077103549 (Savory Crackers)
-('888077103549', 2),  -- Whole Wheat Flour
-('888077103549', 3),  -- Malted Barley Extract
-('888077103549', 4),  -- Malt Flour (Barley)
-('888077103549', 6),  -- Corn Starch
-('888077103549', 10), -- Butter
-('888077103549', 21), -- Miso Powder
-('888077103549', 32), -- Palm Oil
-('888077103549', 33), -- Hydrogenated Rapeseed Oil
-('888077103549', 35), -- E500(ii) (Sodium Bicarbonate)
-('888077103549', 58); -- Salt
+-- Barcode: 8888077103549 (Savory Crackers)
+('8888077103549', 2),  -- Whole Wheat Flour
+('8888077103549', 3),  -- Malted Barley Extract
+('8888077103549', 4),  -- Malt Flour (Barley)
+('8888077103549', 6),  -- Corn Starch
+('8888077103549', 10), -- Butter
+('8888077103549', 21), -- Miso Powder
+('8888077103549', 32), -- Palm Oil
+('8888077103549', 33), -- Hydrogenated Rapeseed Oil
+('8888077103549', 35), -- E500(ii) (Sodium Bicarbonate)
+('8888077103549', 58); -- Salt

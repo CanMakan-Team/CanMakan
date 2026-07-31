@@ -3,11 +3,11 @@
 -- Re-runnable initialization script
 -- =============================================================================
 
-CREATE DATABASE IF NOT EXISTS canmakan
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
+-- CREATE DATABASE IF NOT EXISTS canmakan
+--     CHARACTER SET utf8mb4
+--     COLLATE utf8mb4_unicode_ci;
 
-USE canmakan;
+-- USE canmakan;
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
