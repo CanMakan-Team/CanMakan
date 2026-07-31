@@ -9,7 +9,6 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.collection.intFloatMapOf
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -18,15 +17,15 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -34,19 +33,25 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -66,7 +71,9 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 import timber.log.Timber
 
-// The main scanner screen.
+/**
+ * The Scanner Screen. Display the Dietary Profile and Restrictions.
+ */
 @Composable
 fun ScannerScreen(
     activeProfile: DietaryProfile,
@@ -76,6 +83,9 @@ fun ScannerScreen(
     onHistoryClick: () -> Unit
 ) {
     val context = LocalContext.current
+    var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null)}
+
+    // 1. Check for Camera Permission
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -85,13 +95,10 @@ fun ScannerScreen(
         )
     }
 
-    var scannedBarcode by remember { mutableStateOf<String?>(null)}
+    // 2. Request Camera Permission
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted ->
-            hasCameraPermission = granted
-        }
-    )
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted -> hasCameraPermission = granted }
 
     LaunchedEffect(Unit) {
         if (!hasCameraPermission) {
@@ -99,11 +106,11 @@ fun ScannerScreen(
         }
     }
 
+    // 3. Assembling of Components on the Scanner Screen
     Scaffold(
         topBar = {
             Column {
                 AppTopBar(onMenuClick = onMenuClick)
-                Spacer(modifier = Modifier.height(8.dp))
                 ActiveProfileChip(profile = activeProfile)
             }
         },
@@ -127,69 +134,73 @@ fun ScannerScreen(
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.headlineSmall
             )
-            Text(text = stringResource(id = R.string.scanner_instructions), color = TextSecondary)
+            Text(
+                text = stringResource(id = R.string.scanner_instructions),
+                color = TextSecondary,
+                style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (hasCameraPermission) {
-                CameraPreview(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(260.dp)
-                        .clip(RoundedCornerShape(16.dp)),
-                    onBarcodeScanned = { barcode ->
-                        if (scannedBarcode != barcode) {
-                            scannedBarcode = barcode
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(260.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(DepressedBlue)
+            ) {
+                if (hasCameraPermission) {
+                    CameraPreview(
+                        onBarcodeScanned = { barcode ->
+                            if (scannedBarcode != barcode) {
+                                scannedBarcode = barcode
+                            }
                         }
-                    }
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(260.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(DepressedBlue),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = stringResource(id = R.string.scanner_camera_permission_required), color = MutedBlue)
+                    )
+                } else {
+                    Text(
+                        text = stringResource(id = R.string.scanner_camera_permission_required),
+                        color = MutedBlue,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Visual Indicator of Barcode Scanning & Parsing to Numeric String Value.
-            // May be Removed in the Future.
+            //! Visual Indicator of Barcode Scanning & Parsing to Numeric String Value.
             Button(
                 onClick = onScanClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(14.dp)
             ) {
-                val buttonText = if (scannedBarcode != null) {
-                    "Scanned: $scannedBarcode (Tap to Verify)"
-                } else {
-                    "Scan a Barcode"
-                }
-                Text(text = buttonText, fontWeight = FontWeight.Bold)
+                Text(
+                    text = scannedBarcode?.let { "Scanned: $it (Tap to Verify)" } ?: "Scan a Barcode",
+                    fontWeight = FontWeight.Bold
+                )
             }
             Spacer(modifier = Modifier.height(20.dp))
+            //! Visual Indicator of Barcode Scanning & Parsing to Numeric String Value. May be Removed in the Future.
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         "${stringResource(id = R.string.dietary_profile_restrictions).uppercase()} - ${activeProfile.name.uppercase()}",
-                        color = TextSecondary
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.labelMedium
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FlowRow (
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         activeRestrictions.forEach { restriction ->
                             RestrictPill(text = restriction)
-                            Spacer(modifier = Modifier.width(8.dp))
                         }
                     }
                 }
@@ -198,6 +209,9 @@ fun ScannerScreen(
     }
 }
 
+/**
+ * Camera Preview composable.
+ */
 @Composable
 fun CameraPreview(
     modifier: Modifier = Modifier,
@@ -205,82 +219,109 @@ fun CameraPreview(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val haptic = LocalHapticFeedback.current
+    val currentOnBarcodeScanned by rememberUpdatedState(onBarcodeScanned)
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    val previewView = remember { PreviewView(context) }
 
+    // 1. Retain a reference to the analyzer
+    val barcodeAnalyzer = remember {
+        BarcodeAnalyzer { barcode ->
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            currentOnBarcodeScanned(barcode)
+        }
+    }
+
+    // 2. Clean up ML Kit resources when the composable is disposed
+    DisposableEffect(Unit) {
+        onDispose {
+            barcodeAnalyzer.close()
+        }
+    }
+
+    LaunchedEffect(lifecycleOwner) {
+        val cameraProvider = cameraProviderFuture.get()
+        val preview = Preview.Builder().build().apply {
+            surfaceProvider = previewView.surfaceProvider
+        }
+
+        val imageAnalysis = ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .build()
+            .also {
+                it.setAnalyzer(
+                    ContextCompat.getMainExecutor(context),
+                    BarcodeAnalyzer { barcode ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        currentOnBarcodeScanned(barcode)
+                    }
+                )
+            }
+
+        try {
+            cameraProvider.unbindAll()
+            cameraProvider.bindToLifecycle(
+                lifecycleOwner,
+                CameraSelector.DEFAULT_BACK_CAMERA,
+                preview,
+                imageAnalysis
+            )
+        } catch (e: Exception) {
+            Timber.e(e)
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { previewView }
+        )
+        ScanningOverlay()
+    }
+}
+
+/**
+ * Scanner Overlay composable.
+ */
+@Composable
+private fun ScanningOverlay() {
     val infiniteTransition = rememberInfiniteTransition(label = stringResource(id = R.string.scanner_redlines_transition))
     val lineProgress by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
+        initialValue = 0.05f,
+        targetValue = 0.95f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2500, easing = LinearEasing),
+            animation = tween(durationMillis = 2000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = stringResource(id = R.string.scanner_redlines_progress)
     )
 
-    Box(modifier = modifier.fillMaxSize()) {
-        AndroidView(
-            modifier = modifier,
-            factory = { ctx ->
-                val previewView = PreviewView(ctx)
-                val executor = ContextCompat.getMainExecutor(ctx)
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val currentY = size.height * lineProgress
 
-                cameraProviderFuture.addListener({
-                    val cameraProvider = cameraProviderFuture.get()
-                    val preview = Preview.Builder().build().also {
-                        it.surfaceProvider = previewView.surfaceProvider
-                    }
-                    val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-                    // 1. Create the Image Analyzer to detect barcode
-                    val imageAnalysis = ImageAnalysis.Builder()
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .build()
-
-                    // 2. Attach the custom BarcodeAnalyzer
-                    imageAnalysis.setAnalyzer(
-                        ContextCompat.getMainExecutor(ctx),
-                        BarcodeAnalyzer{ barcode ->
-                            onBarcodeScanned(barcode)
-                        }
-                    )
-
-                    try {
-                        cameraProvider.unbindAll()
-                        cameraProvider.bindToLifecycle(
-                            lifecycleOwner,
-                            cameraSelector,
-                            preview,
-                            imageAnalysis
-                        )
-                    } catch (e: Exception) {
-                        Timber.e(e, "Camera Use Case Binding Failed")
-                    }
-                }, executor)
-                previewView
-            }
+        drawLine(
+            color = Color.Red,
+            start = Offset(0f, currentY),
+            end = Offset(x = size.width, y = currentY),
+            strokeWidth = 2.dp.toPx(),
+            alpha = 0.8f
         )
-
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val currentY = size.height * lineProgress
-
-            drawLine(
-                color = Color.Red,
-                start = Offset(0f, currentY),
-                end = Offset(x = size.width, y = currentY),
-                strokeWidth = 6f
-            )
-        }
     }
 }
 @Composable
 private fun RestrictPill(text: String) {
-    Text(
-        text = text,
-        color = PrimaryGreen,
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(LightGreenBackground)
-            .padding(horizontal = 12.dp, vertical = 6.dp)
-    )
+    Surface(
+        color = LightGreenBackground,
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Text(
+            text = text,
+            color = PrimaryGreen,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(LightGreenBackground)
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+        )
+    }
 }
