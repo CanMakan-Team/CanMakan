@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.repo.server
+package sg.edu.nus.iss.canmakan.shared.di
 
 import dagger.Module
 import dagger.Provides
@@ -6,15 +6,12 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionApiService
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object ServerModule {
-
-    // Create the shared Retrofit instance for the whole app
-    // @Provides is a Hilt annotation telling the DI mechanism how to
-    // create the object
+object NetworkModule {
     @Provides
     @Singleton
     fun provideRetrofit(): Retrofit {

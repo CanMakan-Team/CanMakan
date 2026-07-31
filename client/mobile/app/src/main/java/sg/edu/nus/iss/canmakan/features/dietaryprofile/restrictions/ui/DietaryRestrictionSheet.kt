@@ -1,6 +1,5 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions
+package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui
 
-import android.R.attr.onClick
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +36,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DietaryRestrictionViewModel
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary

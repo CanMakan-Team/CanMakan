@@ -1,6 +1,6 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.repo
+package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data
 
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DietaryRestriction
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
 
 interface DietaryRestrictionRepository {
     suspend fun getAllDietaryRestrictions(): List<DietaryRestriction>

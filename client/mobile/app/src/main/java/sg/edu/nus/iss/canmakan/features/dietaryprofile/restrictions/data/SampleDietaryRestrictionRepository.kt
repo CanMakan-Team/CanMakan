@@ -1,8 +1,7 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.repo.local
+package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data
 
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DietaryRestriction
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ProfileRestriction
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.repo.DietaryRestrictionRepository
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.ProfileRestriction
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -66,38 +65,36 @@ class SampleDietaryRestrictionRepository @Inject constructor() : DietaryRestrict
             dietaryRestrictionId = 1L,
             severityLevel = "STRICT_AVOID"
         ),
-
         ProfileRestriction(
             dietaryProfileId = 1L,
             dietaryRestrictionId = 3L,
             severityLevel = "STRICT_AVOID"
         ),
-
         ProfileRestriction(
             dietaryProfileId = 2L,
             dietaryRestrictionId = 2L,
             severityLevel = "STRICT_AVOID"
         ),
-
         ProfileRestriction(
             dietaryProfileId = 2L,
             dietaryRestrictionId = 5L,
             severityLevel = "STRICT_AVOID"
         )
     )
+
     override suspend fun getDietaryRestrictionsForProfile(profileId: Long): Map<Long, String> {
         return sampleProfileRestriction
             .filter { it.dietaryProfileId == profileId }
-            .associate {it.dietaryRestrictionId to it.severityLevel}
+            .associate { it.dietaryRestrictionId to it.severityLevel }
     }
 
     override suspend fun saveDietaryRestrictionSelections(
         profileId: Long,
         selections: Map<Long, String>
     ) {
-        sampleProfileRestriction.removeAll {it.dietaryProfileId == profileId}
+        sampleProfileRestriction.removeAll { it.dietaryProfileId == profileId }
 
-        val newEntries = selections.map {(restrictionId, severity) ->
+        val newEntries = selections.map { (restrictionId, severity) ->
             ProfileRestriction(
                 dietaryProfileId = profileId,
                 dietaryRestrictionId = restrictionId,
