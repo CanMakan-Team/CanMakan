@@ -2,27 +2,27 @@
 --  SCANS (Product Evaluation Events)
 -- =============================================
 INSERT INTO scans (id, user_id, profile_id, barcode, verdict, ai_explanation, findings_json, scanned_at) VALUES
-(1, 4, 1, '8886001234567', 'SAFE', 
+(1, 4, 1, '8997035600041', 'SAFE', 
    'This product contains no gluten ingredients or wheat derivatives.', 
    '{"matched_rules": [], "allergens_found": []}', 
    NOW()),
 
-(2, 4, 3, '8886001234568', 'UNSAFE', 
+(2, 4, 3, '7321122', 'UNSAFE', 
    'Contains peanuts which violates the user severe peanut allergy constraint.', 
    '{"matched_rules": ["PEANUT_ALLERGY"], "allergens_found": ["Peanuts"]}', 
    NOW()),
 
-(3, 7, 4, '8886001234569', 'WARNING', 
+(3, 7, 4, '8888279300128', 'WARNING', 
    'Product is not Halal certified but does not explicitly list non-halal ingredients.', 
    '{"matched_rules": ["HALAL_UNCERTAIN"], "warnings": ["Missing Halal Certification"]}', 
    NOW()),
 
-(4, 9, 6, '8886001234570', 'UNSAFE', 
+(4, 9, 6, '8885014850160', 'UNSAFE', 
    'Contains shrimp extract, which poses a severe risk due to shellfish allergy.', 
    '{"matched_rules": ["SHELLFISH_ALLERGY"], "allergens_found": ["Shrimp Extract"]}', 
    NOW()),
 
-(5, 11, 8, '8886001234571', 'SAFE', 
+(5, 11, 8, '8888440000048', 'SAFE', 
    '100% Plant-based vegetarian product with no egg or animal derivatives.', 
    '{"matched_rules": [], "allergens_found": []}', 
    NOW());
