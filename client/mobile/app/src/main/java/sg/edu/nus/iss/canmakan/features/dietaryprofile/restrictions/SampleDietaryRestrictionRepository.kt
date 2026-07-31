@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile
+package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions
 
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -7,53 +7,84 @@ import javax.inject.Singleton
 class SampleDietaryRestrictionRepository @Inject constructor() : DietaryRestrictionRepository {
     override suspend fun getAllDietaryRestrictions(): List<DietaryRestriction> = listOf(
         DietaryRestriction(
-            id = 1,
+            id = 1L,
             code = "HALAL",
             displayName = "Halal",
             category = "RELIGIOUS",
             description = "Food prepared in accordance with halal dietary requirements",
         ),
         DietaryRestriction(
-            id = 2,
+            id = 2L,
             code = "KOSHER",
             displayName = "Kosher",
             category = "RELIGIOUS",
             description = "Food prepared in accordance with kosher dietary requirements",
         ),
         DietaryRestriction(
-            id = 3,
+            id = 3L,
             code = "PEANUT_ALLERGY",
             displayName = "Peanut allergy",
             category = "ALLERGEN",
             description = "Avoid peanuts and peanut-derived ingredients",
         ),
         DietaryRestriction(
-            id = 4,
+            id = 4L,
             code = "DAIRY_FREE",
             displayName = "Dairy free",
             category = "ALLERGEN",
             description = "Avoid dairy products and milk-derived ingredients",
         ),
         DietaryRestriction(
-            id = 5,
+            id = 5L,
             code = "VEGAN",
             displayName = "Vegan",
             category = "DIET",
             description = "No animal-derived ingredients",
         ),
         DietaryRestriction(
-            id = 6,
+            id = 6L,
             code = "VEGETARIAN",
             displayName = "Vegetarian",
             category = "DIET",
             description = "No meat or fish",
         ),
         DietaryRestriction(
-            id = 7,
+            id = 7L,
             code = "LOW_SUGAR",
             displayName = "Low sugar",
             category = "DIET",
             description = "Prefer lower sugar content",
         ),
     )
+
+    val SampleProfileRestriction: List<ProfileRestriction> = listOf(
+        ProfileRestriction(
+            userprofileId = 1L,
+            dietaryRestrictionId = 1L,
+            severityLevel = "STRICT_AVOID"
+        ),
+
+        ProfileRestriction(
+            userprofileId = 1L,
+            dietaryRestrictionId = 3L,
+            severityLevel = "STRICT_AVOID"
+        ),
+
+        ProfileRestriction(
+            userprofileId = 2L,
+            dietaryRestrictionId = 2L,
+            severityLevel = "STRICT_AVOID"
+        ),
+
+        ProfileRestriction(
+            userprofileId = 2L,
+            dietaryRestrictionId = 5L,
+            severityLevel = "STRICT_AVOID"
+        )
+    )
+    override suspend fun getDietaryRestrictionsForProfile(profileId: Long): Map<Long, String> {
+        return SampleProfileRestriction
+            .filter { it.userprofileId == profileId }
+            .associate {it.dietaryRestrictionId to it.severityLevel}
+    }
 }

@@ -1,6 +1,7 @@
 package sg.edu.nus.iss.canmakan.features.product.model
 
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.model.DietaryOption
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.model.DietaryProfileModels.DietaryOption
+
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 
 // Sample data used to fill the screens while there is no backend or
@@ -45,10 +46,10 @@ object ProductSampleData {
     )
 
     val profiles = listOf(
-        DietaryProfile("Sarah", "Parent", "ME"),
-        DietaryProfile("Alice", "Child · Age 9", "AL"),
-        DietaryProfile("Ben", "Child · Age 13", "BN"),
-        DietaryProfile("Grandma", "Dependant", "GM")
+        DietaryProfile(id = 1L,"Sarah", "Parent", "ME"),
+        DietaryProfile(id = 2L,"Alice", "Child · Age 9", "AL"),
+        DietaryProfile(id = 3L,"Ben", "Child · Age 13", "BN"),
+        DietaryProfile(id = 4L,"Grandma", "Dependant", "GM")
     )
 
     // The product shown on the product detail screen, used for both the

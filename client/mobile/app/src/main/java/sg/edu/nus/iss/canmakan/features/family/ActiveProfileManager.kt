@@ -1,0 +1,20 @@
+package sg.edu.nus.iss.canmakan.features.family
+
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class ActiveProfileManager @Inject constructor() {
+    private val _currentProfileId = MutableStateFlow<Long>(DEFAULT_PROFILE_ID)
+    val currentProfileId: StateFlow<Long> = _currentProfileId
+
+    fun switchProfile(profileId: Long) {
+        _currentProfileId.value = profileId
+    }
+
+    companion object {
+        const val DEFAULT_PROFILE_ID = 1L
+    }
+}

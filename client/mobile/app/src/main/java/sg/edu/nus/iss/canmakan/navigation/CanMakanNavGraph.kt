@@ -12,16 +12,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.EditDietaryRequirementsSheet
+import sg.edu.nus.iss.canmakan.features.userprofile.EditDietaryRequirementsSheet
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
 import sg.edu.nus.iss.canmakan.features.product.history.HistoryScreen
 import sg.edu.nus.iss.canmakan.features.product.model.ProductSampleData
 import sg.edu.nus.iss.canmakan.features.product.scan.ScannerScreen
 import sg.edu.nus.iss.canmakan.features.product.verdict.ProductDetailScreen
+import sg.edu.nus.iss.canmakan.navigation.CanMakanNavGraphViewModel
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
@@ -31,12 +35,17 @@ private const val ROUTE_PRODUCT_DETAIL = "product_detail"
 // three screens, the side drawer, and the edit dietary requirements sheet.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CanMakanNavGraph() {
+fun CanMakanNavGraph(
+    navGraphViewModel: CanMakanNavGraphViewModel = hiltViewModel()
+) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    var activeProfile by remember { mutableStateOf(ProductSampleData.profiles.first()) }
+    val currentProfileId = navGraphViewModel.currentProfileId.collectAsStateWithLifecycle()
+
+    
+    var activeProfile = ProductSampleData.profiles.firstOrNull {it.id == currentProfileId.value}?: ProductSampleData.profiles.first()
     var showEditDietarySheet by remember { mutableStateOf(false) }
 
     fun openDrawer() = scope.launch { drawerState.open() }
@@ -50,7 +59,7 @@ fun CanMakanNavGraph() {
                     profiles = ProductSampleData.profiles,
                     activeProfile = activeProfile,
                     onProfileSelected = { selected ->
-                        activeProfile = selected
+                        navGraphViewModel.switchProfile(selected.id)
                         closeDrawer()
                     },
                     onEditDietaryClick = {
@@ -109,9 +118,6 @@ fun CanMakanNavGraph() {
                 EditDietaryRequirementsSheet(
                     profileName = activeProfile.name,
                     profileRole = activeProfile.role,
-                    religiousOptions = ProductSampleData.religiousOptions(),
-                    allergyOptions = ProductSampleData.allergyOptions(),
-                    specificDietOptions = ProductSampleData.specificDietOptions(),
                     onCancel = { showEditDietarySheet = false },
                     onSave = { _, _, _ -> showEditDietarySheet = false }
                 )
