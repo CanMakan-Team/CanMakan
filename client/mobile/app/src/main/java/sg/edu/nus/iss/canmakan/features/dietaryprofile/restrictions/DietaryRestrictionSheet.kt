@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions
 
+import android.R.attr.onClick
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -45,22 +46,18 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 // allow more than one to be picked at the same time.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditDietaryRequirementsSheet(
+fun DietaryRestrictionSheet(
     profileName: String,
     profileRole: String,
     viewModel: DietaryRestrictionViewModel = hiltViewModel(),
     onCancel: () -> Unit,
-    onSave: (List<DietaryRestriction>, List<DietaryRestriction>, List<DietaryRestriction>) -> Unit
+    onSave: () -> Unit
 ) {
     LaunchedEffect(Unit) {
         viewModel.loadDietaryRestrictions()
     }
     // read current UI state from ViewModel and rerun whenever state changes
     val uiState = viewModel.uiState.collectAsStateWithLifecycle()
-    // Local copies so a change only takes effect once "Save" is pressed.
-    var religious by remember { mutableStateOf(uiState.value.religiousRestrictions) }
-    var allergies by remember { mutableStateOf(uiState.value.allergenRestrictions) }
-    var specificDiets by remember { mutableStateOf(uiState.value.dietRestrictions) }
 
     Column(modifier = Modifier.padding(20.dp)) {
         Row(
@@ -111,7 +108,11 @@ fun EditDietaryRequirementsSheet(
                 Text("Cancel")
             }
             Button(
-                onClick = { onSave(religious, allergies, specificDiets) },
+                // Uncomment the below code when backend database is up
+                onClick = {
+                    viewModel.onSave()
+                    onSave()
+                },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
             ) {
