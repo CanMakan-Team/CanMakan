@@ -26,7 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import sg.edu.nus.iss.canmakan.features.product.model.ScanHistoryEntry
 import sg.edu.nus.iss.canmakan.features.product.model.ScanStatus
-import sg.edu.nus.iss.canmakan.shared.model.UserProfile
+import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
@@ -40,7 +40,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.WarningAmber
 // Shows the list of previously scanned products for the active profile.
 @Composable
 fun HistoryScreen(
-    activeProfile: UserProfile,
+    activeProfile: DietaryProfile,
     entries: List<ScanHistoryEntry>,
     onMenuClick: () -> Unit,
     onScanClick: () -> Unit,

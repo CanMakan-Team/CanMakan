@@ -25,7 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import sg.edu.nus.iss.canmakan.shared.model.UserProfile
+import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextPrimary
 
@@ -71,7 +71,7 @@ fun AppTopBar(onMenuClick: () -> Unit) {
 
 // Small pill showing the currently active profile, for example "ME Sarah".
 @Composable
-fun ActiveProfileChip(profile: UserProfile) {
+fun ActiveProfileChip(profile: DietaryProfile) {
     Row(
         modifier = Modifier
             .padding(horizontal = 16.dp)
