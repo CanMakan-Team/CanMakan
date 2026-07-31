@@ -113,6 +113,7 @@ The backend health endpoint is
 ### Secrets Management
 
 - Environment variables, credentials, and secrets are included in gitignore to prevent secrets leakage
+- Implemented Gitleaks via [`.github/workflows/secret-scan.yml`](.github/workflows/secret-scan.yml)
 
 ### Dependabot
 
