@@ -27,7 +27,7 @@ product and profile information shown by the prototype is sample data.
 | Feature            | Purpose                                      |
 |--------------------|----------------------------------------------|
 | `auth`             | Login, logout, session handling              |
-| `userprofile`   | User dietary preferences and constraints     |
+| `dietaryprofile`   | User dietary preferences and constraints     |
 | `family`           | Family members and active profile switching  |
 | `product`          | Scanning, verdicts, recommendations, history |
 | `analytics`        | Lightweight trends / stats (optional)        |
