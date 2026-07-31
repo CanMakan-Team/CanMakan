@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.userprofile
+package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions
 
 import javax.inject.Inject
 import javax.inject.Singleton
