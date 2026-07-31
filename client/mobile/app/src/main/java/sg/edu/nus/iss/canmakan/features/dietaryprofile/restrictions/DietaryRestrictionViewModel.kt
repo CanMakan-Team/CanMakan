@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.userprofile
+package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
