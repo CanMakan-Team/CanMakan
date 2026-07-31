@@ -1,5 +1,8 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions
+package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.repo.local
 
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DietaryRestriction
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ProfileRestriction
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.repo.DietaryRestrictionRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 

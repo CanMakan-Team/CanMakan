@@ -1,11 +1,10 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile
+package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.repo
 
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DietaryRestrictionRepository
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.SampleDietaryRestrictionRepository
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.repo.local.SampleDietaryRestrictionRepository
 import javax.inject.Singleton
 
 @Module
