@@ -10,5 +10,5 @@ Family accounts and member management.
 - Family allergy summary (if shown on mobile)
 
 ## Notes
-The actual dietary data of each member lives in `dietaryprofile`.
+The actual dietary data of each member lives in `userprofile`.
 This feature mainly manages relationships and the currently active profile.

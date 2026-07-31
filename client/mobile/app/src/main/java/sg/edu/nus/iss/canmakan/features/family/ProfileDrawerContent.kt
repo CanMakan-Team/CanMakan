@@ -32,7 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
+import sg.edu.nus.iss.canmakan.shared.model.UserProfile
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.DrawerBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.DrawerTextMuted
@@ -42,9 +42,9 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 // profiles to switch between, quick navigation links, and sign out.
 @Composable
 fun ProfileDrawerContent(
-    profiles: List<DietaryProfile>,
-    activeProfile: DietaryProfile,
-    onProfileSelected: (DietaryProfile) -> Unit,
+    profiles: List<UserProfile>,
+    activeProfile: UserProfile,
+    onProfileSelected: (UserProfile) -> Unit,
     onEditDietaryClick: () -> Unit,
     onScannerClick: () -> Unit,
     onHistoryClick: () -> Unit,

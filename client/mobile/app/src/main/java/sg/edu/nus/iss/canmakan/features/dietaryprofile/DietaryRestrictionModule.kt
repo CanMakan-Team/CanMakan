@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile
+package sg.edu.nus.iss.canmakan.features.userprofile
 
 import dagger.Binds
 import dagger.Module

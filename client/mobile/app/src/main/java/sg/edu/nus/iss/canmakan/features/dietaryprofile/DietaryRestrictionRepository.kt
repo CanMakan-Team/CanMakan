@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile
+package sg.edu.nus.iss.canmakan.features.userprofile
 
 interface DietaryRestrictionRepository {
     suspend fun getAllDietaryRestrictions(): List<DietaryRestriction>

@@ -53,7 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import sg.edu.nus.iss.canmakan.R
-import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
+import sg.edu.nus.iss.canmakan.shared.model.UserProfile
 import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
@@ -68,7 +68,7 @@ import timber.log.Timber
 // The main scanner screen.
 @Composable
 fun ScannerScreen(
-    activeProfile: DietaryProfile,
+    activeProfile: UserProfile,
     activeRestrictions: List<String>,
     onMenuClick: () -> Unit,
     onScanClick: () -> Unit,

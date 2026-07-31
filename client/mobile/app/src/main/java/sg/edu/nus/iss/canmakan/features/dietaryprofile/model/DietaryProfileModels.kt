@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile.model
+package sg.edu.nus.iss.canmakan.features.userprofile.model
 
 // One selectable option in the Edit Dietary Requirements sheet.
 data class DietaryOption(

@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile
+package sg.edu.nus.iss.canmakan.features.userprofile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,7 +18,7 @@ data class DietaryRestriction(
 )
 
 data class ProfileRestriction(
-    val dietaryProfileId: Long,
+    val userprofileId: Long,
     val dietaryRestrictionId: Long,
     val severityLevel: String = "STRICT_AVOID"
 )

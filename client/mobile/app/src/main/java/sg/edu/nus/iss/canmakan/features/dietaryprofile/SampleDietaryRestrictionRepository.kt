@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile
+package sg.edu.nus.iss.canmakan.features.userprofile
 
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -59,32 +59,32 @@ class SampleDietaryRestrictionRepository @Inject constructor() : DietaryRestrict
 
     val SampleProfileRestriction: List<ProfileRestriction> = listOf(
         ProfileRestriction(
-            dietaryProfileId = 1L,
+            userprofileId = 1L,
             dietaryRestrictionId = 1L,
             severityLevel = "STRICT_AVOID"
         ),
 
         ProfileRestriction(
-            dietaryProfileId = 1L,
+            userprofileId = 1L,
             dietaryRestrictionId = 3L,
             severityLevel = "STRICT_AVOID"
         ),
 
         ProfileRestriction(
-            dietaryProfileId = 2L,
+            userprofileId = 2L,
             dietaryRestrictionId = 2L,
             severityLevel = "STRICT_AVOID"
         ),
 
         ProfileRestriction(
-            dietaryProfileId = 2L,
+            userprofileId = 2L,
             dietaryRestrictionId = 5L,
             severityLevel = "STRICT_AVOID"
         )
     )
     override suspend fun getDietaryRestrictionsForProfile(profileId: Long): Map<Long, String> {
         return SampleProfileRestriction
-            .filter { it.dietaryProfileId == profileId }
+            .filter { it.userprofileId == profileId }
             .associate {it.dietaryRestrictionId to it.severityLevel}
     }
 }
