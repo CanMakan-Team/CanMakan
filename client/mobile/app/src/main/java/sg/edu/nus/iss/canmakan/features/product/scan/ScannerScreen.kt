@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -84,6 +85,7 @@ fun ScannerScreen(
         )
     }
 
+    var scannedBarcode by remember { mutableStateOf<String?>(null)}
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted ->
@@ -133,7 +135,12 @@ fun ScannerScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(260.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(16.dp)),
+                    onBarcodeScanned = { barcode ->
+                        if (scannedBarcode != barcode) {
+                            scannedBarcode = barcode
+                        }
+                    }
                 )
             } else {
                 Box(
@@ -148,6 +155,26 @@ fun ScannerScreen(
                 }
             }
             Spacer(modifier = Modifier.height(20.dp))
+
+            // Visual Indicator of Barcode Scanning & Parsing to Numeric String Value.
+            // May be Removed in the Future.
+            Button(
+                onClick = onScanClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                val buttonText = if (scannedBarcode != null) {
+                    "Scanned: $scannedBarcode (Tap to Verify)"
+                } else {
+                    "Scan a Barcode"
+                }
+                Text(text = buttonText, fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -172,7 +199,10 @@ fun ScannerScreen(
 }
 
 @Composable
-fun CameraPreview(modifier: Modifier = Modifier) {
+fun CameraPreview(
+    modifier: Modifier = Modifier,
+    onBarcodeScanned: (String) -> Unit
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
@@ -202,12 +232,26 @@ fun CameraPreview(modifier: Modifier = Modifier) {
                     }
                     val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
+                    // 1. Create the Image Analyzer to detect barcode
+                    val imageAnalysis = ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
+
+                    // 2. Attach the custom BarcodeAnalyzer
+                    imageAnalysis.setAnalyzer(
+                        ContextCompat.getMainExecutor(ctx),
+                        BarcodeAnalyzer{ barcode ->
+                            onBarcodeScanned(barcode)
+                        }
+                    )
+
                     try {
                         cameraProvider.unbindAll()
                         cameraProvider.bindToLifecycle(
                             lifecycleOwner,
                             cameraSelector,
-                            preview
+                            preview,
+                            imageAnalysis
                         )
                     } catch (e: Exception) {
                         Timber.e(e, "Camera Use Case Binding Failed")
