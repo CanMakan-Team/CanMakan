@@ -4,6 +4,8 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DietaryRestrictionRepository
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.SampleDietaryRestrictionRepository
 import javax.inject.Singleton
 
 @Module

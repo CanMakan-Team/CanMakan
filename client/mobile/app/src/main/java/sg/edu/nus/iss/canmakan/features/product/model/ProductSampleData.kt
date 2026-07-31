@@ -1,6 +1,7 @@
 package sg.edu.nus.iss.canmakan.features.product.model
 
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.model.DietaryProfileModels.DietaryOption
+//import sg.edu.nus.iss.canmakan.features.dietaryprofile.model.DietaryProfileModels.DietaryOption
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DietaryRestriction
 
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 
@@ -74,24 +75,24 @@ object ProductSampleData {
         )
     )
 
-    fun religiousOptions() = listOf(
-        DietaryOption("Halal", isSelected = true),
-        DietaryOption("Kosher")
-    )
-
-    fun allergyOptions() = listOf(
-        DietaryOption("Dairy-Free"),
-        DietaryOption("Egg Allergy"),
-        DietaryOption("Gluten Allergy"),
-        DietaryOption("Lactose Intolerant"),
-        DietaryOption("Peanut Allergy"),
-        DietaryOption("Sesame Allergy"),
-        DietaryOption("Tree Nut Allergy")
-    )
-
-    fun specificDietOptions() = listOf(
-        DietaryOption("Keto Diet"),
-        DietaryOption("Low Cholesterol"),
-        DietaryOption("Low Salt")
-    )
+//    fun religiousOptions() = listOf(
+//        DietaryRestriction("Halal", isSelected = true),
+//        DietaryOption("Kosher")
+//    )
+//
+//    fun allergyOptions() = listOf(
+//        DietaryOption("Dairy-Free"),
+//        DietaryOption("Egg Allergy"),
+//        DietaryOption("Gluten Allergy"),
+//        DietaryOption("Lactose Intolerant"),
+//        DietaryOption("Peanut Allergy"),
+//        DietaryOption("Sesame Allergy"),
+//        DietaryOption("Tree Nut Allergy")
+//    )
+//
+//    fun specificDietOptions() = listOf(
+//        DietaryOption("Keto Diet"),
+//        DietaryOption("Low Cholesterol"),
+//        DietaryOption("Low Salt")
+//    )
 }

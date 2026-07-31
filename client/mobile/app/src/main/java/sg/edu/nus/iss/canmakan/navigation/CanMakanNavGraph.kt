@@ -18,7 +18,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
-import sg.edu.nus.iss.canmakan.features.userprofile.EditDietaryRequirementsSheet
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DietaryRestrictionSheet
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
 import sg.edu.nus.iss.canmakan.features.product.history.HistoryScreen
@@ -115,11 +115,11 @@ fun CanMakanNavGraph(
 
         if (showEditDietarySheet) {
             ModalBottomSheet(onDismissRequest = { showEditDietarySheet = false }) {
-                EditDietaryRequirementsSheet(
+                DietaryRestrictionSheet(
                     profileName = activeProfile.name,
                     profileRole = activeProfile.role,
                     onCancel = { showEditDietarySheet = false },
-                    onSave = { _, _, _ -> showEditDietarySheet = false }
+                    onSave = {showEditDietarySheet = false}
                 )
             }
         }

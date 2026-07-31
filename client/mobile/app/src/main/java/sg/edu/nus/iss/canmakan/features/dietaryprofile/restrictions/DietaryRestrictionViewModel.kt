@@ -18,7 +18,7 @@ data class DietaryRestriction(
 )
 
 data class ProfileRestriction(
-    val userprofileId: Long,
+    val dietaryProfileId: Long,
     val dietaryRestrictionId: Long,
     val severityLevel: String = "STRICT_AVOID"
 )
@@ -82,7 +82,6 @@ class DietaryRestrictionViewModel @Inject constructor(
             )
         }
     }
-
     // This function permits only 1 religious restriction to be selected at any time
     fun selectReligiousRestriction(restrictionId: Long) {
         val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
@@ -104,5 +103,16 @@ class DietaryRestrictionViewModel @Inject constructor(
         }
 
         _uiState.value = _uiState.value.copy(selectedRestrictions = currentSelections)
+    }
+    
+    fun onSave() {
+        // because saveDietaryRestrictionSelections ia a suspend fun, it can only be called
+        // from inside a coroutine, hence viewModelScope.launch is required
+        viewModelScope.launch {
+            dietaryRestrictionRepo.saveDietaryRestrictionSelections(
+                profileId = activeProfileManager.currentProfileId.value,
+                selections = _uiState.value.selectedRestrictions)
+        }
+
     }
 }
