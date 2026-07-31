@@ -114,6 +114,9 @@ The backend health endpoint is
 
 - Environment variables, credentials, and secrets are included in gitignore to prevent secrets leakage
 - Implemented Gitleaks via [`.github/workflows/secret-scan.yml`](.github/workflows/secret-scan.yml)
+> Configured Gitleaks to run on: all pull requests, pushes to main <br>
+> Uses actions/checkout with full history (fetch-depth: 0) for commit scanning <br>
+> Uses GitHub-provided GITHUB_TOKEN <br>
 
 ### Dependabot
 
@@ -128,9 +131,9 @@ Configuration: [`.github/dependabot.yml`](.github/dependabot.yml)
 | Gradle | `client/mobile` | Weekly |
 | GitHub Actions | `/` | Weekly |
 
-Dependabot opens pull requests for version and security updates. Review and run the relevant CI checks before merging.
-
-> **Note:** Dependabot does not replace application security controls (e.g. Spring Security RBAC, secret management). It only monitors dependency risk.
+> Dependabot opens pull requests for version and security updates.  <br>
+> Review and run the relevant CI checks before merging. <br>
+> Set PR limits and labels for easier triage <br>
 
 ## Current status
 
