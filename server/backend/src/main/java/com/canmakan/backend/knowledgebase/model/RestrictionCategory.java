@@ -1,4 +1,4 @@
-package com.canmakan.backend.assessment.model;
+package com.canmakan.backend.knowledgebase.model;
 
 /**
  * Defines the dietary restriction categories supported by the rule engine.
