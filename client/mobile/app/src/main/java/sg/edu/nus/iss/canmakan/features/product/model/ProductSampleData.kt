@@ -1,6 +1,6 @@
 package sg.edu.nus.iss.canmakan.features.product.model
 
-import sg.edu.nus.iss.canmakan.features.userprofile.model.DietaryOption
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.model.DietaryProfileModels.DietaryOption
 
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 
