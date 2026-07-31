@@ -1,4 +1,4 @@
-# features/userprofile
+# features/dietaryprofile
 
 Individual dietary needs and restrictions.
 
