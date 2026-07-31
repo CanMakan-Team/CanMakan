@@ -1,8 +1,5 @@
 package sg.edu.nus.iss.canmakan.features.product.model
 
-//import sg.edu.nus.iss.canmakan.features.dietaryprofile.model.DietaryProfileModels.DietaryOption
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DietaryRestriction
-
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 
 // Sample data used to fill the screens while there is no backend or

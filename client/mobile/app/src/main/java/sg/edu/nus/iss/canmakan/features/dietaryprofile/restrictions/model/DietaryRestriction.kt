@@ -1,6 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile.model
-
-import android.R.attr.category
+package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model
 
 // One selectable option in the Edit Dietary Requirements sheet.
 data class DietaryRestriction(
@@ -8,5 +6,5 @@ data class DietaryRestriction(
     val code: String,
     val displayName: String,
     val category: String,
-    val description: String
+    val description: String? = null
 )

@@ -6,34 +6,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.repo.DietaryRestrictionRepository
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestrictionSheetUiState
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import javax.inject.Inject
 
-data class DietaryRestriction(
-    val id: Long,
-    val code: String,
-    val displayName: String,
-    val category: String,
-    val description: String?
-)
-
-data class ProfileRestriction(
-    val dietaryProfileId: Long,
-    val dietaryRestrictionId: Long,
-    val severityLevel: String = "STRICT_AVOID"
-)
-
-data class DietaryRestrictionSheetUiState(
-    val religiousRestrictions: List<DietaryRestriction> = emptyList(),
-    val allergenRestrictions: List<DietaryRestriction> = emptyList(),
-    val dietRestrictions: List<DietaryRestriction> = emptyList(),
-    // Map is a dictionary with key-value pairs
-    val selectedRestrictions: Map<Long, String> = emptyMap(), // key: restriction_id, value: severity_level
-    val isLoading: Boolean = false,
-    val errorMessage: String? = null
-
-)
 @HiltViewModel
 class DietaryRestrictionViewModel @Inject constructor(
     private val activeProfileManager: ActiveProfileManager,

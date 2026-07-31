@@ -1,12 +1,11 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.repo.server
+package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data
 
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DietaryRestriction
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.repo.DietaryRestrictionRepository
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
 import javax.inject.Inject
 
 class ServerDietaryRestrictionRepository @Inject constructor(
     private val dietaryRestrictionApiService: DietaryRestrictionApiService
-): DietaryRestrictionRepository{
+) : DietaryRestrictionRepository {
 
     override suspend fun getAllDietaryRestrictions(): List<DietaryRestriction> {
         return dietaryRestrictionApiService.getAllDietaryRestrictions()
@@ -20,7 +19,6 @@ class ServerDietaryRestrictionRepository @Inject constructor(
         profileId: Long,
         selections: Map<Long, String>
     ) {
-        return dietaryRestrictionApiService.saveDietaryRestrictionSelections(profileId, selections)
+        dietaryRestrictionApiService.saveDietaryRestrictionSelections(profileId, selections)
     }
-
 }
