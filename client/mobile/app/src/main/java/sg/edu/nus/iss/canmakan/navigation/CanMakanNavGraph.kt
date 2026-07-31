@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.EditDietaryRequirementsSheet
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
 import sg.edu.nus.iss.canmakan.features.product.history.HistoryScreen
 import sg.edu.nus.iss.canmakan.features.product.model.ProductSampleData
@@ -36,7 +37,7 @@ fun CanMakanNavGraph() {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    var activeProfile by remember { mutableStateOf(ProductSampleData.profiles.first()) }
+    var activeProfile by remember { mutableStateOf(ActiveProfileManager.DEFAULT_PROFILE_ID)) }
     var showEditDietarySheet by remember { mutableStateOf(false) }
 
     fun openDrawer() = scope.launch { drawerState.open() }
@@ -109,9 +110,6 @@ fun CanMakanNavGraph() {
                 EditDietaryRequirementsSheet(
                     profileName = activeProfile.name,
                     profileRole = activeProfile.role,
-                    religiousOptions = ProductSampleData.religiousOptions(),
-                    allergyOptions = ProductSampleData.allergyOptions(),
-                    specificDietOptions = ProductSampleData.specificDietOptions(),
                     onCancel = { showEditDietarySheet = false },
                     onSave = { _, _, _ -> showEditDietarySheet = false }
                 )

@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import javax.inject.Inject
 
 data class DietaryRestriction(
@@ -34,6 +35,7 @@ data class DietaryRestrictionSheetUiState(
 )
 @HiltViewModel
 class DietaryRestrictionViewModel @Inject constructor(
+    private val activeProfileManager: ActiveProfileManager,
     private val dietaryRestrictionRepo: DietaryRestrictionRepository,
 ): ViewModel() {
 
@@ -41,6 +43,23 @@ class DietaryRestrictionViewModel @Inject constructor(
     // StateFlow is read-only to the UI, so UI can observe, but not change it
     private val _uiState = MutableStateFlow(DietaryRestrictionSheetUiState())
     val uiState: StateFlow<DietaryRestrictionSheetUiState> = _uiState
+
+    init {
+        viewModelScope.launch {
+            activeProfileManager.currentProfileId.collect { profileId ->
+                loadDietaryRestrictionsForProfile(profileId)
+            }
+        }
+    }
+
+    private suspend fun loadDietaryRestrictionsForProfile(profileId: Long) {
+        _uiState.value = _uiState.value.copy(isLoading = true)
+        val savedDietaryRestrictions = dietaryRestrictionRepo.getDietaryRestrictionsForProfile(profileId)
+        _uiState.value = _uiState.value.copy(
+            selectedRestrictions = savedDietaryRestrictions,
+            isLoading = false
+        )
+    }
 
     fun loadDietaryRestrictions() {
         // viewModelScope is a CoroutineScope tied to the lifetime of ViewModel.
@@ -64,6 +83,17 @@ class DietaryRestrictionViewModel @Inject constructor(
         }
     }
 
+    // This function permits only 1 religious restriction to be selected at any time
+    fun selectReligiousRestriction(restrictionId: Long) {
+        val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
+
+        val religiousIds = _uiState.value.religiousRestrictions.map {it.id}
+        religiousIds.forEach {id -> currentSelections.remove(id)}
+
+        currentSelections[restrictionId] = "STRICT_AVOID"
+
+        _uiState.value = _uiState.value.copy(selectedRestrictions = currentSelections)
+    }
     fun toggleDietaryRestriction(restrictionId: Long) {
         val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
 

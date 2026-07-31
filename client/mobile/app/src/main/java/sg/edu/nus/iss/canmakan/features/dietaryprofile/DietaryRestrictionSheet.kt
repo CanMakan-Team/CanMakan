@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,7 +34,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.model.DietaryOption
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
@@ -46,16 +48,19 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 fun EditDietaryRequirementsSheet(
     profileName: String,
     profileRole: String,
-    religiousOptions: List<DietaryOption>,
-    allergyOptions: List<DietaryOption>,
-    specificDietOptions: List<DietaryOption>,
+    viewModel: DietaryRestrictionViewModel = hiltViewModel(),
     onCancel: () -> Unit,
-    onSave: (List<DietaryOption>, List<DietaryOption>, List<DietaryOption>) -> Unit
+    onSave: (List<DietaryRestriction>, List<DietaryRestriction>, List<DietaryRestriction>) -> Unit
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.loadDietaryRestrictions()
+    }
+    // read current UI state from ViewModel and rerun whenever state changes
+    val uiState = viewModel.uiState.collectAsStateWithLifecycle()
     // Local copies so a change only takes effect once "Save" is pressed.
-    var religious by remember { mutableStateOf(religiousOptions) }
-    var allergies by remember { mutableStateOf(allergyOptions) }
-    var specificDiets by remember { mutableStateOf(specificDietOptions) }
+    var religious by remember { mutableStateOf(uiState.value.religiousRestrictions) }
+    var allergies by remember { mutableStateOf(uiState.value.allergenRestrictions) }
+    var specificDiets by remember { mutableStateOf(uiState.value.dietRestrictions) }
 
     Column(modifier = Modifier.padding(20.dp)) {
         Row(
@@ -79,17 +84,26 @@ fun EditDietaryRequirementsSheet(
         Spacer(modifier = Modifier.height(16.dp))
         Text("RELIGIOUS", color = TextSecondary)
         Spacer(modifier = Modifier.height(8.dp))
-        SingleChoiceRow(options = religious) { updated -> religious = updated }
+        SingleChoiceRow(
+            options = uiState.value.religiousRestrictions,
+            selectedIds = uiState.value.selectedRestrictions.keys
+        ) { selectedId -> viewModel.selectReligiousRestriction(selectedId) }
 
         Spacer(modifier = Modifier.height(16.dp))
         Text("ALLERGIES & INTOLERANCES", color = TextSecondary)
         Spacer(modifier = Modifier.height(8.dp))
-        MultiChoiceGrid(options = allergies) { updated -> allergies = updated }
+        MultiChoiceGrid(
+            options = uiState.value.allergenRestrictions,
+            selectedIds = uiState.value.selectedRestrictions.keys
+        ) { selectedId -> viewModel.toggleDietaryRestriction(selectedId) }
 
         Spacer(modifier = Modifier.height(16.dp))
         Text("SPECIFIC DIETS", color = TextSecondary)
         Spacer(modifier = Modifier.height(8.dp))
-        MultiChoiceGrid(options = specificDiets) { updated -> specificDiets = updated }
+        MultiChoiceGrid(
+            options = uiState.value.dietRestrictions,
+            selectedIds = uiState.value.selectedRestrictions.keys
+        ) { selectedId -> viewModel.toggleDietaryRestriction(selectedId) }
 
         Spacer(modifier = Modifier.height(20.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -109,16 +123,19 @@ fun EditDietaryRequirementsSheet(
 
 // Religious diet is a single choice, shown as two options side by side.
 @Composable
-private fun SingleChoiceRow(options: List<DietaryOption>, onChange: (List<DietaryOption>) -> Unit) {
+private fun SingleChoiceRow(
+    options: List<DietaryRestriction>,
+    selectedIds: Set<Long>,
+    onToggle: (Long) -> Unit
+) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         options.forEachIndexed { index, option ->
             SelectableOptionCard(
-                label = option.label,
-                isSelected = option.isSelected,
+                label = option.displayName,
+                isSelected = selectedIds.contains(option.id),
                 modifier = Modifier.weight(1f)
             ) {
-                val updated = options.mapIndexed { i, item -> item.copy(isSelected = i == index) }
-                onChange(updated)
+                onToggle(option.id)
             }
         }
     }
@@ -127,7 +144,11 @@ private fun SingleChoiceRow(options: List<DietaryOption>, onChange: (List<Dietar
 // Allergies and specific diets allow more than one to be picked at once,
 // laid out as a two-column grid.
 @Composable
-private fun MultiChoiceGrid(options: List<DietaryOption>, onChange: (List<DietaryOption>) -> Unit) {
+private fun MultiChoiceGrid(
+    options: List<DietaryRestriction>,
+    selectedIds: Set<Long>,
+    onToggle: (Long) -> Unit
+) {
     val rows = options.chunked(2)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         rows.forEach { rowOptions ->
@@ -135,14 +156,11 @@ private fun MultiChoiceGrid(options: List<DietaryOption>, onChange: (List<Dietar
                 rowOptions.forEach { option ->
                     val index = options.indexOf(option)
                     SelectableOptionCard(
-                        label = option.label,
-                        isSelected = option.isSelected,
+                        label = option.displayName,
+                        isSelected = selectedIds.contains(option.id),
                         modifier = Modifier.weight(1f)
                     ) {
-                        val updated = options.mapIndexed { i, item ->
-                            if (i == index) item.copy(isSelected = !item.isSelected) else item
-                        }
-                        onChange(updated)
+                        onToggle(option.id)
                     }
                 }
                 if (rowOptions.size == 1) {
