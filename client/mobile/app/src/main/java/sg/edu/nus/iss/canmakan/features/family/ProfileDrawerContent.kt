@@ -91,7 +91,7 @@ fun ProfileDrawerContent(
 
         Spacer(modifier = Modifier.height(12.dp))
         OutlinedButton(onClick = onEditDietaryClick, modifier = Modifier.fillMaxWidth()) {
-            Text("Edit dietary requirements", color = DrawerTextMuted)
+            Text("Edit dietary restrictions", color = DrawerTextMuted)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
