@@ -57,9 +57,9 @@ public class DietaryProfileService {
     // Saves selected dietary restrictions to specific profile
     // 1. Validate profile ID and load the target profile
     // 2. Resolve all requested restriction IDs to managed entities
-    // 3. Index existing profile restrictions by restriction ID
+    // 3. Remove restrictions that are no longer selected
     // 4. Update severity for existing restrictions and add brand-new ones
-    // 5. Save profile so JPA flushes the relationship changes
+    // 5. Replace the profile's restriction set and save so JPA flushes the relationship changes
     @Transactional
     public void saveDietaryRestrictionSelections(Long profileId, Map<Long, String> selections) {
         if (profileId == null) {
@@ -78,14 +78,17 @@ public class DietaryProfileService {
             requestedRestrictions.put(restrictionId, restriction);
         }
 
-        Map<Long, ProfileRestriction> existingByRestrictionId = profile.getProfileRestrictions().stream()
+        Set<Long> requestedIds = requestedSelections.keySet();
+        Set<ProfileRestriction> profileRestrictions = profile.getProfileRestrictions();
+        List<ProfileRestriction> restrictionsToRemove = profileRestrictions.stream()
+            .filter(profileRestriction -> !requestedIds.contains(profileRestriction.getDietaryRestriction().getId()))
+            .toList();
+        profileRestrictions.removeAll(restrictionsToRemove);
+
+        Map<Long, ProfileRestriction> existingByRestrictionId = profileRestrictions.stream()
             .collect(Collectors.toMap(
                 profileRestriction -> profileRestriction.getDietaryRestriction().getId(),
                 profileRestriction -> profileRestriction));
-
-        Set<Long> requestedIds = requestedSelections.keySet();
-        profile.getProfileRestrictions().removeIf(
-            profileRestriction -> !requestedIds.contains(profileRestriction.getDietaryRestriction().getId()));
 
         for (Map.Entry<Long, String> entry : requestedSelections.entrySet()) {
             ProfileRestriction existing = existingByRestrictionId.get(entry.getKey());
@@ -99,7 +102,7 @@ public class DietaryProfileService {
             profileRestriction.setDietaryProfile(profile);
             profileRestriction.setDietaryRestriction(requestedRestrictions.get(entry.getKey()));
             profileRestriction.setSeverityLevel(entry.getValue());
-            profile.getProfileRestrictions().add(profileRestriction);
+            profileRestrictions.add(profileRestriction);
         }
 
         dietaryProfileRepository.save(profile);
