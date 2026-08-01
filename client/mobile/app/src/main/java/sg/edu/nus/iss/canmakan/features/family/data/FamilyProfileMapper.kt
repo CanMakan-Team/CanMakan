@@ -6,9 +6,11 @@ object FamilyProfileMapper {
     fun fromResponse(response: FamilyProfileResponse): DietaryProfile {
         return DietaryProfile(
             id = response.id,
-            name = response.name.orEmpty(),
-            role = response.role.orEmpty(),
-            initials = response.initials.orEmpty()
+            familyId = response.familyId,
+            profileName = response.profileName.orEmpty(),
+            relationship = response.relationship.orEmpty(),
+            initials = response.initials.orEmpty(),
+            isPrimary = response.isPrimary
         )
     }
 

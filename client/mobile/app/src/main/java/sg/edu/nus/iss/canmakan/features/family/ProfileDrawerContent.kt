@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,8 +21,13 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import org.checkerframework.checker.units.qual.s
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.DrawerBackground
@@ -49,7 +56,9 @@ fun ProfileDrawerContent(
     onScannerClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onSignOutClick: () -> Unit,
-    onCloseClick: () -> Unit
+    onCloseClick: () -> Unit,
+    onCreateNewClick: () -> Unit,
+    onAddProfileClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -73,33 +82,43 @@ fun ProfileDrawerContent(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-        Text("ACTIVE PROFILE", color = DrawerTextMuted)
+        Text("ACTIVE PROFILE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
         Spacer(modifier = Modifier.height(8.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(10.dp)) {
             InitialsAvatar(initials = activeProfile.initials, background = PrimaryGreen)
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(activeProfile.name, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(activeProfile.profileName, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.width(6.dp))
-                    AdminTag()
+                    if(activeProfile.isPrimary) AdminTag()
                 }
-                Text(activeProfile.role, color = DrawerTextMuted)
+                Text(activeProfile.relationship, color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
         OutlinedButton(onClick = onEditDietaryClick, modifier = Modifier.fillMaxWidth()) {
-            Text("Edit dietary requirements", color = DrawerTextMuted)
+            Text("Edit dietary restrictions", color = DrawerTextMuted)
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-        Text("SWITCH PROFILE", color = DrawerTextMuted)
+        Spacer(modifier = Modifier.height(10.dp))
+
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = 8.dp),
+            thickness = 1.dp,
+            color = Color.DarkGray
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+        Text("SWITCH PROFILE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
         Spacer(modifier = Modifier.height(8.dp))
 
         profiles.forEach { profile ->
-            val isActive = profile.name == activeProfile.name
+            if (activeProfile == null) return
+            val isActive = profile.profileName == activeProfile.profileName
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -112,8 +131,12 @@ fun ProfileDrawerContent(
                 InitialsAvatar(initials = profile.initials, background = avatarColorFor(profile))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(profile.name, color = Color.White, fontWeight = FontWeight.Medium)
-                    Text(profile.role, color = DrawerTextMuted)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(profile.profileName, color = Color.White, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        if(profile.isPrimary) AdminTag()
+                    }
+                    Text(profile.relationship, color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
                 }
                 if (isActive) {
                     Box(
@@ -125,9 +148,16 @@ fun ProfileDrawerContent(
                 }
             }
         }
+        Spacer(modifier = Modifier.height(10.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
-        Text("NAVIGATE", color = DrawerTextMuted)
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = 8.dp),
+            thickness = 1.dp,
+            color = Color.DarkGray
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+        Text("NAVIGATE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
         Spacer(modifier = Modifier.height(8.dp))
 
         DrawerNavRow(icon = Icons.Default.CropFree, label = "Scanner", onClick = onScannerClick)
@@ -136,20 +166,64 @@ fun ProfileDrawerContent(
             icon = Icons.Default.AccessTime,
             label = "History",
             isSelected = true,
-            onClick = onHistoryClick
+            onClick = onHistoryClick,
+
+        )
+
+//        Spacer(modifier = Modifier.weight(1f))
+
+//        Row(
+//            verticalAlignment = Alignment.CenterVertically,
+//            modifier = Modifier
+//                .clickable { onSignOutClick() }
+//                .padding(vertical = 8.dp)
+//        ) {
+//            Icon(Icons.Default.ExitToApp, contentDescription = "Sign out", tint = AvoidRed)
+//            Spacer(modifier = Modifier.width(8.dp))
+//            Text("Sign Out", color = AvoidRed)
+//        }
+        Spacer(modifier = Modifier.height(10.dp))
+
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = 8.dp),
+            thickness = 1.dp,
+            color = Color.DarkGray
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+        Text("MANAGE FAMILY", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        DrawerNavRow(icon = Icons.Default.PersonAdd, label = "Create New Family Member", onClick = onCreateNewClick)
+        Spacer(modifier = Modifier.height(4.dp))
+        DrawerNavRow(
+            icon = Icons.Default.Group,
+            label = "Add Profile to Family",
+            isSelected = false,
+            onClick = onAddProfileClick
         )
 
         Spacer(modifier = Modifier.weight(1f))
 
         Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .clickable { onSignOutClick() }
-                .padding(vertical = 8.dp)
-        ) {
-            Icon(Icons.Default.ExitToApp, contentDescription = "Sign out", tint = AvoidRed)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Sign Out", color = AvoidRed)
+            modifier = Modifier.fillMaxWidth()
+            ) {
+
+            Row(verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clickable { onSignOutClick() }
+                    .padding(vertical = 8.dp)) {
+                Icon(Icons.Default.ExitToApp, contentDescription = "Sign out", tint = AvoidRed)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Sign Out", color = AvoidRed)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = 8.dp)) {
+                Icon(Icons.Default.Settings, contentDescription = "", tint = Color.White)
+
+            }
         }
     }
 }
@@ -172,6 +246,7 @@ private fun AdminTag() {
     Text(
         text = "Admin",
         color = Color.White,
+        style = MaterialTheme.typography.labelSmall,
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))
             .background(PrimaryGreen)
@@ -197,14 +272,14 @@ private fun DrawerNavRow(
     ) {
         Icon(icon, contentDescription = label, tint = Color.White)
         Spacer(modifier = Modifier.width(12.dp))
-        Text(label, color = Color.White)
+        Text(label, color = Color.White, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
 // Derive a stable avatar color from the profile's identity instead of
 // hardcoding specific names.
 private fun avatarColorFor(profile: DietaryProfile): Color {
-    val hash = profile.name.trim().lowercase().hashCode()
+    val hash = profile.profileName.trim().lowercase().hashCode()
     return when (hash % 4) {
         0 -> Color(0xFFD9752B)
         1 -> Color(0xFF2B6FD9)

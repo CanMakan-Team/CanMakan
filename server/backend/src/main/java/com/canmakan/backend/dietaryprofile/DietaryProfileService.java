@@ -46,10 +46,12 @@ public class DietaryProfileService {
             .map(profile -> new DietaryProfileSummaryDto(
                 profile.getId(),
                 profile.getProfileName(),
+                profile.getFamily() == null ? null : profile.getFamily().getId(),
                 profile.getRelationship(),
                 profile.getProfileName() == null || profile.getProfileName().isBlank()
                     ? ""
-                    : profile.getProfileName().substring(0, Math.min(2, profile.getProfileName().length())).toUpperCase()
+                    : profile.getProfileName().substring(0, Math.min(2, profile.getProfileName().length())).toUpperCase(),
+                profile.isPrimary()
             ))
             .toList();
     }
@@ -136,8 +138,10 @@ public class DietaryProfileService {
 
     public record DietaryProfileSummaryDto(
         Long id,
-        String name,
-        String role,
-        String initials) {
+        String profileName,
+        Long familyId,
+        String relationship,
+        String initials,
+        Boolean isPrimary) {
     }
 }

@@ -71,7 +71,7 @@ fun HistoryScreen(
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.headlineSmall
                 )
-                Text("Recent scans for ${activeProfile.name}", color = TextSecondary)
+                Text("Recent scans for ${activeProfile.profileName}", color = TextSecondary)
                 Spacer(modifier = Modifier.height(12.dp))
             }
             LazyColumn(
