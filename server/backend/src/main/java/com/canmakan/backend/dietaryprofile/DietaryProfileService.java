@@ -37,6 +37,23 @@ public class DietaryProfileService {
                 .toList();
     }
 
+    public List<DietaryProfileSummaryDto> getProfilesByFamilyId(Long familyId) {
+        if (familyId == null) {
+            throw new IllegalArgumentException("Family id is required");
+        }
+
+        return dietaryProfileRepository.findProfilesByFamilyId(familyId).stream()
+            .map(profile -> new DietaryProfileSummaryDto(
+                profile.getId(),
+                profile.getProfileName(),
+                profile.getRelationship(),
+                profile.getProfileName() == null || profile.getProfileName().isBlank()
+                    ? ""
+                    : profile.getProfileName().substring(0, Math.min(2, profile.getProfileName().length())).toUpperCase()
+            ))
+            .toList();
+    }
+
     // Retrieves dietary restrictions already set under specific profile
     // Builds a Map<Long, String>, where the key is Restriction ID and value is Severity Level
     // Linked Hash Map - preserve insertion order
@@ -115,5 +132,12 @@ public class DietaryProfileService {
         String displayName,
         String category,
         String description) {
+    }
+
+    public record DietaryProfileSummaryDto(
+        Long id,
+        String name,
+        String role,
+        String initials) {
     }
 }
