@@ -2,6 +2,7 @@ package com.canmakan.backend.dietaryprofile;
 
 import com.canmakan.backend.family.Family;
 import com.canmakan.backend.shared.AuditableEntity;
+import com.canmakan.backend.user.UserAccount;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -12,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -44,6 +46,10 @@ public class DietaryProfile extends AuditableEntity {
     @ManyToOne
     @JoinColumn(name = "family_id", nullable = false)
     private Family family;
+
+    @OneToOne
+    @JoinColumn(name = "linked_user_id")
+    private UserAccount linkedUser;
 
     @Column(name = "profile_name", nullable = false, length = 100)
     private String profileName;

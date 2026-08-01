@@ -13,8 +13,8 @@ Each top-level package represents a cohesive business capability. This makes the
 1. **Feature over layer**  
    Related behaviour stays together (e.g. scanning, verdict, recommendation and history all live under `product`).
 
-2. **Thin common package**  
-   `common` contains only technical cross-cutting concerns (config, security infrastructure, exceptions, utilities). No business logic.
+2. **Thin shared package**  
+   `shared` contains only technical cross-cutting concerns (config, security infrastructure, exceptions, utilities). No business logic.
 
 3. **Clear boundaries**  
    - Business features → their own packages  
@@ -29,7 +29,7 @@ Each top-level package represents a cohesive business capability. This makes the
 ```
 | Package            | Purpose                                              |
 |--------------------|------------------------------------------------------|
-| `common`           | Shared technical foundation (config, security, util) |
+| `shared`           | Shared technical foundation (config, security, util) |
 | `auth`             | Login, logout, tokens, sessions                      |
 | `dietaryprofile`   | Individual dietary needs and restrictions            |
 | `family`           | Family membership and active profile switching       |
@@ -40,6 +40,30 @@ Each top-level package represents a cohesive business capability. This makes the
 | `integration`      | External API clients (Open Food Facts, OpenRouter…)  |
 ```
 See individual package README files for detailed responsibilities.
+
+## Package Status
+
+This repository uses feature-first package boundaries even though implementation depth differs by package.
+
+```
+|     Package      |       Status       |                                 Notes                            |
+|------------------|--------------------|------------------------------------------------------------------|
+| `dietaryprofile` |     Implemented    | Active API, service, repository, and entity mapping              |
+| `family`         |     Foundation     | Core entity and schema are present; richer workflows in progress |
+| `user`           |     Foundation     | User entity mapping used for profile linkage and ownership       |
+| `knowledgebase`  |     Foundation     | Domain models available; service APIs in progress                |
+| `product`        |     Foundation     | Initial model types available                                    |
+| `auth`           |    Planned/partial | Package scaffolded; implementation to expand                     |
+| `admin`          |    Planned/partial | Package scaffolded; implementation to expand                     |
+| `analytics`      |    Planned/partial | Package scaffolded; implementation to expand                     |
+| `integration`    |    Planned/partial | Package scaffolded; implementation to expand                     |
+```
+
+## Resource Source Of Truth
+
+- Edit SQL and app config files only in `src/main/resources`.
+- The `target/` directory contains generated/copied outputs from build and test runs; do not edit files there.
+- Any files under generated build output paths are non-source artifacts.
 
 ## Technology
 
