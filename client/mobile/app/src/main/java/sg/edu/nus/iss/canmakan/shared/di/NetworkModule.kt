@@ -11,6 +11,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import sg.edu.nus.iss.canmakan.BuildConfig
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionApiService
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -58,5 +59,11 @@ object NetworkModule {
     @Singleton
     fun provideDietaryRestrictionApiService(retrofit: Retrofit): DietaryRestrictionApiService {
         return retrofit.create(DietaryRestrictionApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFamilyProfileApiService(retrofit: Retrofit): FamilyProfileApiService {
+        return retrofit.create(FamilyProfileApiService::class.java)
     }
 }

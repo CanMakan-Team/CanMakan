@@ -37,6 +37,23 @@ public class DietaryProfileService {
                 .toList();
     }
 
+    public List<DietaryProfileSummaryDto> getProfilesByFamilyId(Long familyId) {
+        if (familyId == null) {
+            throw new IllegalArgumentException("Family id is required");
+        }
+
+        return dietaryProfileRepository.findProfilesByFamilyId(familyId).stream()
+            .map(profile -> new DietaryProfileSummaryDto(
+                profile.getId(),
+                profile.getProfileName(),
+                profile.getRelationship(),
+                profile.getProfileName() == null || profile.getProfileName().isBlank()
+                    ? ""
+                    : profile.getProfileName().substring(0, Math.min(2, profile.getProfileName().length())).toUpperCase()
+            ))
+            .toList();
+    }
+
     // Retrieves dietary restrictions already set under specific profile
     // Builds a Map<Long, String>, where the key is Restriction ID and value is Severity Level
     // Linked Hash Map - preserve insertion order
@@ -57,9 +74,9 @@ public class DietaryProfileService {
     // Saves selected dietary restrictions to specific profile
     // 1. Validate profile ID and load the target profile
     // 2. Resolve all requested restriction IDs to managed entities
-    // 3. Index existing profile restrictions by restriction ID
+    // 3. Remove restrictions that are no longer selected
     // 4. Update severity for existing restrictions and add brand-new ones
-    // 5. Save profile so JPA flushes the relationship changes
+    // 5. Replace the profile's restriction set and save so JPA flushes the relationship changes
     @Transactional
     public void saveDietaryRestrictionSelections(Long profileId, Map<Long, String> selections) {
         if (profileId == null) {
@@ -78,14 +95,17 @@ public class DietaryProfileService {
             requestedRestrictions.put(restrictionId, restriction);
         }
 
-        Map<Long, ProfileRestriction> existingByRestrictionId = profile.getProfileRestrictions().stream()
+        Set<Long> requestedIds = requestedSelections.keySet();
+        Set<ProfileRestriction> profileRestrictions = profile.getProfileRestrictions();
+        List<ProfileRestriction> restrictionsToRemove = profileRestrictions.stream()
+            .filter(profileRestriction -> !requestedIds.contains(profileRestriction.getDietaryRestriction().getId()))
+            .toList();
+        profileRestrictions.removeAll(restrictionsToRemove);
+
+        Map<Long, ProfileRestriction> existingByRestrictionId = profileRestrictions.stream()
             .collect(Collectors.toMap(
                 profileRestriction -> profileRestriction.getDietaryRestriction().getId(),
                 profileRestriction -> profileRestriction));
-
-        Set<Long> requestedIds = requestedSelections.keySet();
-        profile.getProfileRestrictions().removeIf(
-            profileRestriction -> !requestedIds.contains(profileRestriction.getDietaryRestriction().getId()));
 
         for (Map.Entry<Long, String> entry : requestedSelections.entrySet()) {
             ProfileRestriction existing = existingByRestrictionId.get(entry.getKey());
@@ -99,7 +119,7 @@ public class DietaryProfileService {
             profileRestriction.setDietaryProfile(profile);
             profileRestriction.setDietaryRestriction(requestedRestrictions.get(entry.getKey()));
             profileRestriction.setSeverityLevel(entry.getValue());
-            profile.getProfileRestrictions().add(profileRestriction);
+            profileRestrictions.add(profileRestriction);
         }
 
         dietaryProfileRepository.save(profile);
@@ -112,5 +132,12 @@ public class DietaryProfileService {
         String displayName,
         String category,
         String description) {
+    }
+
+    public record DietaryProfileSummaryDto(
+        Long id,
+        String name,
+        String role,
+        String initials) {
     }
 }

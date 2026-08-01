@@ -109,7 +109,7 @@ fun ProfileDrawerContent(
                     .clickable { onProfileSelected(profile) }
                     .padding(10.dp)
             ) {
-                InitialsAvatar(initials = profile.initials, background = avatarColorFor(profile.name))
+                InitialsAvatar(initials = profile.initials, background = avatarColorFor(profile))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(profile.name, color = Color.White, fontWeight = FontWeight.Medium)
@@ -201,11 +201,14 @@ private fun DrawerNavRow(
     }
 }
 
-// Gives each non-active profile a distinct avatar color, matching the
-// original design: orange for Alice, blue for Ben, purple for Grandma.
-private fun avatarColorFor(name: String): Color = when (name) {
-    "Alice" -> Color(0xFFD9752B)
-    "Ben" -> Color(0xFF2B6FD9)
-    "Grandma" -> Color(0xFF8B4FD9)
-    else -> PrimaryGreen
+// Derive a stable avatar color from the profile's identity instead of
+// hardcoding specific names.
+private fun avatarColorFor(profile: DietaryProfile): Color {
+    val hash = profile.name.trim().lowercase().hashCode()
+    return when (hash % 4) {
+        0 -> Color(0xFFD9752B)
+        1 -> Color(0xFF2B6FD9)
+        2 -> Color(0xFF8B4FD9)
+        else -> PrimaryGreen
+    }
 }

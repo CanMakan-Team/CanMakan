@@ -19,7 +19,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui.DietaryRestrictionSheet
-import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
 import sg.edu.nus.iss.canmakan.features.product.history.HistoryScreen
 import sg.edu.nus.iss.canmakan.features.product.model.ProductSampleData
@@ -44,8 +43,11 @@ fun CanMakanNavGraph(
 
     val currentProfileId by navGraphViewModel.currentProfileId.collectAsStateWithLifecycle()
     val activeRestrictions by navGraphViewModel.activeRestrictions.collectAsStateWithLifecycle()
-    
-    val activeProfile = ProductSampleData.profiles.firstOrNull { it.id == currentProfileId } ?: ProductSampleData.profiles.first()
+    val profiles by navGraphViewModel.profiles.collectAsStateWithLifecycle()
+
+    val activeProfile = profiles.firstOrNull { it.id == currentProfileId }
+        ?: profiles.firstOrNull()
+        ?: ProductSampleData.profiles.first()
     var showEditDietarySheet by remember { mutableStateOf(false) }
 
     fun openDrawer() = scope.launch { drawerState.open() }
@@ -56,7 +58,7 @@ fun CanMakanNavGraph(
         drawerContent = {
             ModalDrawerSheet {
                 ProfileDrawerContent(
-                    profiles = ProductSampleData.profiles,
+                    profiles = profiles,
                     activeProfile = activeProfile,
                     onProfileSelected = { selected ->
                         navGraphViewModel.switchProfile(selected.id)

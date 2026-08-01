@@ -23,4 +23,7 @@ public interface DietaryProfileRepository extends JpaRepository<DietaryProfile, 
 
     @Query("select d from DietaryRestriction d where d.id = :restrictionId")
     Optional<DietaryRestriction> findRestrictionById(@Param("restrictionId") Long restrictionId);
+
+    @Query("select dp from DietaryProfile dp where dp.family.id = :familyId order by dp.profileName asc")
+    List<DietaryProfile> findProfilesByFamilyId(@Param("familyId") Long familyId);
 }
