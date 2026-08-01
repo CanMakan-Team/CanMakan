@@ -4,7 +4,9 @@ import com.google.gson.annotations.SerializedName
 
 data class FamilyProfileResponse(
     @SerializedName("id") val id: Long,
-    @SerializedName("name") val name: String,
-    @SerializedName("role") val role: String,
-    @SerializedName("initials") val initials: String
+    @SerializedName("profileName") val profileName: String,
+    @SerializedName("familyId") val familyId: Long,
+    @SerializedName("relationship") val relationship: String,
+    @SerializedName("initials") val initials: String,
+    @SerializedName("isPrimary") val isPrimary: Boolean
 )

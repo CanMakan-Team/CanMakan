@@ -190,7 +190,7 @@ fun ScannerScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "${stringResource(id = R.string.dietary_profile_restrictions).uppercase()} - ${activeProfile.name.uppercase()}",
+                        "${stringResource(id = R.string.dietary_profile_restrictions).uppercase()} - ${activeProfile.profileName.uppercase()}",
                         color = TextSecondary,
                         style = MaterialTheme.typography.labelMedium
                     )

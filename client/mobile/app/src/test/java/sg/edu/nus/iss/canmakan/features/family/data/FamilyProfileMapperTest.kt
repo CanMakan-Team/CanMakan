@@ -16,8 +16,8 @@ class FamilyProfileMapperTest {
         val profile = FamilyProfileMapper.fromResponse(response)
 
         assertEquals(7L, profile.id)
-        assertEquals("Noah", profile.name)
-        assertEquals("Child", profile.role)
+        assertEquals("Noah", profile.profileName)
+        assertEquals("Child", profile.relationship)
         assertEquals("N", profile.initials)
     }
 }

@@ -90,7 +90,7 @@ fun ActiveProfileChip(profile: DietaryProfile) {
             Text(profile.initials, color = Color.White)
         }
         Spacer(modifier = Modifier.width(8.dp))
-        Text(profile.name, fontWeight = FontWeight.Medium, color = TextPrimary)
+        Text(profile.profileName, fontWeight = FontWeight.Medium, color = TextPrimary)
         Spacer(modifier = Modifier.width(4.dp))
         Text("\u203A", color = TextPrimary)
     }

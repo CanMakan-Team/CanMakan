@@ -46,8 +46,7 @@ fun CanMakanNavGraph(
     val profiles by navGraphViewModel.profiles.collectAsStateWithLifecycle()
 
     val activeProfile = profiles.firstOrNull { it.id == currentProfileId }
-        ?: profiles.firstOrNull()
-        ?: ProductSampleData.profiles.first()
+        ?: profiles.firstOrNull() ?: return
     var showEditDietarySheet by remember { mutableStateOf(false) }
 
     fun openDrawer() = scope.launch { drawerState.open() }
@@ -107,7 +106,7 @@ fun CanMakanNavGraph(
                     product = ProductSampleData.scannedProduct,
                     flags = ProductSampleData.productFlags,
                     alternatives = ProductSampleData.alternatives,
-                    profileName = activeProfile.name,
+                    profileName = activeProfile.profileName,
                     onBackClick = { navController.popBackStack() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) }
@@ -118,8 +117,8 @@ fun CanMakanNavGraph(
         if (showEditDietarySheet) {
             ModalBottomSheet(onDismissRequest = { showEditDietarySheet = false }) {
                 DietaryRestrictionSheet(
-                    profileName = activeProfile.name,
-                    profileRole = activeProfile.role,
+                    profileName = activeProfile.profileName,
+                    profileRole = activeProfile.relationship,
                     onCancel = { showEditDietarySheet = false },
                     onSave = {
                         showEditDietarySheet = false

@@ -81,11 +81,11 @@ fun ProfileDrawerContent(
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(activeProfile.name, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(activeProfile.profileName, color = Color.White, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.width(6.dp))
-                    AdminTag()
+                    if(activeProfile.isPrimary) AdminTag()
                 }
-                Text(activeProfile.role, color = DrawerTextMuted)
+                Text(activeProfile.relationship, color = DrawerTextMuted)
             }
         }
 
@@ -99,7 +99,8 @@ fun ProfileDrawerContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         profiles.forEach { profile ->
-            val isActive = profile.name == activeProfile.name
+            if (activeProfile == null) return
+            val isActive = profile.profileName == activeProfile.profileName
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -112,8 +113,12 @@ fun ProfileDrawerContent(
                 InitialsAvatar(initials = profile.initials, background = avatarColorFor(profile))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(profile.name, color = Color.White, fontWeight = FontWeight.Medium)
-                    Text(profile.role, color = DrawerTextMuted)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(profile.profileName, color = Color.White, fontWeight = FontWeight.Medium)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        if(profile.isPrimary) AdminTag()
+                    }
+                    Text(profile.relationship, color = DrawerTextMuted)
                 }
                 if (isActive) {
                     Box(
@@ -204,7 +209,7 @@ private fun DrawerNavRow(
 // Derive a stable avatar color from the profile's identity instead of
 // hardcoding specific names.
 private fun avatarColorFor(profile: DietaryProfile): Color {
-    val hash = profile.name.trim().lowercase().hashCode()
+    val hash = profile.profileName.trim().lowercase().hashCode()
     return when (hash % 4) {
         0 -> Color(0xFFD9752B)
         1 -> Color(0xFF2B6FD9)
