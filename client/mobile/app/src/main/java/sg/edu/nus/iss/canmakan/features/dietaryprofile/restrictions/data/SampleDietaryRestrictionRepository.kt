@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data
 
+// Local sample implementation that returns hard-coded dietary restriction data for development and testing.
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.ProfileRestriction
 import javax.inject.Inject
@@ -91,7 +92,7 @@ class SampleDietaryRestrictionRepository @Inject constructor() : DietaryRestrict
     override suspend fun saveDietaryRestrictionSelections(
         profileId: Long,
         selections: Map<Long, String>
-    ) {
+    ): Boolean {
         sampleProfileRestriction.removeAll { it.dietaryProfileId == profileId }
 
         val newEntries = selections.map { (restrictionId, severity) ->
@@ -102,5 +103,6 @@ class SampleDietaryRestrictionRepository @Inject constructor() : DietaryRestrict
             )
         }
         sampleProfileRestriction.addAll(newEntries)
+        return true
     }
 }

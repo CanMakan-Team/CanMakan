@@ -72,6 +72,11 @@ class BarcodeAnalyzer (
      * Releases ML Kit resources. Call this when the analyzer is no longer needed.
      */
     fun close() {
-        scanner.close()
+        isScanningEnabled.set(false)
+        try {
+            scanner.close()
+        } catch (e: Exception) {
+            Timber.e(e, "Error closing barcode scanner")
+        }
     }
 }

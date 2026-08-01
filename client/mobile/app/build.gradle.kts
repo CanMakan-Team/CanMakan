@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.ApplicationExtension
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -8,6 +9,15 @@ plugins {
     id("kotlin-parcelize")
 
 }
+
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+}
+val baseUrl = localProperties.getProperty("BASE_URL")
+    ?: project.findProperty("BASE_URL")?.toString()
+    ?: "http://10.0.2.2:8080/api/"
 
 extensions.configure<ApplicationExtension> {
     namespace = "sg.edu.nus.iss.canmakan"
@@ -19,6 +29,7 @@ extensions.configure<ApplicationExtension> {
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

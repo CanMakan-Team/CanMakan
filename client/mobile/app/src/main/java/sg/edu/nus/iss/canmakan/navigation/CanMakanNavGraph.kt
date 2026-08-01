@@ -42,10 +42,10 @@ fun CanMakanNavGraph(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    val currentProfileId = navGraphViewModel.currentProfileId.collectAsStateWithLifecycle()
-
+    val currentProfileId by navGraphViewModel.currentProfileId.collectAsStateWithLifecycle()
+    val activeRestrictions by navGraphViewModel.activeRestrictions.collectAsStateWithLifecycle()
     
-    var activeProfile = ProductSampleData.profiles.firstOrNull {it.id == currentProfileId.value}?: ProductSampleData.profiles.first()
+    val activeProfile = ProductSampleData.profiles.firstOrNull { it.id == currentProfileId } ?: ProductSampleData.profiles.first()
     var showEditDietarySheet by remember { mutableStateOf(false) }
 
     fun openDrawer() = scope.launch { drawerState.open() }
@@ -84,7 +84,7 @@ fun CanMakanNavGraph(
             composable(ROUTE_SCANNER) {
                 ScannerScreen(
                     activeProfile = activeProfile,
-                    activeRestrictions = listOf("Halal", "Low Sugar"),
+                    activeRestrictions = activeRestrictions,
                     onMenuClick = { openDrawer() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) }
@@ -119,7 +119,10 @@ fun CanMakanNavGraph(
                     profileName = activeProfile.name,
                     profileRole = activeProfile.role,
                     onCancel = { showEditDietarySheet = false },
-                    onSave = {showEditDietarySheet = false}
+                    onSave = {
+                        showEditDietarySheet = false
+                        navGraphViewModel.refreshRestrictions()
+                    }
                 )
             }
         }
