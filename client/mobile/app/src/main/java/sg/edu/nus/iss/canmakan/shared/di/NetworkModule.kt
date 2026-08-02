@@ -13,6 +13,7 @@ import sg.edu.nus.iss.canmakan.BuildConfig
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
+import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -34,6 +35,16 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(loggingInterceptor: HttpLoggingInterceptor): OkHttpClient {
         return OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    // Spoof a standard Chrome browser header to bypass DPI firewalls
+                    .header(
+                        "User-Agent",
+                        "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
+                    )
+                    .build()
+                chain.proceed(request)
+            }
             .addInterceptor(loggingInterceptor)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
@@ -47,7 +58,7 @@ object NetworkModule {
         val configuredBaseUrl = BuildConfig.BASE_URL.trim()
         val baseUrl = if (configuredBaseUrl.isNotEmpty()) configuredBaseUrl else DEFAULT_BASE_URL
         val normalizedBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
-        Log.d("NetworkModule", "Initializing Retrofit with base URL: $normalizedBaseUrl")
+        Timber.tag("NetworkModule").d("Initializing Retrofit with base URL: $normalizedBaseUrl")
 
         return Retrofit.Builder()
             .baseUrl(normalizedBaseUrl)
