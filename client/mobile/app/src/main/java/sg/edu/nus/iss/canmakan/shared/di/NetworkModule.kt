@@ -14,6 +14,7 @@ import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.Dietary
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
 import timber.log.Timber
+import java.net.Proxy
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -35,6 +36,7 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(loggingInterceptor: HttpLoggingInterceptor): OkHttpClient {
         return OkHttpClient.Builder()
+            .proxy(Proxy.NO_PROXY)
             .addInterceptor { chain ->
                 val request = chain.request().newBuilder()
                     // Spoof a standard Chrome browser header to bypass DPI firewalls

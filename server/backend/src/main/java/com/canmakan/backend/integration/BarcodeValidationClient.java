@@ -2,10 +2,10 @@ package com.canmakan.backend.integration;
 
 import com.canmakan.backend.product.scan.ValidationResponse;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 /**
  * Client for interacting with the barcode validation service.
@@ -15,6 +15,7 @@ public class BarcodeValidationClient {
     private final RestClient offRestClient;
     private final RestClient eanRestClient;
     private final String eanSearchToken;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public BarcodeValidationClient(
         @Value("${app.api.ean-search.token}") String eanSearchToken,
@@ -42,29 +43,32 @@ public class BarcodeValidationClient {
     public ValidationResponse validateProduct(String barcode) {
         // 1. Primary Lookup: Open Food Facts
         try {
-            JsonNode offResponse = offRestClient.get()
+            String offResponseStr = offRestClient.get()
                 .uri(barcode + ".json")
                 .retrieve()
-                .body(JsonNode.class);
+                .body(String.class);
 
-            if (offResponse != null && offResponse.has("status")) {
-                String status = offResponse.get("status").asText();
-                if ("success".equalsIgnoreCase(status) || "1".equals(status)) {
-                    JsonNode product = offResponse.get("product");
-                    String category = (product != null && product.has("product_type")) 
-                            ? product.get("product_type").asText() 
-                            : "food";
-                    return new ValidationResponse(true, category, "Valid food product found in Open Food Facts.");
-                } 
+            if (offResponseStr != null) {
+                JsonNode offResponse = objectMapper.readTree(offResponseStr);
+                
+                if (offResponse.has("status")) {
+                    String status = offResponse.get("status").asText();
+                    if ("success".equalsIgnoreCase(status) || "1".equals(status)) {
+                        JsonNode product = offResponse.get("product");
+                        String category = (product != null && product.has("product_type"))
+                                 ? product.get("product_type").asText()
+                                 : "food";
+                        return new ValidationResponse(true, category, "Valid food product found in Open Food Facts.");
+                    }
+                }
             }
-        } catch (RestClientException e) {
-            // Product not found in OFF or API error; suppress and proceed to fallback
+        } catch (Exception e) {
+            // Product not found, API error, or parsing error; suppress and proceed to fallback
         }
 
         // 2. Fallback Lookup: EAN-Search
         try {
-            // Explicitly define the "/api" path in the uriBuilder to avoid concatenation bugs
-            JsonNode eanResponse = eanRestClient.get()
+            String eanResponseStr = eanRestClient.get()
                 .uri(uriBuilder -> uriBuilder
                     .path("/api")
                     .queryParam("token", eanSearchToken)
@@ -73,33 +77,36 @@ public class BarcodeValidationClient {
                     .queryParam("ean", barcode)
                     .build())
                 .retrieve()
-                .body(JsonNode.class);
+                .body(String.class);
 
-            if (eanResponse != null && eanResponse.isArray() && !eanResponse.isEmpty()) {
-                JsonNode item = eanResponse.get(0);
+            if (eanResponseStr != null) {
+                JsonNode eanResponse = objectMapper.readTree(eanResponseStr);
                 
-                if (item.has("error")) {
-                     return new ValidationResponse(false, "Unknown", "Product not found in fallback database.");
-                }
+                if (eanResponse.isArray() && !eanResponse.isEmpty()) {
+                    JsonNode item = eanResponse.get(0);
+                    
+                    if (item.has("error")) {
+                         return new ValidationResponse(false, "Unknown", "Product not found in fallback database.");
+                    }
 
-                // Use path() instead of get() to handle missing elements gracefully without NullPointerExceptions
-                String name = item.path("name").asText("").toLowerCase();
-                String category = item.path("categoryName").asText("").toLowerCase();
-                
-                boolean isFood = category.contains("food") || 
-                                 category.contains("grocery") ||
-                                 name.contains("snack") || 
-                                 name.contains("drink") || 
-                                 name.contains("beverage");
+                    String name = item.path("name").asText("").toLowerCase();
+                    String category = item.path("categoryName").asText("").toLowerCase();
+                    
+                    boolean isFood = category.contains("food") ||
+                                     category.contains("grocery") ||
+                                     name.contains("snack") ||
+                                     name.contains("drink") ||
+                                     name.contains("beverage");
 
-                if (isFood) {
-                    return new ValidationResponse(true, category, "Valid food product found in EAN-Search.");
-                } else {
-                    return new ValidationResponse(false, category, "Error: Scanned item is a non-consumable product.");
+                    if (isFood) {
+                        return new ValidationResponse(true, category, "Valid food product found in EAN-Search.");
+                    } else {
+                        return new ValidationResponse(false, category, "Error: Scanned item is a non-consumable product.");
+                    }
                 }
             }
-        } catch (RestClientException e) {
-            // EAN-Search failed
+        } catch (Exception e) {
+            // EAN-Search failed or parsing error
         }
 
         // 3. Neither API yielded a result
