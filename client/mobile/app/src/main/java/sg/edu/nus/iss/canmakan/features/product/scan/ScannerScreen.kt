@@ -67,11 +67,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
-import sg.edu.nus.iss.canmakan.shared.ui.theme.DepressedBlue
-import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
-import sg.edu.nus.iss.canmakan.shared.ui.theme.MutedBlue
-import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
-import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
+import sg.edu.nus.iss.canmakan.shared.ui.theme.*
 import timber.log.Timber
 
 /**
@@ -330,11 +326,11 @@ fun ValidationOverlay(viewModel: ScannerViewModel) {
     val state by viewModel.validationState.collectAsState()
 
     val (backgroundColor, statusText) = when (state) {
-        ValidationState.IDLE -> Pair(Color.Transparent, "")
-        ValidationState.VALIDATING -> Pair(Color(0xCC000000), "Verifying product...")
-        ValidationState.VALID -> Pair(Color(0xCC19764D), "Generating Safety Verdicts...")       // Safe Green
-        ValidationState.INVALID -> Pair(Color(0xCCA13D38), "Error: Non-Food Item")              // Avoid Red
-        ValidationState.ERROR -> Pair(Color(0xCCA13D38), "Product not found or network error")
+        ValidationState.IDLE -> Pair(Color.Transparent, 0)
+        ValidationState.VALIDATING -> Pair(OpaqueBlack, R.string.validation_state_validating)
+        ValidationState.VALID -> Pair(OpaqueDarkGreen, R.string.validation_state_valid)     // Safe Green
+        ValidationState.INVALID -> Pair(OpaqueDeepRed, R.string.validation_state_invalid)   // Avoid Red
+        ValidationState.ERROR -> Pair(OpaqueDeepRed, R.string.validation_state_error)
     }
 
     if (state != ValidationState.IDLE) {
@@ -353,7 +349,11 @@ fun ValidationOverlay(viewModel: ScannerViewModel) {
                     CircularProgressIndicator(color = Color.White)
                     Spacer(modifier = Modifier.height(16.dp))
                 }
-                Text(statusText, color = Color.White, fontWeight = FontWeight.Bold)
+                Text(
+                    text = stringResource(id = statusText),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

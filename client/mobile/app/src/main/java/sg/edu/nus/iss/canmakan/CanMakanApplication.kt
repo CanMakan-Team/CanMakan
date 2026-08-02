@@ -14,7 +14,7 @@ class CanMakanApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        if (sg.edu.nus.iss.canmakan.BuildConfig.DEBUG) {
+        if (BuildConfig.DEBUG) {
             Timber.plant(DebugTree())
         }
     }

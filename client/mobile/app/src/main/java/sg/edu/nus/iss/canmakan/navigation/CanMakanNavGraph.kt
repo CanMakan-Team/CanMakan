@@ -1,5 +1,8 @@
-package sg.edu.nus.iss.canmakan
+package sg.edu.nus.iss.canmakan.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -12,6 +15,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
@@ -50,7 +56,16 @@ fun CanMakanNavGraph(
     val profiles by navGraphViewModel.profiles.collectAsStateWithLifecycle()
 
     val activeProfile = profiles.firstOrNull { it.id == currentProfileId }
-        ?: profiles.firstOrNull() ?: return
+        ?: profiles.firstOrNull()
+
+    if (activeProfile == null) {
+        // Show a loading screen while profiles are being fetched
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
     var showEditDietarySheet by remember { mutableStateOf(false) }
 
     fun openDrawer() = scope.launch { drawerState.open() }
