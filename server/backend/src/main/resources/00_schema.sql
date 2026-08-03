@@ -126,14 +126,19 @@ CREATE TABLE family_invitations (
 CREATE TABLE dietary_profiles (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     family_id BIGINT NOT NULL,
+    linked_user_id BIGINT NULL,
     profile_name VARCHAR(100) NOT NULL,
     relationship VARCHAR(30) DEFAULT 'SELF',
     is_primary TINYINT(1) DEFAULT 0,
     avatar_url VARCHAR(255) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_dietary_profiles_linked_user UNIQUE (linked_user_id),
     CONSTRAINT fk_dietary_profiles_family
         FOREIGN KEY (family_id) REFERENCES families(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_dietary_profiles_user
+        FOREIGN KEY (linked_user_id) REFERENCES users(id)
         ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -430,7 +435,7 @@ CREATE INDEX idx_ing_rest_status ON ingredient_restrictions (dietary_restriction
 
 CREATE INDEX idx_products_brand ON products (brand);
 CREATE INDEX idx_products_categories ON products (categories(255));
-CREATE INDEX idx_products_ main_category ON products (main_category(255));
+CREATE INDEX idx_products_main_category ON products (main_category(255));
 
 
 CREATE INDEX idx_product_ingredients_ingredient_id ON product_ingredients (ingredient_id);

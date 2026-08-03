@@ -1,5 +1,8 @@
-package sg.edu.nus.iss.canmakan
+package sg.edu.nus.iss.canmakan.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -12,24 +15,30 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
-import sg.edu.nus.iss.canmakan.features.userprofile.EditDietaryRequirementsSheet
-import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui.DietaryRestrictionSheet
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
 import sg.edu.nus.iss.canmakan.features.product.history.HistoryScreen
 import sg.edu.nus.iss.canmakan.features.product.model.ProductSampleData
 import sg.edu.nus.iss.canmakan.features.product.scan.ScannerScreen
 import sg.edu.nus.iss.canmakan.features.product.verdict.ProductDetailScreen
+import sg.edu.nus.iss.canmakan.features.family.ui.CreateNewProfileScreen
+import sg.edu.nus.iss.canmakan.features.family.ui.AddProfileToFamilyScreen
 import sg.edu.nus.iss.canmakan.navigation.CanMakanNavGraphViewModel
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
 private const val ROUTE_PRODUCT_DETAIL = "product_detail"
+private const val ROUTE_CREATE_NEW = "create_new"
+private const val ROUTE_ADD_PROFILE = "add_profile"
 
 // The top-level screen. It wires together the navigation between the
 // three screens, the side drawer, and the edit dietary requirements sheet.
@@ -42,10 +51,21 @@ fun CanMakanNavGraph(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    val currentProfileId = navGraphViewModel.currentProfileId.collectAsStateWithLifecycle()
+    val currentProfileId by navGraphViewModel.currentProfileId.collectAsStateWithLifecycle()
+    val activeRestrictions by navGraphViewModel.activeRestrictions.collectAsStateWithLifecycle()
+    val profiles by navGraphViewModel.profiles.collectAsStateWithLifecycle()
 
-    
-    var activeProfile = ProductSampleData.profiles.firstOrNull {it.id == currentProfileId.value}?: ProductSampleData.profiles.first()
+    val activeProfile = profiles.firstOrNull { it.id == currentProfileId }
+        ?: profiles.firstOrNull()
+
+    if (activeProfile == null) {
+        // Show a loading screen while profiles are being fetched
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
     var showEditDietarySheet by remember { mutableStateOf(false) }
 
     fun openDrawer() = scope.launch { drawerState.open() }
@@ -56,7 +76,7 @@ fun CanMakanNavGraph(
         drawerContent = {
             ModalDrawerSheet {
                 ProfileDrawerContent(
-                    profiles = ProductSampleData.profiles,
+                    profiles = profiles,
                     activeProfile = activeProfile,
                     onProfileSelected = { selected ->
                         navGraphViewModel.switchProfile(selected.id)
@@ -75,7 +95,15 @@ fun CanMakanNavGraph(
                         navController.navigate(ROUTE_HISTORY)
                     },
                     onSignOutClick = { closeDrawer() },
-                    onCloseClick = { closeDrawer() }
+                    onCloseClick = { closeDrawer() },
+                    onCreateNewClick = {
+                        closeDrawer()
+                        navController.navigate(ROUTE_CREATE_NEW)
+                    },
+                    onAddProfileClick = {
+                        closeDrawer()
+                        navController.navigate(ROUTE_ADD_PROFILE)
+                    }
                 )
             }
         }
@@ -84,7 +112,7 @@ fun CanMakanNavGraph(
             composable(ROUTE_SCANNER) {
                 ScannerScreen(
                     activeProfile = activeProfile,
-                    activeRestrictions = listOf("Halal", "Low Sugar"),
+                    activeRestrictions = activeRestrictions,
                     onMenuClick = { openDrawer() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) }
@@ -105,21 +133,52 @@ fun CanMakanNavGraph(
                     product = ProductSampleData.scannedProduct,
                     flags = ProductSampleData.productFlags,
                     alternatives = ProductSampleData.alternatives,
-                    profileName = activeProfile.name,
+                    profileName = activeProfile.profileName,
                     onBackClick = { navController.popBackStack() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) }
+                )
+            }
+            composable(ROUTE_CREATE_NEW) {
+                CreateNewProfileScreen(
+                    activeProfile = activeProfile,
+                    onMenuClick = { openDrawer() },
+                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
+                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onBackClick = { navController.popBackStack() },
+                    onCancelClick = { navController.popBackStack() },
+                    onCreateClick = { _, _, _ -> 
+                        navController.popBackStack()
+                        navGraphViewModel.refreshRestrictions()
+                    }
+                )
+            }
+            composable(ROUTE_ADD_PROFILE) {
+                AddProfileToFamilyScreen(
+                    activeProfile = activeProfile,
+                    onMenuClick = { openDrawer() },
+                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
+                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onBackClick = { navController.popBackStack() },
+                    onCancelClick = { navController.popBackStack() },
+                    onAddProfileClick = { _, _ -> 
+                        navController.popBackStack()
+                        navGraphViewModel.refreshRestrictions()
+                    }
                 )
             }
         }
 
         if (showEditDietarySheet) {
             ModalBottomSheet(onDismissRequest = { showEditDietarySheet = false }) {
-                EditDietaryRequirementsSheet(
-                    profileName = activeProfile.name,
-                    profileRole = activeProfile.role,
+                DietaryRestrictionSheet(
+                    profileName = activeProfile.profileName,
+                    profileRole = activeProfile.relationship,
                     onCancel = { showEditDietarySheet = false },
-                    onSave = { _, _, _ -> showEditDietarySheet = false }
+                    onSave = {
+                        showEditDietarySheet = false
+                        navGraphViewModel.refreshRestrictions()
+                    }
                 )
             }
         }

@@ -1,5 +1,8 @@
-package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions
+package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data
 
+// Local sample implementation that returns hard-coded dietary restriction data for development and testing.
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.ProfileRestriction
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -57,34 +60,49 @@ class SampleDietaryRestrictionRepository @Inject constructor() : DietaryRestrict
         ),
     )
 
-    val SampleProfileRestriction: List<ProfileRestriction> = listOf(
+    private var sampleProfileRestriction: MutableList<ProfileRestriction> = mutableListOf(
         ProfileRestriction(
-            userprofileId = 1L,
+            dietaryProfileId = 1L,
             dietaryRestrictionId = 1L,
             severityLevel = "STRICT_AVOID"
         ),
-
         ProfileRestriction(
-            userprofileId = 1L,
+            dietaryProfileId = 1L,
             dietaryRestrictionId = 3L,
             severityLevel = "STRICT_AVOID"
         ),
-
         ProfileRestriction(
-            userprofileId = 2L,
+            dietaryProfileId = 2L,
             dietaryRestrictionId = 2L,
             severityLevel = "STRICT_AVOID"
         ),
-
         ProfileRestriction(
-            userprofileId = 2L,
+            dietaryProfileId = 2L,
             dietaryRestrictionId = 5L,
             severityLevel = "STRICT_AVOID"
         )
     )
+
     override suspend fun getDietaryRestrictionsForProfile(profileId: Long): Map<Long, String> {
-        return SampleProfileRestriction
-            .filter { it.userprofileId == profileId }
-            .associate {it.dietaryRestrictionId to it.severityLevel}
+        return sampleProfileRestriction
+            .filter { it.dietaryProfileId == profileId }
+            .associate { it.dietaryRestrictionId to it.severityLevel }
+    }
+
+    override suspend fun saveDietaryRestrictionSelections(
+        profileId: Long,
+        selections: Map<Long, String>
+    ): Boolean {
+        sampleProfileRestriction.removeAll { it.dietaryProfileId == profileId }
+
+        val newEntries = selections.map { (restrictionId, severity) ->
+            ProfileRestriction(
+                dietaryProfileId = profileId,
+                dietaryRestrictionId = restrictionId,
+                severityLevel = severity
+            )
+        }
+        sampleProfileRestriction.addAll(newEntries)
+        return true
     }
 }

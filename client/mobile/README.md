@@ -68,4 +68,6 @@ On macOS or Linux:
 To run the app interactively, open this directory in Android Studio, select an
 Android device or emulator running API 26 or newer, and run the `app`
 configuration. Keep machine-specific SDK paths in an untracked
-`local.properties` file.
+`local.properties` file. If your backend is not on the default emulator host,
+add a `BASE_URL` entry such as `BASE_URL=http://192.168.1.50:8080/api/` in
+`client/mobile/local.properties` (or pass `-PBASE_URL=...` when building).

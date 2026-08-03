@@ -29,22 +29,22 @@ INSERT INTO family_members (family_id, user_id, member_role, joined_at) VALUES
 -- =============================================
 --  DIETARY PROFILES
 -- =============================================
-INSERT INTO dietary_profiles (id, family_id, profile_name, relationship, is_primary, avatar_url, created_at, updated_at) VALUES
+INSERT INTO dietary_profiles (id, family_id, linked_user_id, profile_name, relationship, is_primary, avatar_url, created_at, updated_at) VALUES
 -- Tan Family Profiles
-(1, 1, 'Sarah Tan', 'SELF', 1, 'https://api.dicebear.com/7.x/avatars/sarah.svg', NOW(), NOW()),
-(2, 1, 'Michael Tan', 'SPOUSE', 0, 'https://api.dicebear.com/7.x/avatars/michael.svg', NOW(), NOW()),
-(3, 1, 'Emily Tan', 'DEPENDENT', 0, 'https://api.dicebear.com/7.x/avatars/emily.svg', NOW(), NOW()),
+(1, 1, 4, 'Sarah Tan', 'SELF', 1, 'https://api.dicebear.com/7.x/avatars/sarah.svg', NOW(), NOW()),
+(2, 1, 5, 'Michael Tan', 'SPOUSE', 0, 'https://api.dicebear.com/7.x/avatars/michael.svg', NOW(), NOW()),
+(3, 1, 6, 'Emily Tan', 'DEPENDENT', 0, 'https://api.dicebear.com/7.x/avatars/emily.svg', NOW(), NOW()),
 
 -- Lim Family Profiles
-(4, 2, 'David Lim', 'SELF', 1, 'https://api.dicebear.com/7.x/avatars/david.svg', NOW(), NOW()),
-(5, 2, 'Jessica Lim', 'SPOUSE', 0, 'https://api.dicebear.com/7.x/avatars/jessica.svg', NOW(), NOW()),
-(6, 2, 'Daniel Lim', 'DEPENDENT', 0, 'https://api.dicebear.com/7.x/avatars/daniel.svg', NOW(), NOW()),
-(7, 2, 'Amanda Lim', 'DEPENDENT', 0, 'https://api.dicebear.com/7.x/avatars/amanda.svg', NOW(), NOW()),
+(4, 2, 7, 'David Lim', 'SELF', 1, 'https://api.dicebear.com/7.x/avatars/david.svg', NOW(), NOW()),
+(5, 2, 8, 'Jessica Lim', 'SPOUSE', 0, 'https://api.dicebear.com/7.x/avatars/jessica.svg', NOW(), NOW()),
+(6, 2, 9, 'Daniel Lim', 'DEPENDENT', 0, 'https://api.dicebear.com/7.x/avatars/daniel.svg', NOW(), NOW()),
+(7, 2, 10, 'Amanda Lim', 'DEPENDENT', 0, 'https://api.dicebear.com/7.x/avatars/amanda.svg', NOW(), NOW()),
 
 -- Wong Family Profiles
-(8, 3, 'James Wong', 'SELF', 1, 'https://api.dicebear.com/7.x/avatars/james.svg', NOW(), NOW()),
-(9, 3, 'Olivia Wong', 'SPOUSE', 0, 'https://api.dicebear.com/7.x/avatars/olivia.svg', NOW(), NOW()),
-(10, 3, 'Robert Wong', 'DEPENDENT', 0, 'https://api.dicebear.com/7.x/avatars/robert.svg', NOW(), NOW());
+(8, 3, 11, 'James Wong', 'SELF', 1, 'https://api.dicebear.com/7.x/avatars/james.svg', NOW(), NOW()),
+(9, 3, 12, 'Olivia Wong', 'SPOUSE', 0, 'https://api.dicebear.com/7.x/avatars/olivia.svg', NOW(), NOW()),
+(10, 3, 13, 'Robert Wong', 'DEPENDENT', 0, 'https://api.dicebear.com/7.x/avatars/robert.svg', NOW(), NOW());
 
 -- =============================================
 --  DIETARY RESTRICTIONS (Reference Data)

@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.ApplicationExtension
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -8,6 +9,15 @@ plugins {
     id("kotlin-parcelize")
 
 }
+
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+}
+val baseUrl = localProperties.getProperty("BASE_URL")
+    ?: project.findProperty("BASE_URL")?.toString()
+    ?: "http://10.0.2.2:8080/api/"
 
 extensions.configure<ApplicationExtension> {
     namespace = "sg.edu.nus.iss.canmakan"
@@ -19,6 +29,7 @@ extensions.configure<ApplicationExtension> {
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -45,6 +56,12 @@ extensions.configure<ApplicationExtension> {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    testOptions {
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
     }
 }
 
@@ -91,14 +108,17 @@ dependencies {
     // 7. Coroutines (Async Operations)
     implementation(libs.kotlinx.coroutines.android)
 
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
+    // 8. Testing
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
+    // 9. Hilt, Compose, Timber
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
