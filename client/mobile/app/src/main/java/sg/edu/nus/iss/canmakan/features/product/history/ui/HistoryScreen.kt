@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.product.history
+package sg.edu.nus.iss.canmakan.features.product.history.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
