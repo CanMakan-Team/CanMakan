@@ -7,10 +7,9 @@ import java.util.List;
  * a colour-coded level, a plain-language explanation, and the individual
  * {@link Finding}s that produced it.
  *
- * <p>Persistence mapping to {@code scans}: {@link Level#SAFE}/{@link Level#WARNING}
- * map directly; {@link Level#AVOID} is stored as {@code "UNSAFE"} in
- * {@code scans.verdict}. {@code explanation} maps to {@code scans.ai_explanation}
- * and {@code findings} to {@code scans.findings_json}.
+ * <p>Persistence mapping to {@code scans}: {@code level} maps directly to
+ * {@code scans.verdict} (SAFE / WARNING / UNSAFE); {@code explanation} maps to
+ * {@code scans.ai_explanation} and {@code findings} to {@code scans.findings_json}.
  *
  * @author XieHuayuan
  */
@@ -20,11 +19,14 @@ public record SafetyVerdict(
         List<Finding> findings
 ) {
 
-    /** User-facing verdict, per the product module contract (Safe / Warning / Avoid). */
+    /**
+     * Verdict level, aligned with {@code scans.verdict}.
+     * ("Avoid" is the user-facing display label the mobile UI shows for UNSAFE.)
+     */
     public enum Level {
         SAFE,
         WARNING,
-        AVOID
+        UNSAFE
     }
 
     public static SafetyVerdict safe(String explanation, List<Finding> findings) {
@@ -35,12 +37,12 @@ public record SafetyVerdict(
         return new SafetyVerdict(Level.WARNING, explanation, findings);
     }
 
-    public static SafetyVerdict avoid(String explanation, List<Finding> findings) {
-        return new SafetyVerdict(Level.AVOID, explanation, findings);
+    public static SafetyVerdict unsafe(String explanation, List<Finding> findings) {
+        return new SafetyVerdict(Level.UNSAFE, explanation, findings);
     }
 
-    /** Value written to {@code scans.verdict} (AVOID persists as UNSAFE). */
+    /** Value written to {@code scans.verdict}. */
     public String toScansVerdict() {
-        return level == Level.AVOID ? "UNSAFE" : level.name();
+        return level.name();
     }
 }
