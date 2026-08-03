@@ -1,5 +1,7 @@
-package com.canmakan.backend.product.verdict;
+package com.canmakan.backend.product.scan;
 
+import com.canmakan.backend.product.verdict.Finding;
+import com.canmakan.backend.product.verdict.SafetyVerdict;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
@@ -9,9 +11,10 @@ import java.util.List;
 
 /**
  * Saves the outcome of a scan into the {@code scans} table after the
- * {@link DietaryRuleEngine} produces a {@link SafetyVerdict}.
+ * {@link com.canmakan.backend.product.verdict.DietaryRuleEngine} produces a
+ * {@link SafetyVerdict}.
  *
- * <p>Call {@link #record} from the scan endpoint (the thin caller) right after
+ * <p>Call {@link #record} from {@code ScanController} right after
  * {@code engine.assess(...)}, e.g.:
  * <pre>
  *   SafetyVerdict verdict = engine.assess(rules, product);

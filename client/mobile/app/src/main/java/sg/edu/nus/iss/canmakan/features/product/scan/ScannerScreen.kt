@@ -31,6 +31,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -38,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,17 +60,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import sg.edu.nus.iss.canmakan.R
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
-import sg.edu.nus.iss.canmakan.shared.ui.theme.DepressedBlue
-import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
-import sg.edu.nus.iss.canmakan.shared.ui.theme.MutedBlue
-import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
-import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
+import sg.edu.nus.iss.canmakan.shared.ui.theme.*
 import timber.log.Timber
 
 /**
@@ -80,7 +79,8 @@ fun ScannerScreen(
     activeRestrictions: List<String>,
     onMenuClick: () -> Unit,
     onScanClick: () -> Unit,
-    onHistoryClick: () -> Unit
+    onHistoryClick: () -> Unit,
+    viewModel: ScannerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null)}
@@ -155,6 +155,7 @@ fun ScannerScreen(
                             }
                         }
                     )
+                    ValidationOverlay(viewModel = viewModel)
                 } else {
                     Text(
                         text = stringResource(id = R.string.scanner_camera_permission_required),
@@ -167,7 +168,11 @@ fun ScannerScreen(
 
             //! Visual Indicator of Barcode Scanning & Parsing to Numeric String Value.
             Button(
-                onClick = onScanClick,
+                onClick = {
+                    scannedBarcode?.let { barcode ->
+                        viewModel.processBarcode(barcode)
+                    } ?: onScanClick()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -190,7 +195,7 @@ fun ScannerScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "${stringResource(id = R.string.dietary_profile_restrictions).uppercase()} - ${activeProfile.name.uppercase()}",
+                        "${stringResource(id = R.string.dietary_profile_restrictions).uppercase()} - ${activeProfile.profileName.uppercase()}",
                         color = TextSecondary,
                         style = MaterialTheme.typography.labelMedium
                     )
@@ -312,6 +317,51 @@ private fun ScanningOverlay() {
         )
     }
 }
+
+/**
+ * Validation Overlay composable.
+ */
+@Composable
+fun ValidationOverlay(viewModel: ScannerViewModel) {
+    val state by viewModel.validationState.collectAsState()
+
+    val (backgroundColor, statusText) = when (state) {
+        ValidationState.IDLE -> Pair(Color.Transparent, 0)
+        ValidationState.VALIDATING -> Pair(OpaqueBlack, R.string.validation_state_validating)
+        ValidationState.VALID -> Pair(OpaqueDarkGreen, R.string.validation_state_valid)     // Safe Green
+        ValidationState.INVALID -> Pair(OpaqueDeepRed, R.string.validation_state_invalid)   // Avoid Red
+        ValidationState.ERROR -> Pair(OpaqueDeepRed, R.string.validation_state_error)
+    }
+
+    if (state != ValidationState.IDLE) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(260.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(backgroundColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (state == ValidationState.VALIDATING || state == ValidationState.VALID) {
+                    CircularProgressIndicator(color = Color.White)
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+                Text(
+                    text = stringResource(id = statusText),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Restrict Pill composable.
+ */
 @Composable
 private fun RestrictPill(text: String) {
     Surface(

@@ -1,4 +1,4 @@
-package com.canmakan.backend.product.verdict;
+package com.canmakan.backend.product.scan;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

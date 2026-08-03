@@ -43,12 +43,12 @@ object ProductSampleData {
         )
     )
 
-    val profiles = listOf(
-        DietaryProfile(id = 1L,"Sarah", "Parent", "ME"),
-        DietaryProfile(id = 2L,"Alice", "Child · Age 9", "AL"),
-        DietaryProfile(id = 3L,"Ben", "Child · Age 13", "BN"),
-        DietaryProfile(id = 4L,"Grandma", "Dependant", "GM")
-    )
+//    val profiles = listOf(
+//        DietaryProfile(id = 1L,"Sarah", "Parent", "ME"),
+//        DietaryProfile(id = 2L,"Alice", "Child · Age 9", "AL"),
+//        DietaryProfile(id = 3L,"Ben", "Child · Age 13", "BN"),
+//        DietaryProfile(id = 4L,"Grandma", "Dependant", "GM")
+//    )
 
     // The product shown on the product detail screen, used for both the
     // "Flags & Details" tab and the "Alternatives" tab.

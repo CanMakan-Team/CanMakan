@@ -1,4 +1,4 @@
-package com.canmakan.backend.product.verdict;
+package com.canmakan.backend.product.scan;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 

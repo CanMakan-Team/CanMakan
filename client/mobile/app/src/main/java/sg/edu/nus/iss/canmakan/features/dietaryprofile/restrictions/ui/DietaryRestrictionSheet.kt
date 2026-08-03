@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -61,7 +62,7 @@ fun DietaryRestrictionSheet(
     // read current UI state from ViewModel and rerun whenever state changes
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Box(modifier = Modifier.fillMaxWidth()) {
+    Box(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -70,7 +71,7 @@ fun DietaryRestrictionSheet(
             ) {
                 Column {
                     Text(
-                        "Edit dietary requirements",
+                        "Edit dietary restrictions",
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
                     )
