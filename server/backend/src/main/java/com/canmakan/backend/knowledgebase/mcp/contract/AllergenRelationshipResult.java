@@ -1,14 +1,20 @@
 package com.canmakan.backend.knowledgebase.mcp.contract;
 
+import com.canmakan.backend.knowledgebase.model.Ingredient;
+
+import java.util.List;
+
 /**
- * Contract for the "allergen relationship lookup" MCP tool (parent/root hierarchy).
- * Shared seam between the MCP client (HY) and the MCP server (MW).
+ * Structured contract for the "allergen relationship lookup" MCP tool.
  *
- * @author XieHuayuan &amp; Amelia Wong (shared contract)
+ * Local matches are fully resolved from the local database, while unresolved items
+ * are left for the external fallback flow.
+ * 
+ * @author XieHuayuan & Amelia
  */
 public record AllergenRelationshipResult(
-        String allergen,         // queried allergen, e.g. "Whey"
-        String parentAllergen,   // e.g. "Milk"
-        String rootAllergen      // e.g. "DAIRY"
-) {
-}
+        List<Ingredient> localMatches,
+        List<String> unresolvedIngredients,
+        String externalSearchSummary,
+        List<Ingredient> externalMatches
+) {}
