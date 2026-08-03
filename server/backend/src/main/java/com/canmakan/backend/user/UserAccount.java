@@ -17,7 +17,9 @@ import lombok.ToString;
 
 /**
  * Lightweight mapping for application users.
- * This allows other entities to reference users via JPA relationships.
+ * This allows other entities to reference users via JPA relationships
+ * 
+ * @author Amelia
  */
 @Getter
 @Setter

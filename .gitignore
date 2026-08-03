@@ -124,3 +124,4 @@ replay_pid*
 *.lock
 .navigation/
 *.apk.d
+.artifacts/
