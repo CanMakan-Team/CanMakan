@@ -2,15 +2,12 @@
 -- CanMakan Schema Initialization Script
 -- =============================================================================
 
-<<<<<<< Updated upstream:server/backend/src/main/resources/schema.sql
-CREATE DATABASE IF NOT EXISTS canmakan
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
+-- CREATE DATABASE IF NOT EXISTS canmakan
+--     CHARACTER SET utf8mb4
+--     COLLATE utf8mb4_unicode_ci;
 
-USE canmakan;
+-- USE canmakan;
 
-=======
->>>>>>> Stashed changes:server/backend/src/main/resources/00_schema.sql
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
