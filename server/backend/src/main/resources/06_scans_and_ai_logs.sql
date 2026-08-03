@@ -2,32 +2,6 @@
 -- SCANS (Product Evaluation Events)
 -- =============================================
 INSERT INTO scans (id, user_id, profile_id, barcode, verdict, ai_explanation, findings_json, scanned_at) VALUES
-<<<<<<< Updated upstream
-(1, 4, 1, '8886001234567', 'SAFE', 
-   'This product contains no gluten ingredients or wheat derivatives.', 
-   '{"matched_rules": [], "allergens_found": []}', 
-   NOW()),
-
-(2, 4, 3, '8886001234568', 'UNSAFE', 
-   'Contains peanuts which violates the user severe peanut allergy constraint.', 
-   '{"matched_rules": ["PEANUT_ALLERGY"], "allergens_found": ["Peanuts"]}', 
-   NOW()),
-
-(3, 7, 4, '8886001234569', 'WARNING', 
-   'Product is not Halal certified but does not explicitly list non-halal ingredients.', 
-   '{"matched_rules": ["HALAL_UNCERTAIN"], "warnings": ["Missing Halal Certification"]}', 
-   NOW()),
-
-(4, 9, 6, '8886001234570', 'UNSAFE', 
-   'Contains shrimp extract, which poses a severe risk due to shellfish allergy.', 
-   '{"matched_rules": ["SHELLFISH_ALLERGY"], "allergens_found": ["Shrimp Extract"]}', 
-   NOW()),
-
-(5, 11, 8, '8886001234571', 'SAFE', 
-   '100% Plant-based vegetarian product with no egg or animal derivatives.', 
-   '{"matched_rules": [], "allergens_found": []}', 
-   NOW());
-=======
 
 -- --------------------------------------------------------------------
 -- Profile 1: Sarah Tan (user_id: 4) -> Gluten (STRICT_AVOID), Low Sugar (PREFERENCE)
@@ -118,7 +92,6 @@ INSERT INTO scans (id, user_id, profile_id, barcode, verdict, ai_explanation, fi
 (48, 11, 10, '8886001234614', 'WARNING', 'Dairy-free soy drink, but contains high sucrose sugar levels (15g/100ml).', '{"matched_rules": ["HIGH_SUGAR_WARNING"], "warnings": ["High Sugar"]}', NOW() - INTERVAL 6 DAY),
 (49, 11, 10, '8886001234615', 'UNSAFE', 'Contains butter fat and milk solids.', '{"matched_rules": ["DAIRY_INTOLERANCE"], "allergens_found": ["Butter Fat", "Milk Solids"]}', NOW() - INTERVAL 3 DAY),
 (50, 11, 10, '8886001234616', 'SAFE', 'Dairy-free fruit sorbet with reduced sugar sweetener.', '{"matched_rules": [], "allergens_found": []}', NOW() - INTERVAL 1 DAY);
->>>>>>> Stashed changes
 
 -- =============================================
 --  AI EXECUTION LOGS (Audit & Diagnostic Trail)
