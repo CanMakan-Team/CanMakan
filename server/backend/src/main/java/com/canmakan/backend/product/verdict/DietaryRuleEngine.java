@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  *
  * <p>Verdict priority (strictest wins):
  * <ul>
- *   <li>a {@code STRICT_AVOID} restriction is violated &rarr; {@link SafetyVerdict.Level#AVOID}</li>
+ *   <li>a {@code STRICT_AVOID} restriction is violated &rarr; {@link SafetyVerdict.Level#UNSAFE}</li>
  *   <li>an {@code INTOLERANCE} is violated, or an ingredient stays unresolved,
  *       or the product data is incomplete &rarr; {@link SafetyVerdict.Level#WARNING}</li>
  *   <li>nothing is triggered and the data is complete &rarr; {@link SafetyVerdict.Level#SAFE}</li>
@@ -103,7 +103,7 @@ public class DietaryRuleEngine {
 
         SafetyVerdict.Level level;
         if (strictHit) {
-            level = SafetyVerdict.Level.AVOID;
+            level = SafetyVerdict.Level.UNSAFE;
         } else if (!findings.isEmpty() || hasUnresolved) {
             level = SafetyVerdict.Level.WARNING;
         } else {
