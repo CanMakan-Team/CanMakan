@@ -1,0 +1,4 @@
+- `[x]` Starting and verifying backend server with diagnostics
+- `[x]` Update NetworkModule.kt with retry logic and increased timeouts
+- `[x]` Update CanMakanNavGraphViewModel.kt with error recovery
+- `[x]` Verification of connectivity and UI data loading

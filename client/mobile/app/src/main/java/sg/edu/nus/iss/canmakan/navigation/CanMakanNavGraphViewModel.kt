@@ -34,40 +34,51 @@ class CanMakanNavGraphViewModel @Inject constructor (
     init {
         viewModelScope.launch {
             currentProfileId.collect { profileId ->
+                loadDataWithRetry(profileId)
+            }
+        }
+    }
+
+    private suspend fun loadDataWithRetry(profileId: Long) {
+        var success = false
+        var tryCount = 0
+        val maxRetry = 3
+
+        while (!success && tryCount <= maxRetry) {
+            try {
                 loadRestrictions(profileId)
                 loadProfilesForFamily(profileId)
+                success = true
+            } catch (e: Exception) {
+                tryCount++
+                if (tryCount <= maxRetry) {
+                    Timber.w("Failed to load data for profile $profileId, retrying in ${tryCount * 2}s... ($tryCount/$maxRetry)")
+                    kotlinx.coroutines.delay(tryCount * 2000L)
+                } else {
+                    Timber.e(e, "Final failure loading data for profile $profileId")
+                }
             }
         }
     }
 
     private suspend fun loadRestrictions(profileId: Long) {
-        try {
-            val allRestrictions = dietaryRestrictionRepo.getAllDietaryRestrictions()
-            val profileSelections = dietaryRestrictionRepo.getDietaryRestrictionsForProfile(profileId)
-            
-            val restrictionNames = allRestrictions
-                .filter { profileSelections.containsKey(it.id) }
-                .map { it.displayName }
-            
-            _activeRestrictions.value = restrictionNames
-        } catch (e: Exception) {
-            Timber.e(e, "Error loading restrictions for profile $profileId")
-            _activeRestrictions.value = emptyList()
-        }
+        val allRestrictions = dietaryRestrictionRepo.getAllDietaryRestrictions()
+        val profileSelections = dietaryRestrictionRepo.getDietaryRestrictionsForProfile(profileId)
+        
+        val restrictionNames = allRestrictions
+            .filter { profileSelections.containsKey(it.id) }
+            .map { it.displayName }
+        
+        _activeRestrictions.value = restrictionNames
     }
 
     private suspend fun loadProfilesForFamily(profileId: Long) {
-        try {
-            val familyId = 1L
-            val loadedProfiles = familyProfileRepository.getProfilesForFamily(familyId)
-            _profiles.value = loadedProfiles
+        val familyId = 1L
+        val loadedProfiles = familyProfileRepository.getProfilesForFamily(familyId)
+        _profiles.value = loadedProfiles
 
-            if (loadedProfiles.none { it.id == profileId }) {
-                activeProfileManager.switchProfile(loadedProfiles.firstOrNull()?.id ?: profileId)
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Error loading profiles for family")
-            _profiles.value = emptyList()
+        if (loadedProfiles.none { it.id == profileId }) {
+            activeProfileManager.switchProfile(loadedProfiles.firstOrNull()?.id ?: profileId)
         }
     }
 
