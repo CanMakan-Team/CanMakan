@@ -125,3 +125,9 @@ replay_pid*
 .navigation/
 *.apk.d
 .artifacts/
+
+# Eclipse
+.classpath
+.project
+.settings/
+.factorypath
