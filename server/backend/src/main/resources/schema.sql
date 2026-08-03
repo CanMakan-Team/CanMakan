@@ -1,14 +1,16 @@
 -- =============================================================================
--- CanMakan schema
--- Re-runnable initialization script
+-- CanMakan Schema Initialization Script
 -- =============================================================================
 
+<<<<<<< Updated upstream:server/backend/src/main/resources/schema.sql
 CREATE DATABASE IF NOT EXISTS canmakan
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
 USE canmakan;
 
+=======
+>>>>>>> Stashed changes:server/backend/src/main/resources/00_schema.sql
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -25,6 +27,7 @@ DROP TABLE IF EXISTS ocr_scan_results;
 DROP TABLE IF EXISTS scans;
 DROP TABLE IF EXISTS product_ingredients;
 DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS ingredient_restrictions;
 DROP TABLE IF EXISTS ingredients;
 DROP TABLE IF EXISTS profile_restrictions;
 DROP TABLE IF EXISTS dietary_restrictions;
@@ -99,7 +102,7 @@ CREATE TABLE families (
 CREATE TABLE family_members (
     family_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
-    member_role VARCHAR(30) NOT NULL DEFAULT 'MEMBER', -- 'PRIMARY_ADMIN' or 'MEMBER'
+    member_role VARCHAR(30) NOT NULL DEFAULT 'MEMBER',
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (family_id, user_id),
     CONSTRAINT fk_fam_members_family
@@ -115,7 +118,7 @@ CREATE TABLE family_invitations (
     family_id BIGINT NOT NULL,
     invited_email VARCHAR(255) NOT NULL,
     invitation_token VARCHAR(100) NOT NULL UNIQUE,
-    `status` VARCHAR(20) DEFAULT 'PENDING', -- 'PENDING', 'ACCEPTED', 'EXPIRED'
+    `status` VARCHAR(20) DEFAULT 'PENDING',
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_fam_invites_family
@@ -139,9 +142,9 @@ CREATE TABLE dietary_profiles (
 
 CREATE TABLE dietary_restrictions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    `code` VARCHAR(50) NOT NULL UNIQUE, -- e.g., 'HALAL', 'LACTOSE_INTOLERANT'
+    `code` VARCHAR(50) NOT NULL UNIQUE,
     display_name VARCHAR(155) NOT NULL,
-    category VARCHAR(45) NOT NULL, -- 'ALLERGEN', 'RELIGIOUS', 'DIET'
+    category VARCHAR(45) NOT NULL,
     `description` TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -165,27 +168,88 @@ CREATE TABLE profile_restrictions (
 CREATE TABLE ingredients (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     ingredient_name VARCHAR(255) NOT NULL UNIQUE,
-    parent_allergen VARCHAR(100) NULL, -- e.g., 'Milk Derivatives'
-    root_allergen VARCHAR(100) NULL,   -- e.g., 'DAIRY'
+    parent_allergen VARCHAR(100) NULL,
+    root_allergen VARCHAR(100) NULL,
     is_chemical_alias TINYINT(1) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE ingredient_restrictions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ingredient_id BIGINT NOT NULL,
+    dietary_restriction_id BIGINT NOT NULL,
+    rule_effect VARCHAR(20) NOT NULL DEFAULT 'CONFLICT',
+    reason VARCHAR(500) NOT NULL,
+    review_status VARCHAR(20) NOT NULL DEFAULT 'PROPOSED',
+    source_name VARCHAR(255) NULL,
+    source_reference VARCHAR(1000) NULL,
+    source_checked_at TIMESTAMP NULL,
+    rule_version INT NOT NULL DEFAULT 1,
+    approved_by VARCHAR(100) NULL,
+    approved_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_ingredient_restriction 
+        UNIQUE (ingredient_id, dietary_restriction_id),
+    CONSTRAINT chk_rule_effect 
+        CHECK (rule_effect IN ('CONFLICT', 'UNCERTAIN', 'ALLOWED')),
+    CONSTRAINT chk_review_status 
+        CHECK (review_status IN ('PROPOSED', 'APPROVED', 'DEPRECATED')),
+    CONSTRAINT fk_ing_rest_ingredient 
+        FOREIGN KEY (ingredient_id) REFERENCES ingredients(id) 
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_ing_rest_restriction 
+        FOREIGN KEY (dietary_restriction_id) REFERENCES dietary_restrictions(id) 
+        ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE products (
     barcode VARCHAR(50) PRIMARY KEY,
     product_name VARCHAR(255) NOT NULL,
+    generic_name VARCHAR(255) NULL,
     brand VARCHAR(255) NULL,
-    category VARCHAR(255) NULL,
+    quantity VARCHAR(100) NULL,
+    serving_size VARCHAR(100) NULL,
+    serving_quantity DECIMAL(8,2) NULL,
+
+    categories TEXT NULL,
+    category_tags TEXT NULL,
+    main_category VARCHAR(1000) NULL,
+    main_category_en VARCHAR(1000) NULL,
+    food_groups VARCHAR(1000) NULL,
+    food_groups_tags TEXT NULL,
+
     ingredients_text TEXT NULL,
+    ingredients_analysis_tags TEXT NULL,
+    allergens TEXT NULL,
+    allergens_en TEXT NULL,
+    traces_tags TEXT NULL,
+    traces_en TEXT NULL,
+
+    labels_tags TEXT NULL,
+    labels_en TEXT NULL,
+    countries_tags TEXT NULL,
     image_url TEXT NULL,
-    countries_tags VARCHAR(255) NULL,
-    labels_tags VARCHAR(255) NULL,
-    labels_en VARCHAR(255) NULL,
+
+    nutrition_grade VARCHAR(10) NULL,
+    no_nutrition_data VARCHAR(10) NULL,
+    completeness DECIMAL(5,2) NULL,
+
+    energy_kcal_100g DECIMAL(8,2) NULL,
+    energy_kj_100g DECIMAL(8,2) NULL,
     sugars_100g DECIMAL(6,2) NULL,
-    sodium_100g DECIMAL(6,2) NULL,
-    trans_fat_100g DECIMAL(6,2) NULL,
-    saturated_fat_100g DECIMAL(6,2) NULL,
+    added_sugars_100g DECIMAL(6,2) NULL,
+    proteins_100g DECIMAL(6,2) NULL,
+    carbohydrates_100g DECIMAL(6,2) NULL,
     fat_100g DECIMAL(6,2) NULL,
-    energy_kcal_100g DECIMAL(6,2) NULL,
+    saturated_fat_100g DECIMAL(6,2) NULL,
+    trans_fat_100g DECIMAL(6,2) NULL,
+    cholesterol_100g DECIMAL(6,2) NULL,
+    fiber_100g DECIMAL(6,2) NULL,
+    sodium_100g DECIMAL(6,2) NULL,
+    salt_100g DECIMAL(6,2) NULL,
+    added_salt_100g DECIMAL(6,2) NULL,
+    alcohol_100g DECIMAL(6,2) NULL,
+
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -209,10 +273,10 @@ CREATE TABLE scans (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
     profile_id BIGINT NOT NULL,
-    barcode VARCHAR(50) NULL, -- nullable: OCR-only / product not found
-    verdict VARCHAR(20) NOT NULL, -- 'SAFE', 'UNSAFE', 'WARNING'
+    barcode VARCHAR(50) NULL,
+    verdict VARCHAR(20) NOT NULL,
     ai_explanation TEXT NULL,
-    findings_json JSON NULL, -- Array: [{"ingredient":"Whey","reason":"Triggers Dairy","severity":"HIGH"}]
+    findings_json JSON NULL,
     scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_scans_user
         FOREIGN KEY (user_id) REFERENCES users(id)
@@ -238,7 +302,7 @@ CREATE TABLE ocr_scan_results (
 CREATE TABLE ai_execution_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     scan_id BIGINT NOT NULL,
-    execution_tier VARCHAR(30) NOT NULL, -- 'TIER_1_RULES', 'TIER_3_LLM'
+    execution_tier VARCHAR(30) NOT NULL,
     model_id VARCHAR(50) NULL,
     prompt_tokens INT NULL,
     completion_tokens INT NULL,
@@ -287,7 +351,7 @@ CREATE TABLE features (
 CREATE TABLE plan_features (
     plan_id BIGINT NOT NULL,
     feature_id BIGINT NOT NULL,
-    limit_value INT DEFAULT -1, -- -1 represents Unlimited
+    limit_value INT DEFAULT -1,
     PRIMARY KEY (plan_id, feature_id),
     CONSTRAINT fk_pf_plan
         FOREIGN KEY (plan_id) REFERENCES subscription_plans(id)
@@ -327,7 +391,7 @@ CREATE TABLE daily_consumer_trends (
 CREATE TABLE admin_audit_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     admin_user_id BIGINT NOT NULL,
-    action_performed VARCHAR(255) NOT NULL, -- e.g., 'EXPORT_ANALYTICS_CSV', 'SUSPEND_USER'
+    action_performed VARCHAR(255) NOT NULL,
     target_entity VARCHAR(50) NULL,
     details JSON NULL,
     ip_address VARCHAR(45) NULL,
@@ -359,16 +423,20 @@ CREATE INDEX idx_dietary_profiles_family_id ON dietary_profiles (family_id);
 
 CREATE INDEX idx_dietary_restrictions_category ON dietary_restrictions (category);
 
-CREATE INDEX idx_profile_restrictions_restriction_id
-    ON profile_restrictions (dietary_restriction_id);
+CREATE INDEX idx_profile_restrictions_restriction_id ON profile_restrictions (dietary_restriction_id);
 
 CREATE INDEX idx_ingredients_root_allergen ON ingredients (root_allergen);
 
-CREATE INDEX idx_products_brand ON products (brand);
-CREATE INDEX idx_products_category ON products (category);
+CREATE INDEX idx_ing_rest_ingredient ON ingredient_restrictions (ingredient_id);
+CREATE INDEX idx_ing_rest_restriction ON ingredient_restrictions (dietary_restriction_id);
+CREATE INDEX idx_ing_rest_status ON ingredient_restrictions (dietary_restriction_id, review_status);
 
-CREATE INDEX idx_product_ingredients_ingredient_id
-    ON product_ingredients (ingredient_id);
+CREATE INDEX idx_products_brand ON products (brand);
+CREATE INDEX idx_products_categories ON products (categories(255));
+CREATE INDEX idx_products_ main_category ON products (main_category(255));
+
+
+CREATE INDEX idx_product_ingredients_ingredient_id ON product_ingredients (ingredient_id);
 
 CREATE INDEX idx_scans_user_id ON scans (user_id);
 CREATE INDEX idx_scans_profile_id ON scans (profile_id);
