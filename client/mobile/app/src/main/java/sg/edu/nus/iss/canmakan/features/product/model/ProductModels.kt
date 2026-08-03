@@ -11,7 +11,7 @@ data class Product(
 enum class ScanVerdict {
     SAFE,
     WARNING,
-    AVOID
+    UNSAFE
 }
 
 // One row in the scan history list.
