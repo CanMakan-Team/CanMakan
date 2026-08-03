@@ -122,4 +122,10 @@ replay_pid*
 *.hprof
 *.lock
 .navigation/
+<<<<<<< Updated upstream
 *.apk.d
+=======
+*.apk.d
+.artifacts/
+/.metadata/
+>>>>>>> Stashed changes
