@@ -4,9 +4,9 @@ import com.canmakan.backend.knowledgebase.mcp.contract.AllergenRelationshipResul
 import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.knowledgebase.repository.DietaryKnowledgeRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
-import org.springframework.ai.mcp.annotation.McpTool;
-import org.springframework.ai.mcp.annotation.McpToolParam;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,13 +31,9 @@ public class AllergenRelationshipTool {
     /**
      * MCP TOOL: Resolve a list of ingredient names against the local database and the fallback search.
      */
-    @McpTool(
-        name = "allergen_relationship_lookup",
-        description = "Resolve ingredient > parent > root allergen hierarchy. Local DB first, then external fallback for unresolved items."
-    )
+    @Tool(name = "allergen_relationship_lookup", description = "Resolve ingredient > parent > root allergen hierarchy. Local DB first, then external fallback for unresolved items.")
     public AllergenRelationshipResult lookup(
-        @McpToolParam (description = "List of ingredient names from the product label", required = true)
-        List<String> ingredients
+        @ToolParam(description = "List of ingredient names from the product label") List<String> ingredients
     ) {
         if (ingredients == null || ingredients.isEmpty()) {
             return new AllergenRelationshipResult(List.of(), List.of(), "", List.of());

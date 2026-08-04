@@ -1,5 +1,6 @@
 package com.canmakan.backend.shared.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -13,7 +14,12 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class HttpClientConfig {
 
     @Bean
-    WebClient webClient(WebClient.Builder builder) {
-        return builder.build();
+    WebClient webClient() {
+        return WebClient.create();
+    }
+
+    @Bean
+    ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 }

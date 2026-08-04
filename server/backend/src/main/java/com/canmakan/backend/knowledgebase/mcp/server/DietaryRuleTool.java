@@ -2,6 +2,8 @@ package com.canmakan.backend.knowledgebase.mcp.server;
 
 import com.canmakan.backend.knowledgebase.mcp.contract.DietaryRuleResult;
 import com.canmakan.backend.knowledgebase.repository.DietaryKnowledgeRepository;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 
 /**
@@ -18,11 +20,9 @@ public class DietaryRuleTool {
         this.repository = repository;
     }
 
-    /**
-     * @param code e.g. "HALAL", "LOW_SUGAR"
-     * @return the rule's category and description
-     */
-    public DietaryRuleResult lookup(String code) {
+    @Tool(name = "dietary_rule_lookup", description = "Fetch the definition and description of a dietary rule by its code (e.g. HALAL, LOW_SUGAR).")
+    public DietaryRuleResult lookup(
+            @ToolParam(description = "Dietary rule code, e.g. HALAL or LOW_SUGAR") String code) {
         if (code == null || code.isBlank()) {
             return new DietaryRuleResult("", "", "");
         }
