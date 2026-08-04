@@ -27,14 +27,25 @@ public class ScanHistoryController {
     /** Scan history for a user, most recent first. */
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<ScanHistoryResponse>> byUser(@PathVariable Long userId) {
-        // TODO: scanRepository.findByUserIdOrderByScannedAtDesc(userId) -> map to response.
-        throw new UnsupportedOperationException("TODO: implement");
+        return ResponseEntity.ok(
+                toResponses(scanRepository.findByUserIdOrderByScannedAtDesc(userId)));
     }
 
     /** Scan history for a dietary profile, most recent first. */
     @GetMapping("/profile/{profileId}")
     public ResponseEntity<List<ScanHistoryResponse>> byProfile(@PathVariable Long profileId) {
-        // TODO: scanRepository.findByProfileIdOrderByScannedAtDesc(profileId) -> map to response.
-        throw new UnsupportedOperationException("TODO: implement");
+        return ResponseEntity.ok(
+                toResponses(scanRepository.findByProfileIdOrderByScannedAtDesc(profileId)));
+    }
+
+    private List<ScanHistoryResponse> toResponses(List<Scan> scans) {
+        return scans.stream()
+                .map(scan -> new ScanHistoryResponse(
+                        scan.getId(),
+                        scan.getBarcode(),
+                        scan.getVerdict(),
+                        scan.getAiExplanation(),
+                        scan.getScannedAt()))
+                .toList();
     }
 }
