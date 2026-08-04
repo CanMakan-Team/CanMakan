@@ -8,7 +8,9 @@ import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.knowledgebase.mcp.contract.CrossContaminationResult;
 
 import jakarta.annotation.PostConstruct;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
@@ -18,8 +20,20 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * In-memory dietary knowledge store used by the MCP knowledge tools.
+ *
+ * Loads ingredient aliases and allergen parent/root hierarchies from
+ * {@link IngredientEntityRepository}, resolves dietary rules via
+ * {@link DietaryProfileRepository}, and analyses label text / Open Food Facts
+ * {@code traces_tags} for cross-contamination signals. Seeded once at startup
+ * via {@link #initialize()}.
+ *
+ * @author Amelia
+ */
 @Repository
-@RequiredArgsConstructor
+@NoArgsConstructor(force = true)
+@RequiredArgsConstructor(onConstructor_ = {@Autowired})
 public class DietaryKnowledgeRepository {
 
     private final IngredientEntityRepository ingredientEntityRepository;
@@ -27,14 +41,6 @@ public class DietaryKnowledgeRepository {
     private final Map<String, Ingredient> ingredientAliases = new LinkedHashMap<>();
     private final Map<String, Ingredient> allergenRelationships = new LinkedHashMap<>();
     private final List<String> crossContaminationKeywords = new ArrayList<>();
-
-    public DietaryKnowledgeRepository() {
-        this(null, null);
-    }
-
-    public DietaryKnowledgeRepository(IngredientEntityRepository ingredientEntityRepository) {
-        this(ingredientEntityRepository, null);
-    }
 
     @PostConstruct
     public void initialize() {
@@ -87,11 +93,14 @@ public class DietaryKnowledgeRepository {
     /**
      * Analyses both free-text label content and structured traces_tags from Open Food Facts.
      *
+     * Milk-family hits always include both {@code MILK} and {@code DAIRY} so callers that
+     * key off either vocabulary still match.
+     *
      * @param labelText   raw ingredients / label text
-     * @param tracesTags  OFF traces_tags string (e.g. "en:milk,en:nuts,en:soy") – can be null
+     * @param tracesTags  OFF traces_tags entries (e.g. ["en:milk", "en:nuts", "en:soy"]) – can be null/empty
      */
     public Optional<CrossContaminationResult> analyseCrossContamination(
-        String labelText, String tracesTags
+        String labelText, List<String> tracesTags
     ) {
 
         List<String> foundAllergens = new ArrayList<>();
@@ -99,10 +108,11 @@ public class DietaryKnowledgeRepository {
 
         // 1. Structured traces_tags from OFF (most reliable but data is sparse)
 
-        if (tracesTags != null && !tracesTags.isBlank() && !"0".equals(tracesTags.trim())) {
+        List<String> normalizedTags = normalizeTracesTags(tracesTags);
+        if (!normalizedTags.isEmpty()) {
             Map<String, String> tagMapping = Map.ofEntries(
                 Map.entry("en:milk", "MILK"),
-                Map.entry("en:dairy", "MILK"),
+                Map.entry("en:dairy", "DAIRY"),
                 Map.entry("en:nuts", "NUTS"),
                 Map.entry("en:tree-nuts", "NUTS"),
                 Map.entry("en:peanuts", "PEANUT"),
@@ -120,16 +130,15 @@ public class DietaryKnowledgeRepository {
                 Map.entry("en:shellfish", "SHELLFISH")
             );
 
-            for (String tag : tracesTags.split(",")) {
-                String cleanTag = tag.trim().toLowerCase(Locale.ROOT);
+            for (String cleanTag : normalizedTags) {
                 String allergen = tagMapping.get(cleanTag);
-                if (allergen != null && !foundAllergens.contains(allergen)) {
-                    foundAllergens.add(allergen);
+                if (allergen != null) {
+                    addAllergenCodes(foundAllergens, allergen);
                 }
             }
 
             if (!foundAllergens.isEmpty()) {
-                matchedPhrase = "traces_tags: " + tracesTags;
+                matchedPhrase = "traces_tags: " + String.join(",", normalizedTags);
             }
         }
 
@@ -144,25 +153,24 @@ public class DietaryKnowledgeRepository {
                         matchedPhrase = extractMatchedPhrase(labelText, keyword);
                     }
 
-                    // Extract allergens mentioned near the phrase
-                    Map<String, String> textKeywords = Map.ofEntries(
-                        Map.entry("nut", "NUTS"),
-                        Map.entry("peanut", "PEANUT"),
-                        Map.entry("milk", "MILK"),
-                        Map.entry("dairy", "MILK"),
-                        Map.entry("soy", "SOY"),
-                        Map.entry("sesame", "SESAME"),
-                        Map.entry("gluten", "GLUTEN"),
-                        Map.entry("wheat", "GLUTEN"),
-                        Map.entry("egg", "EGG"),
-                        Map.entry("fish", "FISH"),
-                        Map.entry("shellfish", "SHELLFISH"),
-                        Map.entry("crustacean", "SHELLFISH")
-                    );
+                    // Longer tokens first so "peanut" wins before "nut"
+                    Map<String, String> textKeywords = new LinkedHashMap<>();
+                    textKeywords.put("peanut", "PEANUT");
+                    textKeywords.put("shellfish", "SHELLFISH");
+                    textKeywords.put("crustacean", "SHELLFISH");
+                    textKeywords.put("sesame", "SESAME");
+                    textKeywords.put("gluten", "GLUTEN");
+                    textKeywords.put("wheat", "GLUTEN");
+                    textKeywords.put("dairy", "DAIRY");
+                    textKeywords.put("milk", "MILK");
+                    textKeywords.put("soy", "SOY");
+                    textKeywords.put("fish", "FISH");
+                    textKeywords.put("egg", "EGG");
+                    textKeywords.put("nut", "NUTS");
 
                     for (Map.Entry<String, String> entry : textKeywords.entrySet()) {
-                        if (normalized.contains(entry.getKey()) && !foundAllergens.contains(entry.getValue())) {
-                            foundAllergens.add(entry.getValue());
+                        if (containsAllergenToken(normalized, entry.getKey())) {
+                            addAllergenCodes(foundAllergens, entry.getValue());
                         }
                     }
                     break;
@@ -180,6 +188,50 @@ public class DietaryKnowledgeRepository {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Adds an allergen code and, for the milk family, both {@code MILK} and {@code DAIRY}.
+     */
+    private void addAllergenCodes(List<String> foundAllergens, String allergen) {
+        if (allergen == null || allergen.isBlank()) {
+            return;
+        }
+        if (!foundAllergens.contains(allergen)) {
+            foundAllergens.add(allergen);
+        }
+        if ("MILK".equals(allergen) && !foundAllergens.contains("DAIRY")) {
+            foundAllergens.add("DAIRY");
+        }
+        if ("DAIRY".equals(allergen) && !foundAllergens.contains("MILK")) {
+            foundAllergens.add("MILK");
+        }
+    }
+
+    private List<String> normalizeTracesTags(List<String> tracesTags) {
+        if (tracesTags == null || tracesTags.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> normalized = new ArrayList<>();
+        for (String tag : tracesTags) {
+            if (tag == null || tag.isBlank() || "0".equals(tag.trim())) {
+                continue;
+            }
+            normalized.add(tag.trim().toLowerCase(Locale.ROOT));
+        }
+        return normalized;
+    }
+
+    /**
+     * Whole-word match with optional trailing {@code s} (nut/nuts, egg/eggs) to avoid
+     * false positives like nutrition, coconut, or eggplant.
+     */
+    private boolean containsAllergenToken(String normalizedText, String token) {
+        return java.util.regex.Pattern
+            .compile("\\b" + java.util.regex.Pattern.quote(token) + "s?\\b")
+            .matcher(normalizedText)
+            .find();
+    }
 
     /**
      * Tries to return a short, readable phrase around the matched keyword.

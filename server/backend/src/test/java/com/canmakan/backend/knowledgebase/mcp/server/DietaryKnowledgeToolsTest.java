@@ -15,6 +15,12 @@ import com.canmakan.backend.knowledgebase.repository.IngredientEntityRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.reactive.function.client.ClientResponse;
+import org.springframework.web.reactive.function.client.ExchangeFunction;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -30,7 +36,8 @@ class DietaryKnowledgeToolsTest {
             new DietaryKnowledgeRepository(ingredientEntityRepository, dietaryProfileRepository);
     private final IngredientAliasTool ingredientAliasTool = new IngredientAliasTool(repository);
     private final ENumberTool eNumberTool = new ENumberTool(repository);
-    private final AllergenRelationshipTool allergenRelationshipTool = new AllergenRelationshipTool(repository, new RecordingFallback());
+    private final AllergenRelationshipTool allergenRelationshipTool =
+            new AllergenRelationshipTool(repository, new RecordingFallback());
     private final DietaryRuleTool dietaryRuleTool = new DietaryRuleTool(repository);
     private final CrossContaminationTool crossContaminationTool = new CrossContaminationTool(repository);
 
@@ -88,6 +95,7 @@ class DietaryKnowledgeToolsTest {
         assertThat(result.localMatches().get(0).rootAllergen()).isEqualTo("DAIRY");
         assertThat(result.unresolvedIngredients()).isEmpty();
         assertThat(result.externalSearchSummary()).isEmpty();
+        assertThat(result.externalMatches()).isEmpty();
     }
 
     @Test
@@ -114,7 +122,8 @@ class DietaryKnowledgeToolsTest {
     @DisplayName("UC3 BE6: Applies local hierarchy to domain ingredients")
     void appliesLocalHierarchyToDomainIngredients() {
         AllergenRelationshipResult result = allergenRelationshipTool.lookup(List.of("whey"));
-        List<Ingredient> enriched = allergenRelationshipTool.applyHierarchy(List.of(new Ingredient("whey", null, null, false)), result);
+        List<Ingredient> enriched = allergenRelationshipTool.applyHierarchy(
+                List.of(new Ingredient("whey", null, null, false)), result);
 
         assertThat(enriched).hasSize(1);
         assertThat(enriched.get(0).rootAllergen()).isEqualTo("DAIRY");
@@ -131,17 +140,122 @@ class DietaryKnowledgeToolsTest {
     }
 
     @Test
-    @DisplayName("UC3 BE7: Detects cross-contamination phrases")
+    @DisplayName("UC3 BE7a: Detects cross-contamination phrases")
     void detectsCrossContaminationPhrases() {
-        CrossContaminationResult result = crossContaminationTool.analyse("May contain nuts and produced in a facility with milk");
+        CrossContaminationResult result =
+                crossContaminationTool.analyse("May contain nuts and produced in a facility with milk");
 
         assertThat(result.mayContain()).isTrue();
-        assertThat(result.allergens()).contains("NUTS", "MILK");
+        assertThat(result.allergens()).contains("NUTS", "MILK", "DAIRY");
         assertThat(result.phrase()).contains("May contain");
+    }
+
+    @Test
+    @DisplayName("UC3 BE7b: Blank label and traces return empty result")
+    void blankLabelAndTracesReturnEmptyResult() {
+        CrossContaminationResult result = crossContaminationTool.analyse("  ", null);
+
+        assertThat(result.mayContain()).isFalse();
+        assertThat(result.allergens()).isEmpty();
+        assertThat(result.phrase()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("UC3 BE7c: No cross-contamination phrase yields empty result")
+    void noCrossContaminationPhraseYieldsEmptyResult() {
+        CrossContaminationResult result =
+                crossContaminationTool.analyse("Ingredients: water, sugar, salt");
+
+        assertThat(result.mayContain()).isFalse();
+        assertThat(result.allergens()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("UC3 BE7d: Uses Open Food Facts traces_tags")
+    void usesOpenFoodFactsTracesTags() {
+        CrossContaminationResult result =
+                crossContaminationTool.analyse(null, List.of("en:milk", "en:nuts"));
+
+        assertThat(result.mayContain()).isTrue();
+        assertThat(result.allergens()).contains("MILK", "DAIRY", "NUTS");
+        assertThat(result.phrase()).startsWith("traces_tags:");
+    }
+
+    @Test
+    @DisplayName("UC3 BE7e: Ignores nutrition/eggplant false positives")
+    void ignoresNutritionAndEggplantFalsePositives() {
+        CrossContaminationResult result = crossContaminationTool.analyse(
+                "May contain traces. Nutrition information. Contains eggplant extract.");
+
+        assertThat(result.allergens()).doesNotContain("NUTS", "EGG");
+    }
+
+    @Test
+    @DisplayName("UC3 BE8: Deduplicates case-insensitive ingredient inputs")
+    void deduplicatesCaseInsensitiveIngredientInputs() {
+        RecordingFallback fallback = new RecordingFallback();
+        AllergenRelationshipTool tool = new AllergenRelationshipTool(repository, fallback);
+
+        AllergenRelationshipResult result = tool.lookup(List.of("whey", "Whey", "unknown", "Unknown"));
+
+        assertThat(result.localMatches()).hasSize(1);
+        assertThat(result.unresolvedIngredients()).containsExactly("unknown");
+        assertThat(fallback.lastIngredients()).containsExactly("unknown");
+    }
+
+    @Test
+    @DisplayName("UC3 BE9: Placeholder Tavily key yields empty summary without crash")
+    void placeholderTavilyKeyYieldsEmptySummaryWithoutCrash() {
+        AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
+                null,
+                "local-dev-placeholder",
+                "https://api.tavily.com/search");
+        AllergenRelationshipTool tool = new AllergenRelationshipTool(repository, fallback);
+
+        AllergenRelationshipResult result = tool.lookup(List.of("mystery-additive"));
+
+        assertThat(result.unresolvedIngredients()).containsExactly("mystery-additive");
+        assertThat(result.externalSearchSummary()).isEmpty();
+        assertThat(result.externalMatches()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("UC3 BE10: Tavily fallback uses WebClient response answer")
+    void tavilyFallbackUsesWebClientResponseAnswer() {
+        ExchangeFunction exchangeFunction = request -> Mono.just(
+                ClientResponse.create(HttpStatus.OK)
+                        .header("Content-Type", "application/json")
+                        .body("{\"answer\":\"Inulin is typically a FIBER allergen family.\",\"results\":[]}")
+                        .build());
+
+        WebClient.Builder builder = WebClient.builder().exchangeFunction(exchangeFunction);
+        AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
+                builder,
+                "tvly-test-key",
+                "https://api.tavily.com/search");
+
+        String summary = fallback.searchExternal(List.of("inulin"));
+
+        assertThat(summary).contains("FIBER");
+    }
+
+    @Test
+    @DisplayName("UC3 BE11: Null WebClient builder with real key skips safely")
+    void nullWebClientBuilderWithRealKeySkipsSafely() {
+        AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
+                null,
+                "tvly-real-looking-key",
+                "https://api.tavily.com/search");
+
+        assertThat(fallback.searchExternal(List.of("inulin"))).isEmpty();
     }
 
     private static final class RecordingFallback extends AllergenRelationshipLookupFallback {
         private List<String> lastIngredients;
+
+        RecordingFallback() {
+            super(null, "local-dev-placeholder", "https://api.tavily.com/search");
+        }
 
         @Override
         public String searchExternal(List<String> ingredients) {
