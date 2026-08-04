@@ -2,6 +2,7 @@ package com.canmakan.backend.knowledgebase.mcp.server;
 
 import com.canmakan.backend.dietaryprofile.DietaryProfileRepository;
 import com.canmakan.backend.dietaryprofile.DietaryRestriction;
+import com.canmakan.backend.knowledgebase.mcp.DietaryKnowledgeMcpClient;
 import com.canmakan.backend.knowledgebase.mcp.contract.AllergenRelationshipResult;
 import com.canmakan.backend.knowledgebase.mcp.contract.CrossContaminationResult;
 import com.canmakan.backend.knowledgebase.mcp.contract.DietaryRuleResult;
@@ -22,13 +23,21 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import reactor.core.publisher.Mono;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class DietaryKnowledgeToolsTest {
+
+    /** Seed rows aligned with {@code 05_household_dietary_data.sql}. */
+    private static final Map<String, DietaryRestriction> SEED_RESTRICTIONS = seedRestrictions();
 
     private final IngredientEntityRepository ingredientEntityRepository = mock(IngredientEntityRepository.class);
     private final DietaryProfileRepository dietaryProfileRepository = mock(DietaryProfileRepository.class);
@@ -36,10 +45,20 @@ class DietaryKnowledgeToolsTest {
             new DietaryKnowledgeRepository(ingredientEntityRepository, dietaryProfileRepository);
     private final IngredientAliasTool ingredientAliasTool = new IngredientAliasTool(repository);
     private final ENumberTool eNumberTool = new ENumberTool(repository);
+    private final AllergenRelationshipLookupFallback realFallback = new AllergenRelationshipLookupFallback(
+        null,
+        "local-dev-placeholder",
+        "https://api.tavily.com/search");
     private final AllergenRelationshipTool allergenRelationshipTool =
-            new AllergenRelationshipTool(repository, new RecordingFallback());
+        new AllergenRelationshipTool(repository, realFallback);
     private final DietaryRuleTool dietaryRuleTool = new DietaryRuleTool(repository);
     private final CrossContaminationTool crossContaminationTool = new CrossContaminationTool(repository);
+    private final DietaryKnowledgeMcpClient mcpClient = new DietaryKnowledgeMcpClient(
+        ingredientAliasTool,
+        eNumberTool,
+        allergenRelationshipTool,
+        dietaryRuleTool,
+        crossContaminationTool);
 
     @BeforeEach
     void setUp() {
@@ -55,12 +74,14 @@ class DietaryKnowledgeToolsTest {
                 new IngredientEntity("E471 (Mono- and Diglycerides)", "Emulsifiers", "ADDITIVE", true)
         ));
 
-        DietaryRestriction halal = new DietaryRestriction();
-        halal.setCode("HALAL");
-        halal.setDisplayName("Halal Diet");
-        halal.setCategory("RELIGIOUS");
-        halal.setDescription("Requires Halal-certified ingredients and no pork or alcohol.");
-        when(dietaryProfileRepository.findRestrictionByCode("HALAL")).thenReturn(java.util.Optional.of(halal));
+        // Mirrors DietaryProfileRepository.findRestrictionByCode (case-insensitive)
+        when(dietaryProfileRepository.findRestrictionByCode(anyString())).thenAnswer(invocation -> {
+            String code = invocation.getArgument(0);
+            if (code == null || code.isBlank()) {
+                return Optional.empty();
+            }
+            return Optional.ofNullable(SEED_RESTRICTIONS.get(code.trim().toLowerCase(Locale.ROOT)));
+        });
 
         repository.initialize();
     }
@@ -131,12 +152,62 @@ class DietaryKnowledgeToolsTest {
     }
 
     @Test
-    @DisplayName("UC3 BE6: Resolves dietary rules by code")
+    @DisplayName("UC3 BE6a: Resolves dietary rules by seed code HALAL")
     void resolvesDietaryRulesByCode() {
         DietaryRuleResult result = dietaryRuleTool.lookup("HALAL");
 
+        assertThat(result.code()).isEqualTo("HALAL");
         assertThat(result.category()).isEqualTo("RELIGIOUS");
-        assertThat(result.description()).containsIgnoringCase("halal");
+        assertThat(result.description()).isEqualTo(
+                "Requires Halal-certified ingredients and no pork or alcohol.");
+    }
+
+    @Test
+    @DisplayName("UC3 BE6b: Blank dietary rule code returns empty result")
+    void blankDietaryRuleCodeReturnsEmptyResult() {
+        DietaryRuleResult result = dietaryRuleTool.lookup("  ");
+
+        assertThat(result.code()).isEmpty();
+        assertThat(result.category()).isEmpty();
+        assertThat(result.description()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("UC3 BE6c: Unknown dietary rule code returns UNKNOWN")
+    void unknownDietaryRuleCodeReturnsUnknown() {
+        DietaryRuleResult result = dietaryRuleTool.lookup("NOT_A_REAL_RULE");
+
+        assertThat(result.code()).isEqualTo("NOT_A_REAL_RULE");
+        assertThat(result.category()).isEqualTo("UNKNOWN");
+        assertThat(result.description()).contains("No dietary rule definition found");
+    }
+
+    @Test
+    @DisplayName("UC3 BE6d: Dietary rule lookup is case-insensitive for LOW_SUGAR")
+    void dietaryRuleLookupIsCaseInsensitive() {
+        DietaryRuleResult result = dietaryRuleTool.lookup("low_sugar");
+
+        assertThat(result.code()).isEqualTo("LOW_SUGAR");
+        assertThat(result.category()).isEqualTo("DIET");
+        assertThat(result.description()).isEqualTo("Checks sugar per 100 g");
+    }
+
+    @Test
+    @DisplayName("UC3 BE6e: MCP client delegates dietary_rule_lookup to the real tool")
+    void mcpClientDelegatesDietaryRuleLookup() {
+        DietaryRuleResult result = mcpClient.lookupDietaryRule("GLUTEN");
+
+        assertThat(result.code()).isEqualTo("GLUTEN");
+        assertThat(result.category()).isEqualTo("ALLERGEN");
+        assertThat(result.description()).contains("wheat");
+    }
+
+    @Test
+    @DisplayName("UC3 BE6f: MCP client resolveRootAllergen uses alias + hierarchy tools")
+    void mcpClientResolveRootAllergenUsesRealTools() {
+        assertThat(mcpClient.resolveRootAllergen("milk powder")).isEqualTo("DAIRY");
+        assertThat(mcpClient.resolveRootAllergen("whey")).isEqualTo("DAIRY");
+        assertThat(mcpClient.resolveRootAllergen("totally-unknown-ingredient")).isNull();
     }
 
     @Test
@@ -248,6 +319,45 @@ class DietaryKnowledgeToolsTest {
                 "https://api.tavily.com/search");
 
         assertThat(fallback.searchExternal(List.of("inulin"))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("UC3 BE12: MCP client cross-contamination uses real traces_tags params")
+    void mcpClientCrossContaminationUsesRealTracesTags() {
+        CrossContaminationResult result =
+                mcpClient.analyseCrossContamination(null, List.of("en:soy", "en:gluten"));
+
+        assertThat(result.mayContain()).isTrue();
+        assertThat(result.allergens()).contains("SOY", "GLUTEN");
+    }
+
+    private static Map<String, DietaryRestriction> seedRestrictions() {
+        Map<String, DietaryRestriction> byCode = new LinkedHashMap<>();
+        addRestriction(byCode, 1L, "GLUTEN", "Gluten Free", "ALLERGEN",
+                "Strictly avoid wheat, barley, rye, and oat gluten.");
+        addRestriction(byCode, 2L, "DAIRY", "Lactose / Dairy Intolerance", "ALLERGEN",
+                "Avoid milk solids, lactose, whey, and dairy fats.");
+        addRestriction(byCode, 8L, "HALAL", "Halal Diet", "RELIGIOUS",
+                "Requires Halal-certified ingredients and no pork or alcohol.");
+        addRestriction(byCode, 11L, "LOW_SUGAR", "Low Sugar", "DIET",
+                "Checks sugar per 100 g");
+        return byCode;
+    }
+
+    private static void addRestriction(
+            Map<String, DietaryRestriction> byCode,
+            long id,
+            String code,
+            String displayName,
+            String category,
+            String description) {
+        DietaryRestriction restriction = new DietaryRestriction();
+        restriction.setId(id);
+        restriction.setCode(code);
+        restriction.setDisplayName(displayName);
+        restriction.setCategory(category);
+        restriction.setDescription(description);
+        byCode.put(code.toLowerCase(Locale.ROOT), restriction);
     }
 
     private static final class RecordingFallback extends AllergenRelationshipLookupFallback {
