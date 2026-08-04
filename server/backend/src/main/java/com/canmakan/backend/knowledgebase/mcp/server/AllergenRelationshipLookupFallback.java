@@ -32,11 +32,18 @@ public class AllergenRelationshipLookupFallback {
         this.webClientBuilder = webClientBuilder;
     }
 
-    @Value("${app.api.tavily.key}")
+    // @Value("${app.api.tavily.key}")
+    // private String tavilyApiKey;
+
+    // @Value("${app.api.tavily.url}")
+    // private String tavilyUrl;
+
+    @Value("${TAVILY_API_KEY:mock_key_value}")
     private String tavilyApiKey;
 
-    @Value("${app.api.tavily.url}")
-    private String tavilyUrl;
+    @Value("${TAVILY_API_URL:https://tavily.com}")
+    private String tavilyApiUrl;
+
 
     /**
      * Resolve parent/root allergens by querying an external search tool

@@ -13,6 +13,6 @@ class ServerScanHistoryRepository @Inject constructor (
     }
 
     override suspend fun getProductFromBarcode(barcode: String): Product {
-        return scanHistoryApiService.
+        return scanHistoryApiService
     }
 }

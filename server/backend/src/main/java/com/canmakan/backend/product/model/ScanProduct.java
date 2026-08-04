@@ -1,0 +1,41 @@
+package com.canmakan.backend.product.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.validation.constraints.NotBlank;
+
+@Entity
+@Table(name = "products")
+public class ScanProduct {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column
+    @NotBlank
+    private String product_name;
+
+    @Column
+    private String brand;
+
+    @Column
+    private String quantity;
+
+    @Column
+    private String serving_size;
+
+    @Column
+    private String serving_quantity;
+
+    @Column
+    private String categories;
+
+    @Column
+    private String category_tags;
+
+    @Column
+    private String main_category;
+}
