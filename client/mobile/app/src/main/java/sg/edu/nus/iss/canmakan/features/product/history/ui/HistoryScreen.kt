@@ -25,7 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import sg.edu.nus.iss.canmakan.features.product.model.ScanHistoryEntry
-import sg.edu.nus.iss.canmakan.features.product.model.ScanStatus
+import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
@@ -101,22 +101,22 @@ private fun ScanHistoryRow(entry: ScanHistoryEntry, onClick: () -> Unit) {
             modifier = Modifier
                 .width(4.dp)
                 .height(56.dp)
-                .background(statusAccentColor(entry.status))
+                .background(statusAccentColor(entry.verdict))
         )
         Column(
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
-            Text(entry.product.name, fontWeight = FontWeight.Medium)
-            Text("${entry.product.brand} \u00B7 ${entry.date}", color = TextSecondary)
-            entry.note?.let { note ->
-                val noteColor = if (entry.status == ScanStatus.AVOID) AvoidRed else WarningAmber
+            Text(entry.product.productName, fontWeight = FontWeight.Medium)
+            Text("${entry.product.brand} \u00B7 ${entry.scannedAt}", color = TextSecondary)
+            entry.aiExplanation?.let { note ->
+                val noteColor = if (entry.verdict == ScanVerdict.UNSAFE) AvoidRed else WarningAmber
                 Text(note, color = noteColor)
             }
         }
         Box(modifier = Modifier.padding(end = 12.dp)) {
-            StatusBadge(status = entry.status)
+            StatusBadge(status = entry.verdict)
         }
     }
 }

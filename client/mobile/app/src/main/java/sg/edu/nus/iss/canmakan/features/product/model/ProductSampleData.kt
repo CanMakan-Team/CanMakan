@@ -42,18 +42,18 @@ object ProductSampleData {
 //        ScanHistoryEntry(
 //            product = Product("Lundberg Rice Cakes", "Lundberg", "0073416009306"),
 //            date = "Jul 23",
-//            status = ScanStatus.SAFE
+//            status = ScanVerdict.SAFE
 //        ),
 //        ScanHistoryEntry(
 //            product = Product("Morning Granola Bar", "Nature's Best", "0011110849104"),
 //            date = "Jul 22",
-//            status = ScanStatus.WARNING,
+//            status = ScanVerdict.WARNING,
 //            note = "Egg traces"
 //        ),
 //        ScanHistoryEntry(
 //            product = Product("Tom Yum Paste", "Kitchen Leaf", "8850124003216"),
 //            date = "Jul 22",
-//            status = ScanStatus.AVOID
+//            status = ScanVerdict.UNSAFE
 //        )
     )
 
