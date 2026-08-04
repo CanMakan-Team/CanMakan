@@ -2,10 +2,8 @@ package com.canmakan.backend.knowledgebase.mcp.contract;
 
 /**
  * Contract for the "ingredient alias lookup" MCP tool.
- * Shared seam between the MCP client (HY) and the MCP server (MW): agree on this
- * shape before implementing either side.
  *
- * @author XieHuayuan &amp; Amelia Wong (shared contract)
+ * @author XieHuayuan & Amelia
  */
 public record IngredientAliasResult(
         String ingredientName,   // the queried name
