@@ -59,6 +59,11 @@ public class AllergenRelationshipLookupFallback {
 
         if (normalized.isEmpty()) { return null; }
 
+        if (!isConfiguredApiKey(tavilyApiKey)) {
+            log.debug("Tavily API key not configured; skipping external allergen lookup");
+            return null;
+        }
+
         // Build query from normalized list
         String query = buildSearchQuery(normalized);
 
@@ -105,6 +110,12 @@ public class AllergenRelationshipLookupFallback {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    private static boolean isConfiguredApiKey(String apiKey) {
+        return apiKey != null
+                && !apiKey.isBlank()
+                && !"local-dev-placeholder".equals(apiKey);
+    }
 
     private String buildSearchQuery(List<String> ingredients) {
         // Focused query so Tavily returns allergen hierarchy / parent allergen information
