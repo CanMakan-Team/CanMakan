@@ -7,9 +7,15 @@ import java.util.List;
 /**
  * Structured contract for the "allergen relationship lookup" MCP tool.
  *
- * Local matches are fully resolved from the local database, while unresolved items
- * are left for the external fallback flow.
- * 
+ * Local matches are fully resolved from the local database. Unresolved items are
+ * listed in {@code unresolvedIngredients}, with optional prose from the external
+ * fallback in {@code externalSearchSummary} (never {@code null}; use {@code ""} when
+ * unavailable).
+ *
+ * {@code externalMatches} is reserved for a future structured parse of external
+ * results and is currently always empty — consumers should rely on
+ * {@code externalSearchSummary} for fallback content.
+ *
  * @author XieHuayuan & Amelia
  */
 public record AllergenRelationshipResult(
