@@ -50,6 +50,7 @@ public class BarcodeValidationClient {
     private final long retryBackoffMs;
     private final RetrySleeper retrySleeper;
 
+    @Autowired
     public BarcodeValidationClient(
         @Value("${app.api.ean-search.token}") String eanSearchToken,
         @Value("${app.name:CanMakan}") String appName,

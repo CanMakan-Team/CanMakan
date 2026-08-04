@@ -3,8 +3,11 @@ package com.canmakan.backend.knowledgebase.mcp.contract;
 import java.util.List;
 
 /**
- * Contract for the "cross-contamination phrase analysis" MCP tool
- * (parses "may contain" / "produced in a facility with" statements).
+ * Contract for the "cross_contamination_analysis" MCP tool
+ * (parses "may contain" / "produced in a facility with" statements and optional
+ * Open Food Facts {@code traces_tags}).
+ *
+ * Milk-family hits include both {@code MILK} and {@code DAIRY}.
  *
  * @author XieHuayuan & Amelia
  */
