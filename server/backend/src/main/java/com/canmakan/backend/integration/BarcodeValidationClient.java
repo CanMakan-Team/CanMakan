@@ -12,6 +12,7 @@ import java.net.http.HttpTimeoutException;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -34,6 +35,7 @@ public class BarcodeValidationClient {
     private final String eanSearchToken;
     private final ObjectMapper objectMapper;
 
+    @Autowired
     public BarcodeValidationClient(
         @Value("${app.api.ean-search.token}") String eanSearchToken,
         @Value("${app.name:CanMakan}") String appName,

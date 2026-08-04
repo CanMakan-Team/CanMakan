@@ -7,8 +7,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Server side of the Dietary Knowledge MCP boundary (MW). Registers the five
- * knowledge lookup tools so the {@code DietaryKnowledgeMcpClient} can call them
- * over MCP.
+ * knowledge lookup tools so {@code DietaryKnowledgeMcpClient} can call them
  */
 @Configuration
 public class DietaryKnowledgeMcpServer {
@@ -23,4 +22,5 @@ public class DietaryKnowledgeMcpServer {
             .toolObjects(ingredientAliasTool, eNumberTool, allergenRelationshipTool, dietaryRuleTool, crossContaminationTool)
             .build();
     }
+    
 }

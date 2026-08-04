@@ -10,8 +10,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -19,7 +22,8 @@ import java.util.stream.Collectors;
  *
  * The tool first checks each ingredient against the local database. Ingredients that
  * resolve locally are kept in the response, while unresolved ingredients are sent to
- * the external fallback flow.
+ * the external fallback flow. {@code externalMatches} is always empty for now — Tavily
+ * returns prose only; structured parse is future work.
  */
 @AllArgsConstructor
 @Service
@@ -41,42 +45,45 @@ public class AllergenRelationshipTool {
 
         List<Ingredient> localMatches = new ArrayList<>();
         List<String> unresolvedIngredients = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
 
         for (String ingredient : ingredients) {
-            if (ingredient == null || ingredient.isBlank()) { continue; }
+            if (ingredient == null || ingredient.isBlank()) {
+                continue;
+            }
 
-            // If ingredient exists in allergen rs db, add to local matches as Ingredient
-            // Else, add to unresolved ingredients as String
-            repository.findAllergenRelationship(ingredient)
-                .ifPresentOrElse(localMatches::add, () -> unresolvedIngredients.add(ingredient.trim()));
+            String trimmed = ingredient.trim();
+            String key = normalize(trimmed);
+            if (!seen.add(key)) {
+                continue;
+            }
+
+            repository.findAllergenRelationship(trimmed)
+                .ifPresentOrElse(localMatches::add, () -> unresolvedIngredients.add(trimmed));
         }
 
-        // If no unresolved ingredients, send empty string as summary
-        // Else, use fallback (last-resort web search) for unresolved ingredients.
         // Open Food Facts has already been consulted upstream during product lookup.
         String externalSummary = unresolvedIngredients.isEmpty()
             ? ""
-            : fallback.searchExternal(unresolvedIngredients);
+            : Objects.requireNonNullElse(fallback.searchExternal(unresolvedIngredients), "");
 
         return new AllergenRelationshipResult(localMatches, unresolvedIngredients, externalSummary, List.of());
     }
 
     /**
      * Backward-compatible overload that accepts a comma-separated ingredient string.
-     * This is for legacy calling
      */
     public AllergenRelationshipResult lookup(String ingredientText) {
         if (ingredientText == null || ingredientText.isBlank()) {
             return new AllergenRelationshipResult(List.of(), List.of(), "", List.of());
         }
 
-        List<String> ingredients = parseIngredients(ingredientText);
-        return lookup(ingredients);
+        return lookup(parseIngredients(ingredientText));
     }
 
     /**
      * Enrich a list of domain ingredients with roots/parents from the resolved hierarchy.
-     * To be used in the assessment/orchestration layer before passing to verdict logic
+     * Intended for the assessment/orchestration layer before verdict logic.
      */
     public List<Ingredient> applyHierarchy(List<Ingredient> ingredients, AllergenRelationshipResult result) {
         if (ingredients == null || ingredients.isEmpty() || result == null) {
