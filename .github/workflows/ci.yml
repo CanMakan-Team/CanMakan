@@ -2,9 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
 
 jobs:
   build:
@@ -33,4 +31,32 @@ jobs:
           java-version: '21'
 
       - name: Build with Maven
+        working-directory: server/backend
         run: mvn -B clean package -DskipTests
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: client/web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: client/web
+        run: npm ci
+
+      - name: Build web app
+        working-directory: client/web
+        run: npm run build
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Configure Android SDK path
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > client/mobile/local.properties
+
+      - name: Build mobile app
+        working-directory: client/mobile
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug

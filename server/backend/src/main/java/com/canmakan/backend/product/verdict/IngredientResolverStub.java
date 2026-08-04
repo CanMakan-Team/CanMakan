@@ -1,6 +1,5 @@
 package com.canmakan.backend.product.verdict;
 
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 /**
@@ -10,7 +9,6 @@ import org.springframework.stereotype.Component;
  *
  * @author XieHuayuan
  */
-@Primary // TODO: remove once DietaryKnowledgeMcpClient's tool calls are implemented
 @Component
 public class IngredientResolverStub implements IngredientResolver {
 

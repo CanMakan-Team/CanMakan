@@ -2,6 +2,8 @@ package com.canmakan.backend.knowledgebase.mcp.server;
 
 import com.canmakan.backend.knowledgebase.mcp.contract.ENumberResult;
 import com.canmakan.backend.knowledgebase.repository.DietaryKnowledgeRepository;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 
 /**
@@ -18,11 +20,9 @@ public class ENumberTool {
         this.repository = repository;
     }
 
-    /**
-     * @param eNumber e.g. "E471"
-     * @return the additive name, category, and animal-derived flag
-     */
-    public ENumberResult lookup(String eNumber) {
+    @Tool(name = "e_number_lookup", description = "Look up a food additive E-number and whether it may be animal-derived.")
+    public ENumberResult lookup(
+            @ToolParam(description = "E-number to look up, e.g. E471") String eNumber) {
         if (eNumber == null || eNumber.isBlank()) {
             return new ENumberResult("", "", "", false);
         }

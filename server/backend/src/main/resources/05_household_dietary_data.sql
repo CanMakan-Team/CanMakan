@@ -58,7 +58,7 @@ INSERT INTO dietary_restrictions (id, code, display_name, category, description)
 (6, 'SOY', 'Soy Allergy', 'ALLERGEN', 'Avoid soy lecithin, miso, and soybean derivatives.'),
 (7, 'EGG', 'Egg Allergy', 'ALLERGEN', 'Avoid eggs and egg powder.'),
 (8, 'HALAL', 'Halal Diet', 'RELIGIOUS', 'Requires Halal-certified ingredients and no pork or alcohol.'),
-(9, 'VEGETARIAN', 'Vegetarian Diet', 'DIET', 'Does not consume meat, poultry, or seafood.')
+(9, 'VEGETARIAN', 'Vegetarian Diet', 'DIET', 'Does not consume meat, poultry, or seafood.'),
 (10, 'VEGAN', 'Vegan', 'DIET', 'Avoids animal-derived ingredients'),
 (11,'LOW_SUGAR', 'Low Sugar', 'DIET', 'Checks sugar per 100 g'),
 (12, 'LOW_FAT', 'Low Fat', 'DIET', 'Checks total fat per 100 g'),

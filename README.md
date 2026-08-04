@@ -103,6 +103,8 @@ cd server/backend
 The backend health endpoint is
 `http://localhost:8080/actuator/health`.
 
+Continuous integration builds the backend, web app, and Android app on pushes and pull requests.
+
 ## DevSecOps Implementation
 
 ### Branch Protection

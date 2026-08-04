@@ -7,7 +7,6 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
     id("kotlin-parcelize")
-
 }
 
 val localProperties = Properties()
@@ -54,8 +53,8 @@ extensions.configure<ApplicationExtension> {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     testOptions {
@@ -67,7 +66,7 @@ extensions.configure<ApplicationExtension> {
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
     }
 }
 

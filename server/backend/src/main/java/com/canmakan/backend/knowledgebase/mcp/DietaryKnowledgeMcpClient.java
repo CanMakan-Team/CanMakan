@@ -56,11 +56,11 @@ public class DietaryKnowledgeMcpClient implements IngredientResolver {
                 ? alias.canonicalName()
                 : ingredientName;
         AllergenRelationshipResult relationship = lookupAllergenRelationship(canonical);
-        if (relationship != null
-                && relationship.rootAllergen() != null
-                && !relationship.rootAllergen().isBlank()) {
-            return relationship.rootAllergen();
-        }
+        // if (relationship != null
+        //         && relationship.rootAllergen() != null
+        //         && !relationship.rootAllergen().isBlank()) {
+        //     return relationship.rootAllergen();
+        // }
 
         return null;   // still unknown -> engine flags as unresolved (WARNING)
     }
