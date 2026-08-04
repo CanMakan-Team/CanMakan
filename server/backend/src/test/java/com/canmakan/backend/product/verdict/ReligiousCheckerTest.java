@@ -18,172 +18,200 @@ import org.junit.jupiter.api.Test;
  *
  * @author YangMaowei
  */
-// class ReligiousCheckerTest {
+class ReligiousCheckerTest {
 
-//     private static final RestrictionRule HALAL_RULE = new RestrictionRule(
-//             "HALAL", RestrictionCategory.RELIGIOUS, RestrictionSeverity.STRICT_AVOID
-//     );
+    private static final RestrictionRule HALAL_RULE = new RestrictionRule(
+            "HALAL", RestrictionCategory.RELIGIOUS, RestrictionSeverity.STRICT_AVOID
+    );
+    private static final String MISSING_CERTIFICATION_REASON =
+            "Halal certification information could not be verified from the available product data.";
 
-//     @Test
-//     void supportsOnlyReligiousCategory() {
-//         ReligiousChecker checker = checker(Map.of());
+    @Test
+    void supportsOnlyReligiousCategory() {
+        ReligiousChecker checker = checker(Map.of());
 
-//         assertTrue(checker.supports(RestrictionCategory.RELIGIOUS));
-//         assertFalse(checker.supports(RestrictionCategory.ALLERGEN));
-//         assertFalse(checker.supports(RestrictionCategory.DIET));
-//         assertFalse(checker.supports(null));
-//     }
+        assertTrue(checker.supports(RestrictionCategory.RELIGIOUS));
+        assertFalse(checker.supports(RestrictionCategory.ALLERGEN));
+        assertFalse(checker.supports(RestrictionCategory.DIET));
+        assertFalse(checker.supports(null));
+    }
 
-//     @Test
-//     void ignoresUnsupportedReligiousCodeAndCategory() {
-//         ReligiousChecker checker = checker(Map.of());
-//         List<Finding> findings = new ArrayList<>();
+    @Test
+    void ignoresUnsupportedReligiousCodeAndCategory() {
+        ReligiousChecker checker = checker(Map.of());
+        List<Finding> findings = new ArrayList<>();
 
-//         checker.check(
-//                 new RestrictionRule("KOSHER", RestrictionCategory.RELIGIOUS,
-//                         RestrictionSeverity.STRICT_AVOID),
-//                 product(List.of(ingredient("Vegetable Oil")), List.of("halal"), true),
-//                 findings
-//         );
-//         checker.check(
-//                 new RestrictionRule("HALAL", RestrictionCategory.DIET,
-//                         RestrictionSeverity.STRICT_AVOID),
-//                 product(List.of(ingredient("Vegetable Oil")), List.of("halal"), true),
-//                 findings
-//         );
+        checker.check(
+                new RestrictionRule(
+                        "KOSHER", RestrictionCategory.RELIGIOUS,
+                        RestrictionSeverity.STRICT_AVOID
+                ),
+                product(List.of(ingredient("Vegetable Oil")), List.of("halal"), true),
+                findings
+        );
+        checker.check(
+                new RestrictionRule(
+                        "HALAL", RestrictionCategory.DIET,
+                        RestrictionSeverity.STRICT_AVOID
+                ),
+                product(List.of(ingredient("Vegetable Oil")), List.of("halal"), true),
+                findings
+        );
 
-//         assertTrue(findings.isEmpty());
-//     }
+        assertEquals(0, findings.size());
+    }
 
-//     @Test
-//     void acceptsRecognizedNormalizedHalalTags() {
-//         ReligiousChecker checker = checker(Map.of());
+    @Test
+    void acceptsRecognizedNormalizedHalalTags() {
+        ReligiousChecker checker = checker(Map.of());
 
-//         for (String tag : List.of("en:halal", "halal")) {
-//             List<Finding> findings = new ArrayList<>();
-//             checker.check(
-//                     HALAL_RULE,
-//                     product(List.of(ingredient("Vegetable Oil")), List.of(tag), true),
-//                     findings
-//             );
-//             assertTrue(findings.isEmpty());
-//         }
-//     }
+        for (String tag : List.of("en:halal", "halal")) {
+            List<Finding> findings = new ArrayList<>();
+            checker.check(
+                    HALAL_RULE,
+                    product(List.of(ingredient("Vegetable Oil")), List.of(tag), true),
+                    findings
+            );
+            assertEquals(0, findings.size());
+        }
+    }
 
-//     @Test
-//     void addsUncertaintyWhenHalalTagIsMissing() {
-//         ReligiousChecker checker = checker(Map.of());
-//         List<Finding> findings = new ArrayList<>();
+    @Test
+    void addsFindingWhenHalalTagIsMissing() {
+        ReligiousChecker checker = checker(Map.of());
+        List<Finding> findings = new ArrayList<>();
 
-//         checker.check(
-//                 HALAL_RULE,
-//                 product(List.of(ingredient("Vegetable Oil")), List.of("en:organic"), true),
-//                 findings
-//         );
+        checker.check(
+                HALAL_RULE,
+                product(List.of(ingredient("Vegetable Oil")), List.of("en:organic"), true),
+                findings
+        );
 
-//         assertEquals(1, findings.size());
-//         assertEquals(FindingType.MISSING_CERTIFICATION, findings.getFirst().type());
-//         assertEquals(
-//                 "Halal certification information could not be verified from the available product data.",
-//                 findings.getFirst().reason()
-//         );
-//     }
+        assertEquals(1, findings.size());
+        assertFinding(findings.getFirst(), "HALAL", null, MISSING_CERTIFICATION_REASON);
+    }
 
-//     @Test
-//     void approvedIngredientConflictOverridesHalalLabel() {
-//         ReligiousChecker checker = checker(Map.of("Pork", Set.of("HALAL")));
-//         List<Finding> findings = new ArrayList<>();
+    @Test
+    void approvedConflictWithoutHalalLabelAddsBothFindings() {
+        ReligiousChecker checker = checker(Map.of("Lard", Set.of("HALAL")));
+        List<Finding> findings = new ArrayList<>();
 
-//         checker.check(
-//                 HALAL_RULE,
-//                 product(List.of(ingredient("Pork")), List.of("en:halal"), true),
-//                 findings
-//         );
+        checker.check(
+                HALAL_RULE,
+                product(List.of(ingredient("Lard")), List.of(), true),
+                findings
+        );
 
-//         assertEquals(1, findings.size());
-//         assertEquals(FindingType.CONFIRMED_CONFLICT, findings.getFirst().type());
-//         assertEquals("Pork conflicts with the HALAL restriction.", findings.getFirst().reason());
-//     }
+        assertEquals(2, findings.size());
+        assertFinding(
+                findings.get(0),
+                "HALAL",
+                "Lard",
+                "Lard conflicts with the HALAL restriction."
+        );
+        assertFinding(findings.get(1), "HALAL", null, MISSING_CERTIFICATION_REASON);
+    }
 
-//     @Test
-//     void approvedConflictIsFoundWithoutHalalLabel() {
-//         ReligiousChecker checker = checker(Map.of("Lard", Set.of("HALAL")));
-//         List<Finding> findings = new ArrayList<>();
+    @Test
+    void halalLabelPlusApprovedConflictAddsConflictFinding() {
+        ReligiousChecker checker = checker(Map.of("Pork", Set.of("HALAL")));
+        List<Finding> findings = new ArrayList<>();
 
-//         checker.check(
-//                 HALAL_RULE,
-//                 product(List.of(ingredient("Lard")), List.of(), true),
-//                 findings
-//         );
+        checker.check(
+                HALAL_RULE,
+                product(List.of(ingredient("Pork")), List.of("en:halal"), true),
+                findings
+        );
 
-//         assertEquals(2, findings.size());
-//         assertTrue(findings.stream().anyMatch(Finding::isConfirmedViolation));
-//         assertTrue(findings.stream().anyMatch(f -> f.type() == FindingType.MISSING_CERTIFICATION));
-//     }
+        assertEquals(1, findings.size());
+        assertFinding(
+                findings.getFirst(),
+                "HALAL",
+                "Pork",
+                "Pork conflicts with the HALAL restriction."
+        );
+    }
 
-//     @Test
-//     void incompleteIngredientDataProducesUncertainty() {
-//         ReligiousChecker checker = checker(Map.of());
-//         List<Finding> findings = new ArrayList<>();
+    @Test
+    void incompleteIngredientDataAddsFinding() {
+        ReligiousChecker checker = checker(Map.of());
+        List<Finding> findings = new ArrayList<>();
 
-//         checker.check(HALAL_RULE, product(List.of(), List.of("halal"), false), findings);
+        checker.check(HALAL_RULE, product(List.of(), List.of("halal"), false), findings);
 
-//         assertEquals(1, findings.size());
-//         assertEquals(FindingType.INCOMPLETE_DATA, findings.getFirst().type());
-//     }
+        assertEquals(1, findings.size());
+        assertFinding(
+                findings.getFirst(),
+                "HALAL",
+                null,
+                "Ingredient data is incomplete for the HALAL restriction."
+        );
+    }
 
-//     @Test
-//     void nullAndEmptyLabelsProduceMissingCertificationFinding() {
-//         ReligiousChecker checker = checker(Map.of());
+    @Test
+    void nullAndEmptyLabelsAddMissingCertificationFinding() {
+        ReligiousChecker checker = checker(Map.of());
 
-//         for (List<String> labels : List.of(List.<String>of())) {
-//             List<Finding> findings = new ArrayList<>();
-//             checker.check(
-//                     HALAL_RULE,
-//                     product(List.of(ingredient("Vegetable Oil")), labels, true),
-//                     findings
-//             );
-//             assertEquals(FindingType.MISSING_CERTIFICATION, findings.getFirst().type());
-//         }
+        List<Finding> emptyLabelFindings = new ArrayList<>();
+        checker.check(
+                HALAL_RULE,
+                product(List.of(ingredient("Vegetable Oil")), List.of(), true),
+                emptyLabelFindings
+        );
+        assertEquals(1, emptyLabelFindings.size());
+        assertFinding(emptyLabelFindings.getFirst(), "HALAL", null, MISSING_CERTIFICATION_REASON);
 
-//         List<Finding> nullLabelFindings = new ArrayList<>();
-//         checker.check(
-//                 HALAL_RULE,
-//                 product(List.of(ingredient("Vegetable Oil")), null, true),
-//                 nullLabelFindings
-//         );
-//         assertEquals(FindingType.MISSING_CERTIFICATION, nullLabelFindings.getFirst().type());
-//     }
+        List<Finding> nullLabelFindings = new ArrayList<>();
+        checker.check(
+                HALAL_RULE,
+                product(List.of(ingredient("Vegetable Oil")), null, true),
+                nullLabelFindings
+        );
+        assertEquals(1, nullLabelFindings.size());
+        assertFinding(nullLabelFindings.getFirst(), "HALAL", null, MISSING_CERTIFICATION_REASON);
+    }
 
-//     @Test
-//     void preservesExistingFindings() {
-//         ReligiousChecker checker = checker(Map.of());
-//         Finding existing = new Finding(null, null, "Existing finding.", FindingType.INCOMPLETE_DATA);
-//         List<Finding> findings = new ArrayList<>(List.of(existing));
+    @Test
+    void preservesExistingFindings() {
+        ReligiousChecker checker = checker(Map.of());
+        Finding existing = new Finding(null, null, "Existing finding.");
+        List<Finding> findings = new ArrayList<>(List.of(existing));
 
-//         checker.check(
-//                 HALAL_RULE,
-//                 product(List.of(ingredient("Vegetable Oil")), List.of("halal"), true),
-//                 findings
-//         );
+        checker.check(
+                HALAL_RULE,
+                product(List.of(ingredient("Vegetable Oil")), List.of("halal"), true),
+                findings
+        );
 
-//         assertEquals(List.of(existing), findings);
-//     }
+        assertEquals(1, findings.size());
+        assertFinding(findings.getFirst(), null, null, "Existing finding.");
+    }
 
-//     private static ReligiousChecker checker(Map<String, Set<String>> mappings) {
-//         IngredientRestrictionLookup lookup = name -> mappings.getOrDefault(name, Set.of());
-//         return new ReligiousChecker(lookup);
-//     }
+    private static ReligiousChecker checker(Map<String, Set<String>> mappings) {
+        IngredientRestrictionLookup lookup = name -> mappings.getOrDefault(name, Set.of());
+        return new ReligiousChecker(lookup);
+    }
 
-//     private static Ingredient ingredient(String name) {
-//         return new Ingredient(name, null, null, false);
-//     }
+    private static Ingredient ingredient(String name) {
+        return new Ingredient(name, null, null, false);
+    }
 
-//     private static ProductData product(
-//             List<Ingredient> ingredients,
-//             List<String> labels,
-//             boolean complete
-//     ) {
-//         return new ProductData("123", ingredients, null, labels, null, complete);
-//     }
-// }
+    private static ProductData product(
+            List<Ingredient> ingredients,
+            List<String> labels,
+            boolean complete
+    ) {
+        return new ProductData("123", ingredients, null, labels, null, complete);
+    }
+
+    private static void assertFinding(
+            Finding finding,
+            String restrictionCode,
+            String ingredientName,
+            String reason
+    ) {
+        assertEquals(restrictionCode, finding.restrictionCode());
+        assertEquals(ingredientName, finding.ingredientName());
+        assertEquals(reason, finding.reason());
+    }
+}

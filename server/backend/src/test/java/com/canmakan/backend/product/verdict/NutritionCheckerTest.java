@@ -1,6 +1,7 @@
 package com.canmakan.backend.product.verdict;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.canmakan.backend.knowledgebase.model.RestrictionCategory;
@@ -19,174 +20,218 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * @author YangMaowei
  */
-// class NutritionCheckerTest {
+class NutritionCheckerTest {
 
-//     private final NutritionChecker checker = new NutritionChecker();
+    private final NutritionChecker checker = new NutritionChecker();
 
-//     @Test
-//     void supportsDietCategoryOnly() {
-//         assertTrue(checker.supports(RestrictionCategory.DIET));
-//         assertTrue(!checker.supports(RestrictionCategory.ALLERGEN));
-//         assertTrue(!checker.supports(RestrictionCategory.RELIGIOUS));
-//         assertTrue(!checker.supports(null));
-//     }
+    @Test
+    void supportsDietCategoryOnly() {
+        assertTrue(checker.supports(RestrictionCategory.DIET));
+        assertFalse(checker.supports(RestrictionCategory.ALLERGEN));
+        assertFalse(checker.supports(RestrictionCategory.RELIGIOUS));
+        assertFalse(checker.supports(null));
+    }
 
-//     @ParameterizedTest
-//     @MethodSource("supportedCodes")
-//     void nullNutritionProducesUnavailableFinding(String code) {
-//         List<Finding> findings = check(code, null);
+    @ParameterizedTest
+    @MethodSource("supportedNutrients")
+    void nullNutritionAddsUnavailableFinding(String code, String nutrientName) {
+        List<Finding> findings = check(code, null);
 
-//         assertEquals(1, findings.size());
-//         assertEquals(FindingType.UNAVAILABLE_NUTRITION, findings.getFirst().type());
-//         assertTrue(findings.getFirst().reason().contains(code));
-//         assertTrue(findings.getFirst().reason().contains("per 100 g"));
-//     }
+        assertEquals(1, findings.size());
+        assertFindingCodeAndIngredient(findings.getFirst(), code, null);
+        assertTrue(findings.getFirst().reason().contains(nutrientName));
+        assertTrue(findings.getFirst().reason().contains("data is unavailable"));
+        assertTrue(findings.getFirst().reason().contains("g per 100 g"));
+    }
 
-//     @ParameterizedTest
-//     @MethodSource("supportedCodes")
-//     void nullFieldProducesUnavailableFinding(String code) {
-//         List<Finding> findings = check(code, nutrition(code, null));
+    @ParameterizedTest
+    @MethodSource("supportedNutrients")
+    void nullFieldAddsUnavailableFinding(String code, String nutrientName) {
+        List<Finding> findings = check(code, nutrition(code, null));
 
-//         assertEquals(FindingType.UNAVAILABLE_NUTRITION, findings.getFirst().type());
-//     }
+        assertEquals(1, findings.size());
+        assertFindingCodeAndIngredient(findings.getFirst(), code, null);
+        assertTrue(findings.getFirst().reason().contains(nutrientName));
+        assertTrue(findings.getFirst().reason().contains("data is unavailable"));
+        assertTrue(findings.getFirst().reason().contains("g per 100 g"));
+    }
 
-//     @ParameterizedTest
-//     @MethodSource("supportedCodes")
-//     void confirmedZeroIsAccepted(String code) {
-//         assertTrue(check(code, nutrition(code, BigDecimal.ZERO)).isEmpty());
-//     }
+    @ParameterizedTest
+    @MethodSource("supportedNutrients")
+    void confirmedZeroIsAccepted(String code, String nutrientName) {
+        assertEquals(0, check(code, nutrition(code, BigDecimal.ZERO)).size());
+    }
 
-//     @ParameterizedTest
-//     @MethodSource("negativeCases")
-//     void negativeValuesProduceInvalidDataWarning(String code, String unit) {
-//         List<Finding> findings = check(code, nutrition(code, new BigDecimal("-0.01")));
+    @ParameterizedTest
+    @MethodSource("supportedNutrients")
+    void negativeValuesAddInvalidDataFinding(String code, String nutrientName) {
+        List<Finding> findings = check(code, nutrition(code, new BigDecimal("-0.01")));
 
-//         assertEquals(FindingType.INVALID_NUTRITION, findings.getFirst().type());
-//         assertTrue(findings.getFirst().reason().contains("-0.01 " + unit));
-//         assertTrue(findings.getFirst().reason().contains(code));
-//     }
+        assertEquals(1, findings.size());
+        assertFindingCodeAndIngredient(findings.getFirst(), code, null);
+        assertTrue(findings.getFirst().reason().contains(nutrientName));
+        assertTrue(findings.getFirst().reason().contains("-0.01 g per 100 g"));
+        assertTrue(findings.getFirst().reason().contains(code));
+    }
 
-//     @ParameterizedTest
-//     @MethodSource("thresholdCases")
-//     void belowAndEqualThresholdAreAccepted(
-//             String code,
-//             BigDecimal below,
-//             BigDecimal equal,
-//             BigDecimal above,
-//             String expectedReason
-//     ) {
-//         assertTrue(check(code, nutrition(code, below)).isEmpty());
-//         assertTrue(check(code, nutrition(code, equal)).isEmpty());
-//     }
+    @ParameterizedTest
+    @MethodSource("maximumThresholdCases")
+    void belowAndEqualMaximumThresholdAreAccepted(
+            String code,
+            BigDecimal below,
+            BigDecimal equal,
+            BigDecimal above,
+            String expectedReason
+    ) {
+        assertEquals(0, check(code, nutrition(code, below)).size());
+        assertEquals(0, check(code, nutrition(code, equal)).size());
+    }
 
-//     @ParameterizedTest
-//     @MethodSource("thresholdCases")
-//     void aboveThresholdProducesExpectedFinding(
-//             String code,
-//             BigDecimal below,
-//             BigDecimal equal,
-//             BigDecimal above,
-//             String expectedReason
-//     ) {
-//         List<Finding> findings = check(code, nutrition(code, above));
+    @ParameterizedTest
+    @MethodSource("maximumThresholdCases")
+    void aboveMaximumThresholdAddsExpectedFinding(
+            String code,
+            BigDecimal below,
+            BigDecimal equal,
+            BigDecimal above,
+            String expectedReason
+    ) {
+        List<Finding> findings = check(code, nutrition(code, above));
 
-//         assertEquals(1, findings.size());
-//         assertEquals(FindingType.THRESHOLD_EXCEEDED, findings.getFirst().type());
-//         assertEquals(expectedReason, findings.getFirst().reason());
-//     }
+        assertEquals(1, findings.size());
+        assertFindingCodeAndIngredient(findings.getFirst(), code, null);
+        assertEquals(expectedReason, findings.getFirst().reason());
+    }
 
-//     @Test
-//     void transFatHasNoValidValueBelowZero() {
-//         List<Finding> findings = check(
-//                 "LOW_TRANS_FAT",
-//                 nutrition("LOW_TRANS_FAT", new BigDecimal("-0.001"))
-//         );
+    @Test
+    void positiveTransFatAddsThresholdFinding() {
+        List<Finding> findings = check(
+                "LOW_TRANS_FAT",
+                nutrition("LOW_TRANS_FAT", new BigDecimal("0.001"))
+        );
 
-//         assertEquals(FindingType.INVALID_NUTRITION, findings.getFirst().type());
-//     }
+        assertEquals(1, findings.size());
+        assertFindingCodeAndIngredient(findings.getFirst(), "LOW_TRANS_FAT", null);
+        assertEquals(
+                "Trans fat is 0.001 g per 100 g; the LOW_TRANS_FAT rule requires "
+                        + "a confirmed value of 0 g per 100 g.",
+                findings.getFirst().reason()
+        );
+    }
 
-//     @Test
-//     void ignoresUnsupportedAndPreferenceDietCodes() {
-//         Nutrition nutrition = nutrition("LOW_SUGAR", new BigDecimal("100"));
+    @Test
+    void transFatHasNoValidValueBelowZero() {
+        List<Finding> findings = check(
+                "LOW_TRANS_FAT",
+                nutrition("LOW_TRANS_FAT", new BigDecimal("-0.001"))
+        );
 
-//         for (String code : List.of("VEGETARIAN", "VEGAN", "KETO")) {
-//             assertTrue(check(code, nutrition).isEmpty());
-//         }
-//     }
+        assertEquals(1, findings.size());
+        assertFindingCodeAndIngredient(findings.getFirst(), "LOW_TRANS_FAT", null);
+        assertTrue(findings.getFirst().reason().contains("negative values are invalid"));
+    }
 
-//     @Test
-//     void preservesExistingFindings() {
-//         Finding existing = new Finding(null, null, "Existing finding.", FindingType.INCOMPLETE_DATA);
-//         List<Finding> findings = new ArrayList<>(List.of(existing));
-//         checker.check(
-//                 rule("LOW_SUGAR"),
-//                 product(nutrition("LOW_SUGAR", BigDecimal.ZERO)),
-//                 findings
-//         );
+    @Test
+    void ignoresPreferenceAndUnknownDietCodes() {
+        Nutrition nutrition = new Nutrition(
+                new BigDecimal("100"),
+                new BigDecimal("100"),
+                new BigDecimal("100"),
+                new BigDecimal("100"),
+                new BigDecimal("100"),
+                new BigDecimal("100")
+        );
 
-//         assertEquals(List.of(existing), findings);
-//     }
+        for (String code : List.of("VEGETARIAN", "VEGAN", "KETO")) {
+            assertEquals(0, check(code, nutrition).size());
+        }
+    }
 
-//     private List<Finding> check(String code, Nutrition nutrition) {
-//         List<Finding> findings = new ArrayList<>();
-//         checker.check(rule(code), product(nutrition), findings);
-//         return findings;
-//     }
+    @Test
+    void preservesExistingFindings() {
+        Finding existing = new Finding(null, null, "Existing finding.");
+        List<Finding> findings = new ArrayList<>(List.of(existing));
 
-//     private static RestrictionRule rule(String code) {
-//         return new RestrictionRule(code, RestrictionCategory.DIET, RestrictionSeverity.PREFERENCE);
-//     }
+        checker.check(
+                rule("LOW_SUGAR"),
+                product(nutrition("LOW_SUGAR", BigDecimal.ZERO)),
+                findings
+        );
 
-//     private static ProductData product(Nutrition nutrition) {
-//         return new ProductData("123", List.of(), null, List.of(), nutrition, false);
-//     }
+        assertEquals(1, findings.size());
+        assertFindingCodeAndIngredient(findings.getFirst(), null, null);
+        assertEquals("Existing finding.", findings.getFirst().reason());
+    }
 
-//     private static Nutrition nutrition(String code, BigDecimal value) {
-//         return switch (code) {
-//             case "LOW_SUGAR" -> new Nutrition(value, null, null, null, null, null);
-//             case "LOW_FAT" -> new Nutrition(null, null, null, null, value, null);
-//             case "LOW_TRANS_FAT" -> new Nutrition(null, null, value, null, null, null);
-//             case "LOW_SODIUM" -> new Nutrition(null, value, null, null, null, null);
-//             default -> new Nutrition(value, null, null, null, null, null);
-//         };
-//     }
+    private List<Finding> check(String code, Nutrition nutrition) {
+        List<Finding> findings = new ArrayList<>();
+        checker.check(rule(code), product(nutrition), findings);
+        return findings;
+    }
 
-//     private static Stream<String> supportedCodes() {
-//         return Stream.of("LOW_SUGAR", "LOW_FAT", "LOW_TRANS_FAT", "LOW_SODIUM");
-//     }
+    private static RestrictionRule rule(String code) {
+        return new RestrictionRule(
+                code,
+                RestrictionCategory.DIET,
+                RestrictionSeverity.INTOLERANCE
+        );
+    }
 
-//     private static Stream<Arguments> negativeCases() {
-//         return Stream.of(
-//                 Arguments.of("LOW_SUGAR", "g per 100 g"),
-//                 Arguments.of("LOW_FAT", "g per 100 g"),
-//                 Arguments.of("LOW_TRANS_FAT", "g per 100 g"),
-//                 Arguments.of("LOW_SODIUM", "g per 100 g")
-//         );
-//     }
+    private static ProductData product(Nutrition nutrition) {
+        return new ProductData("123", List.of(), null, List.of(), nutrition, false);
+    }
 
-//     private static Stream<Arguments> thresholdCases() {
-//         return Stream.of(
-//                 Arguments.of(
-//                         "LOW_SUGAR",
-//                         new BigDecimal("4.9"),
-//                         new BigDecimal("5.0"),
-//                         new BigDecimal("5.1"),
-//                         "Sugar is 5.1 g per 100 g, above the LOW_SUGAR limit of 5.0 g per 100 g."
-//                 ),
-//                 Arguments.of(
-//                         "LOW_FAT",
-//                         new BigDecimal("2.9"),
-//                         new BigDecimal("3.0"),
-//                         new BigDecimal("3.1"),
-//                         "Total fat is 3.1 g per 100 g, above the LOW_FAT limit of 3.0 g per 100 g."
-//                 ),
-//                 Arguments.of(
-//                         "LOW_SODIUM",
-//                         new BigDecimal("0.11"),
-//                         new BigDecimal("0.12"),
-//                         new BigDecimal("0.121"),
-//                         "Sodium is 121 mg per 100 g, above the LOW_SODIUM limit of 120 mg per 100 g."
-//                 )
-//         );
-//     }
-// }
+    private static Nutrition nutrition(String code, BigDecimal value) {
+        return switch (code) {
+            case "LOW_SUGAR" -> new Nutrition(value, null, null, null, null, null);
+            case "LOW_FAT" -> new Nutrition(null, null, null, null, value, null);
+            case "LOW_TRANS_FAT" -> new Nutrition(null, null, value, null, null, null);
+            case "LOW_SODIUM" -> new Nutrition(null, value, null, null, null, null);
+            default -> new Nutrition(value, null, null, null, null, null);
+        };
+    }
+
+    private static Stream<Arguments> supportedNutrients() {
+        return Stream.of(
+                Arguments.of("LOW_SUGAR", "Sugar"),
+                Arguments.of("LOW_FAT", "Total fat"),
+                Arguments.of("LOW_TRANS_FAT", "Trans fat"),
+                Arguments.of("LOW_SODIUM", "Sodium")
+        );
+    }
+
+    private static Stream<Arguments> maximumThresholdCases() {
+        return Stream.of(
+                Arguments.of(
+                        "LOW_SUGAR",
+                        new BigDecimal("4.9"),
+                        new BigDecimal("5.0"),
+                        new BigDecimal("5.1"),
+                        "Sugar is 5.1 g per 100 g, above the LOW_SUGAR limit of 5.0 g per 100 g."
+                ),
+                Arguments.of(
+                        "LOW_FAT",
+                        new BigDecimal("2.9"),
+                        new BigDecimal("3.0"),
+                        new BigDecimal("3.1"),
+                        "Total fat is 3.1 g per 100 g, above the LOW_FAT limit of 3.0 g per 100 g."
+                ),
+                Arguments.of(
+                        "LOW_SODIUM",
+                        new BigDecimal("0.11"),
+                        new BigDecimal("0.12"),
+                        new BigDecimal("0.121"),
+                        "Sodium is 121 mg per 100 g, above the LOW_SODIUM limit of 120 mg per 100 g."
+                )
+        );
+    }
+
+    private static void assertFindingCodeAndIngredient(
+            Finding finding,
+            String restrictionCode,
+            String ingredientName
+    ) {
+        assertEquals(restrictionCode, finding.restrictionCode());
+        assertEquals(ingredientName, finding.ingredientName());
+    }
+}
