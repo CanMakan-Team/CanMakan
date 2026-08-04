@@ -403,9 +403,9 @@ class DietaryKnowledgeToolsTest {
     @DisplayName("UC3 BE9: Placeholder Tavily key yields empty summary without crash")
     void placeholderTavilyKeyYieldsEmptySummaryWithoutCrash() {
         AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
-                null,
-                "local-dev-placeholder",
-                "https://api.tavily.com/search");
+            null,
+            "local-dev-placeholder",
+            "https://api.tavily.com/search");
         AllergenRelationshipTool tool = new AllergenRelationshipTool(repository, fallback);
 
         AllergenRelationshipResult result = tool.lookup(List.of("mystery-additive"));
@@ -420,9 +420,9 @@ class DietaryKnowledgeToolsTest {
     void tavilyFallbackUsesWebClientResponseAnswer() {
         ExchangeFunction exchangeFunction = request -> Mono.just(
                 ClientResponse.create(HttpStatus.OK)
-                        .header("Content-Type", "application/json")
-                        .body("{\"answer\":\"Inulin is typically a FIBER allergen family.\",\"results\":[]}")
-                        .build());
+                    .header("Content-Type", "application/json")
+                    .body("{\"answer\":\"Inulin is typically a FIBER allergen family.\",\"results\":[]}")
+                    .build());
 
         WebClient.Builder builder = WebClient.builder().exchangeFunction(exchangeFunction);
         AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
