@@ -24,6 +24,12 @@ public class ProductLookupException extends RuntimeException {
     }
 
     public enum Reason {
+        INVALID_BARCODE,
+        PRODUCT_NOT_FOUND,
+        MALFORMED_RESPONSE,
+        TIMEOUT,
+        TRANSIENT_FAILURE,
+        PROVIDER_FAILURE,
         INVALID_RESPONSE,
         REMOTE_FAILURE,
         INTERRUPTED
