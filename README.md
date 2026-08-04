@@ -120,6 +120,22 @@ Continuous integration builds the backend, web app, and Android app on pushes an
 > Uses actions/checkout with full history (fetch-depth: 0) for commit scanning <br>
 > Uses GitHub-provided GITHUB_TOKEN <br>
 
+### Continuous Integration
+
+Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+
+- Runs on all pushes and pull requests
+- Builds backend, web, and mobile in a single job on `ubuntu-latest`
+
+| Component | Directory | Build step |
+|-----------|-----------|------------|
+| Backend | `server/backend` | Maven (`mvn clean package -DskipTests`, Java 21) |
+| Web | `client/web` | `npm ci` + `npm run build` (Node 20) |
+| Mobile | `client/mobile` | Gradle `assembleDebug` |
+
+> Uses GitHub repository secrets for backend runtime configuration (database, API keys) <br>
+> Android SDK is provisioned via `android-actions/setup-android` <br>
+
 ### Dependabot
 
 This repository uses [GitHub Dependabot](https://docs.github.com/en/code-security/dependabot) to keep third-party dependencies current and to surface known security advisories.
