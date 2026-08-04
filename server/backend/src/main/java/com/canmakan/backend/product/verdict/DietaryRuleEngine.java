@@ -1,12 +1,13 @@
 package com.canmakan.backend.product.verdict;
 
 import com.canmakan.backend.knowledgebase.model.Ingredient;
-import org.springframework.stereotype.Service;
-
+import com.canmakan.backend.knowledgebase.model.RestrictionCategory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
 
 /**
  * Produces a {@link SafetyVerdict} for one dietary profile against one product.
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
  * </ul>
  *
  * @author XieHuayuan
+ * @author YangMaowei
  */
 @Service
 public class DietaryRuleEngine {
@@ -47,69 +49,135 @@ public class DietaryRuleEngine {
      * @return the resulting {@link SafetyVerdict}
      */
     public SafetyVerdict assess(List<RestrictionRule> rules, ProductData product) {
-        if (product == null || !product.dataComplete()
-                || product.ingredients() == null || product.ingredients().isEmpty()) {
-            Finding f = new Finding(null, null,
-                    "No reliable ingredient data for this product - please verify the physical label.");
+        if (product == null) {
+            Finding f = new Finding(
+                    null,
+                    null,
+                    "No reliable product data is available - please verify the physical label.",
+                    FindingType.INCOMPLETE_DATA
+            );
             return SafetyVerdict.warning(f.reason(), List.of(f));
         }
 
-        // Resolve unknown / chemical-alias ingredients via the boundary; note anything left unresolved.
+        List<RestrictionRule> activeRules = rules == null
+                ? List.of()
+                : rules.stream().filter(Objects::nonNull).toList();
+        boolean requiresAllergenResolution = activeRules.stream()
+                .anyMatch(rule -> rule.category() == RestrictionCategory.ALLERGEN);
+
         boolean hasUnresolved = false;
         List<Ingredient> resolved = new ArrayList<>();
-        for (Ingredient ing : product.ingredients()) {
-            if (ing.rootAllergen() == null || ing.rootAllergen().isBlank()) {
-                String root = resolver.resolveRootAllergen(ing.ingredientName());
-                if (root == null) {
+        List<Ingredient> ingredients = product.ingredients() == null
+                ? List.of()
+                : product.ingredients();
+        for (Ingredient ingredient : ingredients) {
+            if (ingredient == null) {
+                if (requiresAllergenResolution) {
                     hasUnresolved = true;
-                    resolved.add(ing);
+                }
+                continue;
+            }
+
+            if (requiresAllergenResolution
+                    && (ingredient.rootAllergen() == null || ingredient.rootAllergen().isBlank())) {
+                String root = resolveRootAllergen(ingredient.ingredientName());
+                if (root == null || root.isBlank()) {
+                    hasUnresolved = true;
+                    resolved.add(ingredient);
                 } else {
                     resolved.add(new Ingredient(
-                            ing.ingredientName(), ing.parentAllergen(), root, ing.chemicalAlias()));
+                            ingredient.ingredientName(),
+                            ingredient.parentAllergen(),
+                            root,
+                            ingredient.chemicalAlias()
+                    ));
                 }
             } else {
-                resolved.add(ing);
+                resolved.add(ingredient);
             }
         }
 
-        ProductData enriched = new ProductData(product.barcode(), resolved,
-                product.ingredientsText(), product.labelTags(), product.nutrition(), true);
+        ProductData enriched = new ProductData(
+                product.barcode(),
+                resolved,
+                product.ingredientsText(),
+                product.labelTags(),
+                product.nutrition(),
+                product.dataComplete()
+        );
 
         List<Finding> findings = new ArrayList<>();
-        for (RestrictionRule rule : rules) {
+        if (requiresAllergenResolution
+                && (!product.dataComplete() || ingredients.isEmpty())) {
+            findings.add(new Finding(
+                    null,
+                    null,
+                    "Ingredient data is incomplete for the active allergen restrictions.",
+                    FindingType.INCOMPLETE_DATA
+            ));
+        }
+
+        for (RestrictionRule rule : activeRules) {
             for (RestrictionChecker checker : checkers) {
                 if (checker.supports(rule.category())) {
                     checker.check(rule, enriched, findings);
                 }
             }
         }
-        return decide(rules, findings, hasUnresolved);
+        return decide(activeRules, findings, hasUnresolved);
+    }
+
+    /**
+     * Aggregates deterministic and non-authoritative evidence using the same
+     * severity rules as a normal assessment.
+     */
+    public SafetyVerdict aggregate(List<RestrictionRule> rules, List<Finding> findings) {
+        List<RestrictionRule> activeRules = rules == null ? List.of() : rules;
+        List<Finding> availableFindings = findings == null ? List.of() : findings;
+        return decide(activeRules, availableFindings, false);
     }
 
     /** Applies the verdict priority and assembles the {@link SafetyVerdict}. */
     SafetyVerdict decide(List<RestrictionRule> rules, List<Finding> findings, boolean hasUnresolved) {
         Map<String, RestrictionSeverity> severityByCode = rules.stream()
+                .filter(Objects::nonNull)
+                .filter(rule -> rule.code() != null && rule.severity() != null)
                 .collect(Collectors.toMap(RestrictionRule::code, RestrictionRule::severity, (a, b) -> a));
 
         boolean strictHit = findings.stream().anyMatch(f ->
-                f.restrictionCode() != null
+                f != null
+                        && f.isConfirmedViolation()
+                        && f.restrictionCode() != null
                         && severityByCode.get(f.restrictionCode()) == RestrictionSeverity.STRICT_AVOID);
 
-        List<Finding> all = new ArrayList<>(findings);
+        List<Finding> all = findings.stream().filter(Objects::nonNull)
+                .collect(Collectors.toCollection(ArrayList::new));
         if (hasUnresolved) {
-            all.add(new Finding(null, null,
-                    "Some ingredients could not be fully analysed - treat with caution."));
+            all.add(new Finding(
+                    null,
+                    null,
+                    "Some ingredients could not be fully analysed - treat with caution.",
+                    FindingType.UNRESOLVED_INGREDIENT
+            ));
         }
 
         SafetyVerdict.Level level;
         if (strictHit) {
             level = SafetyVerdict.Level.UNSAFE;
-        } else if (!findings.isEmpty() || hasUnresolved) {
+        } else if (!all.isEmpty()) {
             level = SafetyVerdict.Level.WARNING;
         } else {
             level = SafetyVerdict.Level.SAFE;
         }
         return new SafetyVerdict(level, buildExplanation(level, all), all);
+    }
+
+    private String resolveRootAllergen(String ingredientName) {
+        try {
+            return resolver.resolveRootAllergen(ingredientName);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     /** Deterministic fallback wording; the AI reasoning service can replace this later. */
