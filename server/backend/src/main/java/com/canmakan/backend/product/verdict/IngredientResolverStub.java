@@ -2,6 +2,7 @@ package com.canmakan.backend.product.verdict;
 
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Primary;
 
 /**
  * Temporary no-op resolver used until {@code knowledgebase} / {@code agentic-ai} are wired in.
@@ -9,9 +10,11 @@ import org.springframework.stereotype.Component;
  * rather than emitting a false SAFE.
  *
  * @author XieHuayuan
+ * @author YangMaowei
  */
 @Primary // TODO: remove once DietaryKnowledgeMcpClient's tool calls are implemented
 @Component
+@Primary
 public class IngredientResolverStub implements IngredientResolver {
 
     @Override

@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
  * Maps to the {@code ai_execution_logs} table.
  *
  * @author XieHuayuan
+ * @author YangMaowei
  */
 @Getter
 @Setter
@@ -59,6 +61,13 @@ public class AiExecutionLog {
     @Column(name = "raw_llm_response")
     private String rawLlmResponse;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @PrePersist
+    void assignCreatedAt() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 }
