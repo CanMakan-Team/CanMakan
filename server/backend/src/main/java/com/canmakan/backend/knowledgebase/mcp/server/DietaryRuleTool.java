@@ -31,14 +31,15 @@ public class DietaryRuleTool {
         }
 
         // Normalize the code by trimming and converting to uppercase
-        code = code.trim().toUpperCase();
+        String normalizedCode = code.trim().toUpperCase();
 
-        // Find the dietary rule by code and return the result
-        return repository.findDietaryRule(code)
+        // Find the dietary rule by code and map the result to a DietaryRuleResult
+        // If no result is found, return a default result with the normalized code and UNKNOWN category
+        return repository.findDietaryRule(normalizedCode)
             .map(entry -> new DietaryRuleResult(
                 entry.code(),
                 entry.category(),
                 entry.description() == null ? "" : entry.description()))
-            .orElseGet(() -> new DietaryRuleResult(code, "UNKNOWN", "No dietary rule definition found."));
+            .orElseGet(() -> new DietaryRuleResult(normalizedCode, "UNKNOWN", "No dietary rule definition found."));
     }
 }

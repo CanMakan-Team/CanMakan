@@ -14,11 +14,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * In-memory dietary knowledge store used by the MCP knowledge tools.
@@ -42,39 +46,52 @@ public class DietaryKnowledgeRepository {
     private final Map<String, Ingredient> allergenRelationships = new LinkedHashMap<>();
     private final List<String> crossContaminationKeywords = new ArrayList<>();
 
+    // Seed the cross contamination patterns at startup
     @PostConstruct
     public void initialize() {
         seedCrossContaminationPatterns();
         loadIngredientKnowledge();
     }
 
+    private static final Pattern E_NUMBER_TOKEN = Pattern.compile(
+        "^E\\d+[A-Z]*(?:\\([^)]*\\))?", // pattern: E followed by digits, optional uppercase letters, optional parentheses
+        Pattern.CASE_INSENSITIVE);
+
+    private static final Set<String> ANIMAL_ROOT_ALLERGENS = Set.of(
+        "EGG", "DAIRY", "MILK", "FISH", "SHELLFISH", "PEANUT", "NUTS", "SESAME");
+
+    // Find the ingredient alias by normalized name (exact catalog name, synonym, or E-code).
     public Optional<Ingredient> findIngredientAlias(String ingredientName) {
         return Optional.ofNullable(ingredientAliases.get(normalize(ingredientName)));
     }
 
-    public Optional<Ingredient> resolveIngredient(String ingredientName) {
-        return findIngredientAlias(ingredientName);
-    }
-
+    // Find the E-number by normalized key
     public Optional<ENumber> findENumber(String eNumber) {
         if (ingredientEntityRepository == null || eNumber == null || eNumber.isBlank()) {
             return Optional.empty();
         }
 
-        return ingredientEntityRepository.findByIngredientNameContainingIgnoreCase(eNumber.trim()).stream()
+        String query = eNumber.trim();
+        String queryKey = normalizeENumberKey(query);
+
+        return ingredientEntityRepository.findByIngredientNameContainingIgnoreCase(query).stream()
                 .filter(entity -> Boolean.TRUE.equals(entity.getIsChemicalAlias()))
-                .findFirst()
+                .filter(entity -> eNumberKeysMatch(extractLeadingENumber(entity.getIngredientName()), queryKey))
+                .min(Comparator.comparingInt((IngredientEntity entity) -> entity.getIngredientName().length())
+                        .thenComparing(IngredientEntity::getIngredientName, String.CASE_INSENSITIVE_ORDER))
                 .map(entity -> new ENumber(
-                        eNumber.trim(),
+                        extractLeadingENumber(entity.getIngredientName()).orElse(queryKey),
                         entity.getIngredientName(),
-                        entity.getParentAllergen(),
-                        false));
+                        entity.getParentAllergen() == null ? "" : entity.getParentAllergen(),
+                        isAnimalDerived(entity)));
     }
 
+    // Find the allergen relationship by normalized allergen
     public Optional<Ingredient> findAllergenRelationship(String allergen) {
         return Optional.ofNullable(allergenRelationships.get(normalize(allergen)));
     }
 
+    // Find the dietary rule by normalized code
     public Optional<DietaryRule> findDietaryRule(String code) {
         if (dietaryProfileRepository == null || code == null || code.isBlank()) {
             return Optional.empty();
@@ -84,12 +101,12 @@ public class DietaryKnowledgeRepository {
             .map(this::toDietaryRule);
     }
 
-    // Old callers (tests + existing code) keep working
+    // Analyse cross contamination by label text
     public Optional<CrossContaminationResult> analyseCrossContamination(String labelText) {
         return analyseCrossContamination(labelText, null);
     }
 
-    // New version that can also use traces_tags
+    // Analyse cross contamination by label text and traces_tags
     /**
      * Analyses both free-text label content and structured traces_tags from Open Food Facts.
      *
@@ -107,7 +124,6 @@ public class DietaryKnowledgeRepository {
         String matchedPhrase = null;
 
         // 1. Structured traces_tags from OFF (most reliable but data is sparse)
-
         List<String> normalizedTags = normalizeTracesTags(tracesTags);
         if (!normalizedTags.isEmpty()) {
             Map<String, String> tagMapping = Map.ofEntries(
@@ -130,6 +146,7 @@ public class DietaryKnowledgeRepository {
                 Map.entry("en:shellfish", "SHELLFISH")
             );
 
+            // Iterate over the normalized tags and add the allergens to the found allergens list
             for (String cleanTag : normalizedTags) {
                 String allergen = tagMapping.get(cleanTag);
                 if (allergen != null) {
@@ -137,13 +154,13 @@ public class DietaryKnowledgeRepository {
                 }
             }
 
+            // If found allergens are not empty, set the matched phrase to the normalized tags
             if (!foundAllergens.isEmpty()) {
                 matchedPhrase = "traces_tags: " + String.join(",", normalizedTags);
             }
         }
 
         // 2. Free-text phrase detection (fallback / additional signal)
-
         if (labelText != null && !labelText.isBlank()) {
             String normalized = normalize(labelText);
 
@@ -254,22 +271,62 @@ public class DietaryKnowledgeRepository {
 
         if (ingredientEntityRepository != null) {
             ingredientEntityRepository.findAll().forEach(entity -> {
-                registerAlias(
-                        entity.getIngredientName(),
-                        entity.getIngredientName(),
-                        entity.getRootAllergen(),
-                        Boolean.TRUE.equals(entity.getIsChemicalAlias()));
+                String canonical = entity.getIngredientName();
+                String root = entity.getRootAllergen();
+                boolean chemicalAlias = Boolean.TRUE.equals(entity.getIsChemicalAlias());
+
+                registerAlias(canonical, canonical, root, chemicalAlias);
+
+                // Chemical rows are also addressable by bare E-code (E471) for alias lookup.
+                if (chemicalAlias) {
+                    extractLeadingENumber(canonical).ifPresent(code ->
+                            registerAlias(code, canonical, root, true));
+                }
 
                 // Only ingredients with a known parent allergen participate in the hierarchy walk.
                 if (entity.getParentAllergen() != null && !entity.getParentAllergen().isBlank()) {
                     registerRelationship(
-                            entity.getIngredientName(),
+                            canonical,
                             entity.getParentAllergen(),
-                            entity.getRootAllergen(),
-                            Boolean.TRUE.equals(entity.getIsChemicalAlias()));
+                            root,
+                            chemicalAlias);
                 }
             });
+
+            registerCommonSynonyms();
         }
+    }
+
+    /**
+     * Extra query keys that map onto seeded canonical ingredient names.
+     * Only registered when the canonical row already exists in the alias map.
+     */
+    private void registerCommonSynonyms() {
+        registerSynonym("caseinate", "Sodium Caseinate");
+        registerSynonym("sodium caseinate", "Sodium Caseinate");
+        registerSynonym("whey powder", "Whey Powder");
+        registerSynonym("skim milk powder", "Skimmed Milk Powder");
+        registerSynonym("skimmed milk powder", "Skimmed Milk Powder");
+        registerSynonym("whole milk powder", "Whole Milk Powder");
+        registerSynonym("msg", "E621 (Monosodium Glutamate)");
+        registerSynonym("monosodium glutamate", "E621 (Monosodium Glutamate)");
+        registerSynonym("tartrazine", "E102 (Tartrazine)");
+        registerSynonym("carrageenan", "E407 (Carrageenan)");
+        registerSynonym("lysozyme", "E1105 (Lysozyme from eggs)");
+        registerSynonym("oat flour", "Whole Grain Oat Flour");
+        registerSynonym("wholegrain oat flour", "Whole Grain Oat Flour");
+    }
+
+    private void registerSynonym(String aliasQuery, String canonicalName) {
+        Ingredient canonical = ingredientAliases.get(normalize(canonicalName));
+        if (canonical == null) {
+            return;
+        }
+        registerAlias(
+                aliasQuery,
+                canonical.ingredientName(),
+                canonical.rootAllergen(),
+                canonical.chemicalAlias());
     }
 
     private DietaryRule toDietaryRule(DietaryRestriction restriction) {
@@ -296,6 +353,54 @@ public class DietaryKnowledgeRepository {
 
     private void registerRelationship(String allergen, String parentAllergen, String rootAllergen, boolean chemicalAlias) {
         allergenRelationships.put(normalize(allergen), new Ingredient(allergen, parentAllergen, rootAllergen, chemicalAlias));
+    }
+
+    private boolean isAnimalDerived(IngredientEntity entity) {
+        String root = entity.getRootAllergen() == null ? "" : entity.getRootAllergen().trim().toUpperCase(Locale.ROOT);
+        if (ANIMAL_ROOT_ALLERGENS.contains(root)) {
+            return true;
+        }
+
+        String haystack = ((entity.getIngredientName() == null ? "" : entity.getIngredientName()) + " "
+                + (entity.getParentAllergen() == null ? "" : entity.getParentAllergen()))
+                .toLowerCase(Locale.ROOT);
+
+        return haystack.contains("egg")
+                || haystack.contains("milk")
+                || haystack.contains("dairy")
+                || haystack.contains("fish")
+                || haystack.contains("shellfish")
+                || haystack.contains("animal");
+    }
+
+    private static Optional<String> extractLeadingENumber(String ingredientName) {
+        if (ingredientName == null || ingredientName.isBlank()) {
+            return Optional.empty();
+        }
+        Matcher matcher = E_NUMBER_TOKEN.matcher(ingredientName.trim());
+        if (!matcher.find() || matcher.start() != 0) {
+            return Optional.empty();
+        }
+        return Optional.of(normalizeENumberKey(matcher.group()));
+    }
+
+    private static String normalizeENumberKey(String value) {
+        if (value == null) {
+            return "";
+        }
+        // Keep letter/digit only so E500(ii), E-471, and E471 compare equally on the code stem.
+        String compact = value.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "");
+        Matcher matcher = Pattern.compile("^E\\d+[A-Z]*").matcher(compact);
+        return matcher.find() ? matcher.group() : compact;
+    }
+
+    private static boolean eNumberKeysMatch(Optional<String> candidateKey, String queryKey) {
+        if (queryKey.isBlank() || candidateKey.isEmpty()) {
+            return false;
+        }
+        String candidate = candidateKey.get();
+        // Exact code match only (E471 != E473; E47 does not match E471).
+        return candidate.equals(queryKey);
     }
 
     private String normalize(String value) {

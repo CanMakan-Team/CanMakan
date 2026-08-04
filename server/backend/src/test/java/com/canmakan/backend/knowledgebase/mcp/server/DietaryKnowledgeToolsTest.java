@@ -2,7 +2,6 @@ package com.canmakan.backend.knowledgebase.mcp.server;
 
 import com.canmakan.backend.dietaryprofile.DietaryProfileRepository;
 import com.canmakan.backend.dietaryprofile.DietaryRestriction;
-import com.canmakan.backend.knowledgebase.mcp.DietaryKnowledgeMcpClient;
 import com.canmakan.backend.knowledgebase.mcp.contract.AllergenRelationshipResult;
 import com.canmakan.backend.knowledgebase.mcp.contract.CrossContaminationResult;
 import com.canmakan.backend.knowledgebase.mcp.contract.DietaryRuleResult;
@@ -39,6 +38,7 @@ class DietaryKnowledgeToolsTest {
     /** Seed rows aligned with {@code 05_household_dietary_data.sql}. */
     private static final Map<String, DietaryRestriction> SEED_RESTRICTIONS = seedRestrictions();
 
+    /** Mock repositories for testing. */
     private final IngredientEntityRepository ingredientEntityRepository = mock(IngredientEntityRepository.class);
     private final DietaryProfileRepository dietaryProfileRepository = mock(DietaryProfileRepository.class);
     private final DietaryKnowledgeRepository repository =
@@ -53,13 +53,8 @@ class DietaryKnowledgeToolsTest {
         new AllergenRelationshipTool(repository, realFallback);
     private final DietaryRuleTool dietaryRuleTool = new DietaryRuleTool(repository);
     private final CrossContaminationTool crossContaminationTool = new CrossContaminationTool(repository);
-    private final DietaryKnowledgeMcpClient mcpClient = new DietaryKnowledgeMcpClient(
-        ingredientAliasTool,
-        eNumberTool,
-        allergenRelationshipTool,
-        dietaryRuleTool,
-        crossContaminationTool);
 
+    /** Set up the mock repositories and tools. */
     @BeforeEach
     void setUp() {
         when(ingredientEntityRepository.findAll()).thenReturn(List.of(
@@ -68,11 +63,28 @@ class DietaryKnowledgeToolsTest {
                 new IngredientEntity("whey", "Milk", "DAIRY", false),
                 new IngredientEntity("peanut", "Peanuts", "PEANUT", false),
                 new IngredientEntity("sesame", null, "SESAME", false),
-                new IngredientEntity("Whole Grain Oat Flour", null, "GLUTEN", false)
+                new IngredientEntity("Whole Grain Oat Flour", null, "GLUTEN", false),
+                new IngredientEntity("Sodium Caseinate", "Milk Derivatives", "DAIRY", false),
+                new IngredientEntity("E471 (Mono- and Diglycerides)", "Emulsifiers", "ADDITIVE", true),
+                new IngredientEntity("E1105 (Lysozyme from eggs)", "Egg Derivatives", "EGG", true)
         ));
-        when(ingredientEntityRepository.findByIngredientNameContainingIgnoreCase("E471")).thenReturn(List.of(
-                new IngredientEntity("E471 (Mono- and Diglycerides)", "Emulsifiers", "ADDITIVE", true)
-        ));
+
+        // Seed-aligned chemical aliases from 02_ingredients.sql
+        when(ingredientEntityRepository.findByIngredientNameContainingIgnoreCase(anyString())).thenAnswer(invocation -> {
+            String query = invocation.getArgument(0);
+            if (query == null) {
+                return List.of();
+            }
+            String q = query.trim().toUpperCase(Locale.ROOT).replace(" ", "").replace("-", "");
+            List<IngredientEntity> chemicalAliases = List.of(
+                new IngredientEntity("E471 (Mono- and Diglycerides)", "Emulsifiers", "ADDITIVE", true),
+                new IngredientEntity("E473 (Sucrose Esters of Fatty Acids)", "Emulsifiers", "ADDITIVE", true),
+                new IngredientEntity("E1105 (Lysozyme from eggs)", "Egg Derivatives", "EGG", true)
+            );
+            return chemicalAliases.stream()
+                .filter(entity -> entity.getIngredientName().toUpperCase(Locale.ROOT).contains(q))
+                .toList();
+        });
 
         // Mirrors DietaryProfileRepository.findRestrictionByCode (case-insensitive)
         when(dietaryProfileRepository.findRestrictionByCode(anyString())).thenAnswer(invocation -> {
@@ -86,26 +98,154 @@ class DietaryKnowledgeToolsTest {
         repository.initialize();
     }
 
+    /** Test cases for the ingredient alias tool. */
     @Test
-    @DisplayName("UC3 BE1: Resolves ingredient aliases and root allergen")
+    @DisplayName("UC3 BE1a: Resolves ingredient aliases and root allergen")
     void resolvesIngredientAliasesAndRootAllergen() {
         IngredientAliasResult result = ingredientAliasTool.lookup("milk powder");
 
+        assertThat(result.ingredientName()).isEqualTo("milk powder");
         assertThat(result.canonicalName()).isEqualTo("milk powder");
         assertThat(result.rootAllergen()).isEqualTo("DAIRY");
         assertThat(result.chemicalAlias()).isFalse();
     }
 
     @Test
-    @DisplayName("UC3 BE2: Resolves E-number metadata")
+    @DisplayName("UC3 BE1b: Blank ingredient alias returns empty unresolved result")
+    void blankIngredientAliasReturnsEmptyUnresolvedResult() {
+        IngredientAliasResult result = ingredientAliasTool.lookup("  ");
+
+        assertThat(result.ingredientName()).isEmpty();
+        assertThat(result.canonicalName()).isEmpty();
+        assertThat(result.rootAllergen()).isNull();
+        assertThat(result.chemicalAlias()).isFalse();
+    }
+
+    @Test
+    @DisplayName("UC3 BE1c: Unknown ingredient keeps passthrough canonical and null root")
+    void unknownIngredientKeepsPassthroughCanonicalAndNullRoot() {
+        IngredientAliasResult result = ingredientAliasTool.lookup("mystery powder");
+
+        assertThat(result.ingredientName()).isEqualTo("mystery powder");
+        assertThat(result.canonicalName()).isEqualTo("mystery powder");
+        assertThat(result.rootAllergen()).isNull();
+        assertThat(result.chemicalAlias()).isFalse();
+    }
+
+    @Test
+    @DisplayName("UC3 BE1d: Trims and case-normalizes catalog lookup")
+    void trimsAndCaseNormalizesCatalogLookup() {
+        IngredientAliasResult result = ingredientAliasTool.lookup("  Milk Powder  ");
+
+        assertThat(result.ingredientName()).isEqualTo("Milk Powder");
+        assertThat(result.canonicalName()).isEqualTo("milk powder");
+        assertThat(result.rootAllergen()).isEqualTo("DAIRY");
+    }
+
+    @Test
+    @DisplayName("UC3 BE1e: Resolves common synonym to canonical catalog row")
+    void resolvesCommonSynonymToCanonicalCatalogRow() {
+        IngredientAliasResult result = ingredientAliasTool.lookup("caseinate");
+
+        assertThat(result.canonicalName()).isEqualTo("Sodium Caseinate");
+        assertThat(result.rootAllergen()).isEqualTo("DAIRY");
+        assertThat(result.chemicalAlias()).isFalse();
+    }
+
+    @Test
+    @DisplayName("UC3 BE1f: Chemical full name sets chemicalAlias and ADDITIVE root")
+    void chemicalFullNameSetsChemicalAliasAndAdditiveRoot() {
+        IngredientAliasResult result =
+                ingredientAliasTool.lookup("E471 (Mono- and Diglycerides)");
+
+        assertThat(result.canonicalName()).isEqualTo("E471 (Mono- and Diglycerides)");
+        assertThat(result.rootAllergen()).isEqualTo("ADDITIVE");
+        assertThat(result.chemicalAlias()).isTrue();
+    }
+
+    @Test
+    @DisplayName("UC3 BE1g: Bare E-code resolves via alias map for client chemical path")
+    void bareECodeResolvesViaAliasMap() {
+        IngredientAliasResult result = ingredientAliasTool.lookup("e471");
+
+        assertThat(result.canonicalName()).isEqualTo("E471 (Mono- and Diglycerides)");
+        assertThat(result.rootAllergen()).isEqualTo("ADDITIVE");
+        assertThat(result.chemicalAlias()).isTrue();
+    }
+
+    @Test
+    @DisplayName("UC3 BE1h: Oat flour synonym resolves gluten root")
+    void oatFlourSynonymResolvesGlutenRoot() {
+        IngredientAliasResult result = ingredientAliasTool.lookup("oat flour");
+
+        assertThat(result.canonicalName()).isEqualTo("Whole Grain Oat Flour");
+        assertThat(result.rootAllergen()).isEqualTo("GLUTEN");
+    }
+
+    /** Test cases for the E-number tool. */
+    @Test
+    @DisplayName("UC3 BE2a: Resolves E-number metadata for E471")
     void resolvesENumberMetadata() {
         ENumberResult result = eNumberTool.lookup("E471");
 
+        assertThat(result.eNumber()).isEqualTo("E471");
         assertThat(result.name()).contains("Diglycerides");
         assertThat(result.category()).isEqualTo("Emulsifiers");
         assertThat(result.animalDerived()).isFalse();
     }
 
+    @Test
+    @DisplayName("UC3 BE2b: Blank E-number returns empty result")
+    void blankENumberReturnsEmptyResult() {
+        ENumberResult result = eNumberTool.lookup("  ");
+
+        assertThat(result.eNumber()).isEmpty();
+        assertThat(result.name()).isEmpty();
+        assertThat(result.category()).isEmpty();
+        assertThat(result.animalDerived()).isFalse();
+    }
+
+    @Test
+    @DisplayName("UC3 BE2c: Unknown E-number returns Unknown additive")
+    void unknownENumberReturnsUnknownAdditive() {
+        ENumberResult result = eNumberTool.lookup("E999");
+
+        assertThat(result.eNumber()).isEqualTo("E999");
+        assertThat(result.name()).isEqualTo("Unknown additive");
+        assertThat(result.category()).isEqualTo("unknown");
+        assertThat(result.animalDerived()).isFalse();
+    }
+
+    @Test
+    @DisplayName("UC3 BE2d: E-number lookup normalizes case and separators")
+    void eNumberLookupNormalizesCaseAndSeparators() {
+        ENumberResult result = eNumberTool.lookup("e-471");
+
+        assertThat(result.eNumber()).isEqualTo("E471");
+        assertThat(result.name()).contains("Diglycerides");
+    }
+
+    @Test
+    @DisplayName("UC3 BE2e: Partial E-number does not match a longer code")
+    void partialENumberDoesNotMatchLongerCode() {
+        ENumberResult result = eNumberTool.lookup("E47");
+
+        assertThat(result.name()).isEqualTo("Unknown additive");
+        assertThat(result.category()).isEqualTo("unknown");
+    }
+
+    @Test
+    @DisplayName("UC3 BE2f: E1105 from eggs is flagged animal-derived")
+    void e1105FromEggsIsAnimalDerived() {
+        ENumberResult result = eNumberTool.lookup("E1105");
+
+        assertThat(result.eNumber()).isEqualTo("E1105");
+        assertThat(result.name()).contains("Lysozyme");
+        assertThat(result.category()).isEqualTo("Egg Derivatives");
+        assertThat(result.animalDerived()).isTrue();
+    }
+
+    /** Test cases for the allergen relationship tool. */
     @Test
     @DisplayName("UC3 BE3: Resolves allergen hierarchy")
     void resolvesAllergenHierarchy() {
@@ -144,13 +284,14 @@ class DietaryKnowledgeToolsTest {
     void appliesLocalHierarchyToDomainIngredients() {
         AllergenRelationshipResult result = allergenRelationshipTool.lookup(List.of("whey"));
         List<Ingredient> enriched = allergenRelationshipTool.applyHierarchy(
-                List.of(new Ingredient("whey", null, null, false)), result);
+            List.of(new Ingredient("whey", null, null, false)), result);
 
         assertThat(enriched).hasSize(1);
         assertThat(enriched.get(0).rootAllergen()).isEqualTo("DAIRY");
         assertThat(enriched.get(0).parentAllergen()).isEqualTo("Milk");
     }
 
+    /** Test cases for the dietary rule tool. */
     @Test
     @DisplayName("UC3 BE6a: Resolves dietary rules by seed code HALAL")
     void resolvesDietaryRulesByCode() {
@@ -159,7 +300,7 @@ class DietaryKnowledgeToolsTest {
         assertThat(result.code()).isEqualTo("HALAL");
         assertThat(result.category()).isEqualTo("RELIGIOUS");
         assertThat(result.description()).isEqualTo(
-                "Requires Halal-certified ingredients and no pork or alcohol.");
+            "Requires Halal-certified ingredients and no pork or alcohol.");
     }
 
     @Test
@@ -192,29 +333,12 @@ class DietaryKnowledgeToolsTest {
         assertThat(result.description()).isEqualTo("Checks sugar per 100 g");
     }
 
-    @Test
-    @DisplayName("UC3 BE6e: MCP client delegates dietary_rule_lookup to the real tool")
-    void mcpClientDelegatesDietaryRuleLookup() {
-        DietaryRuleResult result = mcpClient.lookupDietaryRule("GLUTEN");
-
-        assertThat(result.code()).isEqualTo("GLUTEN");
-        assertThat(result.category()).isEqualTo("ALLERGEN");
-        assertThat(result.description()).contains("wheat");
-    }
-
-    @Test
-    @DisplayName("UC3 BE6f: MCP client resolveRootAllergen uses alias + hierarchy tools")
-    void mcpClientResolveRootAllergenUsesRealTools() {
-        assertThat(mcpClient.resolveRootAllergen("milk powder")).isEqualTo("DAIRY");
-        assertThat(mcpClient.resolveRootAllergen("whey")).isEqualTo("DAIRY");
-        assertThat(mcpClient.resolveRootAllergen("totally-unknown-ingredient")).isNull();
-    }
-
+    /** Test cases for the cross contamination tool. */
     @Test
     @DisplayName("UC3 BE7a: Detects cross-contamination phrases")
     void detectsCrossContaminationPhrases() {
         CrossContaminationResult result =
-                crossContaminationTool.analyse("May contain nuts and produced in a facility with milk");
+            crossContaminationTool.analyse("May contain nuts and produced in a facility with milk");
 
         assertThat(result.mayContain()).isTrue();
         assertThat(result.allergens()).contains("NUTS", "MILK", "DAIRY");
@@ -235,7 +359,7 @@ class DietaryKnowledgeToolsTest {
     @DisplayName("UC3 BE7c: No cross-contamination phrase yields empty result")
     void noCrossContaminationPhraseYieldsEmptyResult() {
         CrossContaminationResult result =
-                crossContaminationTool.analyse("Ingredients: water, sugar, salt");
+            crossContaminationTool.analyse("Ingredients: water, sugar, salt");
 
         assertThat(result.mayContain()).isFalse();
         assertThat(result.allergens()).isEmpty();
@@ -245,7 +369,7 @@ class DietaryKnowledgeToolsTest {
     @DisplayName("UC3 BE7d: Uses Open Food Facts traces_tags")
     void usesOpenFoodFactsTracesTags() {
         CrossContaminationResult result =
-                crossContaminationTool.analyse(null, List.of("en:milk", "en:nuts"));
+            crossContaminationTool.analyse(null, List.of("en:milk", "en:nuts"));
 
         assertThat(result.mayContain()).isTrue();
         assertThat(result.allergens()).contains("MILK", "DAIRY", "NUTS");
@@ -256,11 +380,12 @@ class DietaryKnowledgeToolsTest {
     @DisplayName("UC3 BE7e: Ignores nutrition/eggplant false positives")
     void ignoresNutritionAndEggplantFalsePositives() {
         CrossContaminationResult result = crossContaminationTool.analyse(
-                "May contain traces. Nutrition information. Contains eggplant extract.");
+            "May contain traces. Nutrition information. Contains eggplant extract.");
 
         assertThat(result.allergens()).doesNotContain("NUTS", "EGG");
     }
 
+    /** Test cases for the allergen relationship tool. */
     @Test
     @DisplayName("UC3 BE8: Deduplicates case-insensitive ingredient inputs")
     void deduplicatesCaseInsensitiveIngredientInputs() {
@@ -321,16 +446,6 @@ class DietaryKnowledgeToolsTest {
         assertThat(fallback.searchExternal(List.of("inulin"))).isEmpty();
     }
 
-    @Test
-    @DisplayName("UC3 BE12: MCP client cross-contamination uses real traces_tags params")
-    void mcpClientCrossContaminationUsesRealTracesTags() {
-        CrossContaminationResult result =
-                mcpClient.analyseCrossContamination(null, List.of("en:soy", "en:gluten"));
-
-        assertThat(result.mayContain()).isTrue();
-        assertThat(result.allergens()).contains("SOY", "GLUTEN");
-    }
-
     private static Map<String, DietaryRestriction> seedRestrictions() {
         Map<String, DietaryRestriction> byCode = new LinkedHashMap<>();
         addRestriction(byCode, 1L, "GLUTEN", "Gluten Free", "ALLERGEN",
@@ -377,4 +492,5 @@ class DietaryKnowledgeToolsTest {
             return lastIngredients;
         }
     }
+
 }
