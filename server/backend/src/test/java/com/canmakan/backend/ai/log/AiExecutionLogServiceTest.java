@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import com.canmakan.backend.ai.llm.LlmAssessmentResult;
 import com.canmakan.backend.product.assessment.ExecutionTier;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -157,7 +158,7 @@ class AiExecutionLogServiceTest {
         assertNull(service.record(
             42L,
             ExecutionTier.TIER_3_LLM,
-            new LlmAssessmentResult(null, null, null, -1, null, 1L, null, null)
+            new LlmAssessmentResult(List.of(), "", null, -1, null, 1L, null, null)
         ));
 
         verify(repository, never()).save(any(AiExecutionLog.class));
@@ -178,7 +179,7 @@ class AiExecutionLogServiceTest {
 
     private static LlmAssessmentResult llmResult(String prompt, String response) {
         return new LlmAssessmentResult(
-            null,
+            List.of(),
             "Evidence remains uncertain.",
             "test-model",
             12,
