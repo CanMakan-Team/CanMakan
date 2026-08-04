@@ -10,37 +10,51 @@ object ProductSampleData {
     val scanHistory = listOf(
         ScanHistoryEntry(
             product = Product("Lay's Classic Chips", "Frito-Lay", "0028400047685"),
-            date = "Jul 24",
-            status = ScanStatus.SAFE
+            id = 1L,
+            profileId = 1L,
+            barcode = "0028400047685",
+            scannedAt = "Jul 24",
+            verdict = ScanVerdict.SAFE,
+            findingsJson = FindingsJson()
         ),
         ScanHistoryEntry(
+            id = 2L,
+            profileId = 1L,
             product = Product("Nutella Hazelnut Spread", "Ferrero", "8000500037165"),
-            date = "Jul 24",
-            status = ScanStatus.AVOID,
-            note = "Peanuts, Non-Halal E471"
+            barcode = "8000500037165",
+            scannedAt = "Jul 24",
+            verdict = ScanVerdict.UNSAFE,
+            findingsJson = FindingsJson(
+                matchedRules = listOf("Peanuts", "Non-Halal E471")
+            )
         ),
         ScanHistoryEntry(
+            id = 3L,
+            profileId = 1L,
             product = Product("Chobani Greek Yogurt", "Chobani", "0894700010152"),
-            date = "Jul 23",
-            status = ScanStatus.WARNING,
-            note = "Dairy"
+            barcode = "0894700010152",
+            scannedAt = "Jul 23",
+            verdict = ScanVerdict.WARNING,
+            findingsJson = FindingsJson(
+                allergensFound = listOf("Dairy")
+            )
         ),
-        ScanHistoryEntry(
-            product = Product("Lundberg Rice Cakes", "Lundberg", "0073416009306"),
-            date = "Jul 23",
-            status = ScanStatus.SAFE
-        ),
-        ScanHistoryEntry(
-            product = Product("Morning Granola Bar", "Nature's Best", "0011110849104"),
-            date = "Jul 22",
-            status = ScanStatus.WARNING,
-            note = "Egg traces"
-        ),
-        ScanHistoryEntry(
-            product = Product("Tom Yum Paste", "Kitchen Leaf", "8850124003216"),
-            date = "Jul 22",
-            status = ScanStatus.AVOID
-        )
+//        ScanHistoryEntry(
+//            product = Product("Lundberg Rice Cakes", "Lundberg", "0073416009306"),
+//            date = "Jul 23",
+//            status = ScanStatus.SAFE
+//        ),
+//        ScanHistoryEntry(
+//            product = Product("Morning Granola Bar", "Nature's Best", "0011110849104"),
+//            date = "Jul 22",
+//            status = ScanStatus.WARNING,
+//            note = "Egg traces"
+//        ),
+//        ScanHistoryEntry(
+//            product = Product("Tom Yum Paste", "Kitchen Leaf", "8850124003216"),
+//            date = "Jul 22",
+//            status = ScanStatus.AVOID
+//        )
     )
 
 //    val profiles = listOf(

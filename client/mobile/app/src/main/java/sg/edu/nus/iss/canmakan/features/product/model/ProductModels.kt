@@ -1,5 +1,7 @@
 package sg.edu.nus.iss.canmakan.features.product.model
 
+import com.google.gson.annotations.SerializedName
+
 // Represents a single food product that has been scanned or is being reviewed.
 data class Product(
     val productName: String,
@@ -14,6 +16,13 @@ enum class ScanVerdict {
     UNSAFE
 }
 
+data class FindingsJson (
+    @SerializedName("matched_rules")
+    val matchedRules: List<String> = emptyList(),
+    @SerializedName("allergens_found")
+    val allergensFound: List<String> = emptyList()
+)
+
 // One row in the scan history list.
 data class ScanHistoryEntry(
     val id: Long,
@@ -22,7 +31,7 @@ data class ScanHistoryEntry(
     val product: Product,
     val scannedAt: String,
     val verdict: ScanVerdict,
-    val findingsJson: Map<String, Array<String>>,
+    val findingsJson: FindingsJson,
     val aiExplanation: String? = null
 )
 
