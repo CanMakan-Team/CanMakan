@@ -69,6 +69,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
 import sg.edu.nus.iss.canmakan.shared.ui.theme.*
 import timber.log.Timber
+import java.util.concurrent.Executors
 
 /**
  * The Scanner Screen. Display the Dietary Profile and Restrictions.
@@ -229,6 +230,9 @@ fun CameraPreview(
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     val previewView = remember { PreviewView(context) }
 
+    // Dedicated executor for barcode analysis to offload work from the main thread
+    val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
+
     // 1. Retain a reference to the analyzer and ensure it is cleaned up.
     val barcodeAnalyzer = remember {
         BarcodeAnalyzer { barcode ->
@@ -241,11 +245,12 @@ fun CameraPreview(
     DisposableEffect(Unit) {
         onDispose {
             barcodeAnalyzer.close()
+            analysisExecutor.shutdown()
         }
     }
 
     LaunchedEffect(lifecycleOwner) {
-        val executor = ContextCompat.getMainExecutor(context)
+        val mainExecutor = ContextCompat.getMainExecutor(context)
         cameraProviderFuture.addListener({
             try {
                 val cameraProvider = cameraProviderFuture.get()
@@ -257,7 +262,7 @@ fun CameraPreview(
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
                     .also {
-                        it.setAnalyzer(executor, barcodeAnalyzer)
+                        it.setAnalyzer(analysisExecutor, barcodeAnalyzer)
                     }
 
                 // Explicitly unbind all to avoid session conflicts, but catch potential errors
@@ -277,7 +282,7 @@ fun CameraPreview(
             } catch (e: Exception) {
                 Timber.e(e, "Camera binding failed")
             }
-        }, executor)
+        }, mainExecutor)
     }
 
     Box(modifier = modifier.fillMaxSize()) {
