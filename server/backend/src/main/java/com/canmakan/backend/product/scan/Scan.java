@@ -1,10 +1,15 @@
 package com.canmakan.backend.product.scan;
 
+import com.canmakan.backend.product.model.ScanProduct;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -41,6 +46,15 @@ public class Scan {
 
     @Column(name = "barcode", length = 50)
     private String barcode;                 // nullable: OCR-only / product not found
+
+    // Read-only navigation to the products row sharing this scan's barcode. The
+    // scalar `barcode` field above stays the one column Hibernate writes on
+    // save (insertable/updatable = false here); this association exists so
+    // history queries can join to the product in a single round trip instead
+    // of a separate lookup per scan.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "barcode", referencedColumnName = "barcode", insertable = false, updatable = false)
+    private ScanProduct product;
 
     @Column(name = "verdict", nullable = false, length = 20)
     private String verdict;                 // "SAFE" / "WARNING" / "UNSAFE"

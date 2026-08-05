@@ -190,18 +190,18 @@ fun ProfileDrawerContent(
             color = Color.DarkGray
         )
 
-        Spacer(modifier = Modifier.height(10.dp))
-        Text("MANAGE FAMILY", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        DrawerNavRow(icon = Icons.Default.PersonAdd, label = "Create New Family Member", onClick = onCreateNewClick)
-        Spacer(modifier = Modifier.height(4.dp))
-        DrawerNavRow(
-            icon = Icons.Default.Group,
-            label = "Add Profile to Family",
-            isSelected = false,
-            onClick = onAddProfileClick
-        )
+//        Spacer(modifier = Modifier.height(10.dp))
+//        Text("MANAGE FAMILY", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+//        Spacer(modifier = Modifier.height(8.dp))
+//
+//        DrawerNavRow(icon = Icons.Default.PersonAdd, label = "Create New Family Member", onClick = onCreateNewClick)
+//        Spacer(modifier = Modifier.height(4.dp))
+//        DrawerNavRow(
+//            icon = Icons.Default.Group,
+//            label = "Add Profile to Family",
+//            isSelected = false,
+//            onClick = onAddProfileClick
+//        )
 
         Spacer(modifier = Modifier.weight(1f))
 

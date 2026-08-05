@@ -83,7 +83,7 @@ fun DietaryRestrictionSheet(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text("RELIGIOUS", color = TextSecondary)
+            Text("RELIGIOUS", color = TextSecondary, style = MaterialTheme.typography.titleSmall)
             Spacer(modifier = Modifier.height(8.dp))
             SingleChoiceRow(
                 options = uiState.religiousRestrictions,
@@ -91,7 +91,7 @@ fun DietaryRestrictionSheet(
             ) { selectedId -> viewModel.selectReligiousRestriction(selectedId) }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text("ALLERGIES & INTOLERANCES", color = TextSecondary)
+            Text("ALLERGIES & INTOLERANCES", color = TextSecondary, style = MaterialTheme.typography.titleSmall)
             Spacer(modifier = Modifier.height(8.dp))
             MultiChoiceGrid(
                 options = uiState.allergenRestrictions,
@@ -99,7 +99,7 @@ fun DietaryRestrictionSheet(
             ) { selectedId -> viewModel.toggleDietaryRestriction(selectedId) }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text("SPECIFIC DIETS", color = TextSecondary)
+            Text("SPECIFIC DIETS", color = TextSecondary, style = MaterialTheme.typography.titleSmall)
             Spacer(modifier = Modifier.height(8.dp))
             MultiChoiceGrid(
                 options = uiState.dietRestrictions,

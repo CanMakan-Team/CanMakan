@@ -44,30 +44,31 @@ class CanMakanNavGraphViewModel @Inject constructor (
             currentProfileId.collect { profileId ->
                 _isLoading.value = true
                 _error.value = null
-                
-                // Load restrictions and profiles in parallel to speed up startup
-                val restrictionsJob = launch { loadRestrictions(profileId) }
-                val profilesJob = launch { loadProfilesForFamily(profileId) }
-                
-                restrictionsJob.join()
-                profilesJob.join()
-                
-                _isLoading.value = false
+                try {
+                    loadDataWithRetry(profileId)
+                } finally {
+                    _isLoading.value = false
+                }
             }
         }
+    }
+
+    private suspend fun loadDataWithRetry(profileId: Long) {
+        loadRestrictions(profileId)
+        loadProfilesForFamily(profileId)
     }
 
     private suspend fun loadRestrictions(profileId: Long) {
         try {
             val allRestrictions = dietaryRestrictionRepo.getAllDietaryRestrictions()
             val profileSelections = dietaryRestrictionRepo.getDietaryRestrictionsForProfile(profileId)
-            
+
             val restrictionNames = withContext(Dispatchers.Default) {
                 allRestrictions
                     .filter { profileSelections.containsKey(it.id) }
                     .map { it.displayName }
             }
-            
+
             _activeRestrictions.value = restrictionNames
         } catch (e: Exception) {
             Timber.e(e, "Error loading restrictions for profile $profileId")
@@ -77,8 +78,8 @@ class CanMakanNavGraphViewModel @Inject constructor (
     }
 
     private suspend fun loadProfilesForFamily(profileId: Long) {
+        val familyId = 1L
         try {
-            val familyId = 1L
             val loadedProfiles = familyProfileRepository.getProfilesForFamily(familyId)
             _profiles.value = loadedProfiles
 

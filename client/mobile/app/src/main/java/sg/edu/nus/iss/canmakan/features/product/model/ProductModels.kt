@@ -1,25 +1,38 @@
 package sg.edu.nus.iss.canmakan.features.product.model
 
+import com.google.gson.annotations.SerializedName
+
 // Represents a single food product that has been scanned or is being reviewed.
 data class Product(
-    val name: String,
+    val productName: String,
     val brand: String,
     val barcode: String
 )
 
 // The three possible outcomes after checking a product against a dietary profile.
-enum class ScanStatus {
+enum class ScanVerdict {
     SAFE,
     WARNING,
-    AVOID
+    UNSAFE
 }
+
+data class FindingsJson (
+    @SerializedName("matched_rules")
+    val matchedRules: List<String> = emptyList(),
+    @SerializedName("allergens_found")
+    val allergensFound: List<String> = emptyList()
+)
 
 // One row in the scan history list.
 data class ScanHistoryEntry(
+    val id: Long,
+    val profileId: Long,
+    val barcode: String,
     val product: Product,
-    val date: String,
-    val status: ScanStatus,
-    val note: String? = null
+    val scannedAt: String,
+    val verdict: ScanVerdict,
+    val findingsJson: FindingsJson,
+    val aiExplanation: String? = null
 )
 
 // A single flagged reason shown on the product detail screen,
