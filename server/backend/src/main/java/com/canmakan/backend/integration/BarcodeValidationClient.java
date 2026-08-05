@@ -52,6 +52,8 @@ public class BarcodeValidationClient {
 
     @Autowired
     public BarcodeValidationClient(
+        @Value("${app.api.open-food-facts.url}") String offApiUrl,
+        @Value("${app.api.ean-search.url}") String eanApiUrl,
         @Value("${app.api.ean-search.token}") String eanSearchToken,
         @Value("${app.name:CanMakan}") String appName,
         @Value("${app.version:1.0}") String appVersion,

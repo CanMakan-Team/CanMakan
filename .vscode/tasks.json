@@ -1,0 +1,163 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Mobile App",
+            "type": "shell",
+            "command": "./gradlew",
+            "options": {
+                "cwd": "${workspaceFolder}/client/mobile"
+            },
+            "args": [
+                "assembleDebug"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Web App",
+            "type": "shell",
+            "command": "npm",
+            "options": {
+                "cwd": "${workspaceFolder}/client/web"
+            },
+            "args": [
+                "run",
+                "dev"
+            ],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Backend",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/run-backend.ps1"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Full Stack",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/run-full-stack.ps1",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Stop Backend",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/stop-process.ps1",
+            "args": [
+                "backend"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Stop Web App",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/stop-process.ps1",
+            "args": [
+                "web"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Stop Mobile Build",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/stop-process.ps1",
+            "args": [
+                "mobile"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Stop Full Stack",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/stop-process.ps1",
+            "args": [
+                "fullstack"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Backend Tests",
+            "type": "shell",
+            "command": ".\\mvnw.cmd",
+            "options": {
+                "cwd": "${workspaceFolder}/server/backend"
+            },
+            "args": [
+                "test"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Mobile Tests",
+            "type": "shell",
+            "command": ".\\gradlew.bat",
+            "options": {
+                "cwd": "${workspaceFolder}/client/mobile"
+            },
+            "args": [
+                "test"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Tests",
+            "dependsOn": [
+                "Run Backend Tests",
+                "Run Mobile Tests"
+            ],
+            "dependsOrder": "sequence",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "detail": "Runs all available unit tests (backend Maven + mobile Gradle). Web has no test script yet."
+        }
+    ]
+}
