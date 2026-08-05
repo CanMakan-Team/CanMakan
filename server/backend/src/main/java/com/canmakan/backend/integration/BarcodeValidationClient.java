@@ -37,6 +37,8 @@ public class BarcodeValidationClient {
 
     @Autowired
     public BarcodeValidationClient(
+        @Value("${app.api.open-food-facts.url}") String offApiUrl,
+        @Value("${app.api.ean-search.url}") String eanApiUrl,
         @Value("${app.api.ean-search.token}") String eanSearchToken,
         @Value("${app.name:CanMakan}") String appName,
         @Value("${app.version:1.0}") String appVersion,
@@ -47,13 +49,13 @@ public class BarcodeValidationClient {
 
         // Primary: Open Food Facts (Configured with Custom User-Agent)
         RestClient offClient = RestClient.builder()
-            .baseUrl("https://world.openfoodfacts.org/api/v3/product/")
+            .baseUrl(offApiUrl)
             .defaultHeader("User-Agent", userAgent)
             .build();
 
         // Fallback: EAN-Search (Configured with base domain root)
         RestClient eanClient = RestClient.builder()
-            .baseUrl("https://api.ean-search.org")
+            .baseUrl(eanApiUrl)
             .build();
 
         this.offRestClient = offClient;
