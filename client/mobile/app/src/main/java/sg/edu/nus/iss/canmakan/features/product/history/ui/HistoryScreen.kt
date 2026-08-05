@@ -1,17 +1,22 @@
 package sg.edu.nus.iss.canmakan.features.product.history.ui
 
+import android.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,6 +41,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
 import sg.edu.nus.iss.canmakan.shared.ui.StatusBadge
 import sg.edu.nus.iss.canmakan.shared.ui.statusAccentColor
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 import sg.edu.nus.iss.canmakan.shared.ui.theme.WarningAmber
 
@@ -110,6 +116,7 @@ private fun ScanHistoryRow(entry: ScanHistoryEntry, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(IntrinsicSize.Min)
             .clip(RoundedCornerShape(12.dp))
             .background(Color.White)
             .clickable(onClick = onClick),
@@ -118,7 +125,7 @@ private fun ScanHistoryRow(entry: ScanHistoryEntry, onClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .width(4.dp)
-                .height(56.dp)
+                .fillMaxHeight()
                 .background(statusAccentColor(entry.verdict))
         )
         Column(
@@ -127,11 +134,16 @@ private fun ScanHistoryRow(entry: ScanHistoryEntry, onClick: () -> Unit) {
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Text(entry.product.productName, fontWeight = FontWeight.Medium)
-            Text("${entry.product.brand} \u00B7 ${entry.scannedAt}", color = TextSecondary)
+            Text((entry.product.brand), color = TextSecondary)
             entry.aiExplanation?.let { note ->
-                val noteColor = if (entry.verdict == ScanVerdict.UNSAFE) AvoidRed else WarningAmber
+                val noteColor = if (entry.verdict == ScanVerdict.UNSAFE) {
+                    AvoidRed
+                } else if (entry.verdict == ScanVerdict.WARNING) {
+                    WarningAmber
+                } else PrimaryGreen
                 Text(note, color = noteColor)
             }
+            Text((entry.scannedAt), color = TextSecondary)
         }
         Box(modifier = Modifier.padding(end = 12.dp)) {
             StatusBadge(status = entry.verdict)

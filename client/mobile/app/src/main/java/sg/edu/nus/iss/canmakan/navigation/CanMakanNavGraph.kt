@@ -14,6 +14,7 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +57,7 @@ fun CanMakanNavGraph(
 ) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val editDietarySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
 
     val currentProfileId by navGraphViewModel.currentProfileId.collectAsStateWithLifecycle()
@@ -193,7 +195,9 @@ fun CanMakanNavGraph(
         }
 
         if (showEditDietarySheet) {
-            ModalBottomSheet(onDismissRequest = { showEditDietarySheet = false }) {
+            ModalBottomSheet(
+                onDismissRequest = { showEditDietarySheet = false },
+                sheetState = editDietarySheetState) {
                 DietaryRestrictionSheet(
                     profileName = activeProfile.profileName,
                     profileRole = activeProfile.relationship,
