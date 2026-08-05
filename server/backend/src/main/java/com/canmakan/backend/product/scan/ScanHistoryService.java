@@ -18,8 +18,10 @@ import java.util.Objects;
  * history from one endpoint instead of joining scan and product data itself.
  *
  * @author XieHuayuan
+ * @author Amelia
  */
 @Service
+@RequiredArgsConstructor
 public class ScanHistoryService {
 
     private static final String PLACEHOLDER_PRODUCT_NAME = "Unknown product";
@@ -27,16 +29,13 @@ public class ScanHistoryService {
     private final ScanRepository scanRepository;
     private final ObjectMapper objectMapper;
 
-    public ScanHistoryService(ScanRepository scanRepository, ObjectMapper objectMapper) {
-        this.scanRepository = scanRepository;
-        this.objectMapper = objectMapper;
-    }
-
     /**
      * Scan history for a dietary profile, most recent first, with the product
      * for each scan already loaded (see {@link
      * ScanRepository#findByProfileIdWithProductOrderByScannedAtDesc} for how
      * that's done in a single query).
+     * @param profileId the profile ID
+     * @return the scan history for the profile
      */
     public List<ScanHistoryResponse> getScanHistoryForProfile(Long profileId) {
         if (profileId == null) {
@@ -49,6 +48,11 @@ public class ScanHistoryService {
                 .toList();
     }
 
+    /**
+     * Converts a Scan object to a ScanHistoryResponse object.
+     * @param scan the Scan object to convert
+     * @return the ScanHistoryResponse object
+     */
     private ScanHistoryResponse toResponse(Scan scan) {
         return new ScanHistoryResponse(
                 scan.getId(),
@@ -67,6 +71,11 @@ public class ScanHistoryService {
     // field is non-nullable, so a placeholder is returned rather than null in
     // that case, instead of forcing every call site on the client to
     // null-check the product.
+    /**
+     * Converts a Scan object to a ProductDto object.
+     * @param scan the Scan object to convert
+     * @return the ProductDto object
+     */
     private ScanHistoryResponse.ProductDto toProductDto(Scan scan) {
         ScanProduct product = scan.getProduct();
         if (product != null) {
@@ -86,26 +95,39 @@ public class ScanHistoryService {
     // Stopgap translation: findings_json is currently written by ScanService
     // as a JSON array of Finding(restrictionCode, ingredientName, reason)
     // objects, not the {matched_rules, allergens_found} shape the Android
-    // FindingsJson class expects. Finding has no field marking a finding as an
-    // allergen specifically, so allergensFound is left empty here rather than
-    // guessed at. The real fix is on the write side (give Finding a type/
-    // discriminator and have ScanService populate both lists at scan time) —
-    // tracked as a follow-up, not solved in this read-side mapping.
+    // FindingsJson class expects. This mapper converts Finding[] into that
+    // shape so history rows remain readable on mobile.
+    /**
+     * Converts a String to a FindingsDto object.
+     * @param findingsJson the String to convert
+     * @return the FindingsDto object
+     */
     private ScanHistoryResponse.FindingsDto toFindingsDto(String findingsJson) {
         List<Finding> findings = parseFindings(findingsJson);
 
         List<String> matchedRules = findings.stream()
-                .map(Finding::restrictionCode)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
+            .map(Finding::restrictionCode)
+            .filter(Objects::nonNull)
+            .distinct()
+            .toList();
 
-        // TODO: Finding has no allergen discriminator yet — see follow-up above.
-        List<String> allergensFound = Collections.emptyList();
+        // Ingredient names from findings are the best available allergen signal
+        // until Finding gains an explicit allergen discriminator.
+        List<String> allergensFound = findings.stream()
+            .map(Finding::ingredientName)
+            .filter(Objects::nonNull)
+            .filter(name -> !name.isBlank())
+            .distinct()
+            .toList();
 
         return new ScanHistoryResponse.FindingsDto(matchedRules, allergensFound);
     }
 
+    /**
+     * Parses a String to a List of Finding objects.
+     * @param findingsJson the String to parse
+     * @return the List of Finding objects
+     */
     private List<Finding> parseFindings(String findingsJson) {
         if (findingsJson == null || findingsJson.isBlank()) {
             return Collections.emptyList();
