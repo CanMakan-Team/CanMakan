@@ -13,6 +13,9 @@ import com.canmakan.backend.product.verdict.DietaryRuleEngine;
 import com.canmakan.backend.product.verdict.ProductData;
 import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
+
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -38,7 +41,8 @@ import java.util.stream.Collectors;
  * trusted only above {@link #LLM_CONFIDENCE_THRESHOLD}, otherwise the ingredient
  * stays unresolved and the engine degrades to WARNING.
  *
- * @author XieHuayuan & Amelia
+ * @author XieHuayuan
+ * @author Amelia
  */
 @Service
 @RequiredArgsConstructor

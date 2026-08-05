@@ -8,13 +8,18 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * Maps product-lookup failures from assess/validate flows to HTTP status codes.
+ * Handles product lookup exceptions
  * 
  * @author Amelia
  */
 @RestControllerAdvice
 public class ProductLookupExceptionHandler {
 
+    /**
+     * Handles product lookup exceptions and returns a response entity with the appropriate status code and message.
+     * @param exception the product lookup exception
+     * @return a response entity with the appropriate status code and message
+     */
     @ExceptionHandler(ProductLookupException.class)
     public ResponseEntity<Map<String, String>> handleProductLookup(ProductLookupException exception) {
         HttpStatus status = switch (exception.reason()) {
@@ -28,4 +33,5 @@ public class ProductLookupExceptionHandler {
                 ? "Product lookup failed."
                 : exception.getMessage()));
     }
+
 }

@@ -42,6 +42,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * verdict (evidence below the confidence threshold is ignored).
  *
  * @author XieHuayuan
+ * @author Amelia
  */
 @DisplayName("UC3: AssessmentOrchestrator tiered assess flow")
 @ExtendWith(MockitoExtension.class)
