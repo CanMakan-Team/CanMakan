@@ -29,7 +29,9 @@ public class AllergenRelationshipLookupFallback {
     private static final Duration TAVILY_TIMEOUT = Duration.ofSeconds(10);
 
     private final WebClient.Builder webClientBuilder;
+    @Value("${app.api.tavily.key:${TAVILY_API_KEY:mock_key_value}}")
     private final String tavilyApiKey;
+    @Value("${app.api.tavily.url:${TAVILY_API_URL:https://tavily.com}}")
     private final String tavilyUrl;
 
     public AllergenRelationshipLookupFallback(
@@ -41,11 +43,9 @@ public class AllergenRelationshipLookupFallback {
         this.tavilyUrl = tavilyUrl;
     }
 
-@Value("${app.api.tavily.key:${TAVILY_API_KEY:mock_key_value}}")
-private String tavilyApiKey;
 
-@Value("${app.api.tavily.url:${TAVILY_API_URL:https://tavily.com}}")
-private String tavilyUrl;
+// private String tavilyApiKey;
+// private String tavilyUrl;
     /**
      * Resolve parent/root allergens by querying an external search tool.
      *
