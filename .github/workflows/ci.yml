@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   # 1. ANALYZE CHANGES IN MOBILE, WEB & BACKEND
   detect-changes:
@@ -13,8 +17,8 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       mobile: ${{ steps.filter.outputs.mobile }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -44,10 +48,10 @@ jobs:
       EAN_SEARCH_API_KEY: ${{ secrets.EAN_SEARCH_API_KEY }}
       SERVER_ADDRESS: ${{ secrets.SERVER_ADDRESS }}   
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -64,10 +68,10 @@ jobs:
     if: needs.detect-changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: 'npm'
@@ -88,10 +92,10 @@ jobs:
     if: needs.detect-changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Configure Android SDK path
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > client/mobile/local.properties
