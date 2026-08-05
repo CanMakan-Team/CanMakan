@@ -62,6 +62,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import sg.edu.nus.iss.canmakan.R
+import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
@@ -81,10 +82,20 @@ fun ScannerScreen(
     onMenuClick: () -> Unit,
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
+    onVerdictReady: (VerdictDetail) -> Unit,
     viewModel: ScannerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null)}
+    val processState by viewModel.processState.collectAsState()
+    val verdictDetail by viewModel.verdictDetail.collectAsState()
+
+    LaunchedEffect(processState, verdictDetail) {
+        if (processState == ScanProcessState.SUCCESS && verdictDetail != null) {
+            onVerdictReady(verdictDetail!!)
+            viewModel.resetState()
+        }
+    }
 
     // 1. Check for Camera Permission
     var hasCameraPermission by remember {
@@ -171,9 +182,15 @@ fun ScannerScreen(
             Button(
                 onClick = {
                     scannedBarcode?.let { barcode ->
-                        viewModel.processBarcode(barcode)
+                        viewModel.processBarcode(
+                            barcode = barcode,
+                            profileId = activeProfile.id
+                        )
                     } ?: onScanClick()
                 },
+                enabled = processState == ScanProcessState.IDLE
+                    || processState == ScanProcessState.INVALID
+                    || processState == ScanProcessState.ERROR,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -328,17 +345,17 @@ private fun ScanningOverlay() {
  */
 @Composable
 fun ValidationOverlay(viewModel: ScannerViewModel) {
-    val state by viewModel.validationState.collectAsState()
+    val state by viewModel.processState.collectAsState()
 
     val (backgroundColor, statusText) = when (state) {
-        ValidationState.IDLE -> Pair(Color.Transparent, 0)
-        ValidationState.VALIDATING -> Pair(OpaqueBlack, R.string.validation_state_validating)
-        ValidationState.VALID -> Pair(OpaqueDarkGreen, R.string.validation_state_valid)     // Safe Green
-        ValidationState.INVALID -> Pair(OpaqueDeepRed, R.string.validation_state_invalid)   // Avoid Red
-        ValidationState.ERROR -> Pair(OpaqueDeepRed, R.string.validation_state_error)
+        ScanProcessState.IDLE, ScanProcessState.SUCCESS -> Pair(Color.Transparent, 0)
+        ScanProcessState.VALIDATING -> Pair(OpaqueBlack, R.string.validation_state_validating)
+        ScanProcessState.ASSESSING -> Pair(OpaqueDarkGreen, R.string.validation_state_assessing)
+        ScanProcessState.INVALID -> Pair(OpaqueDeepRed, R.string.validation_state_invalid)
+        ScanProcessState.ERROR -> Pair(OpaqueDeepRed, R.string.validation_state_error)
     }
 
-    if (state != ValidationState.IDLE) {
+    if (state != ScanProcessState.IDLE && state != ScanProcessState.SUCCESS) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -350,7 +367,7 @@ fun ValidationOverlay(viewModel: ScannerViewModel) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (state == ValidationState.VALIDATING || state == ValidationState.VALID) {
+                if (state == ScanProcessState.VALIDATING || state == ScanProcessState.ASSESSING) {
                     CircularProgressIndicator(color = Color.White)
                     Spacer(modifier = Modifier.height(16.dp))
                 }

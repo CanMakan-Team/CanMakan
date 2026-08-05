@@ -29,7 +29,7 @@ fun StatusBadge(status: ScanVerdict) {
     val label = when (status) {
         ScanVerdict.SAFE -> "SAFE"
         ScanVerdict.WARNING -> "WARNING"
-        ScanVerdict.UNSAFE -> "AVOID"
+        ScanVerdict.UNSAFE -> "UNSAFE"
     }
 
     Text(
