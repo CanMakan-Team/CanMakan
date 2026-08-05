@@ -5,10 +5,33 @@ on:
   pull_request:
 
 jobs:
-  build:
+  # 1. ANALYZE CHANGES IN MOBILE, WEB & BACKEND
+  detect-changes:
     runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      web: ${{ steps.filter.outputs.web }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'server/backend/**'
+            web:
+              - 'client/web/**'
+            mobile:
+              - 'client/mobile/**'
 
-    env:
+  # 2. BACKEND VERIFICATION & DEPLOYMENT (OMITTED FOR NOW)
+  build-backend:
+    needs: detect-changes
+    # Run if any Backend Files Changed
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    env: 
       MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
       MYSQL_PORT: ${{ secrets.MYSQL_PORT }}
       MYSQL_DB: ${{ secrets.MYSQL_DB }}
@@ -19,8 +42,7 @@ jobs:
       OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
       TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
       EAN_SEARCH_API_KEY: ${{ secrets.EAN_SEARCH_API_KEY }}
-      SERVER_ADDRESS: ${{ secrets.SERVER_ADDRESS }}
-
+      SERVER_ADDRESS: ${{ secrets.SERVER_ADDRESS }}   
     steps:
       - uses: actions/checkout@v4
 
@@ -29,11 +51,21 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-
+          cache: 'maven'
+      
       - name: Build with Maven
         working-directory: server/backend
         run: mvn -B clean package -DskipTests
 
+  # 3. WEB VERIFICATION
+  build-web:
+    needs: detect-changes
+    # Run if any Web Client Files Changed
+    if: needs.detect-changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -49,6 +81,15 @@ jobs:
         working-directory: client/web
         run: npm run build
 
+  # 4. MOBILE VERIFICATION
+  build-mobile:
+    needs: detect-changes
+    # Run if any Mobile Client Files Changed
+    if: needs.detect-changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
