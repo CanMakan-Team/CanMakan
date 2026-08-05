@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.Test;
  *
  * @author YangMaowei
  */
+@DisplayName("UC3: DietaryPreferenceChecker findings")
 class DietaryPreferenceCheckerTest {
 
     @Test
@@ -133,7 +136,7 @@ class DietaryPreferenceCheckerTest {
             assertFinding(
                     findings.getFirst(),
                     code,
-                    null,
+                    Finding.SUBJECT_UNKNOWN,
                     "Ingredient data is incomplete for the " + code + " restriction."
             );
         }
@@ -154,7 +157,7 @@ class DietaryPreferenceCheckerTest {
         assertFinding(
                 findings.getFirst(),
                 "VEGAN",
-                null,
+                Finding.SUBJECT_UNKNOWN,
                 "Ingredient data is incomplete for the VEGAN restriction."
         );
     }

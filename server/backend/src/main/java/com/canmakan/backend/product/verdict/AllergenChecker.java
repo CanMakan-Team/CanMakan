@@ -42,15 +42,20 @@ public final class AllergenChecker implements RestrictionChecker {
         for (Ingredient ingredient : product.ingredients()) {
             if (ingredient != null
                     && rule.code().equals(ingredient.rootAllergen())) {
+                String name = displayName(ingredient.ingredientName());
                 hits.add(new Finding(
                         rule.code(),
-                        ingredient.ingredientName(),
-                        ingredient.ingredientName()
-                                + " matches the "
-                                + rule.code()
-                                + " restriction."
+                        name,
+                        name + " matches the " + rule.code() + " restriction."
                 ));
             }
         }
+    }
+
+    private static String displayName(String ingredientName) {
+        if (ingredientName == null || ingredientName.isBlank()) {
+            return Finding.SUBJECT_UNKNOWN;
+        }
+        return ingredientName.trim();
     }
 }

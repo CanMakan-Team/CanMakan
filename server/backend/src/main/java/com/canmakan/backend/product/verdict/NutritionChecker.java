@@ -73,7 +73,7 @@ public final class NutritionChecker implements RestrictionChecker {
         if (value.compareTo(limit) > 0) {
             hits.add(new Finding(
                     code,
-                    null,
+                    Finding.SUBJECT_NUTRITION,
                     nutrientName + " is " + format(value)
                             + " g per 100 g, above the " + code + " limit of "
                             + displayedLimit + " g per 100 g."
@@ -91,7 +91,7 @@ public final class NutritionChecker implements RestrictionChecker {
         if (value.compareTo(BigDecimal.ZERO) > 0) {
             hits.add(new Finding(
                     code,
-                    null,
+                    Finding.SUBJECT_NUTRITION,
                     "Trans fat is " + format(value)
                             + " g per 100 g; the LOW_TRANS_FAT rule requires a confirmed value of 0 g per 100 g."
             ));
@@ -109,7 +109,7 @@ public final class NutritionChecker implements RestrictionChecker {
             BigDecimal milligrams = value.multiply(MILLIGRAMS_PER_GRAM);
             hits.add(new Finding(
                     code,
-                    null,
+                    Finding.SUBJECT_NUTRITION,
                     "Sodium is " + format(milligrams)
                             + " mg per 100 g, above the LOW_SODIUM limit of 120 mg per 100 g."
             ));
@@ -126,7 +126,7 @@ public final class NutritionChecker implements RestrictionChecker {
         if (value == null) {
             hits.add(new Finding(
                     code,
-                    null,
+                    Finding.SUBJECT_NUTRITION,
                     nutrientName + " data is unavailable for the " + code + " restriction (" + unit + ")."
             ));
             return true;
@@ -134,7 +134,7 @@ public final class NutritionChecker implements RestrictionChecker {
         if (value.compareTo(BigDecimal.ZERO) < 0) {
             hits.add(new Finding(
                     code,
-                    null,
+                    Finding.SUBJECT_NUTRITION,
                     nutrientName + " is " + format(value) + " " + unit
                             + "; negative values are invalid for the " + code + " restriction."
             ));

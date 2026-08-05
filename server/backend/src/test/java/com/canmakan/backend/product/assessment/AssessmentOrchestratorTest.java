@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -167,6 +168,20 @@ class AssessmentOrchestratorTest {
         assertEquals("123", response.barcode());
         verify(aiExecutionLogService).recordRulesOnly(eq(100L), anyLong());
         verify(aiExecutionLogService, never()).record(anyLong(), any(), any());
+    }
+
+    @Test
+    @DisplayName("UC3 BE7: null userId is forwarded to ScanService (pre-auth / testing)")
+    void nullUserIdIsForwardedToScanService() {
+        stubLoadAndProduct(productWith(true, ingredient("Milk", "DAIRY")));
+        when(ruleEngine.assess(any(), any())).thenReturn(SafetyVerdict.safe("ok", List.of()));
+        when(scanService.record(isNull(), eq(1L), eq("123"), any())).thenReturn(scan(100L));
+
+        AssessmentResponse response = orchestrator.assess(null, REQUEST);
+
+        assertEquals("SAFE", response.verdict());
+        assertEquals(100L, response.scanId());
+        verify(scanService).record(isNull(), eq(1L), eq("123"), any());
     }
 
     // --- helpers -----------------------------------------------------------------

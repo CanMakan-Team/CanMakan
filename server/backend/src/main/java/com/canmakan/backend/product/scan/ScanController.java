@@ -3,7 +3,7 @@ package com.canmakan.backend.product.scan;
 import com.canmakan.backend.integration.BarcodeValidationClient;
 import com.canmakan.backend.product.assessment.AssessmentOrchestrator;
 import com.canmakan.backend.product.assessment.AssessmentRequest;
-import com.canmakan.backend.product.assessment.AssessmentResponse;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,9 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Product barcode scan APIs.
  *
- * <p>{@code POST /api/scan} is the mobile path: one Open Food Facts fetch,
- * then tiered assessment and persist. {@code POST /api/scan/validate}
- * remains a standalone is-food check (OFF + EAN-Search fallback).
+ * <p>{@code POST /api/scan/validate} is the is-food check (OFF + EAN-Search).
+ * {@code POST /api/scan/assess} runs the tiered assessment for a dietary profile.
  *
  * @author Khai
  * @author Amelia
@@ -31,16 +30,24 @@ public class ScanController {
     private final AssessmentOrchestrator orchestrator;
 
     /**
-     * Combined scan: fetch product once from Open Food Facts, assess for the
-     * profile, persist, and return the verdict. Does not call {@code /validate}.
+     * Assess a barcode against a dietary profile, persist, and return the verdict.
      *
-     * <p>The user id currently comes from an {@code X-User-Id} header; swap this for
-     * the authenticated principal once auth lands.
+     * <p>{@code profileId} is required in the body (seeded profiles start at {@code 1}).
+     * {@code X-User-Id} may be omitted for local/pre-auth testing.
      */
     @PostMapping("/assess")
-    public ResponseEntity<AssessmentResponse> scan(
+    public ResponseEntity<?> scan(
             @RequestHeader(value = "X-User-Id", required = false) Long userId,
             @RequestBody AssessmentRequest request) {
+        if (request == null || request.barcode() == null || request.barcode().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Product Barcode is required"));
+        }
+        if (request.profileId() == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "message",
+                    "Profile ID is required"
+            ));
+        }
         return ResponseEntity.ok(orchestrator.assess(userId, request));
     }
 

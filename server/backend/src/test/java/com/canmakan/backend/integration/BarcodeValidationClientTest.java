@@ -116,13 +116,19 @@ class BarcodeValidationClientTest {
             "${canmakan.product-api.retry.backoff-ms}"
         ));
         assertEquals(
-            4,
-            BarcodeValidationClient.class.getConstructor(
+            List.of(
                 String.class,
                 String.class,
                 String.class,
-                String.class
-            ).getParameterCount()
+                String.class,
+                String.class,
+                String.class,
+                long.class,
+                long.class,
+                int.class,
+                long.class
+            ),
+            Arrays.stream(configuredConstructor.getParameterTypes()).toList()
         );
     }
 

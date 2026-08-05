@@ -33,6 +33,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/*
+ * Unit tests for repository functions on Knowledge Base
+ * 
+ * @author Amelia
+ */
 class DietaryKnowledgeToolsTest {
 
     /** Seed rows aligned with {@code 05_household_dietary_data.sql}. */

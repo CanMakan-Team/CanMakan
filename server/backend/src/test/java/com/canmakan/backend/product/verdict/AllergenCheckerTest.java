@@ -10,6 +10,8 @@ import com.canmakan.backend.knowledgebase.model.RestrictionCategory;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -17,6 +19,7 @@ import org.junit.jupiter.api.Test;
  *
  * @author YangMaowei
  */
+@DisplayName("UC3: AllergenCheckerTest findings")
 class AllergenCheckerTest {
 
     private static final String BANANA_MILK_BARCODE = "769828221591";

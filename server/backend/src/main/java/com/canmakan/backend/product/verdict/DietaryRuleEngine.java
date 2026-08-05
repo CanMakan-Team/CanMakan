@@ -27,9 +27,17 @@ import java.util.stream.Collectors;
  * </ul>
  *
  * @author XieHuayuan
+ * @author YangMaowei
+ * @author Amelia
  */
 @Service
 public class DietaryRuleEngine {
+
+    /** Finding code when ingredient data is missing or unusable. */
+    static final String INCOMPLETE_DATA = "INCOMPLETE_DATA";
+
+    /** Finding code when an ingredient could not be mapped to a root allergen. */
+    static final String UNRESOLVED = "UNRESOLVED";
 
     private final List<RestrictionChecker> checkers;   // one implementation per category
     private final IngredientResolver resolver;         // knowledgebase / agentic-ai boundary
@@ -49,19 +57,22 @@ public class DietaryRuleEngine {
     public SafetyVerdict assess(List<RestrictionRule> rules, ProductData product) {
         if (product == null || !product.dataComplete()
                 || product.ingredients() == null || product.ingredients().isEmpty()) {
-            Finding f = new Finding(null, null,
-                    "No reliable ingredient data for this product - please verify the physical label.");
+            Finding f = new Finding(
+                    INCOMPLETE_DATA,
+                    Finding.SUBJECT_UNKNOWN,
+                    "No reliable ingredient data for this product - please verify the physical label."
+            );
             return SafetyVerdict.warning(f.reason(), List.of(f));
         }
 
         // Resolve unknown / chemical-alias ingredients via the boundary; note anything left unresolved.
-        boolean hasUnresolved = false;
+        List<String> unresolvedNames = new ArrayList<>();
         List<Ingredient> resolved = new ArrayList<>();
         for (Ingredient ing : product.ingredients()) {
             if (ing.rootAllergen() == null || ing.rootAllergen().isBlank()) {
                 String root = resolver.resolveRootAllergen(ing.ingredientName());
                 if (root == null) {
-                    hasUnresolved = true;
+                    unresolvedNames.add(displayIngredientName(ing.ingredientName()));
                     resolved.add(ing);
                 } else {
                     resolved.add(new Ingredient(
@@ -83,11 +94,15 @@ public class DietaryRuleEngine {
                 }
             }
         }
-        return decide(rules, findings, hasUnresolved);
+        return decide(rules, findings, unresolvedNames);
     }
 
     /** Applies the verdict priority and assembles the {@link SafetyVerdict}. */
-    SafetyVerdict decide(List<RestrictionRule> rules, List<Finding> findings, boolean hasUnresolved) {
+    SafetyVerdict decide(
+            List<RestrictionRule> rules,
+            List<Finding> findings,
+            List<String> unresolvedIngredientNames
+    ) {
         Map<String, RestrictionSeverity> severityByCode = rules.stream()
                 .collect(Collectors.toMap(RestrictionRule::code, RestrictionRule::severity, (a, b) -> a));
 
@@ -96,11 +111,15 @@ public class DietaryRuleEngine {
                         && severityByCode.get(f.restrictionCode()) == RestrictionSeverity.STRICT_AVOID);
 
         List<Finding> all = new ArrayList<>(findings);
-        if (hasUnresolved) {
-            all.add(new Finding(null, null,
-                    "Some ingredients could not be fully analysed - treat with caution."));
+        for (String ingredientName : unresolvedIngredientNames) {
+            all.add(new Finding(
+                    UNRESOLVED,
+                    ingredientName,
+                    ingredientName + " could not be fully analysed - treat with caution."
+            ));
         }
 
+        boolean hasUnresolved = !unresolvedIngredientNames.isEmpty();
         SafetyVerdict.Level level;
         if (strictHit) {
             level = SafetyVerdict.Level.UNSAFE;
@@ -119,5 +138,12 @@ public class DietaryRuleEngine {
         }
         return level.name() + ": "
                 + findings.stream().map(Finding::reason).collect(Collectors.joining("; "));
+    }
+
+    private static String displayIngredientName(String ingredientName) {
+        if (ingredientName == null || ingredientName.isBlank()) {
+            return Finding.SUBJECT_UNKNOWN;
+        }
+        return ingredientName.trim();
     }
 }

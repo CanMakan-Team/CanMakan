@@ -47,8 +47,8 @@ public final class DietaryPreferenceChecker implements RestrictionChecker {
                                 .contains(rule.code())) {
                     hits.add(new Finding(
                             rule.code(),
-                            ingredient.ingredientName(),
-                            ingredient.ingredientName() + " conflicts with the "
+                            displayName(ingredient.ingredientName()),
+                            displayName(ingredient.ingredientName()) + " conflicts with the "
                                     + rule.code() + " restriction."
                     ));
                 }
@@ -58,9 +58,16 @@ public final class DietaryPreferenceChecker implements RestrictionChecker {
         if (!product.dataComplete() || ingredients == null || ingredients.isEmpty()) {
             hits.add(new Finding(
                     rule.code(),
-                    null,
+                    Finding.SUBJECT_UNKNOWN,
                     "Ingredient data is incomplete for the " + rule.code() + " restriction."
             ));
         }
+    }
+
+    private static String displayName(String ingredientName) {
+        if (ingredientName == null || ingredientName.isBlank()) {
+            return Finding.SUBJECT_UNKNOWN;
+        }
+        return ingredientName.trim();
     }
 }
