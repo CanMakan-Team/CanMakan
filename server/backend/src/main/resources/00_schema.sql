@@ -91,6 +91,7 @@ CREATE TABLE families (
     family_name VARCHAR(100) NOT NULL,
     created_by_user_id BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_families_users
         FOREIGN KEY (created_by_user_id) REFERENCES users(id)
         ON DELETE RESTRICT ON UPDATE CASCADE

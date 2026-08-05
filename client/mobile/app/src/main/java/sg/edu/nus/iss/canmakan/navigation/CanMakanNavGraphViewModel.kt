@@ -3,10 +3,12 @@ package sg.edu.nus.iss.canmakan.navigation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
@@ -31,45 +33,43 @@ class CanMakanNavGraphViewModel @Inject constructor (
     private val _profiles = MutableStateFlow<List<DietaryProfile>>(emptyList())
     val profiles: StateFlow<List<DietaryProfile>> = _profiles.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
     init {
         viewModelScope.launch {
             currentProfileId.collect { profileId ->
-                loadDataWithRetry(profileId)
-            }
-        }
-    }
-
-    private suspend fun loadDataWithRetry(profileId: Long) {
-        var success = false
-        var tryCount = 0
-        val maxRetry = 3
-
-        while (!success && tryCount <= maxRetry) {
-            try {
-                loadRestrictions(profileId)
-                loadProfilesForFamily(profileId)
-                success = true
-            } catch (e: Exception) {
-                tryCount++
-                if (tryCount <= maxRetry) {
-                    Timber.w("Failed to load data for profile $profileId, retrying in ${tryCount * 2}s... ($tryCount/$maxRetry)")
-                    kotlinx.coroutines.delay(tryCount * 2000L)
-                } else {
-                    Timber.e(e, "Final failure loading data for profile $profileId")
-                }
+_isLoading.value = true
+_error.value = null
+try {
+    loadDataWithRetry(profileId)
+} finally {
+    _isLoading.value = false
+}
             }
         }
     }
 
     private suspend fun loadRestrictions(profileId: Long) {
-        val allRestrictions = dietaryRestrictionRepo.getAllDietaryRestrictions()
-        val profileSelections = dietaryRestrictionRepo.getDietaryRestrictionsForProfile(profileId)
-        
-        val restrictionNames = allRestrictions
+try {
+    val allRestrictions = dietaryRestrictionRepo.getAllDietaryRestrictions()
+    val profileSelections = dietaryRestrictionRepo.getDietaryRestrictionsForProfile(profileId)
+    
+    val restrictionNames = withContext(Dispatchers.Default) {
+        allRestrictions
             .filter { profileSelections.containsKey(it.id) }
             .map { it.displayName }
-        
-        _activeRestrictions.value = restrictionNames
+    }
+    
+    _activeRestrictions.value = restrictionNames
+} catch (e: Exception) {
+    Timber.e(e, "Error loading restrictions for profile $profileId")
+    _error.value = "Unable to connect to the server. Please check your network and try again."
+    _activeRestrictions.value = emptyList()
+}
     }
 
     private suspend fun loadProfilesForFamily(profileId: Long) {
@@ -77,8 +77,20 @@ class CanMakanNavGraphViewModel @Inject constructor (
         val loadedProfiles = familyProfileRepository.getProfilesForFamily(familyId)
         _profiles.value = loadedProfiles
 
+try {
+    val loadedProfiles = familyProfileRepository.getProfilesForFamily(familyId)
+    _profiles.value = loadedProfiles
+
+    withContext(Dispatchers.Default) {
         if (loadedProfiles.none { it.id == profileId }) {
             activeProfileManager.switchProfile(loadedProfiles.firstOrNull()?.id ?: profileId)
+        }
+    }
+} catch (e: Exception) {
+    Timber.e(e, "Error loading profiles for family")
+    _error.value = "Unable to connect to the server. Please check your network and try again."
+    _profiles.value = emptyList()
+}
         }
     }
 
@@ -88,7 +100,11 @@ class CanMakanNavGraphViewModel @Inject constructor (
 
     fun refreshRestrictions() {
         viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
             loadRestrictions(currentProfileId.value)
+            loadProfilesForFamily(currentProfileId.value)
+            _isLoading.value = false
         }
     }
 }

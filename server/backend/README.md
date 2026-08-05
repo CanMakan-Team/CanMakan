@@ -83,6 +83,27 @@ From `server/backend` on Windows:
 .\mvnw.cmd spring-boot:run
 ```
 
+Local defaults in `application.properties` mean you do **not** need GitHub Actions secrets to start the app.
+
+Requirements for a successful local run:
+
+1. MySQL running on `localhost:3306`
+2. A database user that matches the defaults (`root` / empty password), or override with env vars
+
+Optional env vars (only needed when exercising those features):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MYSQL_USERNAME` | `root` | DB user |
+| `MYSQL_PASSWORD` | _(empty)_ | DB password |
+| `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_DB` | `localhost` / `3306` / `canmakan` | DB connection |
+| `OPENAI_API_KEY` | `local-dev-placeholder` | Real AI calls |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Chat model |
+| `TAVILY_API_KEY` | `local-dev-placeholder` | External allergen fallback |
+| `EAN_SEARCH_API_KEY` | `demo_token` | EAN Search API |
+
+With placeholder API keys the app starts; OpenAI/Tavily features stay inactive until real keys are set.
+
 The application listens on port 8080.
 
 ## Test

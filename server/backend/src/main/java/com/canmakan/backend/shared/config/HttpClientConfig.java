@@ -14,8 +14,13 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class HttpClientConfig {
 
     @Bean
-    WebClient webClient() {
-        return WebClient.create();
+    WebClient.Builder webClientBuilder() {
+        return WebClient.builder();
+    }
+
+    @Bean
+    WebClient webClient(WebClient.Builder webClientBuilder) {
+        return webClientBuilder.build();
     }
 
     @Bean
