@@ -41,9 +41,9 @@ public class AiExecutionLogService {
     @Autowired
     public AiExecutionLogService(
         AiExecutionLogRepository repository,
-        @Value("${app.ai.audit.enabled:false}") boolean auditEnabled,
-        @Value("${app.ai.audit.raw-prompt-enabled:false}") boolean rawPromptEnabled,
-        @Value("${app.ai.audit.raw-response-enabled:false}") boolean rawResponseEnabled
+        @Value("${canmakan.ai.audit.enabled:false}") boolean auditEnabled,
+        @Value("${canmakan.ai.audit.store-prompt:false}") boolean rawPromptEnabled,
+        @Value("${canmakan.ai.audit.store-response:false}") boolean rawResponseEnabled
     ) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.auditEnabled = auditEnabled;

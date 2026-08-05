@@ -3,8 +3,10 @@ package com.canmakan.backend.product.assessment;
 import com.canmakan.backend.ai.llm.LlmAssessmentResult;
 import com.canmakan.backend.ai.llm.LlmClient;
 import com.canmakan.backend.ai.llm.PromptBuilder;
+import com.canmakan.backend.ai.llm.ResolvedIngredient;
 import com.canmakan.backend.ai.log.AiExecutionLogService;
 import com.canmakan.backend.dietaryprofile.RestrictionRuleLoader;
+import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.product.scan.Scan;
 import com.canmakan.backend.product.scan.ScanService;
 import com.canmakan.backend.product.verdict.DietaryRuleEngine;
@@ -13,7 +15,11 @@ import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Coordinates the tiered "scan product barcode -> view scan verdict" flow:
@@ -22,14 +28,23 @@ import java.util.List;
  *   <li>load the profile's active restriction rules (from the saved dietary preferences)</li>
  *   <li>build {@link ProductData} for the barcode</li>
  *   <li>run the deterministic {@link DietaryRuleEngine} (TIER_1_RULES)</li>
- *   <li>escalate to the {@link LlmClient} only when the rule result is inconclusive (TIER_3_LLM)</li>
+ *   <li>if inconclusive, ask the {@link LlmClient} for <b>evidence</b> (resolved ingredients),
+ *       enrich the product data with it, and <b>re-run the engine</b> (TIER_3_LLM)</li>
  *   <li>persist the scan and its execution log, then return the verdict</li>
  * </ol>
+ *
+ * <p><b>The LLM never decides the verdict.</b> It only supplies evidence; the final
+ * verdict always comes from {@link DietaryRuleEngine}. LLM-resolved allergens are
+ * trusted only above {@link #LLM_CONFIDENCE_THRESHOLD}, otherwise the ingredient
+ * stays unresolved and the engine degrades to WARNING.
  *
  * @author XieHuayuan
  */
 @Service
 public class AssessmentOrchestrator {
+
+    /** LLM-resolved allergens below this confidence are treated as unresolved. */
+    private static final double LLM_CONFIDENCE_THRESHOLD = 0.7;
 
     private final ProductDataAdapter productDataAdapter;
     private final RestrictionRuleLoader ruleLoader;
@@ -74,11 +89,12 @@ public class AssessmentOrchestrator {
         ExecutionTier tier = ExecutionTier.TIER_1_RULES;
         LlmAssessmentResult llmResult = null;
 
-        // TIER 3: escalate only the inconclusive middle to the LLM.
+        // TIER 3: on an inconclusive WARNING, get LLM EVIDENCE, enrich, and re-decide.
         if (shouldEscalate(verdict, product)) {
             String compiledPrompt = promptBuilder.build(product, rules);
-            llmResult = llmClient.assess(compiledPrompt);
-            verdict = applyLlmVerdict(verdict, llmResult);
+            llmResult = llmClient.assess(compiledPrompt);              // evidence only, no verdict
+            ProductData enriched = enrichWithLlmEvidence(product, llmResult);
+            verdict = ruleEngine.assess(rules, enriched);             // engine re-decides (deterministic)
             tier = ExecutionTier.TIER_3_LLM;
         }
 
@@ -109,21 +125,45 @@ public class AssessmentOrchestrator {
     }
 
     /**
-     * Overlay the LLM's structured verdict on top of the rule result, keeping the
-     * engine's findings. Falls back to the rule verdict if the LLM output is unusable.
+     * Overlay the LLM's evidence onto ingredients that still have no root allergen.
+     * Only resolutions with a non-null allergen and confidence &ge;
+     * {@link #LLM_CONFIDENCE_THRESHOLD} are trusted; everything else is ignored so
+     * a shaky guess cannot drive a definitive verdict. Returns a new
+     * {@link ProductData} for the engine to re-assess deterministically.
      */
-    private SafetyVerdict applyLlmVerdict(SafetyVerdict ruleVerdict, LlmAssessmentResult llm) {
-        if (llm == null || llm.verdict() == null) {
-            return ruleVerdict;
+    private ProductData enrichWithLlmEvidence(ProductData product, LlmAssessmentResult llm) {
+        if (product == null || product.ingredients() == null
+                || llm == null || llm.resolvedIngredients() == null
+                || llm.resolvedIngredients().isEmpty()) {
+            return product;
         }
-        try {
-            SafetyVerdict.Level level = SafetyVerdict.Level.valueOf(llm.verdict().trim().toUpperCase());
-            String explanation = (llm.reason() == null || llm.reason().isBlank())
-                    ? ruleVerdict.explanation()
-                    : llm.reason();
-            return new SafetyVerdict(level, explanation, ruleVerdict.findings());
-        } catch (IllegalArgumentException e) {
-            return ruleVerdict;   // LLM returned an unexpected level -> trust the engine
+
+        Map<String, String> trusted = llm.resolvedIngredients().stream()
+                .filter(ri -> ri.ingredientName() != null
+                        && ri.rootAllergen() != null && !ri.rootAllergen().isBlank()
+                        && ri.confidence() >= LLM_CONFIDENCE_THRESHOLD)
+                .collect(Collectors.toMap(
+                        ri -> ri.ingredientName().toLowerCase(Locale.ROOT),
+                        ResolvedIngredient::rootAllergen,
+                        (a, b) -> a));
+        if (trusted.isEmpty()) {
+            return product;
         }
+
+        List<Ingredient> merged = new ArrayList<>();
+        for (Ingredient ing : product.ingredients()) {
+            String key = ing.ingredientName() == null
+                    ? null : ing.ingredientName().toLowerCase(Locale.ROOT);
+            boolean needsRoot = ing.rootAllergen() == null || ing.rootAllergen().isBlank();
+            if (needsRoot && key != null && trusted.containsKey(key)) {
+                merged.add(new Ingredient(
+                        ing.ingredientName(), ing.parentAllergen(), trusted.get(key), ing.chemicalAlias()));
+            } else {
+                merged.add(ing);
+            }
+        }
+
+        return new ProductData(product.barcode(), merged, product.ingredientsText(),
+                product.labelTags(), product.nutrition(), product.dataComplete());
     }
 }

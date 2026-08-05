@@ -1,5 +1,6 @@
 package com.canmakan.backend.ai.log;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -8,13 +9,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.canmakan.backend.ai.llm.LlmAssessmentResult;
+import com.canmakan.backend.ai.llm.ResolvedIngredient;
 import com.canmakan.backend.product.assessment.ExecutionTier;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -80,6 +84,27 @@ class AiExecutionLogServiceTest {
     }
 
     @Test
+    void preservesUnavailableTokenMetadataAsNull() {
+        AiExecutionLogService service = service(true, false, false);
+        LlmAssessmentResult llm = new LlmAssessmentResult(
+            List.of(),
+            "Evidence only.",
+            "test-model",
+            null,
+            null,
+            35L,
+            "prompt",
+            "response"
+        );
+
+        AiExecutionLog saved = service.record(42L, ExecutionTier.TIER_3_LLM, llm);
+
+        assertNull(saved.getPromptTokens());
+        assertNull(saved.getCompletionTokens());
+        verify(repository).save(saved);
+    }
+
+    @Test
     void omitsRawPromptAndResponseWhenSwitchesAreDisabled() {
         AiExecutionLogService service = service(true, false, false);
 
@@ -126,20 +151,80 @@ class AiExecutionLogServiceTest {
     }
 
     @Test
-    void isolatesRepositoryFailureFromTheBusinessFlow() {
+    void storesOnlyPromptWhenOnlyPromptSwitchIsEnabled() {
+        AiExecutionLogService service = service(true, true, false);
+
+        AiExecutionLog saved = service.record(
+            42L,
+            ExecutionTier.TIER_3_LLM,
+            llmResult("evidence prompt", "evidence response")
+        );
+
+        assertEquals("evidence prompt", saved.getCompiledPrompt());
+        assertNull(saved.getRawLlmResponse());
+    }
+
+    @Test
+    void storesOnlyResponseWhenOnlyResponseSwitchIsEnabled() {
+        AiExecutionLogService service = service(true, false, true);
+
+        AiExecutionLog saved = service.record(
+            42L,
+            ExecutionTier.TIER_3_LLM,
+            llmResult("evidence prompt", "evidence response")
+        );
+
+        assertNull(saved.getCompiledPrompt());
+        assertEquals("evidence response", saved.getRawLlmResponse());
+    }
+
+    @Test
+    void preservesNullRawFieldsWhenStorageSwitchesAreEnabled() {
+        AiExecutionLogService service = service(true, true, true);
+
+        AiExecutionLog saved = service.record(
+            42L,
+            ExecutionTier.TIER_3_LLM,
+            llmResult(null, null)
+        );
+
+        assertNull(saved.getCompiledPrompt());
+        assertNull(saved.getRawLlmResponse());
+    }
+
+    @Test
+    void isolatesRepositoryFailureAndAttemptsSaveOnlyOnce() {
         AiExecutionLogService service = service(true, false, false);
         when(repository.save(any(AiExecutionLog.class)))
             .thenThrow(new RuntimeException("password=do-not-log"));
 
-        AiExecutionLog result = service.recordRulesOnly(42L, 17L);
+        AiExecutionLog result = assertDoesNotThrow(
+            () -> service.recordRulesOnly(42L, 17L)
+        );
 
         assertNull(result);
-        verify(repository).save(any(AiExecutionLog.class));
+        verify(repository, times(1)).save(any(AiExecutionLog.class));
     }
 
     @Test
-    void skipsPersistenceWhenAuditIsDisabled() {
+    void skipsRulesOnlyPersistenceWhenAuditIsDisabled() {
+        AiExecutionLogService service = service(false, false, false);
+
+        assertNull(service.recordRulesOnly(42L, 17L));
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void skipsLlmPersistenceWhenAuditIsDisabledEvenIfRawSwitchesAreEnabled() {
         AiExecutionLogService service = service(false, true, true);
+
+        assertNull(service.record(42L, ExecutionTier.TIER_3_LLM, llmResult("p", "r")));
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void oneArgumentConstructorUsesSafeDisabledDefaults() {
+        AiExecutionLogService service = new AiExecutionLogService(repository);
 
         assertNull(service.recordRulesOnly(42L, 17L));
         assertNull(service.record(42L, ExecutionTier.TIER_3_LLM, llmResult("p", "r")));
@@ -157,10 +242,42 @@ class AiExecutionLogServiceTest {
         assertNull(service.record(
             42L,
             ExecutionTier.TIER_3_LLM,
-            new LlmAssessmentResult(null, null, null, -1, null, 1L, null, null)
+            new LlmAssessmentResult(
+                List.of(),
+                "",
+                null,
+                null,
+                null,
+                (long) Integer.MAX_VALUE + 1,
+                null,
+                null
+            )
         ));
 
         verify(repository, never()).save(any(AiExecutionLog.class));
+    }
+
+    @Test
+    void evidenceContentsDoNotChangeAuditTierOrMetadata() {
+        AiExecutionLogService service = service(true, false, false);
+        LlmAssessmentResult llm = new LlmAssessmentResult(
+            List.of(new ResolvedIngredient("Milk", "DAIRY", 0.99)),
+            "Provider attempted to state UNSAFE; orchestration must ignore it.",
+            "test-model",
+            12,
+            7,
+            35L,
+            "prompt",
+            "response"
+        );
+
+        AiExecutionLog saved = service.record(42L, ExecutionTier.TIER_3_LLM, llm);
+
+        assertEquals(ExecutionTier.TIER_3_LLM.name(), saved.getExecutionTier());
+        assertEquals("test-model", saved.getModelId());
+        assertEquals(12, saved.getPromptTokens());
+        assertEquals(7, saved.getCompletionTokens());
+        verify(repository).save(saved);
     }
 
     private AiExecutionLogService service(
@@ -178,7 +295,7 @@ class AiExecutionLogServiceTest {
 
     private static LlmAssessmentResult llmResult(String prompt, String response) {
         return new LlmAssessmentResult(
-            null,
+            List.of(),
             "Evidence remains uncertain.",
             "test-model",
             12,

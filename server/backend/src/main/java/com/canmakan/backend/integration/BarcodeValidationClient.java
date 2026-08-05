@@ -7,13 +7,17 @@ import com.canmakan.backend.product.scan.ValidationResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.http.HttpTimeoutException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
@@ -30,10 +34,21 @@ import org.springframework.web.client.RestClientResponseException;
  */
 @Service
 public class BarcodeValidationClient {
+    private static final String DEFAULT_OFF_BASE_URL =
+        "https://world.openfoodfacts.org/api/v3/product/";
+    private static final String DEFAULT_EAN_BASE_URL = "https://api.ean-search.org";
+    private static final long DEFAULT_CONNECT_TIMEOUT_MS = 3_000;
+    private static final long DEFAULT_RESPONSE_TIMEOUT_MS = 5_000;
+    private static final int DEFAULT_RETRY_MAX_ATTEMPTS = 2;
+    private static final long DEFAULT_RETRY_BACKOFF_MS = 250;
+
     private final RestClient offRestClient;
     private final RestClient eanRestClient;
     private final String eanSearchToken;
     private final ObjectMapper objectMapper;
+    private final int retryMaxAttempts;
+    private final long retryBackoffMs;
+    private final RetrySleeper retrySleeper;
 
     @Autowired
     public BarcodeValidationClient(
@@ -44,24 +59,47 @@ public class BarcodeValidationClient {
         @Value("${app.version:1.0}") String appVersion,
         @Value("${app.contact.email:khairulanwar.kamaruzaman@u.nus.edu}") String contactEmail
     ) {
-        // Construct the custom User-Agent string: AppName/Version (ContactEmail)
-        String userAgent = String.format("%s/v%s - (%s)", appName, appVersion, contactEmail);
+        this(
+            eanSearchToken,
+            appName,
+            appVersion,
+            contactEmail,
+            DEFAULT_OFF_BASE_URL,
+            DEFAULT_EAN_BASE_URL,
+            DEFAULT_CONNECT_TIMEOUT_MS,
+            DEFAULT_RESPONSE_TIMEOUT_MS,
+            DEFAULT_RETRY_MAX_ATTEMPTS,
+            DEFAULT_RETRY_BACKOFF_MS
+        );
+    }
 
-        // Primary: Open Food Facts (Configured with Custom User-Agent)
-        RestClient offClient = RestClient.builder()
-            .baseUrl(offApiUrl)
-            .defaultHeader("User-Agent", userAgent)
-            .build();
-
-        // Fallback: EAN-Search (Configured with base domain root)
-        RestClient eanClient = RestClient.builder()
-            .baseUrl(eanApiUrl)
-            .build();
-
-        this.offRestClient = offClient;
-        this.eanRestClient = eanClient;
-        this.eanSearchToken = eanSearchToken;
-        this.objectMapper = new ObjectMapper();
+    @Autowired
+    BarcodeValidationClient(
+        @Value("${app.api.ean-search.token}") String eanSearchToken,
+        @Value("${app.name:CanMakan}") String appName,
+        @Value("${app.version:1.0}") String appVersion,
+        @Value("${app.contact.email:khairulanwar.kamaruzaman@u.nus.edu}") String contactEmail,
+        @Value("${canmakan.product-api.open-food-facts-base-url}") String offBaseUrl,
+        @Value("${canmakan.product-api.ean-search-base-url}") String eanBaseUrl,
+        @Value("${canmakan.product-api.connect-timeout-ms}") long connectTimeoutMs,
+        @Value("${canmakan.product-api.response-timeout-ms}") long responseTimeoutMs,
+        @Value("${canmakan.product-api.retry.max-attempts}") int retryMaxAttempts,
+        @Value("${canmakan.product-api.retry.backoff-ms}") long retryBackoffMs
+    ) {
+        this(
+            createOffRestClient(
+                offBaseUrl,
+                connectTimeoutMs,
+                responseTimeoutMs,
+                userAgent(appName, appVersion, contactEmail)
+            ),
+            createEanRestClient(eanBaseUrl, connectTimeoutMs, responseTimeoutMs),
+            eanSearchToken,
+            new ObjectMapper(),
+            retryMaxAttempts,
+            retryBackoffMs,
+            Thread::sleep
+        );
     }
 
     BarcodeValidationClient(
@@ -70,19 +108,48 @@ public class BarcodeValidationClient {
         String eanSearchToken,
         ObjectMapper objectMapper
     ) {
+        this(
+            offRestClient,
+            eanRestClient,
+            eanSearchToken,
+            objectMapper,
+            1,
+            0,
+            Thread::sleep
+        );
+    }
+
+    BarcodeValidationClient(
+        RestClient offRestClient,
+        RestClient eanRestClient,
+        String eanSearchToken,
+        ObjectMapper objectMapper,
+        int retryMaxAttempts,
+        long retryBackoffMs,
+        RetrySleeper retrySleeper
+    ) {
         this.offRestClient = Objects.requireNonNull(offRestClient, "offRestClient");
         this.eanRestClient = Objects.requireNonNull(eanRestClient, "eanRestClient");
         this.eanSearchToken = eanSearchToken;
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        if (retryMaxAttempts < 1) {
+            throw new IllegalArgumentException("retryMaxAttempts must be at least 1");
+        }
+        if (retryBackoffMs < 0) {
+            throw new IllegalArgumentException("retryBackoffMs must not be negative");
+        }
+        this.retryMaxAttempts = retryMaxAttempts;
+        this.retryBackoffMs = retryBackoffMs;
+        this.retrySleeper = Objects.requireNonNull(retrySleeper, "retrySleeper");
     }
 
     public ValidationResponse validateProduct(String barcode) {
         // 1. Primary Lookup: Open Food Facts
         try {
-            String offResponseStr = offRestClient.get()
-                .uri(barcode + ".json")
-                .retrieve()
-                .body(String.class);
+            String offResponseStr = executeWithRetry(() -> offRestClient.get()
+                    .uri(barcode + ".json")
+                    .retrieve()
+                    .body(String.class));
 
             if (offResponseStr != null) {
                 JsonNode offResponse = objectMapper.readTree(offResponseStr);
@@ -104,16 +171,16 @@ public class BarcodeValidationClient {
 
         // 2. Fallback Lookup: EAN-Search
         try {
-            String eanResponseStr = eanRestClient.get()
-                .uri(uriBuilder -> uriBuilder
-                    .path("/api")
-                    .queryParam("token", eanSearchToken)
-                    .queryParam("op", "barcode-lookup")
-                    .queryParam("format", "json")
-                    .queryParam("ean", barcode)
-                    .build())
-                .retrieve()
-                .body(String.class);
+            String eanResponseStr = executeWithRetry(() -> eanRestClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                        .path("/api")
+                        .queryParam("token", eanSearchToken)
+                        .queryParam("op", "barcode-lookup")
+                        .queryParam("format", "json")
+                        .queryParam("ean", barcode)
+                        .build())
+                    .retrieve()
+                    .body(String.class));
 
             if (eanResponseStr != null) {
                 JsonNode eanResponse = objectMapper.readTree(eanResponseStr);
@@ -161,10 +228,10 @@ public class BarcodeValidationClient {
 
         String responseBody;
         try {
-            responseBody = offRestClient.get()
-                .uri(barcode + ".json")
-                .retrieve()
-                .body(String.class);
+            responseBody = executeWithRetry(() -> offRestClient.get()
+                    .uri(barcode + ".json")
+                    .retrieve()
+                    .body(String.class));
         } catch (HttpClientErrorException.NotFound exception) {
             throw lookupFailure(
                 ProductLookupException.Reason.PRODUCT_NOT_FOUND,
@@ -352,5 +419,127 @@ public class BarcodeValidationClient {
         String message
     ) {
         return new ProductLookupException(reason, message);
+    }
+
+    private <T> T executeWithRetry(Supplier<T> request) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return request.get();
+            } catch (RestClientException exception) {
+                if (attempt >= retryMaxAttempts || !isRetryable(exception)) {
+                    throw exception;
+                }
+                waitBeforeRetry();
+            }
+        }
+    }
+
+    private boolean isRetryable(RestClientException exception) {
+        return exception instanceof HttpServerErrorException
+            || exception instanceof ResourceAccessException;
+    }
+
+    private void waitBeforeRetry() {
+        if (retryBackoffMs == 0) {
+            return;
+        }
+        try {
+            retrySleeper.sleep(retryBackoffMs);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new ResourceAccessException(
+                "Product provider retry was interrupted.",
+                new IOException("Retry backoff was interrupted.", exception)
+            );
+        }
+    }
+
+    private static RestClient createOffRestClient(
+        String baseUrl,
+        long connectTimeoutMs,
+        long responseTimeoutMs,
+        String userAgent
+    ) {
+        return configuredRestClientBuilder(
+                ensureTrailingSlash(baseUrl),
+                connectTimeoutMs,
+                responseTimeoutMs
+            )
+            .defaultHeader("User-Agent", userAgent)
+            .build();
+    }
+
+    private static RestClient createEanRestClient(
+        String baseUrl,
+        long connectTimeoutMs,
+        long responseTimeoutMs
+    ) {
+        return configuredRestClientBuilder(
+                removeTrailingSlash(baseUrl),
+                connectTimeoutMs,
+                responseTimeoutMs
+            )
+            .build();
+    }
+
+    static RestClient.Builder configuredRestClientBuilder(
+        String baseUrl,
+        long connectTimeoutMs,
+        long responseTimeoutMs
+    ) {
+        String normalizedBaseUrl = requireBaseUrl(baseUrl);
+        return RestClient.builder()
+            .baseUrl(normalizedBaseUrl)
+            .requestFactory(createRequestFactory(connectTimeoutMs, responseTimeoutMs));
+    }
+
+    static SimpleClientHttpRequestFactory createRequestFactory(
+        long connectTimeoutMs,
+        long responseTimeoutMs
+    ) {
+        if (connectTimeoutMs <= 0) {
+            throw new IllegalArgumentException("connectTimeoutMs must be positive");
+        }
+        if (responseTimeoutMs <= 0) {
+            throw new IllegalArgumentException("responseTimeoutMs must be positive");
+        }
+
+        SimpleClientHttpRequestFactory requestFactory =
+            new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+        requestFactory.setReadTimeout(Duration.ofMillis(responseTimeoutMs));
+        return requestFactory;
+    }
+
+    private static String userAgent(String appName, String appVersion, String contactEmail) {
+        return String.format("%s/v%s - (%s)", appName, appVersion, contactEmail);
+    }
+
+    private static String ensureTrailingSlash(String baseUrl) {
+        String normalizedBaseUrl = requireBaseUrl(baseUrl);
+        return normalizedBaseUrl.endsWith("/")
+            ? normalizedBaseUrl
+            : normalizedBaseUrl + "/";
+    }
+
+    private static String removeTrailingSlash(String baseUrl) {
+        String normalizedBaseUrl = requireBaseUrl(baseUrl);
+        while (normalizedBaseUrl.endsWith("/")) {
+            normalizedBaseUrl = normalizedBaseUrl.substring(0, normalizedBaseUrl.length() - 1);
+        }
+        return normalizedBaseUrl;
+    }
+
+    private static String requireBaseUrl(String baseUrl) {
+        Objects.requireNonNull(baseUrl, "baseUrl");
+        if (baseUrl.isBlank()) {
+            throw new IllegalArgumentException("baseUrl must not be blank");
+        }
+        return baseUrl.trim();
+    }
+
+    @FunctionalInterface
+    interface RetrySleeper {
+        void sleep(long backoffMs) throws InterruptedException;
     }
 }

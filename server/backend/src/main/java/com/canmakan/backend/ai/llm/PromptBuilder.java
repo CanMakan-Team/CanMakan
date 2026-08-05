@@ -20,7 +20,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class PromptBuilder {
 
-    private static final String PROMPT_VERSION = "canmakan-evidence-v1";
+    private static final String PROMPT_VERSION = "canmakan-evidence-v2";
     private static final String MISSING = "MISSING_OR_UNKNOWN";
 
     /**
@@ -39,8 +39,12 @@ public class PromptBuilder {
         prompt.append("EVIDENCE_RULES:\n")
             .append("- Do not fabricate evidence.\n")
             .append("- State uncertainty when evidence is insufficient or ambiguous.\n")
+            .append("- Return rootAllergen as null when it cannot be determined.\n")
+            .append("- Return confidence as a finite number from 0.0 to 1.0.\n")
+            .append("- Do not present a low-confidence guess as established fact.\n")
             .append("- Do not infer missing nutrition as zero.\n")
             .append("- Do not treat an unmapped ingredient as safe.\n")
+            .append("- analysisNotes is explanatory only and must not determine a verdict.\n")
             .append("- Limit analysis to ingredient normalization, aliases, E-numbers, root allergens, ")
             .append("and the supplied restriction codes.\n");
 
@@ -54,10 +58,10 @@ public class PromptBuilder {
         appendUnresolvedIngredients(prompt, product.ingredients());
 
         prompt.append("OUTPUT_SCHEMA:\n")
-            .append("{\"findings\":[{\"restrictionCode\":\"string|null\",")
-            .append("\"ingredientName\":\"string|null\",\"reason\":\"string\"}],")
-            .append("\"uncertainty\":\"string|null\"}\n")
-            .append("Each finding must contain exactly restrictionCode, ingredientName, and reason.");
+            .append("{\"resolvedIngredients\":[{\"ingredientName\":\"string\",")
+            .append("\"rootAllergen\":\"string|null\",\"confidence\":0.0}],")
+            .append("\"analysisNotes\":\"string\"}\n")
+            .append("Return only this evidence object; deterministic orchestration creates findings.");
 
         return prompt.toString();
     }

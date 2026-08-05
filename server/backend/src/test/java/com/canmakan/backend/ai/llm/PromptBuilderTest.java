@@ -52,7 +52,7 @@ class PromptBuilderTest {
             List.of(halalRule())
         );
 
-        assertTrue(prompt.contains("PROMPT_VERSION: canmakan-evidence-v1"));
+        assertTrue(prompt.contains("PROMPT_VERSION: canmakan-evidence-v2"));
         assertTrue(prompt.contains("barcode=\"8888888888888\""));
         assertTrue(prompt.contains("ingredientsText=\"Mystery powder, sugar\""));
         assertTrue(prompt.contains("labelTags=[\"en:halal\"]"));
@@ -62,15 +62,16 @@ class PromptBuilderTest {
     }
 
     @Test
-    void requestsThreeFieldFindingsAndForbidsAuthoritativeVerdict() {
+    void requestsResolvedIngredientEvidenceAndForbidsAuthoritativeVerdict() {
         String prompt = standardPrompt();
 
-        assertTrue(prompt.contains("\"restrictionCode\":\"string|null\""));
-        assertTrue(prompt.contains("\"ingredientName\":\"string|null\""));
-        assertTrue(prompt.contains("\"reason\":\"string\""));
-        assertTrue(prompt.contains(
-            "Each finding must contain exactly restrictionCode, ingredientName, and reason."
-        ));
+        assertTrue(prompt.contains("\"resolvedIngredients\""));
+        assertTrue(prompt.contains("\"ingredientName\":\"string\""));
+        assertTrue(prompt.contains("\"rootAllergen\":\"string|null\""));
+        assertTrue(prompt.contains("\"confidence\":0.0"));
+        assertTrue(prompt.contains("\"analysisNotes\":\"string\""));
+        assertFalse(prompt.contains("\"findings\""));
+        assertFalse(prompt.contains("\"restrictionCode\""));
         assertTrue(prompt.contains("Do not decide or output SAFE, WARNING, or UNSAFE."));
         assertTrue(prompt.contains("Do not output a verdict field."));
     }
@@ -81,8 +82,12 @@ class PromptBuilderTest {
 
         assertTrue(prompt.contains("Do not fabricate evidence."));
         assertTrue(prompt.contains("State uncertainty"));
+        assertTrue(prompt.contains("rootAllergen as null"));
+        assertTrue(prompt.contains("confidence as a finite number from 0.0 to 1.0"));
+        assertTrue(prompt.contains("low-confidence guess"));
         assertTrue(prompt.contains("Do not infer missing nutrition as zero."));
         assertTrue(prompt.contains("Do not treat an unmapped ingredient as safe."));
+        assertTrue(prompt.contains("analysisNotes is explanatory only"));
         assertFalse(prompt.contains("ingredientName=\"Mystery powder\", classification=safe"));
     }
 

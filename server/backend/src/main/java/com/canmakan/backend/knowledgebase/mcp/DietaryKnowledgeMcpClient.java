@@ -5,23 +5,28 @@ import com.canmakan.backend.knowledgebase.mcp.contract.CrossContaminationResult;
 import com.canmakan.backend.knowledgebase.mcp.contract.DietaryRuleResult;
 import com.canmakan.backend.knowledgebase.mcp.contract.ENumberResult;
 import com.canmakan.backend.knowledgebase.mcp.contract.IngredientAliasResult;
+import com.canmakan.backend.knowledgebase.model.Ingredient;
+import com.canmakan.backend.knowledgebase.mcp.server.AllergenRelationshipTool;
+import com.canmakan.backend.knowledgebase.mcp.server.CrossContaminationTool;
+import com.canmakan.backend.knowledgebase.mcp.server.DietaryRuleTool;
+import com.canmakan.backend.knowledgebase.mcp.server.ENumberTool;
+import com.canmakan.backend.knowledgebase.mcp.server.IngredientAliasTool;
 import com.canmakan.backend.product.verdict.IngredientResolver;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 /**
- * Client side of the Dietary Knowledge MCP boundary (HY). Calls the five tools on
- * the {@code DietaryKnowledgeMcpServer} (MW) and implements {@link IngredientResolver}
- * so the verdict engine can resolve unknown ingredients without knowing about MCP.
+ * Client side of the Dietary Knowledge MCP boundary (HY). Delegates the five lookups to
+ * the {@code DietaryKnowledgeMcpServer} tools (MW) and implements {@link IngredientResolver}
+ * so the verdict engine can resolve unknown ingredients without knowing about the tools.
  *
  * <p>Marked {@link Primary} so it supersedes {@code IngredientResolverStub} as the
  * resolver the engine injects.
  *
- * <p><b>Transport status:</b> the five {@code lookup*} methods are the MCP transport
- * boundary and will call the server's tools once the {@code spring-ai-mcp} client is
- * configured (Member 3's infra task). Until then they return {@code null}, which makes
- * {@link #resolveRootAllergen} degrade gracefully to "unresolved" (the engine then
- * emits WARNING rather than a false SAFE) — so the pipeline runs end-to-end today.
+ * <p><b>Transport:</b> the tools run in-process in the same Spring Boot application, so
+ * they are called directly here. When a real {@code spring-ai-mcp} transport is added,
+ * only the five {@code lookup*}/{@code analyse*} methods need to be repointed at it — the
+ * {@link #resolveRootAllergen} logic and the engine stay unchanged.
  *
  * @author XieHuayuan
  */
@@ -29,13 +34,28 @@ import org.springframework.stereotype.Service;
 @Service
 public class DietaryKnowledgeMcpClient implements IngredientResolver {
 
-    // TODO (transport, Member 3): inject the Spring AI MCP client / tool callbacks
-    //   pointing at DietaryKnowledgeMcpServer, then replace the null returns below.
+    private final IngredientAliasTool ingredientAliasTool;
+    private final ENumberTool eNumberTool;
+    private final AllergenRelationshipTool allergenRelationshipTool;
+    private final DietaryRuleTool dietaryRuleTool;
+    private final CrossContaminationTool crossContaminationTool;
+
+    public DietaryKnowledgeMcpClient(IngredientAliasTool ingredientAliasTool,
+                                     ENumberTool eNumberTool,
+                                     AllergenRelationshipTool allergenRelationshipTool,
+                                     DietaryRuleTool dietaryRuleTool,
+                                     CrossContaminationTool crossContaminationTool) {
+        this.ingredientAliasTool = ingredientAliasTool;
+        this.eNumberTool = eNumberTool;
+        this.allergenRelationshipTool = allergenRelationshipTool;
+        this.dietaryRuleTool = dietaryRuleTool;
+        this.crossContaminationTool = crossContaminationTool;
+    }
 
     /**
      * Resolve an ingredient (including chemical aliases) to its root allergen.
      * Tries the alias tool first (it returns the root directly and canonicalises the
-     * name), then falls back to the allergen relationship graph.
+     * name), then falls back to the allergen relationship hierarchy.
      *
      * @return the root allergen (e.g. "DAIRY"), or {@code null} if still unknown.
      */
@@ -56,37 +76,34 @@ public class DietaryKnowledgeMcpClient implements IngredientResolver {
                 ? alias.canonicalName()
                 : ingredientName;
         AllergenRelationshipResult relationship = lookupAllergenRelationship(canonical);
-        // if (relationship != null
-        //         && relationship.rootAllergen() != null
-        //         && !relationship.rootAllergen().isBlank()) {
-        //     return relationship.rootAllergen();
-        // }
+        if (relationship != null && relationship.localMatches() != null) {
+            for (Ingredient match : relationship.localMatches()) {
+                if (match != null && match.rootAllergen() != null && !match.rootAllergen().isBlank()) {
+                    return match.rootAllergen();
+                }
+            }
+        }
 
         return null;   // still unknown -> engine flags as unresolved (WARNING)
     }
 
     public IngredientAliasResult lookupAlias(String ingredientName) {
-        // TODO (transport): call the "ingredient_alias_lookup" MCP tool.
-        return null;
+        return ingredientAliasTool.lookup(ingredientName);
     }
 
     public ENumberResult lookupENumber(String eNumber) {
-        // TODO (transport): call the "e_number_lookup" MCP tool.
-        return null;
+        return eNumberTool.lookup(eNumber);
     }
 
-    public AllergenRelationshipResult lookupAllergenRelationship(String allergen) {
-        // TODO (transport): call the "allergen_relationship_lookup" MCP tool.
-        return null;
+    public AllergenRelationshipResult lookupAllergenRelationship(String ingredient) {
+        return allergenRelationshipTool.lookup(ingredient);
     }
 
     public DietaryRuleResult lookupDietaryRule(String code) {
-        // TODO (transport): call the "dietary_rule_lookup" MCP tool.
-        return null;
+        return dietaryRuleTool.lookup(code);
     }
 
     public CrossContaminationResult analyseCrossContamination(String labelText) {
-        // TODO (transport): call the "cross_contamination_analysis" MCP tool.
-        return null;
+        return crossContaminationTool.analyse(labelText);
     }
 }
