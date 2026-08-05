@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -42,6 +44,8 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.WarningAmber
 fun HistoryScreen(
     activeProfile: DietaryProfile,
     entries: List<ScanHistoryEntry>,
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
     onMenuClick: () -> Unit,
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
@@ -74,14 +78,28 @@ fun HistoryScreen(
                 Text("Recent scans for ${activeProfile.profileName}", color = TextSecondary)
                 Spacer(modifier = Modifier.height(12.dp))
             }
-            LazyColumn(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(entries) { entry ->
-                    ScanHistoryRow(entry = entry, onClick = { onEntryClick(entry) })
+            when {
+                isLoading -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
                 }
-                item { Spacer(modifier = Modifier.height(12.dp)) }
+                errorMessage != null -> Box(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = errorMessage, color = MaterialTheme.colorScheme.error)
+                }
+                else -> LazyColumn(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(entries) { entry ->
+                        ScanHistoryRow(entry = entry, onClick = { onEntryClick(entry) })
+                    }
+                    item { Spacer(modifier = Modifier.height(12.dp)) }
+                }
             }
         }
     }

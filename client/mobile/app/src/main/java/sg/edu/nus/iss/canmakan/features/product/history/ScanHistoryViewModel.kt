@@ -6,11 +6,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestrictionSheetUiState
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryRepository
 import sg.edu.nus.iss.canmakan.features.product.history.model.ScanHistoryScreenUiState
-import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -23,23 +21,34 @@ class ScanHistoryViewModel @Inject constructor(
     val scanHistoryUiState: StateFlow<ScanHistoryScreenUiState> = _scanHistoryUiState
 
     init {
-        loadScanHistoryForProfile(activeProfileManager.currentProfileId.value)
-    }
-    private fun loadScanHistoryForProfile(profileId: Long) {
-        // Only set isLoading if we don't already have restrictions
         viewModelScope.launch {
-            try {
-                val savedDietaryRestrictions = scanHistoryRepo.getScanHistoryForProfile(profileId)
-            } catch (e: Exception) {
-                Timber.e(e, "Error loading scan history for profile $profileId")
-                // We don't overwrite the main error message if it was already set by loadDietaryRestrictions
-                if (_scanHistoryUiState.value.errorMessage == null) {
-                    _scanHistoryUiState.value = _scanHistoryUiState.value.copy(
-                        errorMessage = "Unable to load scan history. Please try again."
-                    )
-                }
+            // Initial load for the currently active profile...
+            loadScanHistoryForProfile(activeProfileManager.currentProfileId.value)
+
+            // ...then reload whenever the active profile changes (e.g. the
+            // user switches to a different family member).
+            activeProfileManager.currentProfileId.collect { profileId ->
+                loadScanHistoryForProfile(profileId)
             }
         }
+    }
 
+    private suspend fun loadScanHistoryForProfile(profileId: Long) {
+        _scanHistoryUiState.value = _scanHistoryUiState.value.copy(isLoading = true, errorMessage = null)
+
+        try {
+            val history = scanHistoryRepo.getScanHistoryForProfile(profileId)
+            _scanHistoryUiState.value = _scanHistoryUiState.value.copy(scanHistory = history)
+        } catch (e: Exception) {
+            Timber.e(e, "Error loading scan history for profile $profileId")
+            val message = when (e) {
+                is java.net.SocketTimeoutException -> "Connection timed out. Please check if the backend server is running at ${sg.edu.nus.iss.canmakan.BuildConfig.BASE_URL ?: "the configured API URL"}"
+                is java.net.ConnectException -> "Failed to connect to the server. Please check your network."
+                else -> "Unable to load scan history. Please try again."
+            }
+            _scanHistoryUiState.value = _scanHistoryUiState.value.copy(errorMessage = message)
+        } finally {
+            _scanHistoryUiState.value = _scanHistoryUiState.value.copy(isLoading = false)
+        }
     }
 }

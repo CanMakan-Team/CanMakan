@@ -33,6 +33,7 @@ import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui.DietaryRestrictionSheet
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
+import sg.edu.nus.iss.canmakan.features.product.history.ScanHistoryViewModel
 import sg.edu.nus.iss.canmakan.features.product.history.ui.HistoryScreen
 import sg.edu.nus.iss.canmakan.features.product.model.ProductSampleData
 import sg.edu.nus.iss.canmakan.features.product.scan.ScannerScreen
@@ -136,9 +137,14 @@ fun CanMakanNavGraph(
                 )
             }
             composable(ROUTE_HISTORY) {
+                val scanHistoryViewModel: ScanHistoryViewModel = hiltViewModel()
+                val scanHistoryUiState by scanHistoryViewModel.scanHistoryUiState.collectAsStateWithLifecycle()
+
                 HistoryScreen(
                     activeProfile = activeProfile,
-                    entries = ProductSampleData.scanHistory,
+                    entries = scanHistoryUiState.scanHistory,
+                    isLoading = scanHistoryUiState.isLoading,
+                    errorMessage = scanHistoryUiState.errorMessage,
                     onMenuClick = { openDrawer() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { },
