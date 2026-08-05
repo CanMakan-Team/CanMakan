@@ -6,23 +6,36 @@
 *.key
 *.p12
 *.pfx
+*.jks
+*.keystore
 secrets/
+**/application-local.properties
+**/application-local.yml
+**/application-secret.properties
+**/application-secret.yml
 
 # Android and Gradle
 .gradle/
 build/
 **/build/
 local.properties
+**/local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+.kotlin/
+.navigation/
+.artifacts/
 *.apk
 *.aab
 *.ap_
+*.apk.d
 *.dex
 
-# Java and Spring Boot
+# Java / Maven / Eclipse build output
 target/
+bin/
+**/bin/
 *.class
 *.jar
 !**/gradle-wrapper.jar
@@ -32,6 +45,13 @@ target/
 *.log
 hs_err_pid*
 replay_pid*
+*.hprof
+.classpath
+.project
+.settings/
+.factorypath
+.springBeans
+.sts4-cache/
 
 # React, Node.js, and npm
 node_modules/
@@ -47,6 +67,7 @@ dist/
 coverage/
 .next/
 .vite/
+.turbo/
 
 # Python and machine learning
 __pycache__/
@@ -55,7 +76,6 @@ __pycache__/
 .Python
 .venv/
 venv/
-env/
 ENV/
 .pytest_cache/
 .mypy_cache/
@@ -85,13 +105,23 @@ checkpoints/
 *.iws
 out/
 
-# Visual Studio Code
-.vscode/
+# Visual Studio Code — keep shared team tasks/scripts; ignore personal settings
+.vscode/*
+!.vscode/tasks.json
+!.vscode/extensions.json
+!.vscode/run-backend.ps1
+!.vscode/run-full-stack.ps1
+!.vscode/stop-process.ps1
 *.code-workspace
+
+# Cursor / local agent tooling noise
+.cursor/
+.github/modernize/
 
 # Windows
 Thumbs.db
 Thumbs.db:encryptable
+ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 *.lnk
@@ -103,31 +133,12 @@ $RECYCLE.BIN/
 ._*
 .Spotlight-V100
 .Trashes
-local.properties
 
-# General temporary files
+# General temporary / merge artifacts
 *.tmp
 *.temp
 *.swp
 *.swo
 *~
-
-# JVM heap dumps (do not commit — can be 1GB+)
-*.hprof
-hs_err_pid*
-replay_pid*
-
-# Android signing / local device noise
-*.jks
-*.keystore
-*.hprof
-*.lock
-.navigation/
-*.apk.d
-.artifacts/
-
-# Eclipse
-.classpath
-.project
-.settings/
-.factorypath
+*.orig
+*.rej
