@@ -12,6 +12,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import sg.edu.nus.iss.canmakan.BuildConfig
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
+import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryApiService
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
 import timber.log.Timber
 import java.net.Proxy
@@ -39,18 +40,29 @@ object NetworkModule {
             .proxy(Proxy.NO_PROXY)
             .addInterceptor { chain ->
                 val request = chain.request().newBuilder()
-                    // Spoof a standard Chrome browser header to bypass DPI firewalls
                     .header(
                         "User-Agent",
                         "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
                     )
                     .build()
-                chain.proceed(request)
+                
+                var response = chain.proceed(request)
+                var tryCount = 0
+                val maxLimit = 3
+                
+                while (!response.isSuccessful && tryCount < maxLimit) {
+                    tryCount++
+                    response.close()
+                    // Linear backoff: wait 2s, 4s, 6s
+                    Thread.sleep(2000L * tryCount)
+                    response = chain.proceed(request)
+                }
+                response
             }
             .addInterceptor(loggingInterceptor)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
             .build()
     }
 
@@ -85,5 +97,11 @@ object NetworkModule {
     @Singleton
     fun provideCanMakanApiService(retrofit: Retrofit): CanMakanApiService {
         return retrofit.create(CanMakanApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideScanHistoryApiService(retrofit: Retrofit): ScanHistoryApiService {
+        return retrofit.create(ScanHistoryApiService::class.java)
     }
 }

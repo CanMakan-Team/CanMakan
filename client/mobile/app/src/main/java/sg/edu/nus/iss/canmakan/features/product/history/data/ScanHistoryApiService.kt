@@ -1,0 +1,21 @@
+package sg.edu.nus.iss.canmakan.features.product.history.data
+
+import retrofit2.Response
+import retrofit2.http.Body
+import retrofit2.http.GET
+import retrofit2.http.PUT
+import retrofit2.http.Path
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
+import sg.edu.nus.iss.canmakan.features.product.model.ScanHistoryEntry
+
+interface ScanHistoryApiService {
+    @GET("profiles/{profileId}/history")
+    suspend fun getScanHistoryForProfile(
+        @Path("profileId") profileId: Long
+    ): List<ScanHistoryEntry>
+
+//    @GET("products/{barcode}")
+//    suspend fun getProductByBarcode(
+//        @Path("barcode") barcode: String
+//    ): sg.edu.nus.iss.canmakan.features.product.model.Product
+}

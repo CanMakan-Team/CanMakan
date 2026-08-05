@@ -14,6 +14,7 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
@@ -32,13 +34,13 @@ import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui.DietaryRestrictionSheet
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
-import sg.edu.nus.iss.canmakan.features.product.history.HistoryScreen
+import sg.edu.nus.iss.canmakan.features.product.history.ScanHistoryViewModel
+import sg.edu.nus.iss.canmakan.features.product.history.ui.HistoryScreen
 import sg.edu.nus.iss.canmakan.features.product.model.ProductSampleData
 import sg.edu.nus.iss.canmakan.features.product.scan.ScannerScreen
 import sg.edu.nus.iss.canmakan.features.product.verdict.ProductDetailScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.CreateNewProfileScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.AddProfileToFamilyScreen
-import sg.edu.nus.iss.canmakan.navigation.CanMakanNavGraphViewModel
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
@@ -51,10 +53,11 @@ private const val ROUTE_ADD_PROFILE = "add_profile"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CanMakanNavGraph(
-    navGraphViewModel: CanMakanNavGraphViewModel = hiltViewModel()
+    navGraphViewModel: CanMakanNavGraphViewModel = hiltViewModel(),
 ) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val editDietarySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
 
     val currentProfileId by navGraphViewModel.currentProfileId.collectAsStateWithLifecycle()
@@ -136,9 +139,14 @@ fun CanMakanNavGraph(
                 )
             }
             composable(ROUTE_HISTORY) {
+                val scanHistoryViewModel: ScanHistoryViewModel = hiltViewModel()
+                val scanHistoryUiState by scanHistoryViewModel.scanHistoryUiState.collectAsStateWithLifecycle()
+
                 HistoryScreen(
                     activeProfile = activeProfile,
-                    entries = ProductSampleData.scanHistory,
+                    entries = scanHistoryUiState.scanHistory,
+                    isLoading = scanHistoryUiState.isLoading,
+                    errorMessage = scanHistoryUiState.errorMessage,
                     onMenuClick = { openDrawer() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { },
@@ -187,7 +195,9 @@ fun CanMakanNavGraph(
         }
 
         if (showEditDietarySheet) {
-            ModalBottomSheet(onDismissRequest = { showEditDietarySheet = false }) {
+            ModalBottomSheet(
+                onDismissRequest = { showEditDietarySheet = false },
+                sheetState = editDietarySheetState) {
                 DietaryRestrictionSheet(
                     profileName = activeProfile.profileName,
                     profileRole = activeProfile.relationship,

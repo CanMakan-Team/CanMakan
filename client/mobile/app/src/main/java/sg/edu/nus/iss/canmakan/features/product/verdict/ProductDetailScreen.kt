@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.features.product.verdict
 
+import android.R.attr.fontWeight
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -104,7 +105,7 @@ fun ProductDetailScreen(
                 Text("AVOID", color = AvoidRed, fontWeight = FontWeight.Bold, fontSize = 25.sp)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    product.name,
+                    product.productName,
                     fontWeight = FontWeight.Bold,
                     fontSize = 30.sp,
                     style = MaterialTheme.typography.titleMedium
