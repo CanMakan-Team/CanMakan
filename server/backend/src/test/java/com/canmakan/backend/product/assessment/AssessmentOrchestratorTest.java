@@ -19,6 +19,7 @@ import com.canmakan.backend.ai.log.AiExecutionLogService;
 import com.canmakan.backend.dietaryprofile.RestrictionRuleLoader;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.knowledgebase.model.RestrictionCategory;
+import com.canmakan.backend.product.model.ProductLookupResult;
 import com.canmakan.backend.product.scan.Scan;
 import com.canmakan.backend.product.scan.ScanService;
 import com.canmakan.backend.product.verdict.DietaryRuleEngine;
@@ -27,6 +28,7 @@ import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.RestrictionSeverity;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
 import java.util.List;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -41,6 +43,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  *
  * @author XieHuayuan
  */
+@DisplayName("UC3: AssessmentOrchestrator tiered assess flow")
 @ExtendWith(MockitoExtension.class)
 class AssessmentOrchestratorTest {
 
@@ -60,6 +63,7 @@ class AssessmentOrchestratorTest {
             List.of(new RestrictionRule("DAIRY", RestrictionCategory.ALLERGEN, RestrictionSeverity.INTOLERANCE));
 
     @Test
+    @DisplayName("UC3 BE1: SAFE stays on rules tier and does not escalate to LLM")
     void safeVerdictStaysTier1AndDoesNotEscalate() {
         stubLoadAndProduct(productWith(true, ingredient("Milk", "DAIRY")));
         when(ruleEngine.assess(any(), any())).thenReturn(SafetyVerdict.safe("ok", List.of()));
@@ -77,6 +81,7 @@ class AssessmentOrchestratorTest {
     }
 
     @Test
+    @DisplayName("UC3 BE2: UNSAFE is definitive and does not escalate to LLM")
     void unsafeVerdictIsDefinitiveAndDoesNotEscalate() {
         stubLoadAndProduct(productWith(true, ingredient("Peanut", "PEANUT")));
         when(ruleEngine.assess(any(), any())).thenReturn(SafetyVerdict.unsafe("contains peanut", List.of()));
@@ -90,6 +95,7 @@ class AssessmentOrchestratorTest {
     }
 
     @Test
+    @DisplayName("UC3 BE3: WARNING escalates to LLM then engine re-decides verdict")
     void warningEscalatesToLlmThenEngineReDecides() {
         stubLoadAndProduct(productWith(true, ingredient("Casein", null)));
         when(ruleEngine.assess(any(), any()))
@@ -110,6 +116,7 @@ class AssessmentOrchestratorTest {
     }
 
     @Test
+    @DisplayName("UC3 BE4: High-confidence LLM evidence enriches product before reassessment")
     void highConfidenceEvidenceEnrichesTheProductBeforeReassessment() {
         stubLoadAndProduct(productWith(true, ingredient("Casein", null)));
         when(ruleEngine.assess(any(), any()))
@@ -126,6 +133,7 @@ class AssessmentOrchestratorTest {
     }
 
     @Test
+    @DisplayName("UC3 BE5: Low-confidence LLM evidence is ignored and cannot force a verdict")
     void lowConfidenceEvidenceIsIgnoredSoTheLlmCannotForceAVerdict() {
         stubLoadAndProduct(productWith(true, ingredient("Casein", null)));
         when(ruleEngine.assess(any(), any()))
@@ -141,11 +149,41 @@ class AssessmentOrchestratorTest {
         assertNull(reassessed.ingredients().get(0).rootAllergen()); // NOT enriched
     }
 
+    @Test
+    @DisplayName("UC3 BE6: WARNING escalation falls back to rules tier when AI is disabled")
+    void warningEscalationFallsBackWhenAiDisabled() {
+        stubLoadAndProduct(productWith(true, ingredient("Casein", null)));
+        when(ruleEngine.assess(any(), any())).thenReturn(SafetyVerdict.warning("uncertain", List.of()));
+        when(promptBuilder.build(any(), any())).thenReturn("prompt");
+        when(llmClient.assess("prompt")).thenThrow(new IllegalStateException("AI assessment is disabled."));
+        when(scanService.record(any(), any(), any(), any())).thenReturn(scan(100L));
+
+        AssessmentResponse response = orchestrator.assess(7L, REQUEST);
+
+        assertEquals("WARNING", response.verdict());
+        assertEquals(ExecutionTier.TIER_1_RULES, response.tier());
+        assertEquals("Test Product", response.productName());
+        assertEquals("123", response.barcode());
+        verify(aiExecutionLogService).recordRulesOnly(eq(100L), anyLong());
+        verify(aiExecutionLogService, never()).record(anyLong(), any(), any());
+    }
+
     // --- helpers -----------------------------------------------------------------
 
     private void stubLoadAndProduct(ProductData product) {
+        ProductLookupResult lookup = new ProductLookupResult(
+                "123",
+                "Test Product",
+                "food",
+                product.ingredients(),
+                product.ingredientsText(),
+                null,
+                product.nutrition(),
+                product.dataComplete()
+        );
         when(ruleLoader.load(1L)).thenReturn(RULES);
-        when(productDataAdapter.toProductData("123")).thenReturn(product);
+        when(productDataAdapter.lookup("123")).thenReturn(lookup);
+        when(productDataAdapter.toProductData(lookup)).thenReturn(product);
     }
 
     private ProductData captureSecondEngineInput() {
