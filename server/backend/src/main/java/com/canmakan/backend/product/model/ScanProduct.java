@@ -24,20 +24,5 @@ public class ScanProduct {
     private String brand;
 
     @Column
-    private String quantity;
-
-    @Column
-    private String serving_size;
-
-    @Column
-    private String serving_quantity;
-
-    @Column
-    private String categories;
-
-    @Column
-    private String category_tags;
-
-    @Column
-    private String main_category;
+    private String barcode;
 }
