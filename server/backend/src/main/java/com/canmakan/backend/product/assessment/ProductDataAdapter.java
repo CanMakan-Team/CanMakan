@@ -27,10 +27,14 @@ public class ProductDataAdapter {
     }
 
     /**
-     * Looks up a product by barcode without applying dietary rules.
+     * Looks up a product by barcode via Open Food Facts {@code fetchProduct}
+     * for the assess step. EAN-Search is used in {@code /api/scan/validate}, not here.
      *
      * @param barcode the scanned barcode
      * @return the source-neutral lookup result
+     * 
+     * @author YangMaowei
+     * @author Amelia
      */
     public ProductLookupResult lookup(String barcode) {
         return barcodeValidationClient.fetchProduct(barcode);

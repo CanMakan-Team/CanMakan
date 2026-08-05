@@ -25,11 +25,16 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Coordinates the tiered "scan product barcode -> view scan verdict" flow:
+ * Coordinates the tiered "scan product barcode -> view scan verdict" flow.
+ *
+ * <p>Used by {@code POST /api/scan} on {@link com.canmakan.backend.product.scan.ScanController}.
+ * Product data comes from a <b>single</b> Open Food Facts {@code fetchProduct}
+ * via {@link ProductDataAdapter#lookup}; this path does not call
+ * {@code validateProduct} and does not use EAN-Search.
  *
  * <ol>
  *   <li>load the profile's active restriction rules (from the saved dietary preferences)</li>
- *   <li>build {@link ProductData} for the barcode</li>
+ *   <li>lookup the product once (OFF) and build {@link ProductData}</li>
  *   <li>run the deterministic {@link DietaryRuleEngine} (TIER_1_RULES)</li>
  *   <li>if inconclusive, ask the {@link LlmClient} for <b>evidence</b> (resolved ingredients),
  *       enrich the product data with it, and <b>re-run the engine</b> (TIER_3_LLM)</li>
