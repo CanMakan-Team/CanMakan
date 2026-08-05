@@ -9,9 +9,13 @@ import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.Dietar
 import sg.edu.nus.iss.canmakan.features.product.model.ScanHistoryEntry
 
 interface ScanHistoryApiService {
-    @GET("restrictions")
-    suspend fun getScanHistoryForProfile(): List<ScanHistoryEntry>
+    @GET("profiles/{profileId}/history")
+    suspend fun getScanHistoryForProfile(
+        @Path("profileId") profileId: Long
+    ): List<ScanHistoryEntry>
 
-
-
+//    @GET("products/{barcode}")
+//    suspend fun getProductByBarcode(
+//        @Path("barcode") barcode: String
+//    ): sg.edu.nus.iss.canmakan.features.product.model.Product
 }

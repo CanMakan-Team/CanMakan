@@ -51,7 +51,7 @@ private const val ROUTE_ADD_PROFILE = "add_profile"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CanMakanNavGraph(
-    navGraphViewModel: CanMakanNavGraphViewModel = hiltViewModel()
+    navGraphViewModel: CanMakanNavGraphViewModel = hiltViewModel(),
 ) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)

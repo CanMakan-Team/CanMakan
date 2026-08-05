@@ -12,6 +12,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import sg.edu.nus.iss.canmakan.BuildConfig
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
+import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryApiService
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
 import timber.log.Timber
 import java.net.Proxy
@@ -96,5 +97,11 @@ object NetworkModule {
     @Singleton
     fun provideCanMakanApiService(retrofit: Retrofit): CanMakanApiService {
         return retrofit.create(CanMakanApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideScanHistoryApiService(retrofit: Retrofit): ScanHistoryApiService {
+        return retrofit.create(ScanHistoryApiService::class.java)
     }
 }

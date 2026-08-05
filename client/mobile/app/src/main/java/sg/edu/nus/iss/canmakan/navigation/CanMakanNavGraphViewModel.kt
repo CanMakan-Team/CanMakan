@@ -42,55 +42,56 @@ class CanMakanNavGraphViewModel @Inject constructor (
     init {
         viewModelScope.launch {
             currentProfileId.collect { profileId ->
-_isLoading.value = true
-_error.value = null
-try {
-    loadDataWithRetry(profileId)
-} finally {
-    _isLoading.value = false
-}
+                _isLoading.value = true
+                _error.value = null
+                try {
+                    loadDataWithRetry(profileId)
+                } finally {
+                    _isLoading.value = false
+                }
             }
         }
     }
 
-    private suspend fun loadRestrictions(profileId: Long) {
-try {
-    val allRestrictions = dietaryRestrictionRepo.getAllDietaryRestrictions()
-    val profileSelections = dietaryRestrictionRepo.getDietaryRestrictionsForProfile(profileId)
-    
-    val restrictionNames = withContext(Dispatchers.Default) {
-        allRestrictions
-            .filter { profileSelections.containsKey(it.id) }
-            .map { it.displayName }
+    private suspend fun loadDataWithRetry(profileId: Long) {
+        loadRestrictions(profileId)
+        loadProfilesForFamily(profileId)
     }
-    
-    _activeRestrictions.value = restrictionNames
-} catch (e: Exception) {
-    Timber.e(e, "Error loading restrictions for profile $profileId")
-    _error.value = "Unable to connect to the server. Please check your network and try again."
-    _activeRestrictions.value = emptyList()
-}
+
+    private suspend fun loadRestrictions(profileId: Long) {
+        try {
+            val allRestrictions = dietaryRestrictionRepo.getAllDietaryRestrictions()
+            val profileSelections = dietaryRestrictionRepo.getDietaryRestrictionsForProfile(profileId)
+
+            val restrictionNames = withContext(Dispatchers.Default) {
+                allRestrictions
+                    .filter { profileSelections.containsKey(it.id) }
+                    .map { it.displayName }
+            }
+
+            _activeRestrictions.value = restrictionNames
+        } catch (e: Exception) {
+            Timber.e(e, "Error loading restrictions for profile $profileId")
+            _error.value = "Unable to connect to the server. Please check your network and try again."
+            _activeRestrictions.value = emptyList()
+        }
     }
 
     private suspend fun loadProfilesForFamily(profileId: Long) {
         val familyId = 1L
-        val loadedProfiles = familyProfileRepository.getProfilesForFamily(familyId)
-        _profiles.value = loadedProfiles
+        try {
+            val loadedProfiles = familyProfileRepository.getProfilesForFamily(familyId)
+            _profiles.value = loadedProfiles
 
-try {
-    val loadedProfiles = familyProfileRepository.getProfilesForFamily(familyId)
-    _profiles.value = loadedProfiles
-
-    withContext(Dispatchers.Default) {
-        if (loadedProfiles.none { it.id == profileId }) {
-            activeProfileManager.switchProfile(loadedProfiles.firstOrNull()?.id ?: profileId)
-        }
-    }
-} catch (e: Exception) {
-    Timber.e(e, "Error loading profiles for family")
-    _error.value = "Unable to connect to the server. Please check your network and try again."
-    _profiles.value = emptyList()
-}
+            withContext(Dispatchers.Default) {
+                if (loadedProfiles.none { it.id == profileId }) {
+                    activeProfileManager.switchProfile(loadedProfiles.firstOrNull()?.id ?: profileId)
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error loading profiles for family")
+            _error.value = "Unable to connect to the server. Please check your network and try again."
+            _profiles.value = emptyList()
         }
     }
 

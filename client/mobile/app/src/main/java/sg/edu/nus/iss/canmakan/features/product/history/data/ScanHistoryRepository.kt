@@ -8,6 +8,6 @@ interface ScanHistoryRepository {
 
     suspend fun getScanHistoryForProfile(profileId: Long): List<ScanHistoryEntry>
 
-    suspend fun getProductFromBarcode(barcode: String): Product
+//    suspend fun getProductFromBarcode(barcode: String): Product
 
 }
