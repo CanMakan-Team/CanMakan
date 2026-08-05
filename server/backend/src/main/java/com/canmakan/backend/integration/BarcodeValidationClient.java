@@ -34,9 +34,6 @@ import org.springframework.web.client.RestClientResponseException;
  */
 @Service
 public class BarcodeValidationClient {
-    private static final String DEFAULT_OFF_BASE_URL =
-        "https://world.openfoodfacts.org/api/v3/product/";
-    private static final String DEFAULT_EAN_BASE_URL = "https://api.ean-search.org";
     private static final long DEFAULT_CONNECT_TIMEOUT_MS = 3_000;
     private static final long DEFAULT_RESPONSE_TIMEOUT_MS = 5_000;
     private static final int DEFAULT_RETRY_MAX_ATTEMPTS = 2;
@@ -50,7 +47,6 @@ public class BarcodeValidationClient {
     private final long retryBackoffMs;
     private final RetrySleeper retrySleeper;
 
-    @Autowired
     public BarcodeValidationClient(
         @Value("${app.api.open-food-facts.url}") String offApiUrl,
         @Value("${app.api.ean-search.url}") String eanApiUrl,
@@ -64,8 +60,8 @@ public class BarcodeValidationClient {
             appName,
             appVersion,
             contactEmail,
-            DEFAULT_OFF_BASE_URL,
-            DEFAULT_EAN_BASE_URL,
+            offApiUrl,
+            eanApiUrl,
             DEFAULT_CONNECT_TIMEOUT_MS,
             DEFAULT_RESPONSE_TIMEOUT_MS,
             DEFAULT_RETRY_MAX_ATTEMPTS,
