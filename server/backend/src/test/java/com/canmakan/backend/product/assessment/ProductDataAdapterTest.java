@@ -6,7 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import com.canmakan.backend.integration.BarcodeValidationClient;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.product.model.Nutrition;
 import com.canmakan.backend.product.model.ProductLookupResult;
@@ -14,6 +18,7 @@ import com.canmakan.backend.product.verdict.ProductData;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -23,7 +28,14 @@ import org.junit.jupiter.api.Test;
  */
 class ProductDataAdapterTest {
 
-    private final ProductDataAdapter adapter = new ProductDataAdapter();
+    private BarcodeValidationClient barcodeValidationClient;
+    private ProductDataAdapter adapter;
+
+    @BeforeEach
+    void setUp() {
+        barcodeValidationClient = mock(BarcodeValidationClient.class);
+        adapter = new ProductDataAdapter(barcodeValidationClient);
+    }
 
     @Test
     void mapsCompleteProductDataWithoutInterpretingSourceValues() {
@@ -129,11 +141,23 @@ class ProductDataAdapterTest {
     }
 
     @Test
-    void keepsBarcodeOnlyEntryPointUnimplemented() {
-        assertThrows(
-                UnsupportedOperationException.class,
-                () -> adapter.toProductData("1234567890123")
-        );
+    void barcodeEntryPointFetchesAndMapsProduct() {
+        ProductLookupResult result = lookupResult(List.of(), "en:halal", null, true);
+        when(barcodeValidationClient.fetchProduct("1234567890123")).thenReturn(result);
+
+        ProductData productData = adapter.toProductData("1234567890123");
+
+        assertEquals("1234567890123", productData.barcode());
+        assertEquals(List.of("en:halal"), productData.labelTags());
+        verify(barcodeValidationClient).fetchProduct("1234567890123");
+    }
+
+    @Test
+    void lookupDelegatesToBarcodeClient() {
+        ProductLookupResult result = lookupResult(List.of(), null, null, false);
+        when(barcodeValidationClient.fetchProduct("1234567890123")).thenReturn(result);
+
+        assertSame(result, adapter.lookup("1234567890123"));
     }
 
     private static ProductLookupResult lookupResult(
