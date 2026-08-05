@@ -2,9 +2,8 @@ package com.canmakan.backend.knowledgebase.mcp.contract;
 
 /**
  * Contract for the "E-number lookup" MCP tool.
- * Shared seam between the MCP client (HY) and the MCP server (MW).
  *
- * @author XieHuayuan &amp; Amelia Wong (shared contract)
+ * @author XieHuayuan & Amelia
  */
 public record ENumberResult(
         String eNumber,          // e.g. "E471"

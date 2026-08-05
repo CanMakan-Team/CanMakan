@@ -124,3 +124,10 @@ replay_pid*
 *.lock
 .navigation/
 *.apk.d
+.artifacts/
+
+# Eclipse
+.classpath
+.project
+.settings/
+.factorypath

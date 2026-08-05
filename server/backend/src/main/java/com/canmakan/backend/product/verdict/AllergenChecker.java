@@ -8,6 +8,10 @@ import org.springframework.stereotype.Component;
 
 /**
  * Checks allergen restrictions against a product's standardised ingredients.
+ * Workflow:
+ * raw ingredients → local DB resolution → keep matches + collect unresolved 
+ * → web-search unresolved → merge results → enrich Ingredient objects 
+ * → allergen checker evaluates them.
  *
  * @author YangMaowei
  */

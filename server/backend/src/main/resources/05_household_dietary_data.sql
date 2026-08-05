@@ -58,28 +58,58 @@ INSERT INTO dietary_restrictions (id, code, display_name, category, description)
 (6, 'SOY', 'Soy Allergy', 'ALLERGEN', 'Avoid soy lecithin, miso, and soybean derivatives.'),
 (7, 'EGG', 'Egg Allergy', 'ALLERGEN', 'Avoid eggs and egg powder.'),
 (8, 'HALAL', 'Halal Diet', 'RELIGIOUS', 'Requires Halal-certified ingredients and no pork or alcohol.'),
-(9, 'VEGETARIAN', 'Vegetarian Diet', 'DIET', 'Does not consume meat, poultry, or seafood.');
+(9, 'VEGETARIAN', 'Vegetarian Diet', 'DIET', 'Does not consume meat, poultry, or seafood.'),
+(10, 'VEGAN', 'Vegan', 'DIET', 'Avoids animal-derived ingredients'),
+(11,'LOW_SUGAR', 'Low Sugar', 'DIET', 'Checks sugar per 100 g'),
+(12, 'LOW_FAT', 'Low Fat', 'DIET', 'Checks total fat per 100 g'),
+(13, 'LOW_TRANS_FAT', 'Low Trans Fat', 'DIET', 'Checks trans fat per 100 g'),
+(14, 'LOW_SODIUM', 'Low Sodium', 'DIET', 'Checks sodium per 100 g') ;
 
 -- =============================================
---  PROFILE RESTRICTIONS (Junction Table)
+-- PROFILE RESTRICTIONS (Junction Table)
 -- =============================================
 INSERT INTO profile_restrictions (dietary_profile_id, dietary_restriction_id, severity_level) VALUES
--- Sarah Tan (Gluten Allergy)
+-- 1. Sarah Tan (Gluten Allergy + Low Sugar)
 (1, 1, 'STRICT_AVOID'),
+(1, 11, 'PREFERENCE'),
 
--- Emily Tan (Peanut Allergy & Dairy Intolerance)
+-- 2. Michael Tan (Low Fat & Low Sodium)
+(2, 12, 'PREFERENCE'),
+(2, 14, 'PREFERENCE'),
+
+-- 3. Emily Tan (Peanut Allergy & Dairy Intolerance + Low Sugar)
 (3, 2, 'INTOLERANCE'),
 (3, 3, 'STRICT_AVOID'),
+(3, 11, 'PREFERENCE'),
 
--- David Lim (Halal Requirement)
+-- 4. David Lim (Halal Requirement + Low Trans Fat)
 (4, 8, 'STRICT_AVOID'),
+(4, 13, 'PREFERENCE'),
 
--- Daniel Lim (Shellfish Allergy)
+-- 5. Jessica Lim (Halal Requirement + Low Fat & Low Sodium)
+(5, 8, 'STRICT_AVOID'),
+(5, 12, 'PREFERENCE'),
+(5, 14, 'PREFERENCE'),
+
+-- 6. Daniel Lim (Halal + Shellfish Allergy)
 (6, 4, 'STRICT_AVOID'),
+(6, 8, 'STRICT_AVOID'),
 
--- James Wong (Vegetarian & Egg Allergy)
+-- 7. Amanda Lim (Halal + Low Sugar)
+(7, 8, 'STRICT_AVOID'),
+(7, 11, 'PREFERENCE'),
+
+-- 8. James Wong (Vegetarian & Egg Allergy + Low Sodium)
 (8, 7, 'STRICT_AVOID'),
 (8, 9, 'STRICT_AVOID'),
+(8, 14, 'PREFERENCE'),
 
--- Robert Wong (Dairy Intolerance)
-(10, 2, 'INTOLERANCE');
+-- 9. Olivia Wong (Vegan Diet & Low Trans Fat)
+(9, 10, 'STRICT_AVOID'),
+(9, 13, 'PREFERENCE'),
+
+-- 10. Robert Wong (Dairy Intolerance + Low Sugar)
+(10, 2, 'INTOLERANCE'),
+(10, 11, 'PREFERENCE');
+
+

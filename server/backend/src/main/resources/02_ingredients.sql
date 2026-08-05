@@ -72,4 +72,62 @@ INSERT INTO ingredients (id, ingredient_name, parent_allergen, root_allergen, is
 (56, 'Dried Seaweed', NULL, NULL, 0),
 (57, 'Mango', NULL, NULL, 0),
 (58, 'Salt', NULL, NULL, 0),
-(59, 'Sugar', NULL, NULL, 0);
+(59, 'Sugar', NULL, NULL, 0),
+
+-- Meat, Poultry & Exotic Proteins
+(60, 'Pork', 'Meat', 'MEAT', 0),
+(61, 'Chicken', 'Poultry', 'MEAT', 0),
+(62, 'Kangaroo Meat', 'Exotic Meat', 'MEAT', 0),
+(63, 'Crocodile Meat', 'Exotic Meat', 'MEAT', 0),
+
+-- Seafood & Fish
+(64, 'Cod', 'Fish', 'FISH', 0),
+
+-- Specialty Nuts, Seeds & Produce
+(65, 'Cashew Nuts', 'Tree Nuts', 'TREE_NUT', 0),
+(66, 'Pine Nut Kernels', 'Tree Nuts', 'TREE_NUT', 0),
+(67, 'Macadamias', 'Tree Nuts', 'TREE_NUT', 0),
+(68, 'Almonds', 'Tree Nuts', 'TREE_NUT', 0),
+(69, 'Soybean', 'Soy Derivatives', 'SOY', 0),
+(70, 'Soy Protein', 'Soy Derivatives', 'SOY', 0),
+(71, 'Sunflower Seed Oil', 'Vegetable Oils', NULL, 0),
+(72, 'Canola Oil', 'Vegetable Oils', NULL, 0),
+
+-- Dairy & Fermented Derivatives
+(73, 'Hard Cheese', 'Milk Derivatives', 'DAIRY', 0),
+(74, 'Pecorino Cheese (Sheep Milk)', 'Milk Derivatives', 'DAIRY', 0),
+(75, 'Cream Cheese', 'Milk Derivatives', 'DAIRY', 0),
+(76, 'Curd', 'Milk Derivatives', 'DAIRY', 0),
+
+-- Grains, Bakery & Starches
+(77, 'Barley Malt', 'Gluten Containing Grains', 'GLUTEN', 0),
+(78, 'Wheat Starch', 'Gluten Containing Grains', 'GLUTEN', 0),
+(79, 'Wheat Protein', 'Gluten Containing Grains', 'GLUTEN', 0),
+(80, 'Wheat Fibre', 'Gluten Containing Grains', 'GLUTEN', 0),
+(81, 'Potato Starch / Flakes', NULL, NULL, 0),
+(82, 'Breadcrumb Coating', 'Gluten Containing Grains', 'GLUTEN', 0),
+
+-- Spices, Herbs & Aromatics
+(83, 'Basil', NULL, NULL, 0),
+(84, 'Cayenne Pepper', NULL, NULL, 0),
+(85, 'Chives', NULL, NULL, 0),
+(86, 'Garlic', NULL, NULL, 0),
+(87, 'Paprika', NULL, NULL, 0),
+(88, 'Turmeric', NULL, NULL, 0),
+
+-- Beverages, Sweets & Natural Extracts
+(89, 'Honey', NULL, NULL, 0),
+(90, 'Coffee', NULL, NULL, 0),
+(91, 'Mandarin Orange Juice Concentrate', NULL, NULL, 0),
+(92, 'Longan Red Date Extract', NULL, NULL, 0),
+
+-- Additives, Preservatives & E-Numbers
+(93, 'E1105 (Lysozyme from eggs)', 'Egg Derivatives', 'EGG', 1),
+(94, 'E407 (Carrageenan)', 'Thickeners', 'ADDITIVE', 1),
+(95, 'E450 (Sodium Pyrophosphate)', 'Stabilizers', 'ADDITIVE', 1),
+(96, 'E250 (Sodium Nitrite)', 'Preservatives', 'ADDITIVE', 1),
+(97, 'E301 (Sodium L-Ascorbate)', 'Antioxidants', 'ADDITIVE', 1),
+(98, 'E330 (Citric Acid)', 'Acidity Regulators', 'ADDITIVE', 1),
+(99, 'E200 (Sorbic Acid)', 'Preservatives', 'ADDITIVE', 1),
+(100, 'E202 (Potassium Sorbate)', 'Preservatives', 'ADDITIVE', 1),
+(101, 'E551 (Silicon Dioxide / Anticaking Agent)', 'Anticaking Agents', 'ADDITIVE', 1);
