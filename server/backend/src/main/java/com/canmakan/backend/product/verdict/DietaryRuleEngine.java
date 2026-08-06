@@ -55,20 +55,23 @@ public class DietaryRuleEngine {
         }
 
         // Resolve unknown / chemical-alias ingredients via the boundary; note anything left unresolved.
+        // A recognised non-allergen additive (KNOWN_NO_ALLERGEN) is NOT counted as unresolved.
         boolean hasUnresolved = false;
         List<Ingredient> resolved = new ArrayList<>();
         for (Ingredient ing : product.ingredients()) {
-            if (ing.rootAllergen() == null || ing.rootAllergen().isBlank()) {
-                String root = resolver.resolveRootAllergen(ing.ingredientName());
-                if (root == null) {
+            if (ing.rootAllergen() != null && !ing.rootAllergen().isBlank()) {
+                resolved.add(ing);
+                continue;
+            }
+            IngredientResolution resolution = resolver.resolve(ing.ingredientName());
+            switch (resolution.status()) {
+                case RESOLVED_ALLERGEN -> resolved.add(new Ingredient(
+                        ing.ingredientName(), ing.parentAllergen(), resolution.rootAllergen(), ing.chemicalAlias()));
+                case KNOWN_NO_ALLERGEN -> resolved.add(ing);   // recognised additive, no allergen link
+                case UNKNOWN -> {
                     hasUnresolved = true;
                     resolved.add(ing);
-                } else {
-                    resolved.add(new Ingredient(
-                            ing.ingredientName(), ing.parentAllergen(), root, ing.chemicalAlias()));
                 }
-            } else {
-                resolved.add(ing);
             }
         }
 

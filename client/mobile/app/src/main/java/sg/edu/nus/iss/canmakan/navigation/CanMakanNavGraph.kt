@@ -1,13 +1,18 @@
 package sg.edu.nus.iss.canmakan.navigation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
@@ -54,6 +60,8 @@ fun CanMakanNavGraph(
     val currentProfileId by navGraphViewModel.currentProfileId.collectAsStateWithLifecycle()
     val activeRestrictions by navGraphViewModel.activeRestrictions.collectAsStateWithLifecycle()
     val profiles by navGraphViewModel.profiles.collectAsStateWithLifecycle()
+    val isLoading by navGraphViewModel.isLoading.collectAsStateWithLifecycle()
+    val error by navGraphViewModel.error.collectAsStateWithLifecycle()
 
     val activeProfile = profiles.firstOrNull { it.id == currentProfileId }
         ?: profiles.firstOrNull()
@@ -61,7 +69,16 @@ fun CanMakanNavGraph(
     if (activeProfile == null) {
         // Show a loading screen while profiles are being fetched
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            if (isLoading) {
+                CircularProgressIndicator()
+            } else if (error != null) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = error!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
+                    Button(onClick = { navGraphViewModel.refreshRestrictions() }) {
+                        Text("Retry")
+                    }
+                }
+            }
         }
         return
     }

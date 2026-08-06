@@ -4,8 +4,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Temporary no-op resolver used until {@code knowledgebase} / {@code agentic-ai} are wired in.
- * Returning {@code null} makes the engine degrade an unresolved ingredient to WARNING
- * rather than emitting a false SAFE.
+ * Returning {@link IngredientResolution#unknown()} makes the engine degrade an
+ * unresolved ingredient to WARNING rather than emitting a false SAFE.
  *
  * @author XieHuayuan
  */
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 public class IngredientResolverStub implements IngredientResolver {
 
     @Override
-    public String resolveRootAllergen(String ingredientName) {
-        return null;   // unknown until the knowledgebase / AI task lands
+    public IngredientResolution resolve(String ingredientName) {
+        return IngredientResolution.unknown();   // unknown until the knowledgebase / AI layer resolves it
     }
 }
