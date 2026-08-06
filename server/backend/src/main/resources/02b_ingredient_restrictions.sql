@@ -1,6 +1,5 @@
 -- ============================================================================
 -- INGREDIENT RESTRICTIONS SEED DATA
--- Mapped using ingredient_id (1-59) and dietary_restriction_id (1-10)
 -- ============================================================================
 
 INSERT INTO ingredient_restrictions (
@@ -277,4 +276,321 @@ INSERT INTO ingredient_restrictions (
 
 -- 93: E1105 (Lysozyme from eggs)
 (93, 7, 'CONFLICT', 'Preservative enzyme extracted directly from egg whites.', 'APPROVED', 'EFSA', 'Egg Derivatives Directive'),
-(93, 10, 'CONFLICT', 'Animal/egg byproduct.', 'APPROVED', 'The Vegan Society', 'Additive Breakdown');
+(93, 10, 'CONFLICT', 'Animal/egg byproduct.', 'APPROVED', 'The Vegan Society', 'Additive Breakdown'),
+-- 94: E407 (Carrageenan)
+(94, 9, 'ALLOWED', 'Seaweed-derived polysaccharides; plant-based gelling agent.', 'APPROVED', 'Vegetarian Society', 'Additive Guide'),
+(94, 10, 'ALLOWED', 'Plant-derived alternative to gelatin.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- 95: E450 (Sodium Pyrophosphate)
+(95, 14, 'CONFLICT', 'High sodium mineral compound.', 'APPROVED', 'AHA', 'Sodium Guidelines'),
+
+-- 96: E250 (Sodium Nitrite)
+(96, 14, 'CONFLICT', 'Sodium salt preservative.', 'APPROVED', 'AHA', 'Sodium Guidelines'),
+
+-- 97: E301 (Sodium L-Ascorbate)
+(97, 14, 'CONFLICT', 'Sodium-bound antioxidant.', 'APPROVED', 'AHA', 'Sodium Guidelines'),
+
+-- 98: E330 (Citric Acid)
+(98, 9, 'ALLOWED', 'Usually produced via microbial fermentation of carbohydrate sources.', 'APPROVED', 'Vegetarian Society', 'Additive Guide'),
+(98, 10, 'ALLOWED', 'Plant/fermentation-derived acidulant.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- 99: E200 (Sorbic Acid)
+(99, 10, 'ALLOWED', 'Synthetic or plant-derived organic compound.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- 100: E202 (Potassium Sorbate)
+(100, 10, 'ALLOWED', 'Synthetic polyunsaturated fatty acid salt.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- 101: E551 (Silicon Dioxide / Anticaking Agent)
+(101, 10, 'ALLOWED', 'Inorganic mineral compound.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- ----------------------------------------------------------------------------
+-- GRAINS, BAKERY & STARCHES (IDs 102-107)
+-- ----------------------------------------------------------------------------
+-- 102: Cornflour
+(102, 1, 'ALLOWED', 'Naturally gluten-free grain starch.', 'APPROVED', 'Celiac Disease Foundation', 'Gluten-Free Foods'),
+(102, 10, 'ALLOWED', 'Plant-based starch.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 103: Modified Starch
+(103, 1, 'UNCERTAIN', 'Usually derived from corn or tapioca, but can occasionally be derived from wheat.', 'PROPOSED', 'FDA', 'Labeling Regulations'),
+
+-- 104: Tapioca Syrup
+(104, 1, 'ALLOWED', 'Naturally gluten-free starch derivative.', 'APPROVED', 'Celiac Disease Foundation', 'Gluten-Free Foods'),
+(104, 11, 'CONFLICT', 'High concentrated glycemic sweetener.', 'APPROVED', 'ADA', 'Sugar Guidelines'),
+
+-- 105: Wheat Flour
+(105, 1, 'CONFLICT', 'Primary gluten source.', 'APPROVED', 'FDA', '21 CFR 101.91 Gluten-Free Labeling'),
+(105, 10, 'ALLOWED', 'Plant-based grain flour.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 106: Rice Flour
+(106, 1, 'ALLOWED', 'Naturally gluten-free cereal grain flour.', 'APPROVED', 'Celiac Disease Foundation', 'Gluten-Free Foods'),
+(106, 10, 'ALLOWED', 'Plant-based grain flour.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 107: Corn
+(107, 1, 'ALLOWED', 'Naturally gluten-free cereal grain.', 'APPROVED', 'Celiac Disease Foundation', 'Gluten-Free Foods'),
+(107, 10, 'ALLOWED', 'Plant-based whole food.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- ----------------------------------------------------------------------------
+-- MILK & DAIRY (IDs 108-118)
+-- ----------------------------------------------------------------------------
+-- 108: Cultured Reduced Fat Milk
+(108, 2, 'CONFLICT', 'Contains milk proteins and lactose.', 'APPROVED', 'FDA', 'FALCPA Allergen List'),
+(108, 10, 'CONFLICT', 'Animal-derived dairy product.', 'APPROVED', 'The Vegan Society', 'Dairy Exclusions'),
+
+-- 109: Nonfat Dry Milk
+(109, 2, 'CONFLICT', 'Dehydrated skim milk solids.', 'APPROVED', 'FDA', 'FALCPA Allergen List'),
+(109, 10, 'CONFLICT', 'Animal-derived dairy product.', 'APPROVED', 'The Vegan Society', 'Dairy Exclusions'),
+
+-- 110: Modified Whey
+(110, 2, 'CONFLICT', 'Concentrated dairy serum byproduct.', 'APPROVED', 'FDA', 'Milk Protein Allergens'),
+(110, 10, 'CONFLICT', 'Animal-derived dairy byproduct.', 'APPROVED', 'The Vegan Society', 'Dairy Exclusions'),
+
+-- 111: Nonfat Milk
+(111, 2, 'CONFLICT', 'Contains milk proteins and lactose.', 'APPROVED', 'FDA', 'FALCPA Allergen List'),
+(111, 10, 'CONFLICT', 'Animal-derived dairy product.', 'APPROVED', 'The Vegan Society', 'Dairy Exclusions'),
+
+-- 112: Buttermilk
+(112, 2, 'CONFLICT', 'Fermented dairy liquid containing lactose.', 'APPROVED', 'FDA', 'FALCPA Allergen List'),
+(112, 10, 'CONFLICT', 'Animal-derived dairy product.', 'APPROVED', 'The Vegan Society', 'Dairy Exclusions'),
+
+-- 113: Romano Cheese
+(113, 2, 'CONFLICT', 'Hard dairy cheese.', 'APPROVED', 'EFSA', 'Allergen Regulation'),
+(113, 9, 'UNCERTAIN', 'Traditionally made using animal rennet.', 'PROPOSED', 'Vegetarian Society', 'Cheese & Rennet Criteria'),
+(113, 10, 'CONFLICT', 'Animal-derived dairy product.', 'APPROVED', 'The Vegan Society', 'Dairy Exclusions'),
+
+-- 114: Cheddar Cheese
+(114, 2, 'CONFLICT', 'Aged dairy cheese.', 'APPROVED', 'EFSA', 'Allergen Regulation'),
+(114, 9, 'UNCERTAIN', 'May contain animal rennet or microbial enzymes.', 'PROPOSED', 'Vegetarian Society', 'Cheese & Rennet Criteria'),
+(114, 10, 'CONFLICT', 'Animal-derived dairy product.', 'APPROVED', 'The Vegan Society', 'Dairy Exclusions'),
+
+-- 115: Sour Cream
+(115, 2, 'CONFLICT', 'Cultured dairy cream.', 'APPROVED', 'FDA', 'FALCPA Allergen List'),
+(115, 10, 'CONFLICT', 'Animal-derived dairy product.', 'APPROVED', 'The Vegan Society', 'Dairy Exclusions'),
+
+-- 116: Blue Cheese
+(116, 2, 'CONFLICT', 'Cultured mold-ripened dairy cheese.', 'APPROVED', 'EFSA', 'Allergen Regulation'),
+(116, 9, 'UNCERTAIN', 'May utilize animal rennet during coagulation.', 'PROPOSED', 'Vegetarian Society', 'Cheese & Rennet Criteria'),
+(116, 10, 'CONFLICT', 'Animal-derived dairy product.', 'APPROVED', 'The Vegan Society', 'Dairy Exclusions'),
+
+-- 117: Whey Protein Isolate
+(117, 2, 'CONFLICT', 'Highly refined milk protein.', 'APPROVED', 'FDA', 'Milk Protein Allergens'),
+(117, 10, 'CONFLICT', 'Animal-derived milk byproduct.', 'APPROVED', 'The Vegan Society', 'Dairy Exclusions'),
+
+-- 118: Milk Protein Concentrate
+(118, 2, 'CONFLICT', 'Concentrated dairy proteins.', 'APPROVED', 'FDA', 'Milk Protein Allergens'),
+(118, 10, 'CONFLICT', 'Animal-derived dairy product.', 'APPROVED', 'The Vegan Society', 'Dairy Exclusions'),
+
+-- ----------------------------------------------------------------------------
+-- NUTS, SEEDS & PRODUCE (IDs 119-133)
+-- ----------------------------------------------------------------------------
+-- 119: Walnuts
+(119, 9, 'ALLOWED', 'Nutritious tree nut.', 'APPROVED', 'Vegetarian Society', 'Plant Foods'),
+(119, 10, 'ALLOWED', 'Plant-based tree nut.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 120: Pistachios
+(120, 9, 'ALLOWED', 'Nutritious tree nut.', 'APPROVED', 'Vegetarian Society', 'Plant Foods'),
+(120, 10, 'ALLOWED', 'Plant-based tree nut.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 121: Dried Cranberries
+(121, 10, 'ALLOWED', 'Dehydrated fruit.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+(121, 11, 'UNCERTAIN', 'Often sweetened with added cane sugar during processing.', 'PROPOSED', 'ADA', 'Added Sugars Guidance'),
+
+-- 122: Golden Raisins
+(122, 10, 'ALLOWED', 'Dehydrated fruit.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+(122, 11, 'CONFLICT', 'Concentrated natural sugars.', 'APPROVED', 'ADA', 'Sugar Guidelines'),
+
+-- 123: Sun-Dried Figs
+(123, 10, 'ALLOWED', 'Dehydrated fruit.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 124: Blueberries
+(124, 10, 'ALLOWED', 'Whole fresh fruit.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 125: Potatoes
+(125, 1, 'ALLOWED', 'Naturally gluten-free tuber.', 'APPROVED', 'Celiac Disease Foundation', 'Gluten-Free Foods'),
+(125, 10, 'ALLOWED', 'Plant-based produce.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 126: Dried Potatoes
+(126, 1, 'ALLOWED', 'Naturally gluten-free dehydrated tuber.', 'APPROVED', 'Celiac Disease Foundation', 'Gluten-Free Foods'),
+(126, 10, 'ALLOWED', 'Plant-based produce.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 127: Spirulina
+(127, 9, 'ALLOWED', 'Blue-green algae / cyanobacteria.', 'APPROVED', 'Vegetarian Society', 'Plant Foods'),
+(127, 10, 'ALLOWED', 'Non-animal microbial biomass.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 128: Banana
+(128, 10, 'ALLOWED', 'Fresh fruit.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 129: Tomato Juice
+(129, 10, 'ALLOWED', 'Fruit juice.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 130: Strawberry Puree
+(130, 10, 'ALLOWED', 'Processed fruit pulp.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 131: Orange Juice
+(131, 10, 'ALLOWED', 'Citrus fruit juice.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 132: Lemon Juice Concentrate
+(132, 10, 'ALLOWED', 'Concentrated citrus juice.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 133: Black Carrot Juice Concentrate
+(133, 10, 'ALLOWED', 'Plant-based natural coloring/juice.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- ----------------------------------------------------------------------------
+-- OILS & FATS (IDs 134-136)
+-- ----------------------------------------------------------------------------
+-- 134: Soybean Oil
+(134, 6, 'CONFLICT', 'Derived from soybeans; highly refined oil may contain residual protein traces.', 'APPROVED', 'FDA', 'Soy Allergen List'),
+(134, 10, 'ALLOWED', 'Plant-derived oil.', 'APPROVED', 'The Vegan Society', 'Fats & Oils'),
+
+-- 135: Hydrogenated Coconut Oil
+(135, 10, 'ALLOWED', 'Plant-derived oil.', 'APPROVED', 'The Vegan Society', 'Fats & Oils'),
+(135, 13, 'CONFLICT', 'Hydrogenation process creates trans-fatty acids.', 'APPROVED', 'WHO', 'Trans Fat Standards'),
+
+-- 136: Medium Chain Triglycerides
+(136, 10, 'ALLOWED', 'Usually extracted from coconut or palm oil.', 'APPROVED', 'The Vegan Society', 'Fats & Oils'),
+
+-- ----------------------------------------------------------------------------
+-- SPICES, HERBS & AROMATICS (IDs 137-144)
+-- ----------------------------------------------------------------------------
+-- 137: Onion
+(137, 10, 'ALLOWED', 'Allium plant vegetable.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 138: Chili
+(138, 10, 'ALLOWED', 'Capsicum fruit/spice.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 139: Ground Coriander
+(139, 10, 'ALLOWED', 'Plant spice.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 140: Red Chillies
+(140, 10, 'ALLOWED', 'Capsicum fruit/spice.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 141: Ginger
+(141, 10, 'ALLOWED', 'Rhizome spice.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 142: Onion Powder
+(142, 10, 'ALLOWED', 'Dehydrated ground allium.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 143: Garlic Powder
+(143, 10, 'ALLOWED', 'Dehydrated ground allium.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 144: Parsley
+(144, 10, 'ALLOWED', 'Fresh or dried herb.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- ----------------------------------------------------------------------------
+-- CONDIMENTS & SUGARS (IDs 145-152)
+-- ----------------------------------------------------------------------------
+-- 145: Apple Cider Vinegar
+(145, 10, 'ALLOWED', 'Fermented fruit vinegar.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 146: Vinegar
+(146, 10, 'ALLOWED', 'Fermented acid solution.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 147: Distilled Vinegar
+(147, 10, 'ALLOWED', 'Fermented grain/spirit vinegar.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 148: Iodized Salt
+(148, 14, 'CONFLICT', 'Sodium chloride mineral.', 'APPROVED', 'AHA', 'Sodium Guidelines'),
+
+-- 149: Sea Salt
+(149, 14, 'CONFLICT', 'Unrefined sodium chloride.', 'APPROVED', 'AHA', 'Sodium Guidelines'),
+
+-- 150: Corn Syrup
+(150, 1, 'ALLOWED', 'Gluten-free starch derivative.', 'APPROVED', 'Celiac Disease Foundation', 'Gluten-Free Foods'),
+(150, 11, 'CONFLICT', 'High glycemic sweetener.', 'APPROVED', 'ADA', 'Sugar Guidelines'),
+
+-- 151: Cane Sugar
+(151, 10, 'UNCERTAIN', 'May be processed using bone char in certain regions.', 'PROPOSED', 'The Vegan Society', 'Sugar Clarification'),
+(151, 11, 'CONFLICT', 'Direct sucrose sweetener.', 'APPROVED', 'ADA', 'Sugar Guidelines'),
+
+-- 152: Cocoa Processed with Alkali
+(152, 10, 'ALLOWED', 'Dutch-processed plant cocoa powder.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- ----------------------------------------------------------------------------
+-- ADDITIVES & CHEMICAL ALIASES (IDs 153-171)
+-- ----------------------------------------------------------------------------
+-- 153: E341 (Calcium Phosphate)
+(153, 10, 'ALLOWED', 'Inorganic mineral salt.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- 154: E509 (Calcium Chloride)
+(154, 10, 'ALLOWED', 'Inorganic mineral salt.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- 155: E917 (Potassium Iodate)
+(155, 10, 'ALLOWED', 'Inorganic chemical salt.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- 156: E211 (Sodium Benzoate)
+(156, 14, 'CONFLICT', 'Sodium-bound organic acid preservative.', 'APPROVED', 'AHA', 'Sodium Guidelines'),
+
+-- 157: E110 (FD&C Yellow No. 6)
+(157, 10, 'ALLOWED', 'Synthetic azo dye.', 'APPROVED', 'The Vegan Society', 'Coloring Standards'),
+
+-- 158: E129 (FD&C Red No. 40)
+(158, 10, 'ALLOWED', 'Synthetic azo dye.', 'APPROVED', 'The Vegan Society', 'Coloring Standards'),
+
+-- 159: E270 (Lactic Acid)
+(159, 2, 'ALLOWED', 'Commercially produced via carbohydrate bacterial fermentation; despite name, does not contain lactose.', 'APPROVED', 'FDA', 'Lactose & Dairy Clarifications'),
+(159, 10, 'ALLOWED', 'Bacterial fermentation derived.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- 160: E472e (Esters of Mono and Diglycerides)
+(160, 8, 'UNCERTAIN', 'Fatty acid esters can be derived from plant oils or animal fats (pork/beef tallow).', 'PROPOSED', 'MUIS', 'Additive Halal Standard'),
+(160, 10, 'UNCERTAIN', 'Requires verification of plant vs animal fatty acid source.', 'PROPOSED', 'The Vegan Society', 'Additive Guide'),
+
+-- 161: E300 (Vitamin C / Ascorbic Acid)
+(161, 10, 'ALLOWED', 'Synthetic or plant-extracted antioxidant.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- 162: E301 (Sodium Ascorbate)
+(162, 14, 'CONFLICT', 'Sodium-bound vitamin antioxidant.', 'APPROVED', 'AHA', 'Sodium Guidelines'),
+
+-- 163: E307 (Vitamin E / Alpha Tocopheryl Acetate)
+(163, 10, 'ALLOWED', 'Plant oil derived or synthetic antioxidant.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- 164: Vitamin A Acetate
+(164, 10, 'UNCERTAIN', 'May be synthesized using animal-derived fatty acids or gelatins as carrier media.', 'PROPOSED', 'The Vegan Society', 'Nutrient Carrier Guidelines'),
+
+-- 165: E340ii (Dipotassium Phosphate)
+(165, 10, 'ALLOWED', 'Inorganic mineral salt.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- 166: E220 (Sulphur Dioxide)
+(166, 10, 'ALLOWED', 'Inorganic gas/preservative.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- 167: E133 (Brilliant Blue FCF)
+(167, 10, 'ALLOWED', 'Synthetic triarylmethane dye.', 'APPROVED', 'The Vegan Society', 'Coloring Standards'),
+
+-- 168: Maltodextrin
+(168, 1, 'ALLOWED', 'Gluten-free starch hydrolysate (even when derived from wheat, it is processed below 20ppm).', 'APPROVED', 'Celiac Disease Foundation', 'Maltodextrin Safety'),
+
+-- 169: Dextrose
+(169, 1, 'ALLOWED', 'Simple sugar derived from corn or wheat starch; gluten-free.', 'APPROVED', 'Celiac Disease Foundation', 'Gluten-Free Sweeteners'),
+(169, 11, 'CONFLICT', 'Direct glucose sweetener.', 'APPROVED', 'ADA', 'Sugar Guidelines'),
+
+-- 170: E331 (Sodium Citrate)
+(170, 14, 'CONFLICT', 'Sodium salt of citric acid.', 'APPROVED', 'AHA', 'Sodium Guidelines'),
+
+-- 171: E903 (Carnauba Wax)
+(171, 9, 'ALLOWED', 'Extracted from the leaves of the Copernicia prunifera palm.', 'APPROVED', 'Vegetarian Society', 'Plant Waxes'),
+(171, 10, 'ALLOWED', 'Plant-derived glazing wax.', 'APPROVED', 'The Vegan Society', 'Plant Waxes'),
+
+-- ----------------------------------------------------------------------------
+-- NATURAL EXTRACTS, FLAVORS & OTHERS (IDs 172-178)
+-- ----------------------------------------------------------------------------
+-- 172: Gelatin
+(172, 8, 'UNCERTAIN', 'Requires proof of Halal slaughtered animal collagen source (porcine gelatin is Haram).', 'PROPOSED', 'MUIS', 'Halal Gelatin Policy'),
+(172, 9, 'CONFLICT', 'Collagen extracted from animal skin and bones.', 'APPROVED', 'Vegetarian Society', 'Animal Byproducts'),
+(172, 10, 'CONFLICT', 'Animal collagen product.', 'APPROVED', 'The Vegan Society', 'Animal Exclusions'),
+
+-- 173: Natural Strawberry Flavor
+(173, 10, 'ALLOWED', 'Plant/botanical flavor extraction.', 'APPROVED', 'The Vegan Society', 'Flavor Guidelines'),
+
+-- 174: Fruit and Vegetable Juice Colors
+(174, 10, 'ALLOWED', 'Botanical extract colorants.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 175: Artificial Flavor
+(175, 10, 'ALLOWED', 'Synthetic chemical aromatics.', 'APPROVED', 'The Vegan Society', 'Additive Guide'),
+
+-- 176: Natural Flavor
+(176, 10, 'UNCERTAIN', 'Can legally include extracts from plant OR animal origin.', 'PROPOSED', 'FDA', '21 CFR 101.22 Natural Flavors'),
+
+-- 177: Pectin
+(177, 9, 'ALLOWED', 'Structural heteropolysaccharide extracted from citrus fruits or apples.', 'APPROVED', 'Vegetarian Society', 'Plant Gelling Agents'),
+(177, 10, 'ALLOWED', 'Plant-derived gelling agent.', 'APPROVED', 'The Vegan Society', 'Plant Foods'),
+
+-- 178: Organic Flavor
+(178, 10, 'UNCERTAIN', 'Requires source verification (botanical vs animal organic extract).', 'PROPOSED', 'USDA', 'National Organic Program');
