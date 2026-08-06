@@ -36,6 +36,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 /**
  * Unit tests for {@link AssessmentOrchestrator}: the tiered flow, escalation policy,
@@ -69,7 +70,7 @@ class AssessmentOrchestratorTest {
     void safeVerdictStaysTier1AndDoesNotEscalate() {
         stubLoadAndProduct(productWith(true, ingredient("Milk", "DAIRY")));
         when(ruleEngine.assess(any(), any())).thenReturn(SafetyVerdict.safe("ok", List.of()));
-        when(scanService.record(any(), any(), any(), any())).thenReturn(scan(100L));
+        when(scanService.record(any(), any(), any(), any(), any())).thenReturn(scan(100L));
 
         AssessmentResponse response = orchestrator.assess(7L, REQUEST);
 
@@ -87,7 +88,7 @@ class AssessmentOrchestratorTest {
     void unsafeVerdictIsDefinitiveAndDoesNotEscalate() {
         stubLoadAndProduct(productWith(true, ingredient("Peanut", "PEANUT")));
         when(ruleEngine.assess(any(), any())).thenReturn(SafetyVerdict.unsafe("contains peanut", List.of()));
-        when(scanService.record(any(), any(), any(), any())).thenReturn(scan(100L));
+        when(scanService.record(any(), any(), any(), any(), any())).thenReturn(scan(100L));
 
         AssessmentResponse response = orchestrator.assess(7L, REQUEST);
 
@@ -105,7 +106,7 @@ class AssessmentOrchestratorTest {
                             SafetyVerdict.unsafe("resolved to dairy", List.of()));
         when(promptBuilder.build(any(), any())).thenReturn("prompt");
         when(llmClient.assess("prompt")).thenReturn(llmResult("Casein", "DAIRY", 0.9));
-        when(scanService.record(any(), any(), any(), any())).thenReturn(scan(100L));
+        when(scanService.record(any(), any(), any(), any(), any())).thenReturn(scan(100L));
 
         AssessmentResponse response = orchestrator.assess(7L, REQUEST);
 
@@ -126,7 +127,7 @@ class AssessmentOrchestratorTest {
                             SafetyVerdict.unsafe("resolved", List.of()));
         when(promptBuilder.build(any(), any())).thenReturn("prompt");
         when(llmClient.assess("prompt")).thenReturn(llmResult("Casein", "DAIRY", 0.9));
-        when(scanService.record(any(), any(), any(), any())).thenReturn(scan(100L));
+        when(scanService.record(any(), any(), any(), any(), any())).thenReturn(scan(100L));
 
         orchestrator.assess(7L, REQUEST);
 
@@ -143,7 +144,7 @@ class AssessmentOrchestratorTest {
                             SafetyVerdict.warning("still uncertain", List.of()));
         when(promptBuilder.build(any(), any())).thenReturn("prompt");
         when(llmClient.assess("prompt")).thenReturn(llmResult("Casein", "DAIRY", 0.5)); // below 0.7
-        when(scanService.record(any(), any(), any(), any())).thenReturn(scan(100L));
+        when(scanService.record(any(), any(), any(), any(), any())).thenReturn(scan(100L));
 
         orchestrator.assess(7L, REQUEST);
 
@@ -158,7 +159,7 @@ class AssessmentOrchestratorTest {
         when(ruleEngine.assess(any(), any())).thenReturn(SafetyVerdict.warning("uncertain", List.of()));
         when(promptBuilder.build(any(), any())).thenReturn("prompt");
         when(llmClient.assess("prompt")).thenThrow(new IllegalStateException("AI assessment is disabled."));
-        when(scanService.record(any(), any(), any(), any())).thenReturn(scan(100L));
+        when(scanService.record(any(), any(), any(), any(), any())).thenReturn(scan(100L));
 
         AssessmentResponse response = orchestrator.assess(7L, REQUEST);
 
@@ -175,13 +176,30 @@ class AssessmentOrchestratorTest {
     void nullUserIdIsForwardedToScanService() {
         stubLoadAndProduct(productWith(true, ingredient("Milk", "DAIRY")));
         when(ruleEngine.assess(any(), any())).thenReturn(SafetyVerdict.safe("ok", List.of()));
-        when(scanService.record(isNull(), eq(1L), eq("123"), any())).thenReturn(scan(100L));
+        when(scanService.record(isNull(), eq(1L), eq("123"), any(), any())).thenReturn(scan(100L));
 
         AssessmentResponse response = orchestrator.assess(null, REQUEST);
 
         assertEquals("SAFE", response.verdict());
         assertEquals(100L, response.scanId());
-        verify(scanService).record(isNull(), eq(1L), eq("123"), any());
+        verify(scanService).record(isNull(), eq(1L), eq("123"), any(), any());
+    }
+
+    @Test
+    @DisplayName("UC3 BE8: Persist failure still returns verdict without crashing")
+    void persistFailureStillReturnsVerdict() {
+        stubLoadAndProduct(productWith(true, ingredient("Milk", "DAIRY")));
+        when(ruleEngine.assess(any(), any())).thenReturn(SafetyVerdict.safe("ok", List.of()));
+        when(scanService.record(any(), any(), any(), any(), any()))
+                .thenThrow(new DataIntegrityViolationException("fk_scans_product"));
+
+        AssessmentResponse response = orchestrator.assess(7L, REQUEST);
+
+        assertEquals("SAFE", response.verdict());
+        assertEquals(ExecutionTier.TIER_1_RULES, response.tier());
+        assertNull(response.scanId());
+        assertEquals("Test Product", response.productName());
+        verifyNoInteractions(aiExecutionLogService);
     }
 
     // --- helpers -----------------------------------------------------------------

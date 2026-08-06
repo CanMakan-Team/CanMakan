@@ -74,7 +74,10 @@ public class LlmClient {
             response = call.chatResponse();
             rawResponse = call.content();
         } catch (RuntimeException exception) {
-            throw new IllegalStateException("AI provider request failed.");
+            throw new IllegalStateException(
+                "AI provider request failed: " + exception.getMessage(),
+                exception
+            );
         }
 
         if (rawResponse == null || rawResponse.isBlank()) {

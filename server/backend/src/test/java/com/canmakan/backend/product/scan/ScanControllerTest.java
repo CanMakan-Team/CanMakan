@@ -102,9 +102,7 @@ class ScanControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"barcode\":\"3017620422003\"}"))
                         .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.message").value(
-                                "profileId is required (e.g. 1 for Sarah Tan in seed data)"
-                        ));
+                        .andExpect(jsonPath("$.message").value("Profile ID is required"));
 
                 verify(orchestrator, never()).assess(any(), any());
         }

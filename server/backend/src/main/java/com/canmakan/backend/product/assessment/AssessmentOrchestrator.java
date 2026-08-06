@@ -15,7 +15,9 @@ import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -49,6 +51,7 @@ import java.util.stream.Collectors;
  * @author XieHuayuan
  * @author Amelia
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AssessmentOrchestrator {
@@ -109,34 +112,76 @@ public class AssessmentOrchestrator {
                 tier = ExecutionTier.TIER_3_LLM;
 
             } catch (IllegalStateException | IllegalArgumentException ex) {
+                log.warn(
+                    "Tier-3 escalate skipped for barcode {}; keeping Tier-1 WARNING: {}",
+                    request.barcode(),
+                    ex.getMessage()
+                );
                 llmResult = null;
                 tier = ExecutionTier.TIER_1_RULES;
             }
         }
 
         // Persist the scan, then the matching execution-log row.
-        // If the tier is Tier 3, record the LLM result; otherwise, record the rule engine result.
-        Scan scan = scanService.record(userId, request.profileId(), request.barcode(), verdict);
-        if (tier == ExecutionTier.TIER_3_LLM) { 
-            aiExecutionLogService.record(scan.getId(), tier, llmResult);
-        } else {
-            aiExecutionLogService.recordRulesOnly(scan.getId(), ruleLatencyMs);
-        }
-
-        // Build the response.
+        // Persistence failure must not hide a successful verdict from the client.
         String productName = lookup.productName() == null || lookup.productName().isBlank()
                 ? "Unknown product"
                 : lookup.productName();
 
-        // Return the assessment response.
+        Long scanId = persistScanAndLog(userId, request, verdict, productName, tier, llmResult, ruleLatencyMs);
+
         return new AssessmentResponse(
                 verdict.toScansVerdict(),
                 verdict.explanation(),
                 verdict.findings(),
                 tier,
-                scan.getId(),
+                scanId,
                 productName,
                 request.barcode());
+    }
+
+    /**
+     * Best-effort persistence. Returns the saved scan id, or {@code null} when
+     * the DB write fails (verdict is still returned to the caller).
+     */
+    private Long persistScanAndLog(
+            Long userId,
+            AssessmentRequest request,
+            SafetyVerdict verdict,
+            String productName,
+            ExecutionTier tier,
+            LlmAssessmentResult llmResult,
+            long ruleLatencyMs
+    ) {
+        try {
+            Scan scan = scanService.record(
+                    userId, request.profileId(), request.barcode(), verdict, productName);
+            Long scanId = scan == null ? null : scan.getId();
+            if (scanId == null) {
+                return null;
+            }
+            try {
+                if (tier == ExecutionTier.TIER_3_LLM) {
+                    aiExecutionLogService.record(scanId, tier, llmResult);
+                } else {
+                    aiExecutionLogService.recordRulesOnly(scanId, ruleLatencyMs);
+                }
+            } catch (DataAccessException | IllegalArgumentException | IllegalStateException ex) {
+                log.warn(
+                    "Assess verdict OK but AI/execution log persist failed for barcode {}: {}",
+                    request.barcode(),
+                    ex.getMessage()
+                );
+            }
+            return scanId;
+        } catch (DataAccessException | IllegalArgumentException | IllegalStateException ex) {
+            log.warn(
+                "Assess verdict OK but scan persist failed for barcode {}: {}",
+                request.barcode(),
+                ex.getMessage()
+            );
+            return null;
+        }
     }
 
     /**

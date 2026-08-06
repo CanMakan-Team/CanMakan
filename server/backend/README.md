@@ -117,6 +117,10 @@ $env:CANMAKAN_AI_ENABLED = "true"
 .\mvnw.cmd spring-boot:run
 ```
 
+Set both variables in the **same shell** that starts Spring Boot, then restart. Setting them in a different terminal after the JVM is already running has no effect. If you use `.vscode/run-backend.ps1`, set the variables in that shell first (or as User env vars) so the launched process inherits them.
+
+On escalate failure the backend logs `Tier-3 escalate skipped ...` and keeps the Tier-1 WARNING (for example when AI is still disabled or the OpenAI call fails).
+
 Default `CANMAKAN_AI_ENABLED=false` keeps assess on Tier-1 rules only. Do not commit real API keys.
 
 ### Enable Tavily (external allergen fallback)
