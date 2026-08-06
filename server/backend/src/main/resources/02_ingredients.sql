@@ -1,4 +1,4 @@
-INSERT INTO ingredients (id, ingredient_name, parent_allergen, root_allergen, is_chemical_alias) VALUES
+INSERT IGNORE INTO ingredients (id, ingredient_name, parent_allergen, root_allergen, is_chemical_alias) VALUES
 -- Grains & Gluten
 (1, 'Whole Grain Oat Flour', 'Gluten Containing Grains', 'GLUTEN', 0),
 (2, 'Whole Wheat Flour', 'Gluten Containing Grains', 'GLUTEN', 0),
@@ -59,7 +59,7 @@ INSERT INTO ingredients (id, ingredient_name, parent_allergen, root_allergen, is
 (45, 'E452i (Sodium Polyphosphate)', 'Stabilizers', 'ADDITIVE', 1),
 (46, 'E473 (Sucrose Esters of Fatty Acids)', 'Emulsifiers', 'ADDITIVE', 1),
 (47, 'E469 (Enzymatically Hydrolysed CMC)', 'Emulsifiers', 'ADDITIVE', 1),
-(48, 'E635 (Disodium 5''-Ribonucleotides)', 'Flavor Enhancers', 'ADDITIVE', 1),
+(48, 'E635 (Disodium 5-Ribonucleotides)', 'Flavor Enhancers', 'ADDITIVE', 1),
 (49, 'E627 (Disodium Guanylate)', 'Flavor Enhancers', 'ADDITIVE', 1),
 (50, 'E631 (Disodium Inosinate)', 'Flavor Enhancers', 'ADDITIVE', 1),
 (51, 'INS 150a (Plain Caramel)', 'Food Colorings', 'ADDITIVE', 1),
@@ -130,4 +130,97 @@ INSERT INTO ingredients (id, ingredient_name, parent_allergen, root_allergen, is
 (98, 'E330 (Citric Acid)', 'Acidity Regulators', 'ADDITIVE', 1),
 (99, 'E200 (Sorbic Acid)', 'Preservatives', 'ADDITIVE', 1),
 (100, 'E202 (Potassium Sorbate)', 'Preservatives', 'ADDITIVE', 1),
-(101, 'E551 (Silicon Dioxide / Anticaking Agent)', 'Anticaking Agents', 'ADDITIVE', 1);
+(101, 'E551 (Silicon Dioxide / Anticaking Agent)', 'Anticaking Agents', 'ADDITIVE', 1),
+
+-- Grains, Bakery & Starches
+(102, 'Cornflour', 'Corn Derivatives', NULL, 0),
+(103, 'Modified Starch', 'Thickeners', 'ADDITIVE', 0),
+(104, 'Tapioca Syrup', NULL, NULL, 0),
+(105, 'Wheat Flour', 'Gluten Containing Grains', 'GLUTEN', 0),
+(106, 'Rice Flour', NULL, NULL, 0),
+(107, 'Corn', 'Corn Derivatives', NULL, 0),
+
+-- Milk & Dairy
+(108, 'Cultured Reduced Fat Milk', 'Milk Derivatives', 'DAIRY', 0),
+(109, 'Nonfat Dry Milk', 'Milk Derivatives', 'DAIRY', 0),
+(110, 'Modified Whey', 'Milk Derivatives', 'DAIRY', 0),
+(111, 'Nonfat Milk', 'Milk Derivatives', 'DAIRY', 0),
+(112, 'Buttermilk', 'Milk Derivatives', 'DAIRY', 0),
+(113, 'Romano Cheese', 'Milk Derivatives', 'DAIRY', 0),
+(114, 'Cheddar Cheese', 'Milk Derivatives', 'DAIRY', 0),
+(115, 'Sour Cream', 'Milk Derivatives', 'DAIRY', 0),
+(116, 'Blue Cheese', 'Milk Derivatives', 'DAIRY', 0),
+(117, 'Whey Protein Isolate', 'Milk Derivatives', 'DAIRY', 0),
+(118, 'Milk Protein Concentrate', 'Milk Derivatives', 'DAIRY', 0),
+
+-- Nuts, Seeds & Produce
+(119, 'Walnuts', 'Tree Nuts', 'TREE_NUT', 0),
+(120, 'Pistachios', 'Tree Nuts', 'TREE_NUT', 0),
+(121, 'Dried Cranberries', NULL, NULL, 0),
+(122, 'Golden Raisins', NULL, NULL, 0),
+(123, 'Sun-Dried Figs', NULL, NULL, 0),
+(124, 'Blueberries', NULL, NULL, 0),
+(125, 'Potatoes', NULL, NULL, 0),
+(126, 'Dried Potatoes', NULL, NULL, 0),
+(127, 'Spirulina', NULL, NULL, 0),
+(128, 'Banana', NULL, NULL, 0),
+(129, 'Tomato Juice', NULL, NULL, 0),
+(130, 'Strawberry Puree', NULL, NULL, 0),
+(131, 'Orange Juice', NULL, NULL, 0),
+(132, 'Lemon Juice Concentrate', NULL, NULL, 0),
+(133, 'Black Carrot Juice Concentrate', NULL, NULL, 0),
+
+-- Oils & Fats
+(134, 'Soybean Oil', 'Soy Derivatives', 'SOY', 0),
+(135, 'Hydrogenated Coconut Oil', 'Vegetable Oils', NULL, 0),
+(136, 'Medium Chain Triglycerides', 'Vegetable Oils', NULL, 0),
+
+-- Spices, Herbs & Aromatics
+(137, 'Onion', NULL, NULL, 0),
+(138, 'Chili', NULL, NULL, 0),
+(139, 'Ground Coriander', NULL, NULL, 0),
+(140, 'Red Chillies', NULL, NULL, 0),
+(141, 'Ginger', NULL, NULL, 0),
+(142, 'Onion Powder', NULL, NULL, 0),
+(143, 'Garlic Powder', NULL, NULL, 0),
+(144, 'Parsley', NULL, NULL, 0),
+
+-- Condiments & Sugars
+(145, 'Apple Cider Vinegar', NULL, NULL, 0),
+(146, 'Vinegar', NULL, NULL, 0),
+(147, 'Distilled Vinegar', NULL, NULL, 0),
+(148, 'Iodized Salt', NULL, NULL, 0),
+(149, 'Sea Salt', NULL, NULL, 0),
+(150, 'Corn Syrup', 'Corn Derivatives', NULL, 0),
+(151, 'Cane Sugar', NULL, NULL, 0),
+(152, 'Cocoa Processed with Alkali', NULL, NULL, 0),
+
+-- Food Additives & E-Numbers (Chemical Aliases)
+(153, 'E341 (Calcium Phosphate)', 'Acidity Regulators', 'ADDITIVE', 1),
+(154, 'E509 (Calcium Chloride)', 'Firming Agents', 'ADDITIVE', 1),
+(155, 'E917 (Potassium Iodate)', 'Preservatives', 'ADDITIVE', 1),
+(156, 'E211 (Sodium Benzoate)', 'Preservatives', 'ADDITIVE', 1),
+(157, 'E110 (FD&C Yellow No. 6)', 'Food Colorings', 'ADDITIVE', 1),
+(158, 'E129 (FD&C Red No. 40)', 'Food Colorings', 'ADDITIVE', 1),
+(159, 'E270 (Lactic Acid)', 'Acidity Regulators', 'ADDITIVE', 1),
+(160, 'E472e (Esters of Mono and Diglycerides)', 'Emulsifiers', 'ADDITIVE', 1),
+(161, 'E300 (Vitamin C / Ascorbic Acid)', 'Antioxidants', 'ADDITIVE', 1),
+(162, 'E301 (Sodium Ascorbate)', 'Antioxidants', 'ADDITIVE', 1),
+(163, 'E307 (Vitamin E / Alpha Tocopheryl Acetate)', 'Antioxidants', 'ADDITIVE', 1),
+(164, 'Vitamin A Acetate', 'Nutrient Supplements', 'ADDITIVE', 1),
+(165, 'E340ii (Dipotassium Phosphate)', 'Stabilizers', 'ADDITIVE', 1),
+(166, 'E220 (Sulphur Dioxide)', 'Preservatives', 'ADDITIVE', 1),
+(167, 'E133 (Brilliant Blue FCF)', 'Food Colorings', 'ADDITIVE', 1),
+(168, 'Maltodextrin', 'Thickeners', 'ADDITIVE', 1),
+(169, 'Dextrose', 'Sweeteners', 'ADDITIVE', 1),
+(170, 'E331 (Sodium Citrate)', 'Acidity Regulators', 'ADDITIVE', 1),
+(171, 'E903 (Carnauba Wax)', 'Glazing Agents', 'ADDITIVE', 1),
+
+-- Natural Extracts, Flavors & Others
+(172, 'Gelatin', 'Gelatin', NULL, 0),
+(173, 'Natural Strawberry Flavor', 'Flavorings', 'ADDITIVE', 0),
+(174, 'Fruit and Vegetable Juice Colors', 'Food Colorings', 'ADDITIVE', 0),
+(175, 'Artificial Flavor', 'Flavorings', 'ADDITIVE', 0),
+(176, 'Natural Flavor', 'Flavorings', 'ADDITIVE', 0),
+(177, 'Pectin', 'Thickeners', 'ADDITIVE', 0),
+(178, 'Organic Flavor', 'Flavorings', 'ADDITIVE', 0);
