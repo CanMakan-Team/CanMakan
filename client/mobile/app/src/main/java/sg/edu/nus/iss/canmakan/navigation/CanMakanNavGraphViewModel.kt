@@ -72,7 +72,12 @@ class CanMakanNavGraphViewModel @Inject constructor (
             _activeRestrictions.value = restrictionNames
         } catch (e: Exception) {
             Timber.e(e, "Error loading restrictions for profile $profileId")
-            _error.value = "Unable to connect to the server. Please check your network and try again."
+            val errorMessage = when (e) {
+                is java.net.SocketTimeoutException -> "Connection timed out. Check your firewall settings and server connectivity."
+                is java.net.ConnectException -> "Could not connect to the server. Please verify the backend is running."
+                else -> "Unable to connect to the server. Please check your network and try again."
+            }
+            _error.value = errorMessage
             _activeRestrictions.value = emptyList()
         }
     }
