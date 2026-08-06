@@ -56,6 +56,7 @@ class ProductDataAdapterTest {
                 List.of(mapped, unmapped),
                 "Milk, unmapped additive",
                 " en:halal, Vegan, en:halal, ,VEGAN ",
+                List.of("en:milk", "en:nuts"),
                 nutrition,
                 true
         );
@@ -66,6 +67,7 @@ class ProductDataAdapterTest {
         assertEquals(List.of(mapped, unmapped), productData.ingredients());
         assertEquals("Milk, unmapped additive", productData.ingredientsText());
         assertEquals(List.of("en:halal", "Vegan", "VEGAN"), productData.labelTags());
+        assertEquals(List.of("en:milk", "en:nuts"), productData.tracesTags());
         assertSame(nutrition, productData.nutrition());
         assertTrue(productData.dataComplete());
     }
@@ -173,6 +175,7 @@ class ProductDataAdapterTest {
                 ingredients,
                 "Source ingredient text",
                 labelTags,
+                List.of(),
                 nutrition,
                 ingredientDataComplete
         );

@@ -195,6 +195,6 @@ public class AssessmentOrchestrator {
 
         // Return the enriched product data.
         return new ProductData(product.barcode(), merged, product.ingredientsText(),
-                product.labelTags(), product.nutrition(), product.dataComplete());
+            product.labelTags(), product.tracesTags(), product.nutrition(), product.dataComplete());
     }
 }

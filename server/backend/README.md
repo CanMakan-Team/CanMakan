@@ -106,19 +106,40 @@ With placeholder API keys the app starts; OpenAI/Tavily features stay inactive u
 
 The application listens on port 8080.
 
+### Enable Tavily (external allergen fallback)
+
+Unknown ingredients that miss the local allergen hierarchy can be looked up via Tavily.
+With the default `local-dev-placeholder` key, that fallback is skipped.
+
+```powershell
+$env:TAVILY_API_KEY = "tvly-your-real-key"
+# optional; default is already https://api.tavily.com/search
+$env:TAVILY_URL = "https://api.tavily.com/search"
+.\mvnw.cmd spring-boot:run
+```
+
+Restart the backend after setting the key. Do not commit real API keys.
+
 ## Test
 
 ```powershell
 .\mvnw.cmd test
 ```
 
-## Health check
+## Health check and smoke assess
 
-Once the application is running:
+Once the application is running (MySQL + seeded data):
 
 ```text
 GET http://localhost:8080/actuator/health
 ```
 
-Only the Actuator health endpoint is exposed for this initial smoke-test
-skeleton.
+End-to-end validate → assess smoke (defaults: Nutella barcode, profileId/userId `1`):
+
+```powershell
+.\scripts\smoke-assess.ps1
+# or with overrides:
+.\scripts\smoke-assess.ps1 -Barcode "3017620422003" -ProfileId 1 -UserId 1
+```
+
+The script prints HTTP status, verdict level, and finding codes. It exits non-zero if health, validate, or assess fails. Use a `profileId` / `userId` that exist in the seeded database.

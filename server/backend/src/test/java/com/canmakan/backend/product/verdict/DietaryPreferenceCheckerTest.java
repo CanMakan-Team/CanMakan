@@ -121,6 +121,25 @@ class DietaryPreferenceCheckerTest {
     }
 
     @Test
+    void meatRootConflictsWithVegetarianAndVegan() {
+        DietaryPreferenceChecker checker = checker(Map.of());
+        Ingredient gelatin = new Ingredient("Mystery Gelatin", null, "MEAT", true);
+        ProductData product = completeProduct(gelatin);
+
+        for (String code : List.of("VEGETARIAN", "VEGAN")) {
+            List<Finding> findings = new ArrayList<>();
+            checker.check(rule(code), product, findings);
+            assertEquals(1, findings.size());
+            assertFinding(
+                    findings.getFirst(),
+                    code,
+                    "Mystery Gelatin",
+                    "Mystery Gelatin conflicts with the " + code + " restriction."
+            );
+        }
+    }
+
+    @Test
     void incompleteIngredientDataAddsFinding() {
         DietaryPreferenceChecker checker = checker(Map.of());
 

@@ -31,6 +31,7 @@ import org.springframework.web.client.RestClientResponseException;
  *
  * @author K4i-Z3r
  * @author YangMaowei
+ * @author Amelia Wong
  */
 @Service
 public class BarcodeValidationClient {
@@ -155,8 +156,8 @@ public class BarcodeValidationClient {
                     if ("success".equalsIgnoreCase(status) || "1".equals(status)) {
                         JsonNode product = offResponse.get("product");
                         String category = (product != null && product.has("product_type"))
-                                 ? product.get("product_type").asText()
-                                 : "food";
+                                ? product.get("product_type").asText()
+                                : "food";
                         return new ValidationResponse(true, category, "Valid food product found in Open Food Facts.");
                     }
                 }
@@ -185,17 +186,17 @@ public class BarcodeValidationClient {
                     JsonNode item = eanResponse.get(0);
                     
                     if (item.has("error")) {
-                         return new ValidationResponse(false, "Unknown", "Product not found in fallback database.");
+                        return new ValidationResponse(false, "Unknown", "Product not found in fallback database.");
                     }
 
                     String name = item.path("name").asText("").toLowerCase();
                     String category = item.path("categoryName").asText("").toLowerCase();
                     
                     boolean isFood = category.contains("food") ||
-                                     category.contains("grocery") ||
-                                     name.contains("snack") ||
-                                     name.contains("drink") ||
-                                     name.contains("beverage");
+                        category.contains("grocery") ||
+                        name.contains("snack") ||
+                        name.contains("drink") ||
+                        name.contains("beverage");
 
                     if (isFood) {
                         return new ValidationResponse(true, category, "Valid food product found in EAN-Search.");
@@ -327,9 +328,22 @@ public class BarcodeValidationClient {
             ingredients,
             product.ingredientsText(),
             toLabelTags(product.labelTags()),
+            normalizeTracesTags(product.tracesTags()),
             toNutrition(product.nutriments()),
             ingredientDataComplete
         );
+    }
+
+    private static List<String> normalizeTracesTags(List<String> tracesTags) {
+        if (tracesTags == null || tracesTags.isEmpty()) {
+            return List.of();
+        }
+        return tracesTags.stream()
+            .filter(Objects::nonNull)
+            .map(String::trim)
+            .filter(tag -> !tag.isEmpty())
+            .distinct()
+            .toList();
     }
 
     private List<Ingredient> toIngredients(List<OpenFoodFactsIngredient> source) {

@@ -188,14 +188,15 @@ class AssessmentOrchestratorTest {
 
     private void stubLoadAndProduct(ProductData product) {
         ProductLookupResult lookup = new ProductLookupResult(
-                "123",
-                "Test Product",
-                "food",
-                product.ingredients(),
-                product.ingredientsText(),
-                null,
-                product.nutrition(),
-                product.dataComplete()
+            "123",
+            "Test Product",
+            "food",
+            product.ingredients(),
+            product.ingredientsText(),
+            null,
+            product.tracesTags(),
+            product.nutrition(),
+            product.dataComplete()
         );
         when(ruleLoader.load(1L)).thenReturn(RULES);
         when(productDataAdapter.lookup("123")).thenReturn(lookup);
@@ -224,8 +225,8 @@ class AssessmentOrchestratorTest {
 
     private static LlmAssessmentResult llmResult(String ingredient, String rootAllergen, double confidence) {
         return new LlmAssessmentResult(
-                List.of(new ResolvedIngredient(ingredient, rootAllergen, confidence)),
-                "evidence notes",
-                "gpt-4o", 10, 5, 20L, "prompt", "response");
+            List.of(new ResolvedIngredient(ingredient, rootAllergen, confidence)),
+            "evidence notes",
+            "gpt-4o", 10, 5, 20L, "prompt", "response");
     }
 }

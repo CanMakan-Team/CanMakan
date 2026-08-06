@@ -51,12 +51,13 @@ public class ProductDataAdapter {
         Objects.requireNonNull(result, "result must not be null");
 
         return new ProductData(
-                result.barcode(),
-                result.ingredients(),
-                result.ingredientsText(),
-                toLabelTags(result.labelTags()),
-                result.nutrition(),
-                result.ingredientDataComplete()
+            result.barcode(),
+            result.ingredients(),
+            result.ingredientsText(),
+            toLabelTags(result.labelTags()),
+            result.tracesTags(),
+            result.nutrition(),
+            result.ingredientDataComplete()
         );
     }
 

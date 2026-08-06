@@ -208,6 +208,7 @@ class BarcodeValidationClientTest {
         assertEquals("food", result.productType());
         assertEquals("Sugar, mystery additive", result.ingredientsText());
         assertEquals("en:vegan,en:halal", result.labelTags());
+        assertEquals(List.of("en:milk", "en:nuts"), result.tracesTags());
         assertEquals(2, result.ingredients().size());
         assertEquals("Mystery additive", result.ingredients().get(1).ingredientName());
         assertNull(result.ingredients().get(1).parentAllergen());
@@ -389,6 +390,7 @@ class BarcodeValidationClientTest {
                   {"id": "en:mystery-additive", "text": "Mystery additive"}
                 ],
                 "labels_tags": ["en:vegan", "en:halal"],
+                "traces_tags": ["en:milk", "en:nuts"],
                 "nutriments": {
                   "sugars_100g": null,
                   "sodium_100g": 0

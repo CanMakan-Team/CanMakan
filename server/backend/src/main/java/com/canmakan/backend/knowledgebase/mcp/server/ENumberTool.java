@@ -27,7 +27,7 @@ public class ENumberTool {
         String eNumber
     ) {
         if (eNumber == null || eNumber.isBlank()) {
-            return new ENumberResult("", "", "", false);
+            return new ENumberResult("", "", "", "", false);
         }
 
         // Normalize the E-number by trimming and converting to uppercase
@@ -36,13 +36,14 @@ public class ENumberTool {
         // Find the E-number by normalized key and map the result to an ENumberResult
         // If no result is found, return a default result with the normalized E-number and UNKNOWN category
         return repository.findENumber(normalized)
-                .map(entry -> new ENumberResult(
-                        entry.eNumber(),
-                        entry.name(),
-                        entry.category() == null ? "" : entry.category(),
-                        entry.animalDerived()))
-                .orElseGet(() -> new ENumberResult(normalized, "Unknown additive", "unknown", false));
-    }
+            .map(entry -> new ENumberResult(
+                entry.eNumber(),
+                entry.name(),
+                entry.category() == null ? "" : entry.category(),
+                entry.rootAllergen() == null ? "" : entry.rootAllergen(),
+                entry.animalDerived()))
+            .orElseGet(() -> new ENumberResult(normalized, "Unknown additive", "unknown", "", false));
+}
 
     // Helper method to normalize the E-number by trimming and converting to uppercase
     private static String normalizeENumberQuery(String eNumber) {

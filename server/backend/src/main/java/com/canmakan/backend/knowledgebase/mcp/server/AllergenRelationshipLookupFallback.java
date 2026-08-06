@@ -135,12 +135,16 @@ public class AllergenRelationshipLookupFallback {
             && !"local-dev-placeholder".equals(apiKey);
     }
 
+    // Build the search query for the Tavily API
     private String buildSearchQuery(List<String> ingredients) {
-        return "What is the parent allergen or root allergen of these food ingredients: "
-            + String.join(", ", ingredients)
-            + "? List the most common allergen family for each.";
+        return "For each of these food ingredients, reply with one line in the exact format "
+            + "'IngredientName -> ROOT_CODE'. Use only these ROOT_CODE values: "
+            + "DAIRY, GLUTEN, PEANUT, TREE_NUT, FISH, SHELLFISH, EGG, SOY, SESAME, MEAT, ADDITIVE, NONE. "
+            + "Use NONE when the ingredient is not a common allergen. Ingredients: "
+            + String.join(", ", ingredients);
     }
 
+    // Extract the answer from the response
     @SuppressWarnings("unchecked")
     private String extractAnswer(Map<String, Object> response, List<String> ingredients) {
         if (response == null) {
@@ -157,6 +161,11 @@ public class AllergenRelationshipLookupFallback {
             return "No external information found for: " + String.join(", ", ingredients);
         }
 
+        // Extract the title and content from the results
+        // Limit the results to 3
+        // Filter the results to only include maps
+        // Map the results to a string
+        // Join the results with a newline
         return rawResults.stream()
             .limit(3)
             .filter(Map.class::isInstance)
