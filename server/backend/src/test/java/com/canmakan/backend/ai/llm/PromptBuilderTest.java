@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
  * Tests deterministic and data-minimised evidence prompt construction.
  *
  * @author YangMaowei
+ * @author Amelia Wong
  */
 class PromptBuilderTest {
 
@@ -52,13 +53,37 @@ class PromptBuilderTest {
             List.of(halalRule())
         );
 
-        assertTrue(prompt.contains("PROMPT_VERSION: canmakan-evidence-v2"));
+        assertTrue(prompt.contains("PROMPT_VERSION: canmakan-evidence-v4"));
         assertTrue(prompt.contains("barcode=\"8888888888888\""));
         assertTrue(prompt.contains("ingredientsText=\"Mystery powder, sugar\""));
         assertTrue(prompt.contains("labelTags=[\"en:halal\"]"));
+        assertTrue(prompt.contains("tracesTags=[]"));
         assertTrue(prompt.contains("code=\"HALAL\""));
         assertTrue(prompt.contains("category=RELIGIOUS"));
         assertTrue(prompt.contains("ingredientName=\"Mystery powder\""));
+        assertTrue(prompt.contains("TOOL_USE:"));
+        assertTrue(prompt.contains("ingredient_alias_lookup"));
+        assertTrue(prompt.contains("allergen_relationship_lookup"));
+        assertTrue(prompt.contains("e_number_lookup"));
+        assertTrue(prompt.contains("dietary_rule_lookup"));
+        assertTrue(prompt.contains("cross_contamination_analysis"));
+    }
+
+    @Test
+    void includesTracesTagsInProductBlock() {
+        ProductData product = new ProductData(
+            "8888888888888",
+            List.of(unmappedIngredient()),
+            "Mystery powder",
+            List.of("en:halal"),
+            List.of("en:milk", "en:nuts"),
+            nutrition(null, BigDecimal.ZERO),
+            false
+        );
+
+        String prompt = promptBuilder.build(product, List.of(halalRule()));
+
+        assertTrue(prompt.contains("tracesTags=[\"en:milk\",\"en:nuts\"]"));
     }
 
     @Test
@@ -74,6 +99,8 @@ class PromptBuilderTest {
         assertFalse(prompt.contains("\"restrictionCode\""));
         assertTrue(prompt.contains("Do not decide or output SAFE, WARNING, or UNSAFE."));
         assertTrue(prompt.contains("Do not output a verdict field."));
+        assertTrue(prompt.contains("FINAL_OUTPUT:"));
+        assertTrue(prompt.contains("Never finish the turn with tool calls only"));
     }
 
     @Test

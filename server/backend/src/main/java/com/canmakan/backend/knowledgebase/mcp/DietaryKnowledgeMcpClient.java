@@ -11,9 +11,17 @@ import com.canmakan.backend.knowledgebase.mcp.server.CrossContaminationTool;
 import com.canmakan.backend.knowledgebase.mcp.server.DietaryRuleTool;
 import com.canmakan.backend.knowledgebase.mcp.server.ENumberTool;
 import com.canmakan.backend.knowledgebase.mcp.server.IngredientAliasTool;
+import com.canmakan.backend.product.verdict.IngredientResolution;
 import com.canmakan.backend.product.verdict.IngredientResolver;
+
+import lombok.RequiredArgsConstructor;
+
+import java.util.List;
+import java.util.Locale;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Client side of the Dietary Knowledge MCP boundary (HY). Delegates the five lookups to
@@ -23,14 +31,11 @@ import org.springframework.stereotype.Service;
  * <p>Marked {@link Primary} so it supersedes {@code IngredientResolverStub} as the
  * resolver the engine injects.
  *
- * <p><b>Transport:</b> the tools run in-process in the same Spring Boot application, so
- * they are called directly here. When a real {@code spring-ai-mcp} transport is added,
- * only the five {@code lookup*}/{@code analyse*} methods need to be repointed at it — the
- * {@link #resolveRootAllergen} logic and the engine stay unchanged.
- *
  * @author XieHuayuan
+ * @author Amelia
  */
 @Primary
+@RequiredArgsConstructor
 @Service
 public class DietaryKnowledgeMcpClient implements IngredientResolver {
 
@@ -40,51 +45,161 @@ public class DietaryKnowledgeMcpClient implements IngredientResolver {
     private final DietaryRuleTool dietaryRuleTool;
     private final CrossContaminationTool crossContaminationTool;
 
-    public DietaryKnowledgeMcpClient(IngredientAliasTool ingredientAliasTool,
-                                     ENumberTool eNumberTool,
-                                     AllergenRelationshipTool allergenRelationshipTool,
-                                     DietaryRuleTool dietaryRuleTool,
-                                     CrossContaminationTool crossContaminationTool) {
-        this.ingredientAliasTool = ingredientAliasTool;
-        this.eNumberTool = eNumberTool;
-        this.allergenRelationshipTool = allergenRelationshipTool;
-        this.dietaryRuleTool = dietaryRuleTool;
-        this.crossContaminationTool = crossContaminationTool;
+    /**
+     * Resolve a raw ingredient label to {@link IngredientResolution.Kind#RESOLVED},
+     * {@link IngredientResolution.Kind#KNOWN_SAFE}, or {@link IngredientResolution.Kind#UNKNOWN}.
+     */
+    @Override
+    public IngredientResolution resolve(String ingredientName) {
+        if (ingredientName == null || ingredientName.isBlank()) {
+            return IngredientResolution.unknown();
+        }
+
+        IngredientAliasResult alias = lookupAlias(ingredientName);
+
+        // Fast path: catalog already knows the root allergen.
+        if (alias != null && alias.matched() && hasRoot(alias.rootAllergen())) {
+            return IngredientResolution.resolved(alias.rootAllergen());
+        }
+
+        String hierarchyQuery = (alias != null && alias.canonicalName() != null && !alias.canonicalName().isBlank())
+                ? alias.canonicalName()
+                : ingredientName.trim();
+
+        IngredientResolution fromHierarchy = resolveFromHierarchy(hierarchyQuery);
+        if (fromHierarchy.kind() == IngredientResolution.Kind.RESOLVED
+                || fromHierarchy.kind() == IngredientResolution.Kind.KNOWN_SAFE) {
+            return fromHierarchy;
+        }
+
+        if (alias != null && alias.matched()) {
+            // Catalog/synonym hit with no root allergen (Salt, Sugar, oils, …).
+            return IngredientResolution.knownSafe();
+        }
+
+        IngredientResolution fromENumber = resolveFromENumber(ingredientName);
+        if (fromENumber != null) {
+            return fromENumber;
+        }
+
+        return IngredientResolution.unknown();
     }
 
     /**
-     * Resolve an ingredient (including chemical aliases) to its root allergen.
-     * Tries the alias tool first (it returns the root directly and canonicalises the
-     * name), then falls back to the allergen relationship hierarchy.
-     *
-     * @return the root allergen (e.g. "DAIRY"), or {@code null} if still unknown.
+     * @return the resolved root allergen, or {@code null} when known-safe or unknown
      */
     @Override
     public String resolveRootAllergen(String ingredientName) {
-        if (ingredientName == null || ingredientName.isBlank()) {
+        IngredientResolution resolution = resolve(ingredientName);
+        return resolution.kind() == IngredientResolution.Kind.RESOLVED
+                ? resolution.rootAllergen()
+                : null;
+    }
+
+    private IngredientResolution resolveFromHierarchy(String ingredientName) {
+        AllergenRelationshipResult relationship = lookupAllergenRelationship(ingredientName);
+        if (relationship == null) {
+            return IngredientResolution.unknown();
+        }
+
+        IngredientResolution fromLocal = firstRootMatch(relationship.localMatches(), ingredientName);
+        if (fromLocal != null) {
+            return fromLocal;
+        }
+
+        IngredientResolution fromExternal = firstRootMatch(relationship.externalMatches(), ingredientName);
+        if (fromExternal != null) {
+            return fromExternal;
+        }
+
+        return IngredientResolution.unknown();
+    }
+
+    /**
+     * Looks up a leading/embedded E-number when alias and hierarchy did not resolve the label.
+     *
+     * @return a resolution, or {@code null} when no usable E-number mapping exists
+     */
+    private IngredientResolution resolveFromENumber(String ingredientName) {
+        String eNumber = extractENumber(ingredientName);
+        if (eNumber == null) {
             return null;
         }
 
-        // 1) Alias lookup: resolves chemical aliases and may return a root allergen directly.
-        IngredientAliasResult alias = lookupAlias(ingredientName);
-        if (alias != null && alias.rootAllergen() != null && !alias.rootAllergen().isBlank()) {
-            return alias.rootAllergen();
+        ENumberResult result = lookupENumber(eNumber);
+        if (result == null
+                || result.eNumber() == null
+                || result.eNumber().isBlank()
+                || "Unknown additive".equalsIgnoreCase(result.name())
+                || "unknown".equalsIgnoreCase(result.category())) {
+            return null;
         }
 
-        // 2) Fall back to the allergen hierarchy (e.g. Whey -> Milk -> DAIRY).
-        String canonical = (alias != null && alias.canonicalName() != null)
-                ? alias.canonicalName()
-                : ingredientName;
-        AllergenRelationshipResult relationship = lookupAllergenRelationship(canonical);
-        if (relationship != null && relationship.localMatches() != null) {
-            for (Ingredient match : relationship.localMatches()) {
-                if (match != null && match.rootAllergen() != null && !match.rootAllergen().isBlank()) {
-                    return match.rootAllergen();
-                }
+        String root = result.rootAllergen() == null ? "" : result.rootAllergen().trim();
+        if (root.isBlank() || "ADDITIVE".equalsIgnoreCase(root)) {
+            root = result.animalDerived() ? "MEAT" : "ADDITIVE";
+        } else {
+            root = root.toUpperCase(Locale.ROOT);
+        }
+
+        String canonical = result.name() == null || result.name().isBlank()
+            ? null
+            : result.name().trim();
+        return IngredientResolution.resolved(root, canonical, true);
+    }
+
+    // Pattern to match the E-number in the ingredient name
+    private static final Pattern E_NUMBER_PATTERN =
+        Pattern.compile("(?i)\\bE\\s*-?\\s*(\\d{3,4}[A-Z]*)\\b");
+
+    // Extract the E-number from the ingredient name
+    private static String extractENumber(String ingredientName) {
+        if (ingredientName == null || ingredientName.isBlank()) {
+            return null;
+        }
+        
+        Matcher matcher = E_NUMBER_PATTERN.matcher(ingredientName.trim());
+        if (!matcher.find()) {
+            return null;
+        }
+        return "E" + matcher.group(1).toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Picks a structured match for {@code ingredientName}. {@code NONE} means the
+     * external source recognises the label as non-allergen (known-safe).
+     */
+    private static IngredientResolution firstRootMatch(List<Ingredient> matches, String ingredientName) {
+        if (matches == null || matches.isEmpty()) {
+            return null;
+        }
+        String wanted = normalize(ingredientName);
+        for (Ingredient match : matches) {
+            if (match == null || match.rootAllergen() == null || match.rootAllergen().isBlank()) {
+                continue;
             }
+            boolean nameMatches = match.ingredientName() == null
+                || normalize(match.ingredientName()).equals(wanted)
+                || normalize(match.ingredientName()).contains(wanted)
+                || wanted.contains(normalize(match.ingredientName()));
+            if (!nameMatches && matches.size() > 1) {
+                continue;
+            }
+            String root = match.rootAllergen().trim().toUpperCase(Locale.ROOT);
+            if ("NONE".equals(root)) {
+                return IngredientResolution.knownSafe();
+            }
+            return IngredientResolution.resolved(root);
         }
+        return null;
+    }
 
-        return null;   // still unknown -> engine flags as unresolved (WARNING)
+    private static boolean hasRoot(String rootAllergen) {
+        return rootAllergen != null && !rootAllergen.isBlank();
+    }
+
+    private static String normalize(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
 
     public IngredientAliasResult lookupAlias(String ingredientName) {

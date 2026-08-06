@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.Test;
  *
  * @author YangMaowei
  */
+@DisplayName("UC3: ReligiousChecker findings")
 class ReligiousCheckerTest {
 
     private static final RestrictionRule HALAL_RULE = new RestrictionRule(
@@ -88,7 +91,7 @@ class ReligiousCheckerTest {
         );
 
         assertEquals(1, findings.size());
-        assertFinding(findings.getFirst(), "HALAL", null, MISSING_CERTIFICATION_REASON);
+        assertFinding(findings.getFirst(), "HALAL", Finding.SUBJECT_LABEL, MISSING_CERTIFICATION_REASON);
     }
 
     @Test
@@ -109,7 +112,7 @@ class ReligiousCheckerTest {
                 "Lard",
                 "Lard conflicts with the HALAL restriction."
         );
-        assertFinding(findings.get(1), "HALAL", null, MISSING_CERTIFICATION_REASON);
+        assertFinding(findings.get(1), "HALAL", Finding.SUBJECT_LABEL, MISSING_CERTIFICATION_REASON);
     }
 
     @Test
@@ -143,7 +146,7 @@ class ReligiousCheckerTest {
         assertFinding(
                 findings.getFirst(),
                 "HALAL",
-                null,
+                Finding.SUBJECT_UNKNOWN,
                 "Ingredient data is incomplete for the HALAL restriction."
         );
     }
@@ -159,7 +162,7 @@ class ReligiousCheckerTest {
                 emptyLabelFindings
         );
         assertEquals(1, emptyLabelFindings.size());
-        assertFinding(emptyLabelFindings.getFirst(), "HALAL", null, MISSING_CERTIFICATION_REASON);
+        assertFinding(emptyLabelFindings.getFirst(), "HALAL", Finding.SUBJECT_LABEL, MISSING_CERTIFICATION_REASON);
 
         List<Finding> nullLabelFindings = new ArrayList<>();
         checker.check(
@@ -168,7 +171,7 @@ class ReligiousCheckerTest {
                 nullLabelFindings
         );
         assertEquals(1, nullLabelFindings.size());
-        assertFinding(nullLabelFindings.getFirst(), "HALAL", null, MISSING_CERTIFICATION_REASON);
+        assertFinding(nullLabelFindings.getFirst(), "HALAL", Finding.SUBJECT_LABEL, MISSING_CERTIFICATION_REASON);
     }
 
     @Test

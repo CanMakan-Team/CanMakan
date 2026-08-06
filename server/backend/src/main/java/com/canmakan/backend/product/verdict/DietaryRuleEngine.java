@@ -1,11 +1,21 @@
 package com.canmakan.backend.product.verdict;
 
+import com.canmakan.backend.knowledgebase.mcp.contract.CrossContaminationResult;
+import com.canmakan.backend.knowledgebase.mcp.contract.DietaryRuleResult;
+import com.canmakan.backend.knowledgebase.mcp.server.CrossContaminationTool;
+import com.canmakan.backend.knowledgebase.mcp.server.DietaryRuleTool;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
+
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -22,22 +32,36 @@ import java.util.stream.Collectors;
  * <ul>
  *   <li>a {@code STRICT_AVOID} restriction is violated &rarr; {@link SafetyVerdict.Level#UNSAFE}</li>
  *   <li>an {@code INTOLERANCE} is violated, or an ingredient stays unresolved,
- *       or the product data is incomplete &rarr; {@link SafetyVerdict.Level#WARNING}</li>
+ *       or the product data is incomplete, or cross-contamination traces match
+ *       &rarr; {@link SafetyVerdict.Level#WARNING}</li>
  *   <li>nothing is triggered and the data is complete &rarr; {@link SafetyVerdict.Level#SAFE}</li>
  * </ul>
  *
  * @author XieHuayuan
+ * @author YangMaowei
+ * @author Amelia
  */
 @Service
+@RequiredArgsConstructor
 public class DietaryRuleEngine {
 
-    private final List<RestrictionChecker> checkers;   // one implementation per category
-    private final IngredientResolver resolver;         // knowledgebase / agentic-ai boundary
+    /** Finding code when ingredient data is missing or unusable. */
+    static final String INCOMPLETE_DATA = "INCOMPLETE_DATA";
 
-    public DietaryRuleEngine(List<RestrictionChecker> checkers, IngredientResolver resolver) {
-        this.checkers = checkers;
-        this.resolver = resolver;
-    }
+    /** Finding code when an ingredient could not be mapped to a root allergen. */
+    static final String UNRESOLVED = "UNRESOLVED";
+
+    /**
+     * Finding code for trace / "may contain" risk. Kept distinct from profile allergen
+     * codes so STRICT_AVOID rules do not escalate traces to UNSAFE.
+     */
+    static final String CROSS_CONTAMINATION = "CROSS_CONTAMINATION";
+
+    private final List<RestrictionChecker> checkers;
+    private final IngredientResolver resolver;
+    private final DietaryRuleTool dietaryRuleTool;
+    private final CrossContaminationTool crossContaminationTool;
+
 
     /**
      * Assess a product against a profile's active restrictions.
@@ -49,58 +73,182 @@ public class DietaryRuleEngine {
     public SafetyVerdict assess(List<RestrictionRule> rules, ProductData product) {
         if (product == null || !product.dataComplete()
                 || product.ingredients() == null || product.ingredients().isEmpty()) {
-            Finding f = new Finding(null, null,
-                    "No reliable ingredient data for this product - please verify the physical label.");
+            Finding f = new Finding(
+                    INCOMPLETE_DATA,
+                    Finding.SUBJECT_UNKNOWN,
+                    "No reliable ingredient data for this product - please verify the physical label."
+            );
             return SafetyVerdict.warning(f.reason(), List.of(f));
         }
 
-        // Resolve unknown / chemical-alias ingredients via the boundary; note anything left unresolved.
-        boolean hasUnresolved = false;
+        List<RestrictionRule> activeRules = filterKnownRules(rules);
+
+        // Resolve unknown ingredients via the knowledge boundary.
+        // Catalog hits with no root allergen are known-safe (not UNRESOLVED).
+        List<String> unresolvedNames = new ArrayList<>();
         List<Ingredient> resolved = new ArrayList<>();
         for (Ingredient ing : product.ingredients()) {
-            if (ing.rootAllergen() == null || ing.rootAllergen().isBlank()) {
-                String root = resolver.resolveRootAllergen(ing.ingredientName());
-                if (root == null) {
-                    hasUnresolved = true;
-                    resolved.add(ing);
-                } else {
-                    resolved.add(new Ingredient(
-                            ing.ingredientName(), ing.parentAllergen(), root, ing.chemicalAlias()));
-                }
-            } else {
+            if (ing.rootAllergen() != null && !ing.rootAllergen().isBlank()) {
                 resolved.add(ing);
+                continue;
+            }
+
+            IngredientResolution resolution = resolver.resolve(ing.ingredientName());
+            switch (resolution.kind()) {
+                case RESOLVED -> {
+                    String name = resolution.canonicalName() != null && !resolution.canonicalName().isBlank()
+                        ? resolution.canonicalName().trim()
+                        : ing.ingredientName();
+                    boolean chemicalAlias = resolution.chemicalAlias() || ing.chemicalAlias();
+                    resolved.add(new Ingredient(
+                        name,
+                        ing.parentAllergen(),
+                        resolution.rootAllergen(),
+                        chemicalAlias));
+                }
+                case KNOWN_SAFE -> resolved.add(ing);
+                case UNKNOWN -> {
+                    unresolvedNames.add(displayIngredientName(ing.ingredientName()));
+                    resolved.add(ing);
+                }
             }
         }
 
         ProductData enriched = new ProductData(product.barcode(), resolved,
-                product.ingredientsText(), product.labelTags(), product.nutrition(), true);
+                product.ingredientsText(), product.labelTags(), product.tracesTags(),
+                product.nutrition(), true);
 
         List<Finding> findings = new ArrayList<>();
-        for (RestrictionRule rule : rules) {
+        for (RestrictionRule rule : activeRules) {
             for (RestrictionChecker checker : checkers) {
                 if (checker.supports(rule.category())) {
                     checker.check(rule, enriched, findings);
                 }
             }
         }
-        return decide(rules, findings, hasUnresolved);
+
+        findings.addAll(crossContaminationFindings(activeRules, enriched));
+
+        return decide(activeRules, findings, unresolvedNames);
+    }
+
+    /** Keeps only rules the dietary-rule MCP tool recognises (drops UNKNOWN definitions). */
+    private List<RestrictionRule> filterKnownRules(List<RestrictionRule> rules) {
+        if (rules == null || rules.isEmpty()) {
+            return List.of();
+        }
+        List<RestrictionRule> active = new ArrayList<>();
+        for (RestrictionRule rule : rules) {
+            if (rule == null || rule.code() == null || rule.code().isBlank()) {
+                continue;
+            }
+            DietaryRuleResult definition = dietaryRuleTool.lookup(rule.code());
+            if (definition != null
+                    && definition.category() != null
+                    && !"UNKNOWN".equalsIgnoreCase(definition.category())) {
+                active.add(rule);
+            }
+        }
+        return active;
+    }
+
+    /**
+     * Adds WARNING-only findings when label text signals traces that overlap the
+     * profile's allergen rules. Trace risk never upgrades to UNSAFE by itself.
+     */
+    private List<Finding> crossContaminationFindings(
+        List<RestrictionRule> activeRules,
+        ProductData product
+    ) {
+        boolean blankText = product.ingredientsText() == null || product.ingredientsText().isBlank();
+        boolean blankTraces = product.tracesTags() == null || product.tracesTags().isEmpty();
+        if (blankText && blankTraces) {
+            return List.of();
+        }
+
+        CrossContaminationResult result = crossContaminationTool.analyse(
+            blankText ? null : product.ingredientsText(),
+            blankTraces ? List.of() : product.tracesTags());
+        if (result == null || !result.mayContain()
+                || result.allergens() == null || result.allergens().isEmpty()) {
+            return List.of();
+        }
+
+        Set<String> profileAllergenCodes = activeRules.stream()
+            .filter(rule -> rule.category() == com.canmakan.backend.knowledgebase.model.RestrictionCategory.ALLERGEN)
+            .map(RestrictionRule::code)
+            .filter(code -> code != null && !code.isBlank())
+            .map(code -> code.trim().toUpperCase(Locale.ROOT))
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (profileAllergenCodes.isEmpty()) {
+            return List.of();
+        }
+
+        String phrase = result.phrase() == null || result.phrase().isBlank()
+            ? "cross-contamination signal"
+            : result.phrase();
+
+        List<Finding> hits = new ArrayList<>();
+        Set<String> emitted = new LinkedHashSet<>();
+        for (String allergen : result.allergens()) {
+            if (allergen == null || allergen.isBlank()) {
+                continue;
+            }
+            String normalized = allergen.trim().toUpperCase(Locale.ROOT);
+            Set<String> candidates = expandAllergenAliases(normalized);
+            for (String candidate : candidates) {
+                if (profileAllergenCodes.contains(candidate) && emitted.add(candidate)) {
+                    hits.add(new Finding(
+                            CROSS_CONTAMINATION,
+                            candidate,
+                            "Possible cross-contamination (" + phrase + ") involving " + candidate + "."
+                    ));
+                }
+            }
+        }
+        return hits;
+    }
+
+    private static Set<String> expandAllergenAliases(String allergenCode) {
+        Set<String> codes = new LinkedHashSet<>();
+        codes.add(allergenCode);
+        if ("MILK".equals(allergenCode) || "DAIRY".equals(allergenCode)) {
+            codes.add("MILK");
+            codes.add("DAIRY");
+        }
+        if ("NUTS".equals(allergenCode) || "TREE_NUT".equals(allergenCode) || "TREE_NUTS".equals(allergenCode)) {
+            codes.add("TREE_NUT");
+            codes.add("NUTS");
+        }
+        return codes;
     }
 
     /** Applies the verdict priority and assembles the {@link SafetyVerdict}. */
-    SafetyVerdict decide(List<RestrictionRule> rules, List<Finding> findings, boolean hasUnresolved) {
+    SafetyVerdict decide(
+        List<RestrictionRule> rules,
+        List<Finding> findings,
+        List<String> unresolvedIngredientNames
+    ) {
         Map<String, RestrictionSeverity> severityByCode = rules.stream()
-                .collect(Collectors.toMap(RestrictionRule::code, RestrictionRule::severity, (a, b) -> a));
+            .collect(Collectors.toMap(RestrictionRule::code, RestrictionRule::severity, (a, b) -> a));
 
+        // Cross-contamination findings never count as STRICT_AVOID hits.
         boolean strictHit = findings.stream().anyMatch(f ->
-                f.restrictionCode() != null
-                        && severityByCode.get(f.restrictionCode()) == RestrictionSeverity.STRICT_AVOID);
+            f.restrictionCode() != null
+                && !CROSS_CONTAMINATION.equals(f.restrictionCode())
+                && severityByCode.get(f.restrictionCode()) == RestrictionSeverity.STRICT_AVOID);
 
         List<Finding> all = new ArrayList<>(findings);
-        if (hasUnresolved) {
-            all.add(new Finding(null, null,
-                    "Some ingredients could not be fully analysed - treat with caution."));
+        for (String ingredientName : unresolvedIngredientNames) {
+            all.add(new Finding(
+                UNRESOLVED,
+                ingredientName,
+                ingredientName + " could not be fully analysed - treat with caution."
+            ));
         }
 
+        boolean hasUnresolved = !unresolvedIngredientNames.isEmpty();
         SafetyVerdict.Level level;
         if (strictHit) {
             level = SafetyVerdict.Level.UNSAFE;
@@ -119,5 +267,12 @@ public class DietaryRuleEngine {
         }
         return level.name() + ": "
                 + findings.stream().map(Finding::reason).collect(Collectors.joining("; "));
+    }
+
+    private static String displayIngredientName(String ingredientName) {
+        if (ingredientName == null || ingredientName.isBlank()) {
+            return Finding.SUBJECT_UNKNOWN;
+        }
+        return ingredientName.trim();
     }
 }

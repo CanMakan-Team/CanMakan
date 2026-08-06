@@ -29,6 +29,7 @@ record OpenFoodFactsProduct(
         @JsonProperty("ingredients_text") String ingredientsText,
         List<OpenFoodFactsIngredient> ingredients,
         @JsonProperty("labels_tags") List<String> labelTags,
+        @JsonProperty("traces_tags") List<String> tracesTags,
         OpenFoodFactsNutriments nutriments
 ) {
 }

@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.Test;
  *
  * @author YangMaowei
  */
+@DisplayName("UC3: DietaryPreferenceChecker findings")
 class DietaryPreferenceCheckerTest {
 
     @Test
@@ -118,6 +121,25 @@ class DietaryPreferenceCheckerTest {
     }
 
     @Test
+    void meatRootConflictsWithVegetarianAndVegan() {
+        DietaryPreferenceChecker checker = checker(Map.of());
+        Ingredient gelatin = new Ingredient("Mystery Gelatin", null, "MEAT", true);
+        ProductData product = completeProduct(gelatin);
+
+        for (String code : List.of("VEGETARIAN", "VEGAN")) {
+            List<Finding> findings = new ArrayList<>();
+            checker.check(rule(code), product, findings);
+            assertEquals(1, findings.size());
+            assertFinding(
+                    findings.getFirst(),
+                    code,
+                    "Mystery Gelatin",
+                    "Mystery Gelatin conflicts with the " + code + " restriction."
+            );
+        }
+    }
+
+    @Test
     void incompleteIngredientDataAddsFinding() {
         DietaryPreferenceChecker checker = checker(Map.of());
 
@@ -133,7 +155,7 @@ class DietaryPreferenceCheckerTest {
             assertFinding(
                     findings.getFirst(),
                     code,
-                    null,
+                    Finding.SUBJECT_UNKNOWN,
                     "Ingredient data is incomplete for the " + code + " restriction."
             );
         }
@@ -154,7 +176,7 @@ class DietaryPreferenceCheckerTest {
         assertFinding(
                 findings.getFirst(),
                 "VEGAN",
-                null,
+                Finding.SUBJECT_UNKNOWN,
                 "Ingredient data is incomplete for the VEGAN restriction."
         );
     }

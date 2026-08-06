@@ -7,6 +7,7 @@ public record ENumber(
         String eNumber,
         String name,
         String category,
+        String rootAllergen,
         boolean animalDerived
 ) {
 }

@@ -9,6 +9,7 @@ import java.util.Objects;
  * before adaptation into the dietary rule-engine contract.
  *
  * @author YangMaowei
+ * @author Amelia Wong
  */
 public record ProductLookupResult(
         String barcode,
@@ -17,39 +18,67 @@ public record ProductLookupResult(
         List<Ingredient> ingredients,
         String ingredientsText,
         String labelTags,
+        List<String> tracesTags,
         Nutrition nutrition,
         boolean ingredientDataComplete
 ) {
 
-    public ProductLookupResult {
-        Objects.requireNonNull(barcode, "barcode");
+        public ProductLookupResult {
+                Objects.requireNonNull(barcode, "barcode");
 
-        if (barcode.isBlank()) {
-            throw new IllegalArgumentException("barcode must not be blank");
+                if (barcode.isBlank()) {
+                        throw new IllegalArgumentException("barcode must not be blank");
+                }
+
+                ingredients = ingredients == null
+                        ? List.of()
+                        : List.copyOf(ingredients);
+
+                tracesTags = tracesTags == null
+                        ? List.of()
+                        : List.copyOf(tracesTags);
         }
 
-        ingredients = ingredients == null
-                ? List.of()
-                : List.copyOf(ingredients);
-    }
+        public ProductLookupResult(
+                String barcode,
+                List<Ingredient> ingredients,
+                String ingredientsText,
+                String labelTags,
+                Nutrition nutrition,
+                boolean ingredientDataComplete
+        ) {
+                this(
+                        barcode,
+                        null,
+                        null,
+                        ingredients,
+                        ingredientsText,
+                        labelTags,
+                        List.of(),
+                        nutrition,
+                        ingredientDataComplete
+                );
+        }
 
-    public ProductLookupResult(
-            String barcode,
-            List<Ingredient> ingredients,
-            String ingredientsText,
-            String labelTags,
-            Nutrition nutrition,
-            boolean ingredientDataComplete
-    ) {
-        this(
-                barcode,
-                null,
-                null,
-                ingredients,
-                ingredientsText,
-                labelTags,
-                nutrition,
-                ingredientDataComplete
-        );
-    }
+        public ProductLookupResult(
+                String barcode,
+                List<Ingredient> ingredients,
+                String ingredientsText,
+                String labelTags,
+                List<String> tracesTags,
+                Nutrition nutrition,
+                boolean ingredientDataComplete
+        ) {
+                this(
+                        barcode,
+                        null,
+                        null,
+                        ingredients,
+                        ingredientsText,
+                        labelTags,
+                        tracesTags,
+                        nutrition,
+                        ingredientDataComplete
+                );
+        }
 }

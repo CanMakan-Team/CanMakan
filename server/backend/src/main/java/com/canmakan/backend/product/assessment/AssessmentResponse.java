@@ -14,6 +14,8 @@ public record AssessmentResponse(
         String explanation,
         List<Finding> findings,
         ExecutionTier tier,
-        Long scanId
+        Long scanId,
+        String productName,
+        String barcode
 ) {
 }

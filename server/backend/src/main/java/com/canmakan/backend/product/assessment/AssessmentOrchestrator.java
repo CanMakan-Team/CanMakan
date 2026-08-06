@@ -13,6 +13,11 @@ import com.canmakan.backend.product.verdict.DietaryRuleEngine;
 import com.canmakan.backend.product.verdict.ProductData;
 import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -22,11 +27,16 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Coordinates the tiered "scan product barcode -> view scan verdict" flow:
+ * Coordinates the tiered "scan product barcode -> view scan verdict" flow.
+ *
+ * <p>Used by {@code POST /api/scan} on {@link com.canmakan.backend.product.scan.ScanController}.
+ * Product data comes from a <b>single</b> Open Food Facts {@code fetchProduct}
+ * via {@link ProductDataAdapter#lookup}; this path does not call
+ * {@code validateProduct} and does not use EAN-Search.
  *
  * <ol>
  *   <li>load the profile's active restriction rules (from the saved dietary preferences)</li>
- *   <li>build {@link ProductData} for the barcode</li>
+ *   <li>lookup the product once (OFF) and build {@link ProductData}</li>
  *   <li>run the deterministic {@link DietaryRuleEngine} (TIER_1_RULES)</li>
  *   <li>if inconclusive, ask the {@link LlmClient} for <b>evidence</b> (resolved ingredients),
  *       enrich the product data with it, and <b>re-run the engine</b> (TIER_3_LLM)</li>
@@ -39,8 +49,11 @@ import java.util.stream.Collectors;
  * stays unresolved and the engine degrades to WARNING.
  *
  * @author XieHuayuan
+ * @author Amelia
  */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class AssessmentOrchestrator {
 
     /** LLM-resolved allergens below this confidence are treated as unresolved. */
@@ -54,24 +67,12 @@ public class AssessmentOrchestrator {
     private final ScanService scanService;
     private final AiExecutionLogService aiExecutionLogService;
 
-    public AssessmentOrchestrator(ProductDataAdapter productDataAdapter,
-                                  RestrictionRuleLoader ruleLoader,
-                                  DietaryRuleEngine ruleEngine,
-                                  PromptBuilder promptBuilder,
-                                  LlmClient llmClient,
-                                  ScanService scanService,
-                                  AiExecutionLogService aiExecutionLogService) {
-        this.productDataAdapter = productDataAdapter;
-        this.ruleLoader = ruleLoader;
-        this.ruleEngine = ruleEngine;
-        this.promptBuilder = promptBuilder;
-        this.llmClient = llmClient;
-        this.scanService = scanService;
-        this.aiExecutionLogService = aiExecutionLogService;
-    }
-
     /**
      * Assess one product for one profile and persist the outcome.
+     * 
+     * Tier 1: deterministic rule engine (timed for the audit log).
+     * Tier 3: on an inconclusive WARNING, get LLM EVIDENCE, enrich, and re-decide.
+     * If AI is disabled or the provider fails, keep the Tier-1 WARNING result.
      *
      * @param userId  the scanning user (from the auth token)
      * @param request barcode + profileId
@@ -79,10 +80,14 @@ public class AssessmentOrchestrator {
      */
     public AssessmentResponse assess(Long userId, AssessmentRequest request) {
         List<RestrictionRule> rules = ruleLoader.load(request.profileId());
-        ProductData product = productDataAdapter.toProductData(request.barcode());
+        var lookup = productDataAdapter.lookup(request.barcode());
+        ProductData product = productDataAdapter.toProductData(lookup);
 
         // TIER 1: deterministic rule engine (timed for the audit log).
         long start = System.nanoTime();
+
+        // Assess the product using the rule engine which 
+        // assesses the product against the profile's active restrictions.
         SafetyVerdict verdict = ruleEngine.assess(rules, product);
         long ruleLatencyMs = (System.nanoTime() - start) / 1_000_000;
 
@@ -90,28 +95,93 @@ public class AssessmentOrchestrator {
         LlmAssessmentResult llmResult = null;
 
         // TIER 3: on an inconclusive WARNING, get LLM EVIDENCE, enrich, and re-decide.
+        // If AI is disabled or the provider fails, keep the Tier-1 WARNING result.
         if (shouldEscalate(verdict, product)) {
-            String compiledPrompt = promptBuilder.build(product, rules);
-            llmResult = llmClient.assess(compiledPrompt);              // evidence only, no verdict
-            ProductData enriched = enrichWithLlmEvidence(product, llmResult);
-            verdict = ruleEngine.assess(rules, enriched);             // engine re-decides (deterministic)
-            tier = ExecutionTier.TIER_3_LLM;
+            try {
+
+                // A. Build the prompt for the LLM
+                // which is a list of ingredients and their parent allergens.
+                String compiledPrompt = promptBuilder.build(product, rules);
+                llmResult = llmClient.assess(compiledPrompt);          // evidence only, no verdict
+                
+                // B. Enrich the product data with the LLM evidence.
+                ProductData enriched = enrichWithLlmEvidence(product, llmResult);
+                
+                // C. Re-assess the product using the rule engine.
+                verdict = ruleEngine.assess(rules, enriched);         // engine re-decides (deterministic)
+                tier = ExecutionTier.TIER_3_LLM;
+
+            } catch (IllegalStateException | IllegalArgumentException ex) {
+                log.warn(
+                    "Tier-3 escalate skipped for barcode {}; keeping Tier-1 WARNING: {}",
+                    request.barcode(),
+                    ex.getMessage()
+                );
+                llmResult = null;
+                tier = ExecutionTier.TIER_1_RULES;
+            }
         }
 
         // Persist the scan, then the matching execution-log row.
-        Scan scan = scanService.record(userId, request.profileId(), request.barcode(), verdict);
-        if (tier == ExecutionTier.TIER_3_LLM) {
-            aiExecutionLogService.record(scan.getId(), tier, llmResult);
-        } else {
-            aiExecutionLogService.recordRulesOnly(scan.getId(), ruleLatencyMs);
-        }
+        // Persistence failure must not hide a successful verdict from the client.
+        String productName = lookup.productName() == null || lookup.productName().isBlank()
+                ? "Unknown product"
+                : lookup.productName();
+
+        Long scanId = persistScanAndLog(userId, request, verdict, productName, tier, llmResult, ruleLatencyMs);
 
         return new AssessmentResponse(
                 verdict.toScansVerdict(),
                 verdict.explanation(),
                 verdict.findings(),
                 tier,
-                scan.getId());
+                scanId,
+                productName,
+                request.barcode());
+    }
+
+    /**
+     * Best-effort persistence. Returns the saved scan id, or {@code null} when
+     * the DB write fails (verdict is still returned to the caller).
+     */
+    private Long persistScanAndLog(
+            Long userId,
+            AssessmentRequest request,
+            SafetyVerdict verdict,
+            String productName,
+            ExecutionTier tier,
+            LlmAssessmentResult llmResult,
+            long ruleLatencyMs
+    ) {
+        try {
+            Scan scan = scanService.record(
+                    userId, request.profileId(), request.barcode(), verdict, productName);
+            Long scanId = scan == null ? null : scan.getId();
+            if (scanId == null) {
+                return null;
+            }
+            try {
+                if (tier == ExecutionTier.TIER_3_LLM) {
+                    aiExecutionLogService.record(scanId, tier, llmResult);
+                } else {
+                    aiExecutionLogService.recordRulesOnly(scanId, ruleLatencyMs);
+                }
+            } catch (DataAccessException | IllegalArgumentException | IllegalStateException ex) {
+                log.warn(
+                    "Assess verdict OK but AI/execution log persist failed for barcode {}: {}",
+                    request.barcode(),
+                    ex.getMessage()
+                );
+            }
+            return scanId;
+        } catch (DataAccessException | IllegalArgumentException | IllegalStateException ex) {
+            log.warn(
+                "Assess verdict OK but scan persist failed for barcode {}: {}",
+                request.barcode(),
+                ex.getMessage()
+            );
+            return null;
+        }
     }
 
     /**
@@ -138,6 +208,8 @@ public class AssessmentOrchestrator {
             return product;
         }
 
+        // Filter the resolved ingredients to only include those with
+        // a non-null allergen and confidence >= {@link #LLM_CONFIDENCE_THRESHOLD}
         Map<String, String> trusted = llm.resolvedIngredients().stream()
                 .filter(ri -> ri.ingredientName() != null
                         && ri.rootAllergen() != null && !ri.rootAllergen().isBlank()
@@ -146,10 +218,13 @@ public class AssessmentOrchestrator {
                         ri -> ri.ingredientName().toLowerCase(Locale.ROOT),
                         ResolvedIngredient::rootAllergen,
                         (a, b) -> a));
+
+        // If there are no trusted resolved ingredients, return the original product data.
         if (trusted.isEmpty()) {
             return product;
         }
 
+        // Merge the trusted resolved ingredients with the original product data.
         List<Ingredient> merged = new ArrayList<>();
         for (Ingredient ing : product.ingredients()) {
             String key = ing.ingredientName() == null
@@ -163,7 +238,8 @@ public class AssessmentOrchestrator {
             }
         }
 
+        // Return the enriched product data.
         return new ProductData(product.barcode(), merged, product.ingredientsText(),
-                product.labelTags(), product.nutrition(), product.dataComplete());
+            product.labelTags(), product.tracesTags(), product.nutrition(), product.dataComplete());
     }
 }

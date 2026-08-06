@@ -14,9 +14,9 @@ import org.springframework.stereotype.Service;
  * chemical E-number codes (e.g. {@code E471}) that map to seeded chemical-alias rows.
  * Bare E-codes are also handled by {@code e_number_lookup} for richer additive metadata.
  *
- * Contract alignment with {@code DietaryKnowledgeMcpClient}: unresolved lookups keep
- * {@code rootAllergen == null} and passthrough {@code canonicalName} so the client can
- * fall through to allergen-relationship lookup.
+ * <p>Catalog/synonym hits set {@code matched=true} even when {@code rootAllergen} is null
+ * (e.g. Salt). Misses set {@code matched=false} with {@code canonicalName} equal to the
+ * query so the client can fall through to allergen-relationship lookup.
  *
  * @author Amelia Wong
  */
@@ -30,31 +30,28 @@ public class IngredientAliasTool {
         name = "ingredient_alias_lookup",
         description = "Resolve a raw ingredient name to its canonical catalog form and root allergen. "
             + "Accepts exact names, common synonyms, and chemical E-number codes (e.g. E471). "
-            + "Unresolved names return rootAllergen=null with canonicalName equal to the query."
+            + "Unresolved names return matched=false with canonicalName equal to the query."
     )
     public IngredientAliasResult lookup(
-        @ToolParam(description = "Raw ingredient name from a product label") 
+        @ToolParam(description = "Raw ingredient name from a product label")
         String ingredientName
     ) {
         if (ingredientName == null || ingredientName.isBlank()) {
-            return new IngredientAliasResult("", "", null, false);
+            return new IngredientAliasResult("", "", null, false, false);
         }
 
-        // Normalize the ingredient name by trimming
         String query = ingredientName.trim();
 
-        // Find the ingredient alias by normalized name and map the result to IngredientAliasResult
-        // If no result is found, return a default result with the normalized ingredient name and null root allergen
         return repository.findIngredientAlias(query)
                 .map(entry -> new IngredientAliasResult(
                         query,
                         entry.ingredientName(),
                         blankToNull(entry.rootAllergen()),
-                        entry.chemicalAlias()))
-                .orElseGet(() -> new IngredientAliasResult(query, query, null, false));
+                        entry.chemicalAlias(),
+                        true))
+                .orElseGet(() -> new IngredientAliasResult(query, query, null, false, false));
     }
 
-    // Helper method to convert a blank string to null
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
     }

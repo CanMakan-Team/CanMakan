@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,7 +37,7 @@ import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui.DietaryRe
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
 import sg.edu.nus.iss.canmakan.features.product.history.ScanHistoryViewModel
 import sg.edu.nus.iss.canmakan.features.product.history.ui.HistoryScreen
-import sg.edu.nus.iss.canmakan.features.product.model.ProductSampleData
+import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.features.product.scan.ScannerScreen
 import sg.edu.nus.iss.canmakan.features.product.verdict.ProductDetailScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.CreateNewProfileScreen
@@ -48,8 +49,11 @@ private const val ROUTE_PRODUCT_DETAIL = "product_detail"
 private const val ROUTE_CREATE_NEW = "create_new"
 private const val ROUTE_ADD_PROFILE = "add_profile"
 
-// The top-level screen. It wires together the navigation between the
-// three screens, the side drawer, and the edit dietary requirements sheet.
+/* The top-level screen. It wires together the navigation between the
+ * three screens, the side drawer, and the edit dietary requirements sheet.
+ *
+ * author Amelia; Kwok Heng; Khai
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CanMakanNavGraph(
@@ -65,12 +69,13 @@ fun CanMakanNavGraph(
     val profiles by navGraphViewModel.profiles.collectAsStateWithLifecycle()
     val isLoading by navGraphViewModel.isLoading.collectAsStateWithLifecycle()
     val error by navGraphViewModel.error.collectAsStateWithLifecycle()
+    val pendingVerdict by navGraphViewModel.pendingVerdict.collectAsStateWithLifecycle()
 
     val activeProfile = profiles.firstOrNull { it.id == currentProfileId }
         ?: profiles.firstOrNull()
 
+    // If activeProfile is null, show a loading screen while profiles are being fetched
     if (activeProfile == null) {
-        // Show a loading screen while profiles are being fetched
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             if (isLoading) {
                 CircularProgressIndicator()
@@ -91,6 +96,7 @@ fun CanMakanNavGraph(
     fun openDrawer() = scope.launch { drawerState.open() }
     fun closeDrawer() = scope.launch { drawerState.close() }
 
+    // ModalNavigationDrawer is used to open and close the drawer
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -128,14 +134,27 @@ fun CanMakanNavGraph(
             }
         }
     ) {
+        // NavHost is used to switch between the three screens
         NavHost(navController = navController, startDestination = ROUTE_SCANNER) {
             composable(ROUTE_SCANNER) {
                 ScannerScreen(
                     activeProfile = activeProfile,
                     activeRestrictions = activeRestrictions,
+
+                    // Open the drawer when the menu button is clicked
                     onMenuClick = { openDrawer() },
+
+                    // Navigate to the history screen when the history button is clicked
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
-                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) }
+
+                    // Navigate to the history screen when the history button is clicked
+                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+
+                    // Navigate to the product detail screen when a verdict is ready
+                    onVerdictReady = { detail ->
+                        navGraphViewModel.setPendingVerdict(detail)
+                        navController.navigate(ROUTE_PRODUCT_DETAIL)
+                    }
                 )
             }
             composable(ROUTE_HISTORY) {
@@ -150,19 +169,34 @@ fun CanMakanNavGraph(
                     onMenuClick = { openDrawer() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { },
-                    onEntryClick = { navController.navigate(ROUTE_PRODUCT_DETAIL) }
+                    onEntryClick = { entry ->
+                        navGraphViewModel.setPendingVerdict(VerdictDetail.fromHistoryEntry(entry))
+                        navController.navigate(ROUTE_PRODUCT_DETAIL)
+                    }
                 )
             }
             composable(ROUTE_PRODUCT_DETAIL) {
-                ProductDetailScreen(
-                    product = ProductSampleData.scannedProduct,
-                    flags = ProductSampleData.productFlags,
-                    alternatives = ProductSampleData.alternatives,
-                    profileName = activeProfile.profileName,
-                    onBackClick = { navController.popBackStack() },
-                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
-                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) }
-                )
+                val detail = pendingVerdict
+                // If there is no pending verdict, navigate back to the scanner screen
+                if (detail == null) {
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack()
+                    }
+
+                // Otherwise, show the product detail screen with the pending verdict
+                } else {
+                    ProductDetailScreen(
+                        product = detail.product,
+                        verdict = detail.verdict,
+                        flags = detail.flags,
+                        alternatives = detail.alternatives,
+                        profileName = activeProfile.profileName,
+                        explanation = detail.explanation,
+                        onBackClick = { navController.popBackStack() },
+                        onScanClick = { navController.navigate(ROUTE_SCANNER) },
+                        onHistoryClick = { navController.navigate(ROUTE_HISTORY) }
+                    )
+                }
             }
             composable(ROUTE_CREATE_NEW) {
                 CreateNewProfileScreen(
@@ -194,6 +228,7 @@ fun CanMakanNavGraph(
             }
         }
 
+        // ModalBottomSheet is used to open and close the edit dietary requirements sheet
         if (showEditDietarySheet) {
             ModalBottomSheet(
                 onDismissRequest = { showEditDietarySheet = false },

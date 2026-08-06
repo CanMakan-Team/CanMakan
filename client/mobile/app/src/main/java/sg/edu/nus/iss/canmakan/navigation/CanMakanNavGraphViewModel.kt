@@ -12,12 +12,16 @@ import kotlinx.coroutines.withContext
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
+import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import timber.log.Timber
 import javax.inject.Inject
 
-// ViewModel was created for CanMakanNavGraph solely to access ActiveProfileManager
-// Composables cannot access Singleton directly, need to go through ViewModel
+/* ViewModel was created for CanMakanNavGraph solely to access ActiveProfileManager
+ * Composables cannot access Singleton directly, need to go through ViewModel
+ *
+ * author Amelia; Kwok Heng; Khai
+ */
 @HiltViewModel
 class CanMakanNavGraphViewModel @Inject constructor (
     private val activeProfileManager: ActiveProfileManager,
@@ -38,6 +42,9 @@ class CanMakanNavGraphViewModel @Inject constructor (
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    private val _pendingVerdict = MutableStateFlow<VerdictDetail?>(null)
+    val pendingVerdict: StateFlow<VerdictDetail?> = _pendingVerdict.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -102,6 +109,10 @@ class CanMakanNavGraphViewModel @Inject constructor (
 
     fun switchProfile(profileId: Long) {
         activeProfileManager.switchProfile(profileId)
+    }
+
+    fun setPendingVerdict(detail: VerdictDetail) {
+        _pendingVerdict.value = detail
     }
 
     fun refreshRestrictions() {
