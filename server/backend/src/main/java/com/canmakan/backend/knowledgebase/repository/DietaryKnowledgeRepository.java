@@ -83,6 +83,7 @@ public class DietaryKnowledgeRepository {
                         extractLeadingENumber(entity.getIngredientName()).orElse(queryKey),
                         entity.getIngredientName(),
                         entity.getParentAllergen() == null ? "" : entity.getParentAllergen(),
+                        entity.getRootAllergen() == null ? "" : entity.getRootAllergen(),
                         isAnimalDerived(entity)));
     }
 
@@ -308,13 +309,46 @@ public class DietaryKnowledgeRepository {
         registerSynonym("skim milk powder", "Skimmed Milk Powder");
         registerSynonym("skimmed milk powder", "Skimmed Milk Powder");
         registerSynonym("whole milk powder", "Whole Milk Powder");
+        registerSynonym("milk solids", "Milk Solids");
+        registerSynonym("milk solid", "Milk Solids");
+        registerSynonym("milk soild", "Milk Solids"); // common OFF OCR/typo
         registerSynonym("msg", "E621 (Monosodium Glutamate)");
         registerSynonym("monosodium glutamate", "E621 (Monosodium Glutamate)");
+        registerSynonym("contains monosodium glutamate", "E621 (Monosodium Glutamate)");
         registerSynonym("tartrazine", "E102 (Tartrazine)");
         registerSynonym("carrageenan", "E407 (Carrageenan)");
         registerSynonym("lysozyme", "E1105 (Lysozyme from eggs)");
         registerSynonym("oat flour", "Whole Grain Oat Flour");
         registerSynonym("wholegrain oat flour", "Whole Grain Oat Flour");
+        registerSynonym("potato", "Potato Starch / Flakes");
+        registerSynonym("potato starch", "Potato Starch / Flakes");
+        registerSynonym("potato flakes", "Potato Starch / Flakes");
+        registerSynonym("vegetable oil", "Palm Oil");
+        registerSynonym("silicon dioxide", "E551 (Silicon Dioxide / Anticaking Agent)");
+        registerSynonym("e551", "E551 (Silicon Dioxide / Anticaking Agent)");
+
+        // Common OFF tokens that are recognised but not allergen roots.
+        registerKnownLabel("maltodextrin");
+        registerKnownLabel("dextrose");
+        registerKnownLabel("flavouring");
+        registerKnownLabel("flavoring");
+        registerKnownLabel("spice");
+        registerKnownLabel("spices");
+        registerKnownLabel("vegetable");
+        registerKnownLabel("vegetable powder");
+        registerKnownLabel("sodium salt");
+    }
+
+    /** Registers a free-text label as a known non-allergen ingredient (no root). */
+    private void registerKnownLabel(String query) {
+        if (query == null || query.isBlank()) {
+            return;
+        }
+        String trimmed = query.trim();
+        if (ingredientAliases.containsKey(normalize(trimmed))) {
+            return;
+        }
+        registerAlias(trimmed, trimmed, null, false);
     }
 
     private void registerSynonym(String aliasQuery, String canonicalName) {

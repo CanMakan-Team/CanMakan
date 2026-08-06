@@ -22,8 +22,8 @@ import java.util.stream.Collectors;
  *
  * The tool first checks each ingredient against the local database. Ingredients that
  * resolve locally are kept in the response, while unresolved ingredients are sent to
- * the external fallback flow. {@code externalMatches} is always empty for now — Tavily
- * returns prose only; structured parse is future work.
+ * the external fallback flow. Tavily prose is parsed into {@code externalMatches} when
+ * a root allergen code can be extracted.
  */
 @AllArgsConstructor
 @Service
@@ -58,6 +58,8 @@ public class AllergenRelationshipTool {
                 continue;
             }
 
+            // If the allergen relationship is found, add it to the local matches
+            // If the allergen relationship is not found, add it to the unresolved ingredients
             repository.findAllergenRelationship(trimmed)
                 .ifPresentOrElse(localMatches::add, () -> unresolvedIngredients.add(trimmed));
         }
@@ -67,7 +69,12 @@ public class AllergenRelationshipTool {
             ? ""
             : Objects.requireNonNullElse(fallback.searchExternal(unresolvedIngredients), "");
 
-        return new AllergenRelationshipResult(localMatches, unresolvedIngredients, externalSummary, List.of());
+        // Parse the external summary into ingredients
+        List<Ingredient> externalMatches = ExternalAllergenMatchParser.parse(
+            unresolvedIngredients, externalSummary);
+
+        return new AllergenRelationshipResult(
+            localMatches, unresolvedIngredients, externalSummary, externalMatches);
     }
 
     /**
@@ -96,16 +103,27 @@ public class AllergenRelationshipTool {
                 continue;
             }
 
+            // Find the allergen relationship in the local matches or external matches
             Ingredient match = result.localMatches().stream()
-                    .filter(entry -> entry != null && normalize(entry.ingredientName()).equals(normalize(ingredient.ingredientName())))
-                    .findFirst()
-                    .orElse(null);
+                .filter(entry -> entry != null && normalize(entry.ingredientName()).equals(normalize(ingredient.ingredientName())))
+                .findFirst()
+                .orElseGet(() -> result.externalMatches() == null ? null : result.externalMatches().stream()
+                        .filter(entry -> entry != null
+                                && normalize(entry.ingredientName()).equals(normalize(ingredient.ingredientName())))
+                        .findFirst()
+                        .orElse(null));
 
+            // If the allergen relationship is found, add it to the enriched list
+            // If the allergen relationship is not found, add the ingredient to the enriched list
             if (match != null) {
+                String root = match.rootAllergen();
+                if (root != null && "NONE".equalsIgnoreCase(root)) {
+                    root = null;
+                }
                 enriched.add(new Ingredient(
                         ingredient.ingredientName(),
                         match.parentAllergen(),
-                        match.rootAllergen(),
+                        root,
                         ingredient.chemicalAlias()));
             } else {
                 enriched.add(ingredient);

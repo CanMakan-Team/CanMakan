@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -30,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -37,8 +40,10 @@ import androidx.compose.ui.unit.sp
 import sg.edu.nus.iss.canmakan.features.product.model.AlternativeProduct
 import sg.edu.nus.iss.canmakan.features.product.model.Product
 import sg.edu.nus.iss.canmakan.features.product.model.ProductFlag
+import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
+import sg.edu.nus.iss.canmakan.shared.ui.statusAccentColor
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
@@ -46,19 +51,26 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 private enum class DetailTab { FLAGS, ALTERNATIVES }
 
-// Shows the outcome for one scanned product, with two tabs: the flagged
-// reasons behind the verdict, and safer alternatives to try instead.
+/* Shows the outcome for one scanned product, with two tabs: the flagged
+ * reasons behind the verdict, and safer alternatives to try instead.
+ *
+ * authors Amelia; Kwok Heng
+ */
 @Composable
 fun ProductDetailScreen(
     product: Product,
+    verdict: ScanVerdict, // drives icon/color/label
     flags: List<ProductFlag>,
     alternatives: List<AlternativeProduct>,
     profileName: String,
+    explanation: String? = null, // optional explanation for the verdict
     onBackClick: () -> Unit,
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(DetailTab.FLAGS) }
+    val accent = statusAccentColor(verdict)
+    val (icon, label) = verdictPresentation(verdict)
 
     Scaffold(
         bottomBar = {
@@ -83,7 +95,7 @@ fun ProductDetailScreen(
             ) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextSecondary)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Back to history", color = TextSecondary)
+                Text("Back", color = TextSecondary)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -95,22 +107,33 @@ fun ProductDetailScreen(
                     modifier = Modifier
                         .size(65.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(AvoidRed),
+                        .background(accent),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "Avoid", tint = Color.White)
+                    Icon(icon, contentDescription = label, tint = Color.White)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("AVOID", color = AvoidRed, fontWeight = FontWeight.Bold, fontSize = 25.sp)
+                Text(label, color = accent, fontWeight = FontWeight.Bold, fontSize = 25.sp)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    product.name,
+                    product.productName,
                     fontWeight = FontWeight.Bold,
                     fontSize = 30.sp,
                     style = MaterialTheme.typography.titleMedium
                 )
-                Text(product.brand, color = TextSecondary)
+                if (product.brand.isNotBlank()) {
+                    Text(product.brand, color = TextSecondary)
+                }
                 Text(product.barcode, color = TextSecondary)
+                if (!explanation.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        explanation,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -141,6 +164,17 @@ fun ProductDetailScreen(
     }
 }
 
+// Returns the appropriate icon and label based on the verdict
+private fun verdictPresentation(verdict: ScanVerdict): Pair<ImageVector, String> {
+    return when (verdict) {
+        ScanVerdict.SAFE -> Icons.Default.Check to "SAFE"
+        ScanVerdict.WARNING -> Icons.Default.Warning to "WARNING"
+        ScanVerdict.UNSAFE -> Icons.Default.Close to "AVOID"
+    }
+}
+
+// Button to switch between tabs in the detail screen
+// Tabs: Flags & Details, Alternatives
 @Composable
 private fun DetailTabButton(
     label: String,
@@ -160,11 +194,24 @@ private fun DetailTabButton(
     }
 }
 
+// Tab 1: Shows the flags and details for the product
 @Composable
 private fun FlagsAndDetailsTab(flags: List<ProductFlag>, profileName: String) {
     Column {
+
+        // Display a message if there are no flags
+        if (flags.isEmpty()) {
+            Text(
+                "No specific flags for this product.",
+                color = TextSecondary,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        }
+
+        // Display each flag as a separate box
         flags.forEach { flag ->
-            val isAllergen = flag.category == "ALLERGEN"
+            val isAllergen = flag.category.equals("ALLERGEN", ignoreCase = true)
             val background = if (isAllergen) Color(0xFFFBE4E3) else Color(0xFFE3EBF7)
             val labelColor = if (isAllergen) AvoidRed else Color(0xFF2B5FA8)
             Column(
@@ -189,11 +236,22 @@ private fun FlagsAndDetailsTab(flags: List<ProductFlag>, profileName: String) {
     }
 }
 
+// Tab 2: Shows the alternatives for the product
 @Composable
 private fun AlternativesTab(alternatives: List<AlternativeProduct>, profileName: String) {
     Column {
         Text("Safe alternatives for $profileName", color = TextSecondary)
         Spacer(modifier = Modifier.height(8.dp))
+
+        // Display a message if there are no alternatives
+        if (alternatives.isEmpty()) {
+            Text(
+                "No alternatives available yet.",
+                color = TextSecondary
+            )
+        }
+
+        // Display each alternative as a separate box
         alternatives.forEach { alternative ->
             Row(
                 modifier = Modifier

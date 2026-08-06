@@ -31,17 +31,10 @@ import org.springframework.web.client.RestClientResponseException;
  *
  * @author K4i-Z3r
  * @author YangMaowei
+ * @author Amelia Wong
  */
 @Service
 public class BarcodeValidationClient {
-    private static final String DEFAULT_OFF_BASE_URL =
-        "https://world.openfoodfacts.org/api/v3/product/";
-    private static final String DEFAULT_EAN_BASE_URL = "https://api.ean-search.org";
-    private static final long DEFAULT_CONNECT_TIMEOUT_MS = 3_000;
-    private static final long DEFAULT_RESPONSE_TIMEOUT_MS = 5_000;
-    private static final int DEFAULT_RETRY_MAX_ATTEMPTS = 2;
-    private static final long DEFAULT_RETRY_BACKOFF_MS = 250;
-
     private final RestClient offRestClient;
     private final RestClient eanRestClient;
     private final String eanSearchToken;
@@ -52,39 +45,16 @@ public class BarcodeValidationClient {
 
     @Autowired
     public BarcodeValidationClient(
-        @Value("${app.api.open-food-facts.url}") String offApiUrl,
-        @Value("${app.api.ean-search.url}") String eanApiUrl,
-        @Value("${app.api.ean-search.token}") String eanSearchToken,
-        @Value("${app.name:CanMakan}") String appName,
-        @Value("${app.version:1.0}") String appVersion,
-        @Value("${app.contact.email:khairulanwar.kamaruzaman@u.nus.edu}") String contactEmail
-    ) {
-        this(
-            eanSearchToken,
-            appName,
-            appVersion,
-            contactEmail,
-            DEFAULT_OFF_BASE_URL,
-            DEFAULT_EAN_BASE_URL,
-            DEFAULT_CONNECT_TIMEOUT_MS,
-            DEFAULT_RESPONSE_TIMEOUT_MS,
-            DEFAULT_RETRY_MAX_ATTEMPTS,
-            DEFAULT_RETRY_BACKOFF_MS
-        );
-    }
-
-    @Autowired
-    BarcodeValidationClient(
-        @Value("${app.api.ean-search.token}") String eanSearchToken,
+        @Value("${app.api.product.ean-search-token}") String eanSearchToken,
         @Value("${app.name:CanMakan}") String appName,
         @Value("${app.version:1.0}") String appVersion,
         @Value("${app.contact.email:khairulanwar.kamaruzaman@u.nus.edu}") String contactEmail,
-        @Value("${canmakan.product-api.open-food-facts-base-url}") String offBaseUrl,
-        @Value("${canmakan.product-api.ean-search-base-url}") String eanBaseUrl,
-        @Value("${canmakan.product-api.connect-timeout-ms}") long connectTimeoutMs,
-        @Value("${canmakan.product-api.response-timeout-ms}") long responseTimeoutMs,
-        @Value("${canmakan.product-api.retry.max-attempts}") int retryMaxAttempts,
-        @Value("${canmakan.product-api.retry.backoff-ms}") long retryBackoffMs
+        @Value("${app.api.product.open-food-facts-base-url}") String offBaseUrl,
+        @Value("${app.api.product.ean-search-base-url}") String eanBaseUrl,
+        @Value("${app.api.product.connect-timeout-ms}") long connectTimeoutMs,
+        @Value("${app.api.product.response-timeout-ms}") long responseTimeoutMs,
+        @Value("${app.api.product.retry.max-attempts}") int retryMaxAttempts,
+        @Value("${app.api.product.retry.backoff-ms}") long retryBackoffMs
     ) {
         this(
             createOffRestClient(
@@ -159,8 +129,8 @@ public class BarcodeValidationClient {
                     if ("success".equalsIgnoreCase(status) || "1".equals(status)) {
                         JsonNode product = offResponse.get("product");
                         String category = (product != null && product.has("product_type"))
-                                 ? product.get("product_type").asText()
-                                 : "food";
+                                ? product.get("product_type").asText()
+                                : "food";
                         return new ValidationResponse(true, category, "Valid food product found in Open Food Facts.");
                     }
                 }
@@ -189,17 +159,17 @@ public class BarcodeValidationClient {
                     JsonNode item = eanResponse.get(0);
                     
                     if (item.has("error")) {
-                         return new ValidationResponse(false, "Unknown", "Product not found in fallback database.");
+                        return new ValidationResponse(false, "Unknown", "Product not found in fallback database.");
                     }
 
                     String name = item.path("name").asText("").toLowerCase();
                     String category = item.path("categoryName").asText("").toLowerCase();
                     
                     boolean isFood = category.contains("food") ||
-                                     category.contains("grocery") ||
-                                     name.contains("snack") ||
-                                     name.contains("drink") ||
-                                     name.contains("beverage");
+                        category.contains("grocery") ||
+                        name.contains("snack") ||
+                        name.contains("drink") ||
+                        name.contains("beverage");
 
                     if (isFood) {
                         return new ValidationResponse(true, category, "Valid food product found in EAN-Search.");
@@ -331,9 +301,22 @@ public class BarcodeValidationClient {
             ingredients,
             product.ingredientsText(),
             toLabelTags(product.labelTags()),
+            normalizeTracesTags(product.tracesTags()),
             toNutrition(product.nutriments()),
             ingredientDataComplete
         );
+    }
+
+    private static List<String> normalizeTracesTags(List<String> tracesTags) {
+        if (tracesTags == null || tracesTags.isEmpty()) {
+            return List.of();
+        }
+        return tracesTags.stream()
+            .filter(Objects::nonNull)
+            .map(String::trim)
+            .filter(tag -> !tag.isEmpty())
+            .distinct()
+            .toList();
     }
 
     private List<Ingredient> toIngredients(List<OpenFoodFactsIngredient> source) {

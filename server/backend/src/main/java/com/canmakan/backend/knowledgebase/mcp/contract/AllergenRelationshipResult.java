@@ -12,9 +12,8 @@ import java.util.List;
  * fallback in {@code externalSearchSummary} (never {@code null}; use {@code ""} when
  * unavailable).
  *
- * {@code externalMatches} is reserved for a future structured parse of external
- * results and is currently always empty — consumers should rely on
- * {@code externalSearchSummary} for fallback content.
+ * {@code externalMatches} holds structured roots parsed from {@code externalSearchSummary}
+ * when the external fallback returns usable allergen codes.
  *
  * @author XieHuayuan & Amelia
  */

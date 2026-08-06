@@ -3,13 +3,10 @@ package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestrictionSheetUiState
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import timber.log.Timber
@@ -62,18 +59,10 @@ class DietaryRestrictionViewModel @Inject constructor(
         try {
             val allDietaryRestrictions = dietaryRestrictionRepo.getAllDietaryRestrictions()
 
-            val categorized = withContext(Dispatchers.Default) {
-                Triple(
-                    allDietaryRestrictions.filter { it.category == "RELIGIOUS" },
-                    allDietaryRestrictions.filter { it.category == "ALLERGEN" },
-                    allDietaryRestrictions.filter { it.category == "DIET" }
-                )
-            }
-
             _uiState.value = _uiState.value.copy(
-                religiousRestrictions = categorized.first,
-                allergenRestrictions = categorized.second,
-                dietRestrictions = categorized.third
+                religiousRestrictions = allDietaryRestrictions.filter { it.category == "RELIGIOUS" },
+                allergenRestrictions = allDietaryRestrictions.filter { it.category == "ALLERGEN" },
+                dietRestrictions = allDietaryRestrictions.filter { it.category == "DIET" }
             )
         } catch (e: Exception) {
             Timber.e(e, "Error loading all dietary restrictions")

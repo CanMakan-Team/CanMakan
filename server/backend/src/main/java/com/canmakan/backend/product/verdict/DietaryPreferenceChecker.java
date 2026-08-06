@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
  * Applies approved ingredient mappings for vegetarian and vegan preferences.
  *
  * @author YangMaowei
+ * @author Amelia Wong
  */
 @Component
 public final class DietaryPreferenceChecker implements RestrictionChecker {
@@ -42,14 +43,20 @@ public final class DietaryPreferenceChecker implements RestrictionChecker {
         List<Ingredient> ingredients = product.ingredients();
         if (ingredients != null) {
             for (Ingredient ingredient : ingredients) {
-                if (ingredient != null
-                        && restrictionLookup.findApprovedConflictCodes(ingredient.ingredientName())
-                                .contains(rule.code())) {
+                if (ingredient == null) {
+                    continue;
+                }
+                boolean nameConflict = restrictionLookup
+                    .findApprovedConflictCodes(ingredient.ingredientName())
+                    .contains(rule.code());
+                boolean meatRoot = ingredient.rootAllergen() != null
+                    && "MEAT".equalsIgnoreCase(ingredient.rootAllergen().trim());
+                if (nameConflict || meatRoot) {
                     hits.add(new Finding(
-                            rule.code(),
-                            ingredient.ingredientName(),
-                            ingredient.ingredientName() + " conflicts with the "
-                                    + rule.code() + " restriction."
+                        rule.code(),
+                        displayName(ingredient.ingredientName()),
+                        displayName(ingredient.ingredientName()) + " conflicts with the "
+                            + rule.code() + " restriction."
                     ));
                 }
             }
@@ -57,10 +64,17 @@ public final class DietaryPreferenceChecker implements RestrictionChecker {
 
         if (!product.dataComplete() || ingredients == null || ingredients.isEmpty()) {
             hits.add(new Finding(
-                    rule.code(),
-                    null,
-                    "Ingredient data is incomplete for the " + rule.code() + " restriction."
+                rule.code(),
+                Finding.SUBJECT_UNKNOWN,
+                "Ingredient data is incomplete for the " + rule.code() + " restriction."
             ));
         }
+    }
+
+    private static String displayName(String ingredientName) {
+        if (ingredientName == null || ingredientName.isBlank()) {
+            return Finding.SUBJECT_UNKNOWN;
+        }
+        return ingredientName.trim();
     }
 }

@@ -48,8 +48,8 @@ public final class ReligiousChecker implements RestrictionChecker {
                                 .contains(HALAL)) {
                     hits.add(new Finding(
                             HALAL,
-                            ingredient.ingredientName(),
-                            ingredient.ingredientName() + " conflicts with the HALAL restriction."
+                            displayName(ingredient.ingredientName()),
+                            displayName(ingredient.ingredientName()) + " conflicts with the HALAL restriction."
                     ));
                 }
             }
@@ -60,7 +60,7 @@ public final class ReligiousChecker implements RestrictionChecker {
         if (!hasHalalLabel) {
             hits.add(new Finding(
                     HALAL,
-                    null,
+                    Finding.SUBJECT_LABEL,
                     "Halal certification information could not be verified from the available product data."
             ));
         }
@@ -68,9 +68,16 @@ public final class ReligiousChecker implements RestrictionChecker {
         if (!product.dataComplete() || ingredients == null || ingredients.isEmpty()) {
             hits.add(new Finding(
                     HALAL,
-                    null,
+                    Finding.SUBJECT_UNKNOWN,
                     "Ingredient data is incomplete for the HALAL restriction."
             ));
         }
+    }
+
+    private static String displayName(String ingredientName) {
+        if (ingredientName == null || ingredientName.isBlank()) {
+            return Finding.SUBJECT_UNKNOWN;
+        }
+        return ingredientName.trim();
     }
 }

@@ -10,6 +10,8 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
+
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -20,6 +22,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * @author YangMaowei
  */
+@DisplayName("UC3: NutritionChecker findings")
 class NutritionCheckerTest {
 
     private final NutritionChecker checker = new NutritionChecker();
@@ -38,7 +41,7 @@ class NutritionCheckerTest {
         List<Finding> findings = check(code, null);
 
         assertEquals(1, findings.size());
-        assertFindingCodeAndIngredient(findings.getFirst(), code, null);
+        assertFindingCodeAndIngredient(findings.getFirst(), code, Finding.SUBJECT_NUTRITION);
         assertTrue(findings.getFirst().reason().contains(nutrientName));
         assertTrue(findings.getFirst().reason().contains("data is unavailable"));
         assertTrue(findings.getFirst().reason().contains("g per 100 g"));
@@ -50,7 +53,7 @@ class NutritionCheckerTest {
         List<Finding> findings = check(code, nutrition(code, null));
 
         assertEquals(1, findings.size());
-        assertFindingCodeAndIngredient(findings.getFirst(), code, null);
+        assertFindingCodeAndIngredient(findings.getFirst(), code, Finding.SUBJECT_NUTRITION);
         assertTrue(findings.getFirst().reason().contains(nutrientName));
         assertTrue(findings.getFirst().reason().contains("data is unavailable"));
         assertTrue(findings.getFirst().reason().contains("g per 100 g"));
@@ -68,7 +71,7 @@ class NutritionCheckerTest {
         List<Finding> findings = check(code, nutrition(code, new BigDecimal("-0.01")));
 
         assertEquals(1, findings.size());
-        assertFindingCodeAndIngredient(findings.getFirst(), code, null);
+        assertFindingCodeAndIngredient(findings.getFirst(), code, Finding.SUBJECT_NUTRITION);
         assertTrue(findings.getFirst().reason().contains(nutrientName));
         assertTrue(findings.getFirst().reason().contains("-0.01 g per 100 g"));
         assertTrue(findings.getFirst().reason().contains(code));
@@ -99,7 +102,7 @@ class NutritionCheckerTest {
         List<Finding> findings = check(code, nutrition(code, above));
 
         assertEquals(1, findings.size());
-        assertFindingCodeAndIngredient(findings.getFirst(), code, null);
+        assertFindingCodeAndIngredient(findings.getFirst(), code, Finding.SUBJECT_NUTRITION);
         assertEquals(expectedReason, findings.getFirst().reason());
     }
 
@@ -111,7 +114,7 @@ class NutritionCheckerTest {
         );
 
         assertEquals(1, findings.size());
-        assertFindingCodeAndIngredient(findings.getFirst(), "LOW_TRANS_FAT", null);
+        assertFindingCodeAndIngredient(findings.getFirst(), "LOW_TRANS_FAT", Finding.SUBJECT_NUTRITION);
         assertEquals(
                 "Trans fat is 0.001 g per 100 g; the LOW_TRANS_FAT rule requires "
                         + "a confirmed value of 0 g per 100 g.",
@@ -127,7 +130,7 @@ class NutritionCheckerTest {
         );
 
         assertEquals(1, findings.size());
-        assertFindingCodeAndIngredient(findings.getFirst(), "LOW_TRANS_FAT", null);
+        assertFindingCodeAndIngredient(findings.getFirst(), "LOW_TRANS_FAT", Finding.SUBJECT_NUTRITION);
         assertTrue(findings.getFirst().reason().contains("negative values are invalid"));
     }
 

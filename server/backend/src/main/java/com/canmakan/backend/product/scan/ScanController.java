@@ -1,25 +1,60 @@
 package com.canmakan.backend.product.scan;
 
 import com.canmakan.backend.integration.BarcodeValidationClient;
+import com.canmakan.backend.product.assessment.AssessmentOrchestrator;
+import com.canmakan.backend.product.assessment.AssessmentRequest;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
- * ScanController handles API requests related to product barcode scanning and validation.
+ * Product barcode scan APIs.
+ *
+ * <p>{@code POST /api/scan/validate} is the is-food check (OFF + EAN-Search).
+ * {@code POST /api/scan/assess} runs the tiered assessment for a dietary profile.
+ *
+ * @author Khai
+ * @author Amelia
  */
-
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/scan")
 public class ScanController {
+
     private final BarcodeValidationClient validationClient;
-    
-    public ScanController(BarcodeValidationClient validationClient) {
-        this.validationClient = validationClient;
+    private final AssessmentOrchestrator orchestrator;
+
+    /**
+     * Assess a barcode against a dietary profile, persist, and return the verdict.
+     *
+     * <p>{@code profileId} is required in the body (seeded profiles start at {@code 1}).
+     * {@code X-User-Id} may be omitted for local/pre-auth testing.
+     */
+    @PostMapping("/assess")
+    public ResponseEntity<?> scan(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestBody AssessmentRequest request) {
+        if (request == null || request.barcode() == null || request.barcode().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Product Barcode is required"));
+        }
+        if (request.profileId() == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "message",
+                    "Profile ID is required"
+            ));
+        }
+        return ResponseEntity.ok(orchestrator.assess(userId, request));
     }
 
+    /**
+     * Standalone food-item check (OFF, then EAN-Search). Not used by the
+     * combined scan path.
+     */
     @PostMapping("/validate")
     public ResponseEntity<ValidationResponse> validateBarcode(@RequestBody ScanRequest request) {
         ValidationResponse response = validationClient.validateProduct(request.barcode());

@@ -71,7 +71,11 @@ class DietaryRestrictionViewModelTest {
     // Testing the selection of dietary restrictions
     @Test
     @DisplayName("UC1 M2: Allows only one religious restriction to be selected")
-    fun allowsOnlyOneReligiousRestrictionSelection() {
+    fun allowsOnlyOneReligiousRestrictionSelection() = runTest {
+        // Catalog must be loaded so religious IDs are known for mutual exclusion.
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(2, viewModel.uiState.value.religiousRestrictions.size)
+
         viewModel.selectReligiousRestriction(10L)
         viewModel.selectReligiousRestriction(11L)
 

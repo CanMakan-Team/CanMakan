@@ -12,12 +12,16 @@ import kotlinx.coroutines.withContext
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
+import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import timber.log.Timber
 import javax.inject.Inject
 
-// ViewModel was created for CanMakanNavGraph solely to access ActiveProfileManager
-// Composables cannot access Singleton directly, need to go through ViewModel
+/* ViewModel was created for CanMakanNavGraph solely to access ActiveProfileManager
+ * Composables cannot access Singleton directly, need to go through ViewModel
+ *
+ * author Amelia; Kwok Heng; Khai
+ */
 @HiltViewModel
 class CanMakanNavGraphViewModel @Inject constructor (
     private val activeProfileManager: ActiveProfileManager,
@@ -39,46 +43,55 @@ class CanMakanNavGraphViewModel @Inject constructor (
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _pendingVerdict = MutableStateFlow<VerdictDetail?>(null)
+    val pendingVerdict: StateFlow<VerdictDetail?> = _pendingVerdict.asStateFlow()
+
     init {
         viewModelScope.launch {
             currentProfileId.collect { profileId ->
                 _isLoading.value = true
                 _error.value = null
-                
-                // Load restrictions and profiles in parallel to speed up startup
-                val restrictionsJob = launch { loadRestrictions(profileId) }
-                val profilesJob = launch { loadProfilesForFamily(profileId) }
-                
-                restrictionsJob.join()
-                profilesJob.join()
-                
-                _isLoading.value = false
+                try {
+                    loadDataWithRetry(profileId)
+                } finally {
+                    _isLoading.value = false
+                }
             }
         }
+    }
+
+    private suspend fun loadDataWithRetry(profileId: Long) {
+        loadRestrictions(profileId)
+        loadProfilesForFamily(profileId)
     }
 
     private suspend fun loadRestrictions(profileId: Long) {
         try {
             val allRestrictions = dietaryRestrictionRepo.getAllDietaryRestrictions()
             val profileSelections = dietaryRestrictionRepo.getDietaryRestrictionsForProfile(profileId)
-            
+
             val restrictionNames = withContext(Dispatchers.Default) {
                 allRestrictions
                     .filter { profileSelections.containsKey(it.id) }
                     .map { it.displayName }
             }
-            
+
             _activeRestrictions.value = restrictionNames
         } catch (e: Exception) {
             Timber.e(e, "Error loading restrictions for profile $profileId")
-            _error.value = "Unable to connect to the server. Please check your network and try again."
+            val errorMessage = when (e) {
+                is java.net.SocketTimeoutException -> "Connection timed out. Check your firewall settings and server connectivity."
+                is java.net.ConnectException -> "Could not connect to the server. Please verify the backend is running."
+                else -> "Unable to connect to the server. Please check your network and try again."
+            }
+            _error.value = errorMessage
             _activeRestrictions.value = emptyList()
         }
     }
 
     private suspend fun loadProfilesForFamily(profileId: Long) {
+        val familyId = 1L
         try {
-            val familyId = 1L
             val loadedProfiles = familyProfileRepository.getProfilesForFamily(familyId)
             _profiles.value = loadedProfiles
 
@@ -96,6 +109,10 @@ class CanMakanNavGraphViewModel @Inject constructor (
 
     fun switchProfile(profileId: Long) {
         activeProfileManager.switchProfile(profileId)
+    }
+
+    fun setPendingVerdict(detail: VerdictDetail) {
+        _pendingVerdict.value = detail
     }
 
     fun refreshRestrictions() {

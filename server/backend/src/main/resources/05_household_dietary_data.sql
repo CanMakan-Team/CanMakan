@@ -51,7 +51,7 @@ INSERT INTO dietary_profiles (id, family_id, linked_user_id, profile_name, relat
 -- =============================================
 INSERT INTO dietary_restrictions (id, code, display_name, category, description) VALUES
 (1, 'GLUTEN', 'Gluten Free', 'ALLERGEN', 'Strictly avoid wheat, barley, rye, and oat gluten.'),
-(2, 'DAIRY', 'Lactose / Dairy Intolerance', 'ALLERGEN', 'Avoid milk solids, lactose, whey, and dairy fats.'),
+(2, 'DAIRY', 'Lactose Intolerance', 'ALLERGEN', 'Avoid milk solids, lactose, whey, and dairy fats.'),
 (3, 'PEANUT', 'Peanut Allergy', 'ALLERGEN', 'Severe reaction to peanuts and peanut derivatives.'),
 (4, 'SHELLFISH', 'Crustacean & Shellfish Allergy', 'ALLERGEN', 'Avoid crab, shrimp, lobster, and shellfish extracts.'),
 (5, 'FISH', 'Fish Allergy', 'ALLERGEN', 'Avoid bony fish, anchovies, bonito, and fish surimi.'),
@@ -63,7 +63,8 @@ INSERT INTO dietary_restrictions (id, code, display_name, category, description)
 (11,'LOW_SUGAR', 'Low Sugar', 'DIET', 'Checks sugar per 100 g'),
 (12, 'LOW_FAT', 'Low Fat', 'DIET', 'Checks total fat per 100 g'),
 (13, 'LOW_TRANS_FAT', 'Low Trans Fat', 'DIET', 'Checks trans fat per 100 g'),
-(14, 'LOW_SODIUM', 'Low Sodium', 'DIET', 'Checks sodium per 100 g') ;
+(14, 'LOW_SODIUM', 'Low Sodium', 'DIET', 'Checks sodium per 100 g'),
+(15, 'HINDU', 'Hindu Diet', 'RELIGIOUS', 'Does not consume beef') ;
 
 -- =============================================
 -- PROFILE RESTRICTIONS (Junction Table)

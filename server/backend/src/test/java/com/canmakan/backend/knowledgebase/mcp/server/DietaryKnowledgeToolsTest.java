@@ -33,6 +33,12 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/*
+ * Unit tests for repository functions on Knowledge Base
+ * 
+ * @author Amelia
+ */
+@DisplayName("UC3: DietaryKnowledgeTools - Repository functions on Knowledge Base")
 class DietaryKnowledgeToolsTest {
 
     /** Seed rows aligned with {@code 05_household_dietary_data.sql}. */
@@ -108,6 +114,7 @@ class DietaryKnowledgeToolsTest {
         assertThat(result.canonicalName()).isEqualTo("milk powder");
         assertThat(result.rootAllergen()).isEqualTo("DAIRY");
         assertThat(result.chemicalAlias()).isFalse();
+        assertThat(result.matched()).isTrue();
     }
 
     @Test
@@ -119,6 +126,7 @@ class DietaryKnowledgeToolsTest {
         assertThat(result.canonicalName()).isEmpty();
         assertThat(result.rootAllergen()).isNull();
         assertThat(result.chemicalAlias()).isFalse();
+        assertThat(result.matched()).isFalse();
     }
 
     @Test
@@ -130,6 +138,7 @@ class DietaryKnowledgeToolsTest {
         assertThat(result.canonicalName()).isEqualTo("mystery powder");
         assertThat(result.rootAllergen()).isNull();
         assertThat(result.chemicalAlias()).isFalse();
+        assertThat(result.matched()).isFalse();
     }
 
     @Test
@@ -191,6 +200,7 @@ class DietaryKnowledgeToolsTest {
         assertThat(result.eNumber()).isEqualTo("E471");
         assertThat(result.name()).contains("Diglycerides");
         assertThat(result.category()).isEqualTo("Emulsifiers");
+        assertThat(result.rootAllergen()).isEqualTo("ADDITIVE");
         assertThat(result.animalDerived()).isFalse();
     }
 
@@ -242,6 +252,7 @@ class DietaryKnowledgeToolsTest {
         assertThat(result.eNumber()).isEqualTo("E1105");
         assertThat(result.name()).contains("Lysozyme");
         assertThat(result.category()).isEqualTo("Egg Derivatives");
+        assertThat(result.rootAllergen()).isEqualTo("EGG");
         assertThat(result.animalDerived()).isTrue();
     }
 
@@ -421,7 +432,7 @@ class DietaryKnowledgeToolsTest {
         ExchangeFunction exchangeFunction = request -> Mono.just(
                 ClientResponse.create(HttpStatus.OK)
                     .header("Content-Type", "application/json")
-                    .body("{\"answer\":\"Inulin is typically a FIBER allergen family.\",\"results\":[]}")
+                    .body("{\"answer\":\"Inulin -> NONE\",\"results\":[]}")
                     .build());
 
         WebClient.Builder builder = WebClient.builder().exchangeFunction(exchangeFunction);
@@ -432,7 +443,29 @@ class DietaryKnowledgeToolsTest {
 
         String summary = fallback.searchExternal(List.of("inulin"));
 
-        assertThat(summary).contains("FIBER");
+        assertThat(summary).contains("Inulin -> NONE");
+    }
+
+    @Test
+    @DisplayName("UC3 BE10b: Unresolved Tavily answer is parsed into externalMatches")
+    void unresolvedTavilyAnswerIsParsedIntoExternalMatches() {
+        AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
+                null,
+                "local-dev-placeholder",
+                "https://api.tavily.com/search") {
+            @Override
+            public String searchExternal(List<String> ingredients) {
+                return "Casein -> DAIRY\nMystery Fiber -> NONE";
+            }
+        };
+        AllergenRelationshipTool tool = new AllergenRelationshipTool(repository, fallback);
+
+        AllergenRelationshipResult result = tool.lookup(List.of("Casein", "Mystery Fiber"));
+
+        assertThat(result.unresolvedIngredients()).containsExactly("Casein", "Mystery Fiber");
+        assertThat(result.externalMatches()).hasSize(2);
+        assertThat(result.externalMatches().get(0).rootAllergen()).isEqualTo("DAIRY");
+        assertThat(result.externalMatches().get(1).rootAllergen()).isEqualTo("NONE");
     }
 
     @Test
