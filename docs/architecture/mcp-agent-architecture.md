@@ -22,10 +22,12 @@ Tools are **in-process Spring beans** (not a remote MCP protocol client).
 ## End-to-end flow
 
 1. Mobile: `POST /api/scan/validate` then `POST /api/scan/assess`
-2. Load profile restriction rules + Open Food Facts product snapshot
-3. **Tier 1:** dietary-rule filter → resolve ingredients → restriction checkers → cross-contamination
-4. If WARNING and AI enabled: **Tier 3 agent** → evidence JSON → enrich product → engine re-assess
-5. Persist scan (+ AI log when Tier 3) → return `AssessmentResponse` to mobile
+2. Load profile restriction rules + Open Food Facts product snapshot (`ProductDataAdapter`; assess does **not** call validate/EAN-Search)
+3. **Tier 1:** dietary-rule filter → resolve ingredients → restriction checkers → cross-contamination (`traces_tags` included)
+4. Escalate only when Tier-1 verdict is **WARNING** and product `dataComplete` is true
+5. If escalating and AI enabled: **Tier 3 agent** → evidence JSON → enrich (confidence ≥ 0.7) → engine re-assess → `TIER_3_LLM`
+6. If AI disabled / provider failure / invalid evidence: keep Tier-1 WARNING, `TIER_1_RULES`
+7. Best-effort persist scan (+ AI/rules execution log) → return `AssessmentResponse` (verdict still returned if DB write fails; `scanId` may be null)
 
 ```mermaid
 flowchart TB
@@ -42,12 +44,13 @@ flowchart TB
     LoadRules[RestrictionRuleLoader]
     OffLookup[ProductDataAdapter / OFF]
     Tier1[Tier 1 DietaryRuleEngine]
-    Escalate{WARNING and escalatable?}
+    Escalate{WARNING and dataComplete?}
     Prompt[PromptBuilder v4]
     Agent[LlmClient ChatClient agent]
-    Enrich[enrichWithLlmEvidence]
+    AgentOk{Evidence OK?}
+    Enrich[enrichWithLlmEvidence confidence ge 0.7]
     Tier3[Tier 3 DietaryRuleEngine re-assess]
-    Persist[ScanService + AiExecutionLog]
+    Persist[ScanService + AiExecutionLog best-effort]
   end
 
   subgraph knowledge [knowledgebase/mcp]
@@ -62,7 +65,7 @@ flowchart TB
   end
 
   subgraph ai [ai/llm]
-    ChatCfg[LlmChatClientConfig defaultTools]
+    ChatCfg[LlmChatClientConfig system + defaultTools]
     ChatModel[Spring AI ChatModel]
   end
 
@@ -87,8 +90,8 @@ flowchart TB
   Cross --> Repo
 
   Tier1 --> Escalate
-  Escalate -->|no| Persist
-  Escalate -->|yes AI enabled| Prompt
+  Escalate -->|no SAFE or UNSAFE or incomplete| Persist
+  Escalate -->|yes| Prompt
   Prompt --> Agent
   Agent --> ChatCfg
   ChatCfg --> ChatModel
@@ -97,11 +100,60 @@ flowchart TB
   ChatCfg --> ENum
   ChatCfg --> DietRule
   ChatCfg --> Cross
-  Agent -->|evidence JSON only| Enrich
+  Agent --> AgentOk
+  AgentOk -->|no keep Tier-1 WARNING| Persist
+  AgentOk -->|yes evidence JSON| Enrich
   Enrich --> Tier3
   Tier3 --> Persist
   Persist --> Mobile
 ```
+
+---
+
+## Escalation policy
+
+| Tier-1 outcome | Escalates to Tier 3? |
+|----------------|----------------------|
+| SAFE | No |
+| UNSAFE | No |
+| WARNING + `dataComplete` | Yes (if AI enabled and agent succeeds) |
+| WARNING + incomplete / missing ingredients | No (`shouldEscalate` requires `dataComplete`) |
+
+AI off or agent failure → response stays **WARNING** with `"tier": "TIER_1_RULES"`.
+
+Trusted LLM roots only when `confidence >= 0.7` and `rootAllergen` is non-blank; otherwise the ingredient stays unresolved for the engine re-assess.
+
+---
+
+## Tier 3 agent internals
+
+```mermaid
+flowchart TB
+  Sys[defaultSystem: final message must be evidence JSON]
+  Prompt[PromptBuilder v4 user prompt]
+  Loop[ChatClient tool loop same five tools]
+  Blank{Final text blank?}
+  Retry[One retry with FINAL_OUTPUT_REQUIRED suffix]
+  Parse[entity EvidencePayload else JSON parse]
+  Out[LlmAssessmentResult]
+
+  Sys --> Loop
+  Prompt --> Loop
+  Loop --> Blank
+  Blank -->|yes| Retry
+  Retry --> Parse
+  Blank -->|no| Parse
+  Parse --> Out
+```
+
+| Piece | Behavior |
+|-------|----------|
+| `LlmChatClientConfig` | `defaultSystem` (must end with JSON text, no verdict) + `defaultTools` (five knowledge tools) |
+| `PromptBuilder` | `canmakan-evidence-v4`: tool-use rules, `tracesTags`, `FINAL_OUTPUT` (no tool-only empty turn) |
+| `LlmClient` | Tool loop → if blank content, log diagnostics and **retry once** → prefer `ChatClient.entity(EvidencePayload)` → fall back to manual JSON parse |
+| Failure modes | AI disabled; provider error; blank after retry; invalid JSON / schema → orchestrator keeps Tier-1 WARNING |
+
+`canmakan.ai.agent.max-tool-iterations` exists in `application.properties` as a soft-limit contract note; the live agent currently relies on Spring AI’s default tool-calling loop (plus the blank-content retry above).
 
 ---
 
@@ -110,7 +162,7 @@ flowchart TB
 | Package | Owns |
 |---------|------|
 | `knowledgebase` / `knowledgebase/mcp` | Ingredient aliases, E-numbers, allergen hierarchy, dietary rules, cross-contam tools + client |
-| `ai` / `ai/llm` | Prompt building, ChatClient tool agent, LLM parse/audit |
+| `ai` / `ai/llm` | Prompt building, ChatClient tool agent, structured evidence parse/audit |
 | `product` | Scan/assess orchestration, verdict engine, persistence |
 
 MCP lives under **knowledgebase** because the tools expose domain knowledge, not AI plumbing.
@@ -152,7 +204,7 @@ flowchart LR
 | Path | How tools run |
 |------|----------------|
 | Tier 1 | Fixed pipeline via `DietaryKnowledgeMcpClient` |
-| Tier 3 | LLM tool loop via `ChatClient.defaultTools(...)` |
+| Tier 3 | LLM tool loop via `ChatClient.defaultSystem(...)` + `defaultTools(...)` |
 
 ---
 
@@ -160,15 +212,25 @@ flowchart LR
 
 | Component | Responsibility |
 |-----------|----------------|
-| LLM agent | Evidence only: `resolvedIngredients`, `analysisNotes` |
+| LLM agent | Evidence only: `resolvedIngredients`, `analysisNotes` (`EvidencePayload`) |
 | `DietaryRuleEngine` | Final SAFE / WARNING / UNSAFE + findings |
 | Mobile | Displays API verdict / flags |
 
-Prompt explicitly forbids outputting SAFE, WARNING, or UNSAFE.
+Prompt and system message explicitly forbid outputting SAFE, WARNING, or UNSAFE.
+
+---
+
+## Persistence resilience
+
+- `ScanService.record` upserts a minimal `products` row when the barcode is OFF-only (FK for `scans.barcode`).
+- Scan / AI-log DB failures are caught: the API still returns the verdict; `scanId` may be `null`.
+- Tier-3 success writes the AI execution log; Tier-1 (including failed escalate) writes rules-only latency when a scan id exists.
 
 ---
 
 ## Enable Tier 3 locally
+
+Set env vars in the **same shell** that starts Spring Boot (a JVM already running will not pick them up):
 
 ```powershell
 $env:OPENAI_API_KEY = "sk-your-real-key"
@@ -190,19 +252,23 @@ Smoke assess (backend running + seeded DB):
 .\scripts\smoke-assess.ps1
 ```
 
+On escalate failure the backend logs `Tier-3 escalate skipped ...` (and `LlmClient` may log blank-content diagnostics / truncated raw JSON).
+
 ---
 
 ## Key source files
 
 | File | Role |
 |------|------|
-| `product/assessment/AssessmentOrchestrator.java` | Tier 1 → escalate → Tier 3 |
+| `product/assessment/AssessmentOrchestrator.java` | Tier 1 → escalate → enrich → Tier 3; soft persist |
 | `product/verdict/DietaryRuleEngine.java` | Verdict authority |
+| `product/scan/ScanService.java` | Scan persist + product upsert for OFF-only barcodes |
 | `knowledgebase/mcp/DietaryKnowledgeMcpClient.java` | Tier 1 tool orchestration |
 | `knowledgebase/mcp/server/*Tool.java` | Five `@Tool` beans |
-| `ai/llm/LlmChatClientConfig.java` | ChatClient + tools |
-| `ai/llm/LlmClient.java` | Agent call + evidence parse |
-| `ai/llm/PromptBuilder.java` | Evidence prompt v3 + tool-use instructions |
+| `ai/llm/LlmChatClientConfig.java` | ChatClient system prompt + defaultTools |
+| `ai/llm/LlmClient.java` | Tool agent, blank retry, entity/JSON evidence parse |
+| `ai/llm/EvidencePayload.java` | Structured evidence DTO |
+| `ai/llm/PromptBuilder.java` | Evidence prompt v4 + tool-use + FINAL_OUTPUT |
 
 ---
 
