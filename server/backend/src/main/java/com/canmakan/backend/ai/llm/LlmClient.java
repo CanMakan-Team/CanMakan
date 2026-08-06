@@ -6,46 +6,51 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.Usage;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * Thin wrapper over Spring AI's {@link ChatModel}. It parses evidence-oriented
- * ingredient resolution output and captures provider metadata for the audit log.
+ * Tool-calling evidence agent over Spring AI {@link ChatClient}.
+ * The model may invoke dietary knowledge tools mid-reasoning; the final text
+ * must still be evidence JSON only (no SAFE/WARNING/UNSAFE verdict).
  *
  * @author XieHuayuan
  * @author YangMaowei
+ * @author Amelia
  */
 @Service
 public class LlmClient {
 
-    private final ChatModel chatModel;
+    private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
     private final boolean enabled;
 
     @Autowired
     public LlmClient(
-            ChatModel chatModel,
+            @Qualifier("dietaryEvidenceChatClient")
+            ChatClient dietaryEvidenceChatClient,
             @Value("${canmakan.ai.enabled:false}") boolean enabled
     ) {
-        this(chatModel, new ObjectMapper(), enabled);
+        this(dietaryEvidenceChatClient, new ObjectMapper(), enabled);
     }
 
-    LlmClient(ChatModel chatModel, ObjectMapper objectMapper, boolean enabled) {
-        this.chatModel = Objects.requireNonNull(chatModel, "chatModel");
+    /**
+     * Package-visible constructor for unit tests.
+     */
+    LlmClient(ChatClient chatClient, ObjectMapper objectMapper, boolean enabled) {
+        this.chatClient = Objects.requireNonNull(chatClient, "chatClient");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.enabled = enabled;
     }
 
     /**
-     * Run one LLM assessment.
+     * Run one LLM assessment with autonomous tool use.
      *
      * @param compiledPrompt the prompt built by {@link PromptBuilder}
      * @return structured ingredient evidence plus usage metadata
@@ -61,45 +66,38 @@ public class LlmClient {
 
         long startedAt = System.nanoTime();
         ChatResponse response;
+        String rawResponse;
         try {
-            response = chatModel.call(new Prompt(compiledPrompt));
+            var call = chatClient.prompt()
+                    .user(compiledPrompt)
+                    .call();
+            response = call.chatResponse();
+            rawResponse = call.content();
         } catch (RuntimeException exception) {
             throw new IllegalStateException("AI provider request failed.");
         }
 
-        String rawResponse = responseText(response);
+        if (rawResponse == null || rawResponse.isBlank()) {
+            throw invalidProviderOutput();
+        }
+
         List<ResolvedIngredient> resolvedIngredients = parseResolvedIngredients(rawResponse);
         String analysisNotes = parseAnalysisNotes(rawResponse);
         long latencyMs = (System.nanoTime() - startedAt) / 1_000_000;
 
-        ChatResponseMetadata metadata = response.getMetadata();
+        ChatResponseMetadata metadata = response == null ? null : response.getMetadata();
         Usage usage = metadata == null ? null : metadata.getUsage();
 
         return new LlmAssessmentResult(
-                resolvedIngredients,
-                analysisNotes,
-                metadata == null ? null : blankToNull(metadata.getModel()),
-                usage == null ? null : usage.getPromptTokens(),
-                usage == null ? null : usage.getCompletionTokens(),
-                latencyMs,
-                compiledPrompt,
-                rawResponse
+            resolvedIngredients,
+            analysisNotes,
+            metadata == null ? null : blankToNull(metadata.getModel()),
+            usage == null ? null : usage.getPromptTokens(),
+            usage == null ? null : usage.getCompletionTokens(),
+            latencyMs,
+            compiledPrompt,
+            rawResponse
         );
-    }
-
-    private String responseText(ChatResponse response) {
-        if (response == null) {
-            throw invalidProviderOutput();
-        }
-        Generation generation = response.getResult();
-        if (generation == null || generation.getOutput() == null) {
-            throw invalidProviderOutput();
-        }
-        String text = generation.getOutput().getText();
-        if (text == null || text.isBlank()) {
-            throw invalidProviderOutput();
-        }
-        return text;
     }
 
     private List<ResolvedIngredient> parseResolvedIngredients(String rawResponse) {
@@ -135,9 +133,9 @@ public class LlmClient {
 
             try {
                 resolvedIngredients.add(new ResolvedIngredient(
-                        nameNode.textValue(),
-                        rootAllergen,
-                        confidenceNode.doubleValue()
+                    nameNode.textValue(),
+                    rootAllergen,
+                    confidenceNode.doubleValue()
                 ));
             } catch (IllegalArgumentException | NullPointerException exception) {
                 throw invalidProviderOutput();
@@ -159,7 +157,16 @@ public class LlmClient {
 
     private JsonNode parseRoot(String rawResponse) {
         try {
-            JsonNode root = objectMapper.readTree(rawResponse);
+            // Models sometimes wrap JSON in markdown fences; strip a simple fence if present.
+            String trimmed = rawResponse.trim();
+            if (trimmed.startsWith("```")) {
+                int firstNl = trimmed.indexOf('\n');
+                int lastFence = trimmed.lastIndexOf("```");
+                if (firstNl > 0 && lastFence > firstNl) {
+                    trimmed = trimmed.substring(firstNl + 1, lastFence).trim();
+                }
+            }
+            JsonNode root = objectMapper.readTree(trimmed);
             if (root == null || !root.isObject()) {
                 throw invalidProviderOutput();
             }
@@ -170,7 +177,7 @@ public class LlmClient {
     }
 
     private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value;
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private IllegalArgumentException invalidProviderOutput() {

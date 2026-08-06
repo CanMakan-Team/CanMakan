@@ -97,14 +97,27 @@ Optional env vars (only needed when exercising those features):
 | `MYSQL_USERNAME` | `root` | DB user |
 | `MYSQL_PASSWORD` | _(empty)_ | DB password |
 | `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_DB` | `localhost` / `3306` / `canmakan` | DB connection |
-| `OPENAI_API_KEY` | `local-dev-placeholder` | Real AI calls |
+| `OPENAI_API_KEY` | `local-dev-placeholder` | Real AI / Tier-3 tool agent |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Chat model |
+| `CANMAKAN_AI_ENABLED` | `false` | Enable Tier-3 LLM tool agent on WARNING escalate |
 | `TAVILY_API_KEY` | `local-dev-placeholder` | External allergen fallback |
 | `EAN_SEARCH_API_KEY` | `demo_token` | EAN Search API |
 
 With placeholder API keys the app starts; OpenAI/Tavily features stay inactive until real keys are set.
 
 The application listens on port 8080.
+
+### Enable Tier-3 LLM tool agent
+
+On WARNING escalation, assess can call a ChatClient agent that autonomously uses the five dietary knowledge tools, then the rule engine still decides the verdict.
+
+```powershell
+$env:OPENAI_API_KEY = "sk-your-real-key"
+$env:CANMAKAN_AI_ENABLED = "true"
+.\mvnw.cmd spring-boot:run
+```
+
+Default `CANMAKAN_AI_ENABLED=false` keeps assess on Tier-1 rules only. Do not commit real API keys.
 
 ### Enable Tavily (external allergen fallback)
 
