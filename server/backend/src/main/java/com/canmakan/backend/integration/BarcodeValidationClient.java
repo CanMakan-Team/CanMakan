@@ -35,11 +35,6 @@ import org.springframework.web.client.RestClientResponseException;
  */
 @Service
 public class BarcodeValidationClient {
-    private static final long DEFAULT_CONNECT_TIMEOUT_MS = 3_000;
-    private static final long DEFAULT_RESPONSE_TIMEOUT_MS = 5_000;
-    private static final int DEFAULT_RETRY_MAX_ATTEMPTS = 2;
-    private static final long DEFAULT_RETRY_BACKOFF_MS = 250;
-
     private final RestClient offRestClient;
     private final RestClient eanRestClient;
     private final String eanSearchToken;
@@ -48,40 +43,18 @@ public class BarcodeValidationClient {
     private final long retryBackoffMs;
     private final RetrySleeper retrySleeper;
 
-    public BarcodeValidationClient(
-        @Value("${app.api.open-food-facts.url}") String offApiUrl,
-        @Value("${app.api.ean-search.url}") String eanApiUrl,
-        @Value("${app.api.ean-search.token}") String eanSearchToken,
-        @Value("${app.name:CanMakan}") String appName,
-        @Value("${app.version:1.0}") String appVersion,
-        @Value("${app.contact.email:khairulanwar.kamaruzaman@u.nus.edu}") String contactEmail
-    ) {
-        this(
-            eanSearchToken,
-            appName,
-            appVersion,
-            contactEmail,
-            offApiUrl,
-            eanApiUrl,
-            DEFAULT_CONNECT_TIMEOUT_MS,
-            DEFAULT_RESPONSE_TIMEOUT_MS,
-            DEFAULT_RETRY_MAX_ATTEMPTS,
-            DEFAULT_RETRY_BACKOFF_MS
-        );
-    }
-
     @Autowired
-    BarcodeValidationClient(
-        @Value("${app.api.ean-search.token}") String eanSearchToken,
+    public BarcodeValidationClient(
+        @Value("${app.api.product.ean-search-token}") String eanSearchToken,
         @Value("${app.name:CanMakan}") String appName,
         @Value("${app.version:1.0}") String appVersion,
         @Value("${app.contact.email:khairulanwar.kamaruzaman@u.nus.edu}") String contactEmail,
-        @Value("${canmakan.product-api.open-food-facts-base-url}") String offBaseUrl,
-        @Value("${canmakan.product-api.ean-search-base-url}") String eanBaseUrl,
-        @Value("${canmakan.product-api.connect-timeout-ms}") long connectTimeoutMs,
-        @Value("${canmakan.product-api.response-timeout-ms}") long responseTimeoutMs,
-        @Value("${canmakan.product-api.retry.max-attempts}") int retryMaxAttempts,
-        @Value("${canmakan.product-api.retry.backoff-ms}") long retryBackoffMs
+        @Value("${app.api.product.open-food-facts-base-url}") String offBaseUrl,
+        @Value("${app.api.product.ean-search-base-url}") String eanBaseUrl,
+        @Value("${app.api.product.connect-timeout-ms}") long connectTimeoutMs,
+        @Value("${app.api.product.response-timeout-ms}") long responseTimeoutMs,
+        @Value("${app.api.product.retry.max-attempts}") int retryMaxAttempts,
+        @Value("${app.api.product.retry.backoff-ms}") long retryBackoffMs
     ) {
         this(
             createOffRestClient(

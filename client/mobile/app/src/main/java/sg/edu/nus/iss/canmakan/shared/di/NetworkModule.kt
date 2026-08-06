@@ -45,24 +45,37 @@ object NetworkModule {
                         "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
                     )
                     .build()
-                
-                var response = chain.proceed(request)
+
+                var response: okhttp3.Response? = null
                 var tryCount = 0
-                val maxLimit = 3
-                
-                while (!response.isSuccessful && tryCount < maxLimit) {
-                    tryCount++
-                    response.close()
-                    // Linear backoff: wait 2s, 4s, 6s
-                    Thread.sleep(2000L * tryCount)
-                    response = chain.proceed(request)
+                val maxLimit = 2 // Total 3 attempts
+                var lastException: java.io.IOException? = null
+
+                while (tryCount <= maxLimit) {
+                    try {
+                        response?.close()
+                        response = chain.proceed(request)
+                        if (response.isSuccessful) return@addInterceptor response
+                    } catch (e: java.io.IOException) {
+                        lastException = e
+                        Timber.tag("NetworkModule").w("Request failed (attempt ${tryCount + 1}): ${e.message}")
+                    }
+
+                    if (tryCount < maxLimit) {
+                        tryCount++
+                        // Backoff: 1s, 2s
+                        Thread.sleep(1000L * tryCount)
+                    } else {
+                        break
+                    }
                 }
-                response
+
+                response ?: throw lastException ?: java.io.IOException("Network request failed after retries")
             }
             .addInterceptor(loggingInterceptor)
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
             .build()
     }
 
