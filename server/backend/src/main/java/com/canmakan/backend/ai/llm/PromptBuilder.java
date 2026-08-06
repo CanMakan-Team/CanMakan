@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class PromptBuilder {
 
-    private static final String PROMPT_VERSION = "canmakan-evidence-v3";
+    private static final String PROMPT_VERSION = "canmakan-evidence-v4";
     private static final String MISSING = "MISSING_OR_UNKNOWN";
 
     /**
@@ -54,8 +54,9 @@ public class PromptBuilder {
             .append("  - dietary_rule_lookup — when unsure what an active restriction code means\n")
             .append("  - cross_contamination_analysis — on ingredientsText and/or traces tags ")
             .append("when may-contain / facility phrases or traces are present\n")
-            .append("- After tool results, return only the evidence JSON schema below.\n");
-        
+            .append("- After tool results, you MUST send a final assistant message with text.\n")
+            .append("- Never finish the turn with tool calls only and an empty text body.\n");
+
         // Evidence rules
         prompt.append("EVIDENCE_RULES:\n")
             .append("- Do not fabricate evidence.\n")
@@ -91,7 +92,12 @@ public class PromptBuilder {
         prompt.append("OUTPUT_SCHEMA:\n")
             .append("{\"resolvedIngredients\":[{\"ingredientName\":\"string\",")
             .append("\"rootAllergen\":\"string|null\",\"confidence\":0.0}],")
-            .append("\"analysisNotes\":\"string\"}\n")
+            .append("\"analysisNotes\":\"string\"}\n");
+
+        prompt.append("FINAL_OUTPUT:\n")
+            .append("- Your last assistant message must be ONLY the evidence JSON object above.\n")
+            .append("- No markdown fences, no commentary, no verdict fields.\n")
+            .append("- If tools were used, still end with that JSON text message.\n")
             .append("Return only this evidence object; deterministic orchestration creates findings.");
 
         return prompt.toString();

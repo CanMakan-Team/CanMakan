@@ -43,7 +43,7 @@ flowchart TB
     OffLookup[ProductDataAdapter / OFF]
     Tier1[Tier 1 DietaryRuleEngine]
     Escalate{WARNING and escalatable?}
-    Prompt[PromptBuilder v3]
+    Prompt[PromptBuilder v4]
     Agent[LlmClient ChatClient agent]
     Enrich[enrichWithLlmEvidence]
     Tier3[Tier 3 DietaryRuleEngine re-assess]

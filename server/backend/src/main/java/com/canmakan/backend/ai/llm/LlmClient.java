@@ -6,10 +6,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,8 +28,24 @@ import org.springframework.stereotype.Service;
  * @author YangMaowei
  * @author Amelia
  */
+@Slf4j
 @Service
 public class LlmClient {
+
+    /** Cap logged raw body length so a huge model reply does not flood the console. */
+    private static final int RAW_LOG_MAX_CHARS = 4000;
+
+    /**
+     * One extra turn when the tool loop ends with blank text — asks for the
+     * evidence JSON without dropping tool registration on the ChatClient.
+     */
+    private static final String BLANK_CONTENT_RETRY_SUFFIX = """
+
+        FINAL_OUTPUT_REQUIRED:
+        Your previous assistant turn had no text body (tool calls only or empty).
+        Emit exactly one final assistant message that is ONLY the evidence JSON object
+        from OUTPUT_SCHEMA (resolvedIngredients + analysisNotes). No markdown, no prose.
+        """;
 
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
@@ -65,52 +85,104 @@ public class LlmClient {
         }
 
         long startedAt = System.nanoTime();
-        ChatResponse response;
-        String rawResponse;
-        try {
-            var call = chatClient.prompt()
-                    .user(compiledPrompt)
-                    .call();
-            response = call.chatResponse();
-            rawResponse = call.content();
-        } catch (RuntimeException exception) {
-            throw new IllegalStateException(
-                "AI provider request failed: " + exception.getMessage(),
-                exception
-            );
+        ProviderTurn turn = callProvider(compiledPrompt);
+
+        if (isBlank(turn.rawContent())) {
+            logBlankDiagnostics(turn.chatResponse());
+            log.warn("AI evidence content blank after tools; retrying once for final JSON only.");
+            turn = callProvider(compiledPrompt + BLANK_CONTENT_RETRY_SUFFIX);
         }
 
-        if (rawResponse == null || rawResponse.isBlank()) {
+        if (isBlank(turn.rawContent())) {
+            logBlankDiagnostics(turn.chatResponse());
+            log.warn("AI evidence response was blank or null after retry; cannot parse structured evidence.");
             throw invalidProviderOutput();
         }
 
-        List<ResolvedIngredient> resolvedIngredients = parseResolvedIngredients(rawResponse);
-        String analysisNotes = parseAnalysisNotes(rawResponse);
-        long latencyMs = (System.nanoTime() - startedAt) / 1_000_000;
+        EvidencePayload evidence;
+        String rawResponse = turn.rawContent();
+        try {
+            evidence = resolveEvidence(turn);
+            rawResponse = serializeEvidenceOrRaw(evidence, turn.rawContent());
+        } catch (IllegalArgumentException ex) {
+            log.warn(
+                    "AI evidence JSON parse failed ({} chars). Raw response (truncated): {}",
+                    turn.rawContent().length(),
+                    truncateForLog(turn.rawContent())
+            );
+            throw ex;
+        }
 
-        ChatResponseMetadata metadata = response == null ? null : response.getMetadata();
+        long latencyMs = (System.nanoTime() - startedAt) / 1_000_000;
+        List<ResolvedIngredient> resolvedIngredients = toResolvedIngredients(evidence);
+        String analysisNotes = evidence.analysisNotes() == null ? "" : evidence.analysisNotes();
+
+        ChatResponseMetadata metadata =
+                turn.chatResponse() == null ? null : turn.chatResponse().getMetadata();
         Usage usage = metadata == null ? null : metadata.getUsage();
 
+        log.debug(
+                "AI evidence parsed: {} resolved ingredient(s), latencyMs={}",
+                resolvedIngredients.size(),
+                latencyMs
+        );
+
         return new LlmAssessmentResult(
-            resolvedIngredients,
-            analysisNotes,
-            metadata == null ? null : blankToNull(metadata.getModel()),
-            usage == null ? null : usage.getPromptTokens(),
-            usage == null ? null : usage.getCompletionTokens(),
-            latencyMs,
-            compiledPrompt,
-            rawResponse
+                resolvedIngredients,
+                analysisNotes,
+                metadata == null ? null : blankToNull(metadata.getModel()),
+                usage == null ? null : usage.getPromptTokens(),
+                usage == null ? null : usage.getCompletionTokens(),
+                latencyMs,
+                compiledPrompt,
+                rawResponse
         );
     }
 
-    private List<ResolvedIngredient> parseResolvedIngredients(String rawResponse) {
+    private ProviderTurn callProvider(String userPrompt) {
+        try {
+            var call = chatClient.prompt()
+                    .user(userPrompt)
+                    .call();
+            ChatResponse response = call.chatResponse();
+            String content = firstNonBlank(call.content(), textFromChatResponse(response));
+            return new ProviderTurn(call, response, content);
+        } catch (RuntimeException exception) {
+            log.warn(
+                    "AI provider request failed ({})",
+                    exception.getClass().getSimpleName()
+            );
+            // Do not chain the cause: provider errors can embed secrets in the message.
+            throw new IllegalStateException("AI provider request failed.");
+        }
+    }
+
+    /**
+     * Prefer Spring AI structured entity conversion; fall back to manual JSON parse.
+     */
+    private EvidencePayload resolveEvidence(ProviderTurn turn) {
+        try {
+            EvidencePayload fromEntity = turn.call().entity(EvidencePayload.class);
+            if (fromEntity != null && fromEntity.resolvedIngredients() != null) {
+                return fromEntity;
+            }
+        } catch (RuntimeException ex) {
+            log.debug(
+                    "ChatClient.entity(EvidencePayload) failed ({}); falling back to JSON parse",
+                    ex.getClass().getSimpleName()
+            );
+        }
+        return parseEvidencePayload(turn.rawContent());
+    }
+
+    private EvidencePayload parseEvidencePayload(String rawResponse) {
         JsonNode root = parseRoot(rawResponse);
         JsonNode ingredientsNode = root.get("resolvedIngredients");
         if (ingredientsNode == null || !ingredientsNode.isArray()) {
             throw invalidProviderOutput();
         }
 
-        List<ResolvedIngredient> resolvedIngredients = new ArrayList<>();
+        List<EvidencePayload.ResolvedIngredientEvidence> items = new ArrayList<>();
         for (JsonNode ingredientNode : ingredientsNode) {
             if (ingredientNode == null || !ingredientNode.isObject()) {
                 throw invalidProviderOutput();
@@ -134,33 +206,50 @@ public class LlmClient {
                 throw invalidProviderOutput();
             }
 
-            try {
-                resolvedIngredients.add(new ResolvedIngredient(
+            items.add(new EvidencePayload.ResolvedIngredientEvidence(
                     nameNode.textValue(),
                     rootAllergen,
                     confidenceNode.doubleValue()
+            ));
+        }
+
+        JsonNode notesNode = root.get("analysisNotes");
+        String notes = "";
+        if (notesNode != null && !notesNode.isNull()) {
+            if (!notesNode.isTextual()) {
+                throw invalidProviderOutput();
+            }
+            notes = notesNode.textValue();
+        }
+
+        return new EvidencePayload(List.copyOf(items), notes);
+    }
+
+    private List<ResolvedIngredient> toResolvedIngredients(EvidencePayload evidence) {
+        List<ResolvedIngredient> resolved = new ArrayList<>();
+        for (EvidencePayload.ResolvedIngredientEvidence item : evidence.resolvedIngredients()) {
+            if (item == null) {
+                throw invalidProviderOutput();
+            }
+            try {
+                Double confidence = item.confidence();
+                if (confidence == null) {
+                    throw invalidProviderOutput();
+                }
+                resolved.add(new ResolvedIngredient(
+                        item.ingredientName(),
+                        item.rootAllergen(),
+                        confidence
                 ));
             } catch (IllegalArgumentException | NullPointerException exception) {
                 throw invalidProviderOutput();
             }
         }
-        return List.copyOf(resolvedIngredients);
-    }
-
-    private String parseAnalysisNotes(String rawResponse) {
-        JsonNode notesNode = parseRoot(rawResponse).get("analysisNotes");
-        if (notesNode == null || notesNode.isNull()) {
-            return "";
-        }
-        if (!notesNode.isTextual()) {
-            throw invalidProviderOutput();
-        }
-        return notesNode.textValue();
+        return List.copyOf(resolved);
     }
 
     private JsonNode parseRoot(String rawResponse) {
         try {
-            // Models sometimes wrap JSON in markdown fences; strip a simple fence if present.
             String trimmed = rawResponse.trim();
             if (trimmed.startsWith("```")) {
                 int firstNl = trimmed.indexOf('\n');
@@ -179,11 +268,87 @@ public class LlmClient {
         }
     }
 
+    private void logBlankDiagnostics(ChatResponse response) {
+        if (response == null) {
+            log.warn("AI blank evidence diagnostics: chatResponse=null");
+            return;
+        }
+        Generation generation = response.getResult();
+        AssistantMessage output = generation == null ? null : generation.getOutput();
+        String text = output == null ? null : output.getText();
+        boolean hasTools = response.hasToolCalls() || (output != null && output.hasToolCalls());
+        int toolCallCount = 0;
+        String toolNames = "";
+        if (output != null && output.getToolCalls() != null) {
+            toolCallCount = output.getToolCalls().size();
+            toolNames = output.getToolCalls().stream()
+                    .map(AssistantMessage.ToolCall::name)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.joining(","));
+        }
+        Object finishReason = generation == null || generation.getMetadata() == null
+                ? null
+                : generation.getMetadata().getFinishReason();
+        log.warn(
+                "AI blank evidence diagnostics: hasToolCalls={}, toolCallCount={}, toolNames=[{}], "
+                        + "textLength={}, finishReason={}, results={}",
+                hasTools,
+                toolCallCount,
+                toolNames,
+                text == null ? -1 : text.length(),
+                finishReason,
+                response.getResults() == null ? 0 : response.getResults().size()
+        );
+    }
+
+    private static String textFromChatResponse(ChatResponse response) {
+        if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
+            return null;
+        }
+        return response.getResult().getOutput().getText();
+    }
+
+    private String serializeEvidenceOrRaw(EvidencePayload evidence, String rawContent) {
+        try {
+            return objectMapper.writeValueAsString(evidence);
+        } catch (JsonProcessingException exception) {
+            return rawContent;
+        }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private static String firstNonBlank(String primary, String secondary) {
+        if (!isBlank(primary)) {
+            return primary;
+        }
+        if (!isBlank(secondary)) {
+            return secondary;
+        }
+        return primary;
+    }
+
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
+    private static String truncateForLog(String rawResponse) {
+        if (rawResponse.length() <= RAW_LOG_MAX_CHARS) {
+            return rawResponse;
+        }
+        return rawResponse.substring(0, RAW_LOG_MAX_CHARS) + "...[truncated]";
+    }
+
     private IllegalArgumentException invalidProviderOutput() {
         return new IllegalArgumentException("AI provider returned invalid structured evidence.");
+    }
+
+    private record ProviderTurn(
+            ChatClient.CallResponseSpec call,
+            ChatResponse chatResponse,
+            String rawContent
+    ) {
     }
 }

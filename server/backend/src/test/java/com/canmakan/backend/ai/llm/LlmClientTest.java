@@ -6,12 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.http.HttpTimeoutException;
 import java.util.List;
@@ -45,14 +48,21 @@ class LlmClientTest {
     private ChatClient.CallResponseSpec callResponseSpec;
     private LlmClient client;
 
+    private ObjectMapper objectMapper;
+
     @BeforeEach
     void createEnabledClient() {
+        objectMapper = new ObjectMapper();
         callResponseSpec = mock(ChatClient.CallResponseSpec.class);
         ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
         Mockito.lenient().when(chatClient.prompt()).thenReturn(requestSpec);
         Mockito.lenient().when(requestSpec.user(anyString())).thenReturn(requestSpec);
         Mockito.lenient().when(requestSpec.call()).thenReturn(callResponseSpec);
-        client = new LlmClient(chatClient, new ObjectMapper(), true);
+        // Force JSON fallback path in unit tests (entity conversion needs a live Spring AI stack).
+        Mockito.lenient()
+                .when(callResponseSpec.entity(eq(EvidencePayload.class)))
+                .thenThrow(new RuntimeException("force fallback parse"));
+        client = new LlmClient(chatClient, objectMapper, true);
     }
 
     @Test
@@ -69,7 +79,7 @@ class LlmClientTest {
     }
 
     @Test
-    void parsesMultipleResolvedAndUnresolvedIngredients() {
+    void parsesMultipleResolvedAndUnresolvedIngredients() throws Exception {
         String rawResponse = """
                 {
                     "resolvedIngredients": [
@@ -92,7 +102,7 @@ class LlmClientTest {
         assertEquals(0.25, result.resolvedIngredients().get(1).confidence());
         assertEquals("Second ingredient remains unresolved.", result.analysisNotes());
         assertEquals(COMPILED_PROMPT, result.compiledPrompt());
-        assertEquals(rawResponse, result.rawResponse());
+        assertJsonEquals(rawResponse, result.rawResponse());
         assertTrue(result.latencyMs() >= 0);
         verify(chatClient).prompt();
     }
@@ -156,10 +166,28 @@ class LlmClientTest {
     void rejectsEmptyOrMissingProviderContent() {
         stubResponse(" ", null);
         assertInvalidOutput();
+        // Blank content triggers one retry, so prompt is used twice per assess.
+        verify(chatClient, times(2)).prompt();
 
         when(callResponseSpec.content()).thenReturn(null);
         when(callResponseSpec.chatResponse()).thenReturn(null);
         assertInvalidOutput();
+    }
+
+    @Test
+    void retriesOnceWhenFirstProviderContentIsBlank() {
+        ChatResponse response = mock(ChatResponse.class);
+        Mockito.lenient().when(response.getMetadata()).thenReturn(null);
+        when(callResponseSpec.content())
+                .thenReturn("")
+                .thenReturn(validResponse());
+        when(callResponseSpec.chatResponse()).thenReturn(response);
+
+        LlmAssessmentResult result = client.assess(COMPILED_PROMPT);
+
+        assertEquals(1, result.resolvedIngredients().size());
+        assertEquals("DAIRY", result.resolvedIngredients().getFirst().rootAllergen());
+        verify(chatClient, times(2)).prompt();
     }
 
     @Test
@@ -260,6 +288,12 @@ class LlmClientTest {
                 "AI provider returned invalid structured evidence.",
                 exception.getMessage()
         );
+    }
+
+    private void assertJsonEquals(String expectedJson, String actualJson) throws Exception {
+        JsonNode expected = objectMapper.readTree(expectedJson);
+        JsonNode actual = objectMapper.readTree(actualJson);
+        assertEquals(expected, actual);
     }
 
     private static String validResponse() {

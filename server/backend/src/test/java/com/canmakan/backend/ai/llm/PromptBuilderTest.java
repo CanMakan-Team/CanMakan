@@ -53,7 +53,7 @@ class PromptBuilderTest {
             List.of(halalRule())
         );
 
-        assertTrue(prompt.contains("PROMPT_VERSION: canmakan-evidence-v3"));
+        assertTrue(prompt.contains("PROMPT_VERSION: canmakan-evidence-v4"));
         assertTrue(prompt.contains("barcode=\"8888888888888\""));
         assertTrue(prompt.contains("ingredientsText=\"Mystery powder, sugar\""));
         assertTrue(prompt.contains("labelTags=[\"en:halal\"]"));
@@ -99,6 +99,8 @@ class PromptBuilderTest {
         assertFalse(prompt.contains("\"restrictionCode\""));
         assertTrue(prompt.contains("Do not decide or output SAFE, WARNING, or UNSAFE."));
         assertTrue(prompt.contains("Do not output a verdict field."));
+        assertTrue(prompt.contains("FINAL_OUTPUT:"));
+        assertTrue(prompt.contains("Never finish the turn with tool calls only"));
     }
 
     @Test
