@@ -7,7 +7,7 @@ INSERT INTO scans (id, user_id, profile_id, barcode, verdict, ai_explanation, fi
 -- Profile 1: Sarah Tan (user_id: 4) -> Gluten (STRICT_AVOID), Low Sugar (PREFERENCE)
 -- --------------------------------------------------------------------
 (1, 4, 1, '95500539', 'SAFE', 'This product contains no gluten ingredients or wheat derivatives.', '{"matched_rules": [], "allergens_found": []}', NOW() - INTERVAL 10 DAY),
-(2, 4, 1, '38527591039', 'UNSAFE', 'Contains wheat flour which violates the gluten-free constraint.', '{"matched_rules": ["GLUTEN_ALLERGY"], "allergens_found": ["Wheat Flour"]}', NOW() - INTERVAL 8 DAY),
+(2, 4, 1, '0038527591039', 'UNSAFE', 'Contains wheat flour which violates the gluten-free constraint.', '{"matched_rules": ["GLUTEN_ALLERGY"], "allergens_found": ["Wheat Flour"]}', NOW() - INTERVAL 8 DAY),
 (3, 4, 1, '9300698500181', 'WARNING', 'High sugar content detected (18g/100g), exceeding preferred low sugar threshold.', '{"matched_rules": ["HIGH_SUGAR_WARNING"], "warnings": ["Sugar exceeds 10g/100g limit"]}', NOW() - INTERVAL 6 DAY),
 (4, 4, 1, '4710154012793', 'SAFE', 'Gluten-free certified oats with low sugar content (2g/100g).', '{"matched_rules": [], "allergens_found": []}', NOW() - INTERVAL 4 DAY),
 (5, 4, 1, '675747001018', 'UNSAFE', 'Contains barley malt extract which contains gluten.', '{"matched_rules": ["GLUTEN_ALLERGY"], "allergens_found": ["Barley Malt Extract"]}', NOW() - INTERVAL 1 DAY),
@@ -24,7 +24,7 @@ INSERT INTO scans (id, user_id, profile_id, barcode, verdict, ai_explanation, fi
 -- --------------------------------------------------------------------
 -- Profile 3: Emily Tan (user_id: 4) -> Dairy (INTOLERANCE), Peanut (STRICT_AVOID), Low Sugar (PREFERENCE)
 -- --------------------------------------------------------------------
-(11, 4, 3, '7321122', 'UNSAFE', 'Contains peanuts which violates the user severe peanut allergy constraint.', '{"matched_rules": ["PEANUT_ALLERGY"], "allergens_found": ["Peanuts"]}', NOW() - INTERVAL 14 DAY),
+(11, 4, 3, '07321122', 'UNSAFE', 'Contains peanuts which violates the user severe peanut allergy constraint.', '{"matched_rules": ["PEANUT_ALLERGY"], "allergens_found": ["Peanuts"]}', NOW() - INTERVAL 14 DAY),
 (12, 4, 3, '8888077102092', 'UNSAFE', 'Contains milk solids and whey powder (Lactose/Dairy Intolerance).', '{"matched_rules": ["DAIRY_INTOLERANCE"], "allergens_found": ["Milk Solids", "Whey"]}', NOW() - INTERVAL 11 DAY),
 (13, 4, 3, '9319530000239', 'SAFE', 'Dairy-free, peanut-free almond-based rice crackers with zero added sugar.', '{"matched_rules": [], "allergens_found": []}', NOW() - INTERVAL 8 DAY),
 (14, 4, 3, '4710154012793', 'WARNING', 'No peanut or dairy allergens, but sugar levels are high (24g/100g).', '{"matched_rules": ["HIGH_SUGAR_WARNING"], "warnings": ["High Sugar"]}', NOW() - INTERVAL 5 DAY),
@@ -92,37 +92,3 @@ INSERT INTO scans (id, user_id, profile_id, barcode, verdict, ai_explanation, fi
 (48, 11, 10, '4710154012793', 'WARNING', 'Dairy-free soy drink, but contains high sucrose sugar levels (15g/100ml).', '{"matched_rules": ["HIGH_SUGAR_WARNING"], "warnings": ["High Sugar"]}', NOW() - INTERVAL 6 DAY),
 (49, 11, 10, '8888440000048', 'UNSAFE', 'Contains butter fat and milk solids.', '{"matched_rules": ["DAIRY_INTOLERANCE"], "allergens_found": ["Butter Fat", "Milk Solids"]}', NOW() - INTERVAL 3 DAY),
 (50, 11, 10, '9311983909800', 'SAFE', 'Dairy-free fruit sorbet with reduced sugar sweetener.', '{"matched_rules": [], "allergens_found": []}', NOW() - INTERVAL 1 DAY);
-
--- =============================================
---  AI EXECUTION LOGS (Audit & Diagnostic Trail)
--- =============================================
-INSERT INTO ai_execution_logs (id, scan_id, execution_tier, model_id, prompt_tokens, completion_tokens, latency_ms, compiled_prompt, raw_llm_response, created_at) VALUES
--- 1. Direct Allergen / Rule Match Log
-(1, 1, 'TIER_1_RULES', NULL, NULL, NULL, 42, 
-   '{"rule_engine": "deterministic_v1", "profile_id": 1}', 
-   '{"status": "PASSED"}', 
-   NOW() - INTERVAL 10 DAY),
-
--- 2. Direct Flag Log
-(2, 2, 'TIER_1_RULES', NULL, NULL, NULL, 35, 
-   '{"rule_engine": "deterministic_v1", "profile_id": 1}', 
-   '{"status": "FLAGGED", "trigger": "GLUTEN_ALLERGY"}', 
-   NOW() - INTERVAL 8 DAY),
-
--- 3. LLM Escalation Log for Complex Ingredient Analysis (e.g., E-numbers or compliance)
-(3, 3, 'TIER_3_LLM', 'gpt-4o', 410, 110, 1180, 
-   '{"system": "You are a food safety & nutrition specialist.", "user": "Evaluate sugar threshold and additives compliance."}', 
-   '{"verdict": "WARNING", "reason": "Sugar level exceeds 10g/100g limit."}', 
-   NOW() - INTERVAL 6 DAY),
-
--- 4. Direct Rule Match Log
-(4, 4, 'TIER_1_RULES', NULL, NULL, NULL, 30, 
-   '{"rule_engine": "deterministic_v1", "profile_id": 1}', 
-   '{"status": "PASSED"}', 
-   NOW() - INTERVAL 4 DAY),
-
--- 5. LLM Escalation Log (Halal / Complex Additive Reasoner)
-(5, 16, 'TIER_3_LLM', 'gpt-4o', 450, 125, 1320, 
-   '{"system": "You are a Halal food compliance auditor.", "user": "Analyze ingredient list for non-Halal E-numbers or additives."}', 
-   '{"verdict": "WARNING", "reason": "Uncertain Halal status on ambiguous emulsifier."}', 
-   NOW() - INTERVAL 15 DAY);
