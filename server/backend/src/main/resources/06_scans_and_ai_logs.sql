@@ -92,3 +92,37 @@ INSERT INTO scans (id, user_id, profile_id, barcode, verdict, ai_explanation, fi
 (48, 11, 10, '4710154012793', 'WARNING', 'Dairy-free soy drink, but contains high sucrose sugar levels (15g/100ml).', '{"matched_rules": ["HIGH_SUGAR_WARNING"], "warnings": ["High Sugar"]}', NOW() - INTERVAL 6 DAY),
 (49, 11, 10, '8888440000048', 'UNSAFE', 'Contains butter fat and milk solids.', '{"matched_rules": ["DAIRY_INTOLERANCE"], "allergens_found": ["Butter Fat", "Milk Solids"]}', NOW() - INTERVAL 3 DAY),
 (50, 11, 10, '9311983909800', 'SAFE', 'Dairy-free fruit sorbet with reduced sugar sweetener.', '{"matched_rules": [], "allergens_found": []}', NOW() - INTERVAL 1 DAY);
+
+-- =============================================
+--  AI EXECUTION LOGS (Audit & Diagnostic Trail)
+-- =============================================
+INSERT INTO ai_execution_logs (id, scan_id, execution_tier, model_id, prompt_tokens, completion_tokens, latency_ms, compiled_prompt, raw_llm_response, created_at) VALUES
+-- 1. Direct Allergen / Rule Match Log
+(1, 1, 'TIER_1_RULES', NULL, NULL, NULL, 42, 
+   '{"rule_engine": "deterministic_v1", "profile_id": 1}', 
+   '{"status": "PASSED"}', 
+   NOW() - INTERVAL 10 DAY),
+
+-- 2. Direct Flag Log
+(2, 2, 'TIER_1_RULES', NULL, NULL, NULL, 35, 
+   '{"rule_engine": "deterministic_v1", "profile_id": 1}', 
+   '{"status": "FLAGGED", "trigger": "GLUTEN_ALLERGY"}', 
+   NOW() - INTERVAL 8 DAY),
+
+-- 3. LLM Escalation Log for Complex Ingredient Analysis (e.g., E-numbers or compliance)
+(3, 3, 'TIER_3_LLM', 'gpt-4o', 410, 110, 1180, 
+   '{"system": "You are a food safety & nutrition specialist.", "user": "Evaluate sugar threshold and additives compliance."}', 
+   '{"verdict": "WARNING", "reason": "Sugar level exceeds 10g/100g limit."}', 
+   NOW() - INTERVAL 6 DAY),
+
+-- 4. Direct Rule Match Log
+(4, 4, 'TIER_1_RULES', NULL, NULL, NULL, 30, 
+   '{"rule_engine": "deterministic_v1", "profile_id": 1}', 
+   '{"status": "PASSED"}', 
+   NOW() - INTERVAL 4 DAY),
+
+-- 5. LLM Escalation Log (Halal / Complex Additive Reasoner)
+(5, 16, 'TIER_3_LLM', 'gpt-4o', 450, 125, 1320, 
+   '{"system": "You are a Halal food compliance auditor.", "user": "Analyze ingredient list for non-Halal E-numbers or additives."}', 
+   '{"verdict": "WARNING", "reason": "Uncertain Halal status on ambiguous emulsifier."}', 
+   NOW() - INTERVAL 15 DAY);
