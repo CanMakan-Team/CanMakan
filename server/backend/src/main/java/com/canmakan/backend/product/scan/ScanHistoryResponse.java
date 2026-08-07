@@ -19,7 +19,7 @@ public record ScanHistoryResponse(
         Long profileId,
         String barcode,
         ProductDto product,
-        String scannedAt,        // ISO-8601, e.g. LocalDateTime.toString()
+        String scannedAt,        // ISO-8601, fixed "yyyy-MM-ddTHH:mm:ss" shape (see ScanHistoryService#formatScannedAt)
         String verdict,          // SAFE / WARNING / UNSAFE
         FindingsDto findingsJson,
         String aiExplanation

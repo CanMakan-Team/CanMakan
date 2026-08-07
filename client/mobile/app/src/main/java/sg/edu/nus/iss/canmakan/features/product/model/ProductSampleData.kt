@@ -1,6 +1,7 @@
 package sg.edu.nus.iss.canmakan.features.product.model
 
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
+import java.time.LocalDateTime
 
 // Sample data used to fill the screens while there is no backend or
 // database connected yet. In a later version this would come from a
@@ -13,7 +14,7 @@ object ProductSampleData {
             id = 1L,
             profileId = 1L,
             barcode = "0028400047685",
-            scannedAt = "Jul 24",
+            scannedAt = LocalDateTime.of(2026, 7, 24, 9, 15),
             verdict = ScanVerdict.SAFE,
             findingsJson = FindingsJson()
         ),
@@ -22,7 +23,7 @@ object ProductSampleData {
             profileId = 1L,
             product = Product("Nutella Hazelnut Spread", "Ferrero", "8000500037165"),
             barcode = "8000500037165",
-            scannedAt = "Jul 24",
+            scannedAt = LocalDateTime.of(2026, 7, 24, 8, 40),
             verdict = ScanVerdict.UNSAFE,
             findingsJson = FindingsJson(
                 matchedRules = listOf("Peanuts", "Non-Halal E471")
@@ -33,7 +34,7 @@ object ProductSampleData {
             profileId = 1L,
             product = Product("Chobani Greek Yogurt", "Chobani", "0894700010152"),
             barcode = "0894700010152",
-            scannedAt = "Jul 23",
+            scannedAt = LocalDateTime.of(2026, 7, 23, 18, 5),
             verdict = ScanVerdict.WARNING,
             findingsJson = FindingsJson(
                 allergensFound = listOf("Dairy")

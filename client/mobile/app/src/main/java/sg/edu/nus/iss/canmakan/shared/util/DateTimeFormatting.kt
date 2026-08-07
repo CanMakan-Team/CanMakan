@@ -1,30 +1,26 @@
 package sg.edu.nus.iss.canmakan.shared.util
 
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatterBuilder
-import java.time.format.DateTimeParseException
-import java.time.temporal.ChronoField
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-// Renders am/pm lowercase with no separating space, e.g. "2.54pm" instead of "2:54 PM".
-private val AM_PM_TEXT = mapOf(0L to "am", 1L to "pm")
-
-// e.g. "26 Aug 2026, 2.54pm"
-private val SCAN_HISTORY_DISPLAY_FORMATTER = DateTimeFormatterBuilder()
-    .appendPattern("d MMM yyyy, h.mm")
-    .appendText(ChronoField.AMPM_OF_DAY, AM_PM_TEXT)
-    .toFormatter(Locale.ENGLISH)
+/**
+ * Format used for all local date-time fields sent to/from the backend.
+ * Example: "2026-08-07T20:55:06"
+ */
+val BACKEND_LOCAL_DATE_TIME_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss", Locale.ENGLISH)
 
 /**
- * Formats a scan timestamp sent by the backend (LocalDateTime.toString() shape, e.g.
- * "2026-08-06T23:51:12") for display, e.g. "26 Aug 2026, 2.54pm". Falls back to the raw
- * string if it can't be parsed, so an unexpected format still renders instead of crashing
- * the screen.
+ * Format used for displaying timestamps in the scan history and other UI elements.
+ * Example: "7 Aug, 8:55 PM"
  */
-fun String.toScanHistoryDisplayString(): String {
-    return try {
-        LocalDateTime.parse(this).format(SCAN_HISTORY_DISPLAY_FORMATTER)
-    } catch (e: DateTimeParseException) {
-        this
-    }
+private val SCAN_HISTORY_DISPLAY_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d MMM, h:mm a", Locale.ENGLISH)
+
+/**
+ * Converts a [LocalDateTime] to a human-readable string for display in the scan history.
+ */
+fun LocalDateTime.toScanHistoryDisplayString(): String {
+    return this.format(SCAN_HISTORY_DISPLAY_FORMATTER)
 }

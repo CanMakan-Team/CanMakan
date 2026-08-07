@@ -43,6 +43,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
 import sg.edu.nus.iss.canmakan.shared.ui.StatusBadge
 import sg.edu.nus.iss.canmakan.shared.ui.statusAccentColor
+import sg.edu.nus.iss.canmakan.shared.util.toScanHistoryDisplayString
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 import sg.edu.nus.iss.canmakan.shared.ui.theme.WarningAmber
