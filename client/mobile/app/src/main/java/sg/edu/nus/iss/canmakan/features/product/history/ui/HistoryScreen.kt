@@ -44,6 +44,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 import sg.edu.nus.iss.canmakan.shared.ui.theme.WarningAmber
+import sg.edu.nus.iss.canmakan.shared.util.toScanHistoryDisplayString
 
 // Shows the list of previously scanned products for the active profile.
 @Composable
@@ -143,7 +144,7 @@ private fun ScanHistoryRow(entry: ScanHistoryEntry, onClick: () -> Unit) {
                 } else PrimaryGreen
                 Text(note, color = noteColor)
             }
-            Text((entry.scannedAt), color = TextSecondary)
+            Text(entry.scannedAt.toScanHistoryDisplayString(), color = TextSecondary)
         }
         Box(modifier = Modifier.padding(end = 12.dp)) {
             StatusBadge(status = entry.verdict)

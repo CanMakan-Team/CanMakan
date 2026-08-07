@@ -10,6 +10,9 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -28,6 +31,14 @@ import java.util.Objects;
 public class ScanHistoryService {
 
     private static final String PLACEHOLDER_PRODUCT_NAME = "Unknown product";
+
+    // scannedAt stays a LocalDateTime on the Scan entity, but LocalDateTime#toString()
+    // omits the fractional-second part whenever it is zero, so the exact string shape
+    // sent to Android would vary from row to row (e.g. "...05" vs "...05.5" vs
+    // "...05.500000"). Truncating to seconds and formatting with a fixed pattern keeps
+    // the JSON value deterministic and trivially parseable with
+    // LocalDateTime.parse(...) (default ISO_LOCAL_DATE_TIME parser) on the Android side.
+    private static final DateTimeFormatter SCANNED_AT_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     private final ScanRepository scanRepository;
     private final ObjectMapper objectMapper;
@@ -62,11 +73,25 @@ public class ScanHistoryService {
                 scan.getProfileId(),
                 scan.getBarcode(),
                 toProductDto(scan),
-                scan.getScannedAt() != null ? scan.getScannedAt().toString() : null,
+                formatScannedAt(scan.getScannedAt()),
                 scan.getVerdict(),
                 toFindingsDto(scan.getFindingsJson()),
                 scan.getAiExplanation()
         );
+    }
+
+    /**
+     * Formats a scan's timestamp as a fixed-shape ISO-8601 string ("yyyy-MM-ddTHH:mm:ss").
+     * Truncating to seconds before formatting keeps the output deterministic across rows,
+     * unlike {@link LocalDateTime#toString()} which drops the fractional-second part only
+     * when it happens to be zero.
+     * @param scannedAt the entity's LocalDateTime, or null
+     * @return the formatted timestamp, or null if scannedAt was null
+     */
+    private String formatScannedAt(LocalDateTime scannedAt) {
+        return scannedAt != null
+                ? scannedAt.truncatedTo(ChronoUnit.SECONDS).format(SCANNED_AT_FORMATTER)
+                : null;
     }
 
     // The scans.barcode FK can be null (OCR-only scans), or point at a
