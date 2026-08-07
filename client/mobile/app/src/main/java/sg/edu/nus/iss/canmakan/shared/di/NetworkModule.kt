@@ -1,6 +1,11 @@
 package sg.edu.nus.iss.canmakan.shared.di
 
 import android.util.Log
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonDeserializer
+import com.google.gson.JsonPrimitive
+import com.google.gson.JsonSerializer
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -14,8 +19,10 @@ import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.Dietary
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryApiService
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
+import sg.edu.nus.iss.canmakan.shared.util.BACKEND_LOCAL_DATE_TIME_FORMATTER
 import timber.log.Timber
 import java.net.Proxy
+import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -24,6 +31,29 @@ import javax.inject.Singleton
 object NetworkModule {
 
     private const val DEFAULT_BASE_URL = "http://10.0.2.2:8080/api/"
+
+    // The backend sends scan timestamps (e.g. Scan.scannedAt) as a fixed-shape ISO-8601
+    // string ("yyyy-MM-ddTHH:mm:ss") rather than an epoch/millis value, so the field
+    // deserializes to java.time.LocalDateTime here instead of String — this keeps the
+    // wall-clock timestamp intact for display without a timezone conversion.
+    @Provides
+    @Singleton
+    fun provideGson(): Gson {
+        return GsonBuilder()
+            .registerTypeAdapter(
+                LocalDateTime::class.java,
+                JsonSerializer<LocalDateTime> { src, _, _ ->
+                    JsonPrimitive(BACKEND_LOCAL_DATE_TIME_FORMATTER.format(src))
+                }
+            )
+            .registerTypeAdapter(
+                LocalDateTime::class.java,
+                JsonDeserializer { json, _, _ ->
+                    LocalDateTime.parse(json.asString, BACKEND_LOCAL_DATE_TIME_FORMATTER)
+                }
+            )
+            .create()
+    }
 
     @Provides
     @Singleton
@@ -81,7 +111,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
+    fun provideRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit {
         val configuredBaseUrl = BuildConfig.BASE_URL.trim()
         val baseUrl = if (configuredBaseUrl.isNotEmpty()) configuredBaseUrl else DEFAULT_BASE_URL
         val normalizedBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
@@ -90,7 +120,7 @@ object NetworkModule {
         return Retrofit.Builder()
             .baseUrl(normalizedBaseUrl)
             .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
     }
 

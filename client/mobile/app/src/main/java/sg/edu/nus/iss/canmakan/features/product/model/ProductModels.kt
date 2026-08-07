@@ -1,6 +1,7 @@
 package sg.edu.nus.iss.canmakan.features.product.model
 
 import com.google.gson.annotations.SerializedName
+import java.time.LocalDateTime
 
 // Represents a single food product that has been scanned or is being reviewed.
 data class Product(
@@ -29,7 +30,7 @@ data class ScanHistoryEntry(
     val profileId: Long,
     val barcode: String,
     val product: Product,
-    val scannedAt: String,
+    val scannedAt: LocalDateTime,
     val verdict: ScanVerdict,
     val findingsJson: FindingsJson,
     val aiExplanation: String? = null

@@ -43,9 +43,11 @@ import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
 import sg.edu.nus.iss.canmakan.shared.ui.StatusBadge
 import sg.edu.nus.iss.canmakan.shared.ui.statusAccentColor
+import sg.edu.nus.iss.canmakan.shared.util.toScanHistoryDisplayString
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 import sg.edu.nus.iss.canmakan.shared.ui.theme.WarningAmber
+import sg.edu.nus.iss.canmakan.shared.util.toScanHistoryDisplayString
 
 // Screen for adding a new family member profile. Collects a name,
 // relationship, and optional email before creating the profile.
@@ -227,7 +229,10 @@ fun ScanHistoryRow(entry: ScanHistoryEntry, onClick: () -> Unit) {
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Text(entry.product.productName, fontWeight = FontWeight.Medium)
-            Text("${entry.product.brand} \u00B7 ${entry.scannedAt}", color = TextSecondary)
+            Text(
+                "${entry.product.brand} \u00B7 ${entry.scannedAt.toScanHistoryDisplayString()}",
+                color = TextSecondary
+            )
             entry.aiExplanation?.let { note ->
                 val noteColor = if (entry.verdict == ScanVerdict.UNSAFE) AvoidRed else WarningAmber
                 Text(note, color = noteColor)
