@@ -2,6 +2,8 @@ package com.canmakan.backend.user;
 
 import com.canmakan.backend.dietaryprofile.DietaryProfile;
 import com.canmakan.backend.shared.AuditableEntity;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -25,9 +27,19 @@ import lombok.ToString;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(callSuper = true, exclude = "dietaryProfile")
+@ToString(callSuper = true, exclude = {"dietaryProfile", "passwordHash"})
 @Entity
 @Table(name = "users")
+@AttributeOverrides({
+    @AttributeOverride(
+        name = "createdAt",
+        column = @Column(name = "created_at", insertable = false, updatable = false)
+    ),
+    @AttributeOverride(
+        name = "updatedAt",
+        column = @Column(name = "updated_at", insertable = false, updatable = false)
+    )
+})
 public class UserAccount extends AuditableEntity {
 
     @Id

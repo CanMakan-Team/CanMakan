@@ -1,6 +1,5 @@
 package sg.edu.nus.iss.canmakan.shared.di
 
-import android.util.Log
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -10,6 +9,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import sg.edu.nus.iss.canmakan.BuildConfig
+import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationApiService
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryApiService
@@ -24,12 +24,15 @@ import javax.inject.Singleton
 object NetworkModule {
 
     private const val DEFAULT_BASE_URL = "http://10.0.2.2:8080/api/"
+    private const val NO_RETRY_HEADER = "X-CanMakan-No-Retry"
 
     @Provides
     @Singleton
     fun provideLoggingInterceptor(): HttpLoggingInterceptor {
         return HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            // Registration transmits plaintext credentials in its request body.
+            // BASIC retains method/status diagnostics without logging any bodies.
+            level = HttpLoggingInterceptor.Level.BASIC
         }
     }
 
@@ -39,7 +42,11 @@ object NetworkModule {
         return OkHttpClient.Builder()
             .proxy(Proxy.NO_PROXY)
             .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
+                val originalRequest = chain.request()
+                val skipRetries = originalRequest.header(NO_RETRY_HEADER)
+                    .equals("true", ignoreCase = true)
+                val request = originalRequest.newBuilder()
+                    .removeHeader(NO_RETRY_HEADER)
                     .header(
                         "User-Agent",
                         "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
@@ -48,7 +55,7 @@ object NetworkModule {
 
                 var response: okhttp3.Response? = null
                 var tryCount = 0
-                val maxLimit = 2 // Total 3 attempts
+                val maxLimit = if (skipRetries) 0 else 2 // Total 3 attempts by default.
                 var lastException: java.io.IOException? = null
 
                 while (tryCount <= maxLimit) {
@@ -98,6 +105,12 @@ object NetworkModule {
     @Singleton
     fun provideDietaryRestrictionApiService(retrofit: Retrofit): DietaryRestrictionApiService {
         return retrofit.create(DietaryRestrictionApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideRegistrationApiService(retrofit: Retrofit): RegistrationApiService {
+        return retrofit.create(RegistrationApiService::class.java)
     }
 
     @Provides
