@@ -11,8 +11,15 @@ The project currently contains the supplied UI prototype, including the scanner,
 scan history, product detail, dietary-requirement editor, profile drawer, bottom
 navigation, theme, and supporting sample models and sample data.
 
-Barcode camera integration and backend integration are not implemented yet. All
-product and profile information shown by the prototype is sample data.
+Backend integration exists for selected vertical slices, including UC18 user
+registration, dietary restrictions, family profile reads, scan assessment and
+scan history. Some supplied screens still contain prototype-only callbacks or
+sample presentation data.
+
+UC18 registration is available as an opt-in navigation route so the existing
+scanner start destination remains unchanged. Host `CanMakanNavGraph` with
+`startDestination = ROUTE_REGISTRATION` to exercise the two-screen flow until a
+future authentication entry point is approved.
 
 ## Design Principles
 
