@@ -98,22 +98,22 @@ class BarcodeValidationClientTest {
             .toList();
 
         assertTrue(propertyExpressions.contains(
-            "${canmakan.product-api.open-food-facts-base-url}"
+            "${app.api.product.open-food-facts-base-url}"
         ));
         assertTrue(propertyExpressions.contains(
-            "${canmakan.product-api.ean-search-base-url}"
+            "${app.api.product.ean-search-base-url}"
         ));
         assertTrue(propertyExpressions.contains(
-            "${canmakan.product-api.connect-timeout-ms}"
+            "${app.api.product.connect-timeout-ms}"
         ));
         assertTrue(propertyExpressions.contains(
-            "${canmakan.product-api.response-timeout-ms}"
+            "${app.api.product.response-timeout-ms}"
         ));
         assertTrue(propertyExpressions.contains(
-            "${canmakan.product-api.retry.max-attempts}"
+            "${app.api.product.retry.max-attempts}"
         ));
         assertTrue(propertyExpressions.contains(
-            "${canmakan.product-api.retry.backoff-ms}"
+            "${app.api.product.retry.backoff-ms}"
         ));
         assertEquals(
             List.of(

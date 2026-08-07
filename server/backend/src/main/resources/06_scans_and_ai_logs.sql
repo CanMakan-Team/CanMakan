@@ -7,7 +7,7 @@ INSERT INTO scans (id, user_id, profile_id, barcode, verdict, ai_explanation, fi
 -- Profile 1: Sarah Tan (user_id: 4) -> Gluten (STRICT_AVOID), Low Sugar (PREFERENCE)
 -- --------------------------------------------------------------------
 (1, 4, 1, '95500539', 'SAFE', 'This product contains no gluten ingredients or wheat derivatives.', '{"matched_rules": [], "allergens_found": []}', NOW() - INTERVAL 10 DAY),
-(2, 4, 1, '38527591039', 'UNSAFE', 'Contains wheat flour which violates the gluten-free constraint.', '{"matched_rules": ["GLUTEN_ALLERGY"], "allergens_found": ["Wheat Flour"]}', NOW() - INTERVAL 8 DAY),
+(2, 4, 1, '0038527591039', 'UNSAFE', 'Contains wheat flour which violates the gluten-free constraint.', '{"matched_rules": ["GLUTEN_ALLERGY"], "allergens_found": ["Wheat Flour"]}', NOW() - INTERVAL 8 DAY),
 (3, 4, 1, '9300698500181', 'WARNING', 'High sugar content detected (18g/100g), exceeding preferred low sugar threshold.', '{"matched_rules": ["HIGH_SUGAR_WARNING"], "warnings": ["Sugar exceeds 10g/100g limit"]}', NOW() - INTERVAL 6 DAY),
 (4, 4, 1, '4710154012793', 'SAFE', 'Gluten-free certified oats with low sugar content (2g/100g).', '{"matched_rules": [], "allergens_found": []}', NOW() - INTERVAL 4 DAY),
 (5, 4, 1, '675747001018', 'UNSAFE', 'Contains barley malt extract which contains gluten.', '{"matched_rules": ["GLUTEN_ALLERGY"], "allergens_found": ["Barley Malt Extract"]}', NOW() - INTERVAL 1 DAY),
@@ -24,7 +24,7 @@ INSERT INTO scans (id, user_id, profile_id, barcode, verdict, ai_explanation, fi
 -- --------------------------------------------------------------------
 -- Profile 3: Emily Tan (user_id: 4) -> Dairy (INTOLERANCE), Peanut (STRICT_AVOID), Low Sugar (PREFERENCE)
 -- --------------------------------------------------------------------
-(11, 4, 3, '7321122', 'UNSAFE', 'Contains peanuts which violates the user severe peanut allergy constraint.', '{"matched_rules": ["PEANUT_ALLERGY"], "allergens_found": ["Peanuts"]}', NOW() - INTERVAL 14 DAY),
+(11, 4, 3, '07321122', 'UNSAFE', 'Contains peanuts which violates the user severe peanut allergy constraint.', '{"matched_rules": ["PEANUT_ALLERGY"], "allergens_found": ["Peanuts"]}', NOW() - INTERVAL 14 DAY),
 (12, 4, 3, '8888077102092', 'UNSAFE', 'Contains milk solids and whey powder (Lactose/Dairy Intolerance).', '{"matched_rules": ["DAIRY_INTOLERANCE"], "allergens_found": ["Milk Solids", "Whey"]}', NOW() - INTERVAL 11 DAY),
 (13, 4, 3, '9319530000239', 'SAFE', 'Dairy-free, peanut-free almond-based rice crackers with zero added sugar.', '{"matched_rules": [], "allergens_found": []}', NOW() - INTERVAL 8 DAY),
 (14, 4, 3, '4710154012793', 'WARNING', 'No peanut or dairy allergens, but sugar levels are high (24g/100g).', '{"matched_rules": ["HIGH_SUGAR_WARNING"], "warnings": ["High Sugar"]}', NOW() - INTERVAL 5 DAY),
