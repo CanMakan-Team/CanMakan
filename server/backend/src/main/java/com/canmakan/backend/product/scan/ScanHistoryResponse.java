@@ -30,9 +30,7 @@ public record ScanHistoryResponse(
     }
 
     /**
-     * Mirrors the Kotlin {@code FindingsJson} data class. The JSON keys are
-     * snake_case here to match that class's {@code @SerializedName}
-     * annotations on the Android side — keep the two in sync by hand if either
+     * Mirrors the Kotlin {@code FindingsJson} data class. 
      * side changes.
      */
     public record FindingsDto(
