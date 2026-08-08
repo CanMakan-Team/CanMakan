@@ -25,11 +25,14 @@ class RegistrationControllerTest {
     private MockMvc mockMvc;
     private RegistrationService registrationService;
 
+    private LoginService loginService;
+
     @BeforeEach
     void setUp() {
         registrationService = mock(RegistrationService.class);
+        loginService = mock(LoginService.class);
         mockMvc = MockMvcBuilders
-            .standaloneSetup(new RegistrationController(registrationService))
+            .standaloneSetup(new RegistrationController(registrationService, loginService))
             .setControllerAdvice(new RegistrationExceptionHandler())
             .build();
     }
