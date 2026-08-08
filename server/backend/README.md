@@ -83,12 +83,35 @@ From `server/backend` on Windows:
 .\mvnw.cmd spring-boot:run
 ```
 
-Local defaults in `application.properties` mean you do **not** need GitHub Actions secrets to start the app.
+Database and external-service defaults are available in `application.properties`.
+Access-token signing material intentionally has no insecure local fallback.
 
 Requirements for a successful local run:
 
 1. MySQL running on `localhost:3306`
 2. A database user that matches the defaults (`root` / empty password), or override with env vars
+3. `JWT_SIGNING_SECRET` set to Base64-encoded random signing material of at least 32 bytes
+
+JWT configuration:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `JWT_SIGNING_SECRET` | _(required)_ | Base64-encoded HS256 signing material of at least 32 bytes |
+| `JWT_ISSUER` | `canmakan` | Access-token issuer |
+| `JWT_ACCESS_TTL` | `15m` | Short-lived access-token duration |
+
+Refresh-session configuration:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `REFRESH_TOKEN_TTL` | `7d` | Opaque refresh-session and cookie lifetime |
+| `REFRESH_COOKIE_NAME` | `canmakan_refresh` | HttpOnly refresh-cookie name |
+| `REFRESH_COOKIE_SECURE` | `true` | Require HTTPS transport for the refresh cookie |
+
+`POST /api/auth/login` and `POST /api/auth/refresh` return the access token in
+JSON and set the opaque refresh token only as an HttpOnly, SameSite=Strict
+cookie scoped to `/api/auth`. Set `REFRESH_COOKIE_SECURE=false` only for an
+explicit local HTTP environment; production should retain the secure default.
 
 Optional env vars (only needed when exercising those features):
 

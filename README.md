@@ -100,7 +100,9 @@ cd server/backend
 .\mvnw.cmd spring-boot:run
 ```
 
-Local MySQL on `localhost:3306` is required (defaults: user `root`, empty password). API keys are optional for startup; see [`server/backend/README.md`](server/backend/README.md).
+Local MySQL on `localhost:3306` and a `JWT_SIGNING_SECRET` environment value are
+required (database defaults: user `root`, empty password). External API keys are
+optional for startup; see [`server/backend/README.md`](server/backend/README.md).
 
 The backend health endpoint is
 `http://localhost:8080/actuator/health`.
