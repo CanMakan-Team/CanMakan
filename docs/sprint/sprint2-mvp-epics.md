@@ -57,10 +57,14 @@ Full table: [backlog §0c](sprint2-jira-backlog.md#0c-task-assignment).
 
 ```mermaid
 flowchart TB
-  UC19 --> UC18
-  UC19 --> UC8me[UC8-S3 /me]
-  UC19 --> UC8create[UC8-S2 create]
-  UC8me --> UC11
+  UC18shipped[UC18 shipped pre-JWT] --> UC8create[UC8-S2/S4 shipped]
+  UC8me[UC8-S3 /me shipped] --> UC11
+  UC8create --> UC9
+  UC9 --> UC10
+  UC8create --> UC12
+  UC8me --> UC6
+  UC19 --> UC8auth[UC8 AC8 real 401]
+  UC19 --> UC11
   UC11 --> UC2
   UC2 --> UC3
   UC3 --> UC4
@@ -70,12 +74,8 @@ flowchart TB
   UC2 --> UC24
   UC19 --> UC1
   UC1 --> UC6
-  UC8create --> UC9
-  UC9 --> UC10
-  UC8create --> UC12
   UC1 --> UC12
   UC11 --> UC12
-  UC8me --> UC6
   UC7 --> UC22
   UC13 --> UC23
   UC3 --> UC20
@@ -98,7 +98,7 @@ flowchart TB
 
 - **Backend:** `DietaryProfileController` — live `GET /api/restrictions` and `GET|PUT /api/profiles/{profileId}/restrictions`; catalog + `profile_restrictions` seeded. No ownership/authz (any caller can read/write any `profileId`). No Spring Security yet.
 - **Mobile:** `DietaryRestrictionSheet` + ViewModel wired from the drawer; loads/saves against the live API for the active profile. Severity is fixed to `STRICT_AVOID` in the VM (no PREFERENCE / INTOLERANCE picker). Loading/error paths exist.
-- **Missing:** create-after-registration / SELF bootstrap (depends on UC8); unknown-code → consistent HTTP 400 mapping; authenticated-only access once UC19-S3 lands.
+- **Missing:** unknown-code → consistent HTTP 400 mapping; authenticated-only access once UC19-S3 lands. SELF bootstrap after registration is via **UC8** create-circle (register leaves `family_id` NULL until then).
 
 ### User story
 
@@ -480,13 +480,18 @@ UC19 · Related: UC22
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Web Client (Family)  
 **Tech:** React; Spring Boot; RDS  
-**Current code state:** Partial (UC8-S1–S4 implemented; pre-JWT identity)
+**Current code state:** Partial — **UC8-S1–S4 shipped** for API + web; pre-JWT identity; mobile resolve open
 
-- **Schema:** `UNIQUE(family_members.user_id)` via `uq_family_members_user_id` in `00_schema.sql` (D2). Seeds remain one membership per user.
-- **Backend:** `POST /api/families` and `GET /api/families/me` via `FamilyService` / `FamilyController`. Create is transactional: `families` + `PRIMARY_ADMIN` membership + SELF `dietary_profiles` (`linked_user_id`, `family_id`, `is_primary`). Existing `GET /api/families/{familyId}/profiles` unchanged.
-- **Identity:** Controller takes temporary `X-User-Id` and passes `userId` into `FamilyService`. No auth filter yet — Spring Security / JWT under UC19 (**AC8** open).
-- **Web:** `FamilyMeGate` loads `/families/me`; 404 → `CreateFamilyCirclePage` (name + loading/validation/error). `apiClient` sends `X-User-Id` from session `userId`. Mock path supports getMe/create + clear-membership demo on Account.
-- **Gaps:** Real JWT / 401 (UC19, AC8); mobile still hardcodes `familyId=1` (UC11, AC10); invite/manage still UC9/UC12.
+- **Schema:** `UNIQUE(family_members.user_id)` via `uq_family_members_user_id` in `00_schema.sql` (D2 / one circle per user). Seeds remain one membership per user.
+- **Backend:** `POST /api/families` and `GET /api/families/me` via `FamilyService` / `FamilyController`. Create is transactional: `families` (`created_by_user_id`) + `PRIMARY_ADMIN` membership + SELF `dietary_profiles` (`linked_user_id`, `family_id`, `is_primary`). Package layout: `family/dto/`, `model/`, `repository/`, `exception/`. Contract: `docs/api/families.md`.
+- **Identity:** Controller takes temporary `X-User-Id` → `FamilyService(long userId)`. Not Spring Security auth. UC19 should swap to JWT / `@AuthenticationPrincipal` (**AC8** open). Unknown user for header → 401 today; missing JWT filter still open.
+- **Role model (interim):** DB `family_members.member_role = PRIMARY_ADMIN`; web session uses `ROLE_FAMILY_ADMIN` from register/login mapping. Full RBAC + seed `ADMIN`/`USER` vs `ROLE_*` alignment shared with UC13/UC19.
+- **Web:** Register (`/family-register`) / login → `/family` → `FamilyMeGate` loads `/families/me`; **404** → `CreateFamilyCirclePage` (name + loading/validation/error). `apiClient` sends `X-User-Id` from session. Feature packaged under `features/family/{api,components,pages,lib}`.
+- **Mobile:** No create-circle UI (web owns onboarding for MVP). Still hardcodes `familyId=1` in places — resolve via `/families/me` under **UC11** (AC10).
+- **Tests:** Backend create success, blank name 400, second create 409, unknown `X-User-Id` 401 (`FamilyControllerTest` / `FamilyServiceTest`).
+- **Diagrams:** Class/sequence under `docs/architecture/` for create-circle still **open** (planned `domain-family.mmd`).
+- **Demo tip:** Seeded users 4–13 already have families — register a new account to hit empty-state create.
+- **Gaps:** Real unauthenticated 401 (UC19, AC8); mobile `/me` (UC11, AC10); invites/manage (UC9/UC12).
 
 ### User story
 
@@ -496,7 +501,7 @@ As a registered app user, I want to create a family circle and become its Family
 
 **APIs:** `POST /api/families`; `GET /api/families/me`  
 Bootstraps SELF dietary profile for UC1.  
-**Out of scope:** Invites (UC9); accept (UC10); manage roster mutations (UC12).
+**Out of scope:** Invites (UC9); accept (UC10); manage roster mutations (UC12); mobile create UI (optional if web owns onboarding).
 
 ### Acceptance criteria
 
@@ -509,7 +514,7 @@ Bootstraps SELF dietary profile for UC1.
 | [x] | 5 | `GET /api/families/me` returns the new family as the user’s current family context. |
 | [x] | 6 | If one-family-per-user rule applies (D2), a second create returns HTTP 409. |
 | [x] | 7 | Blank or invalid family name returns HTTP 400. |
-| [ ] | 8 | Unauthenticated create returns HTTP 401. *(open — UC19)* |
+| [ ] | 8 | Unauthenticated create returns HTTP 401. *(open — UC19 Security filter)* |
 | [x] | 9 | Web empty-state CTA allows create when `/families/me` is empty/404. |
 | [ ] | 10 | Clients that previously hardcoded `familyId=1` can resolve family via `/families/me` for this flow. *(web done; mobile → UC11)* |
 | [x] | 11 | Loading, validation, and error states are handled on the create UI. |
@@ -518,16 +523,16 @@ Bootstraps SELF dietary profile for UC1.
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC8-S1** | 6 | Done — UNIQUE membership |
-| **UC8-S2** | 1–5, 7–8 | Done except AC8 (401 → UC19) |
-| **UC8-S3** | 5, 10 | Done for API + web; mobile hardcode → UC11 |
-| **UC8-S4** | 9, 11 | Done — web create UX |
+| **UC8-S1** | 6 | **Done** — UNIQUE membership |
+| **UC8-S2** | 1–5, 7–8 | **Done** except AC8 (401 → UC19) |
+| **UC8-S3** | 5, 10 | **Done** for API + web; mobile hardcode → UC11 |
+| **UC8-S4** | 9, 11 | **Done** — web create UX |
 
 Full table: [backlog §5 family lifecycle](sprint2-jira-backlog.md#uc8--uc9--uc10--family-lifecycle).
 
 ### Dependencies
 
-UC19 · Unblocks: UC9–UC12, UC6, UC11
+UC19 (real auth) · UC18 (register new users to demo empty-state) · Unblocks: UC9–UC12, UC6, UC11
 
 ---
 
@@ -929,7 +934,12 @@ UC5
 
 **Owner:** Maowei · **Package:** Enhanced · **Architecture:** Authentication & Security  
 **Tech:** Mobile + Web + Spring Boot Auth API; Security; JWT; RDS  
-**Current code state:** Not started
+**Current code state:** Partial — register API + web register/login glue shipped; JWT still UC19
+
+- **Backend:** `POST /api/auth/register` creates `users` + SELF `dietary_profiles` with `family_id` NULL (circle created later via UC8). Pre-JWT `POST /api/auth/login` for web session. Password BCrypt; email requires dotted domain; registration password strength (upper/lower/digit/special) + 72-byte BCrypt limit on DTOs.
+- **Web:** `/family-register` + credential login; session → `/family` → UC8 `FamilyMeGate` when no circle.
+- **Mobile:** Registration UI/ViewModel present; align remaining gaps with API as needed.
+- **Gaps:** JWT session (UC19); does not itself create a family circle (by design — UC8).
 
 ### User story
 
@@ -939,27 +949,27 @@ As a new user, I want to register for a CanMakan account so I can access persona
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | User can submit required account details via `POST /api/auth/register` (or equivalent). |
-| [ ] | 2 | Duplicate email/account is rejected with a clear error. |
-| [ ] | 3 | Credentials are stored securely (password hashed; no plaintext secrets in DB/logs). |
-| [ ] | 4 | Successful registration creates an active account (`users.is_active=1` unless designed otherwise). |
-| [ ] | 5 | Flow proceeds to login or onboarding as designed. |
-| [ ] | 6 | Validation errors return HTTP 400 with actionable messages. |
-| [ ] | 7 | Loading and error states are handled on mobile and web register UIs. |
-| [ ] | 8 | This UC does not create a family circle (UC8) or orphan dietary profile against schema rules. |
+| [x] | 1 | User can submit required account details via `POST /api/auth/register` (or equivalent). |
+| [x] | 2 | Duplicate email/account is rejected with a clear error. |
+| [x] | 3 | Credentials are stored securely (password hashed; no plaintext secrets in DB/logs). |
+| [x] | 4 | Successful registration creates an active account (`users.is_active=1` unless designed otherwise). |
+| [x] | 5 | Flow proceeds to login or onboarding as designed. *(web: register → session → `/family` / UC8)* |
+| [x] | 6 | Validation errors return HTTP 400 with actionable messages. |
+| [x] | 7 | Loading and error states are handled on mobile and web register UIs. *(web done; mobile present — polish as needed)* |
+| [x] | 8 | This UC does not create a family circle (UC8) or orphan dietary profile against schema rules. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC18-S1** | 1–4, 6 | Register API |
-| **UC18-S2** | 5, 7–8 | Register UI → login/onboarding |
+| **UC18-S1** | 1–4, 6 | **Done** — register API + validation |
+| **UC18-S2** | 5, 7–8 | **Done** (web); mobile UI present |
 
 Full table: [backlog §5 auth](sprint2-jira-backlog.md#uc19--uc18-authentication--security).
 
 ### Dependencies
 
-UC19 patterns (encoder, users table)
+UC19 (JWT / real auth) · Unblocks demo of UC8 empty-state create
 
 ---
 
@@ -1192,15 +1202,16 @@ Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
 Canonical with [backlog §5b](sprint2-jira-backlog.md#5b-recommended-delivery-sequence):
 
-1. UC19-S1/S3/S5 (critical path) → UC18-S1/S2 when ready  
-2. UC8-S3 → UC11-S1…S3 → UC2-S1…S4 → UC3-S1…S2 → UC4-S1  
-3. UC8-S2/S4 → UC12-S1…S6 → UC9-S3; stretch UC1-S1/S3, UC6-S1/S2, UC9-S1/S2  
-4. UC9–UC10 invite loop → UC6-S3 if needed  
-5. UC4-S2/S3 → UC5-S1/S2 → UC7-S1/S2 → UC13-S1…S3  
-6. Enhanced: UC14-S1/S2, UC15–UC17; polish UC18–UC19  
-7. Nice-to-Have: UC20-S1/S2 … UC24-S1/S2  
+1. UC19-S1/S3/S5 (critical path — real JWT / 401)  
+2. **Shipped (pre-JWT):** UC18-S1/S2 (web); UC8-S1–S4 (API + web create); remaining UC8 = AC8→UC19, AC10→UC11  
+3. UC11-S1…S3 (drop `familyId=1`) → UC2-S1…S4 → UC3-S1…S2 → UC4-S1  
+4. UC12-S1…S6 → UC9-S3; stretch UC1-S1/S3, UC6-S1/S2, UC9-S1/S2  
+5. UC9–UC10 invite loop → UC6-S3 if needed  
+6. UC4-S2/S3 → UC5-S1/S2 → UC7-S1/S2 → UC13-S1…S3  
+7. Enhanced: UC14-S1/S2, UC15–UC17; polish UC18–UC19  
+8. Nice-to-Have: UC20-S1/S2 … UC24-S1/S2  
 
-Sprint 2 may use **seeded families** before UC8-S2 ships (see backlog §5b exception).
+Seeded families still useful for scan work until UC11 resolves membership without hardcodes.
 
 ---
 
