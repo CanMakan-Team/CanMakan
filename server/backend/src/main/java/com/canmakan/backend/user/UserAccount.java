@@ -22,6 +22,7 @@ import lombok.ToString;
  * This allows other entities to reference users via JPA relationships
  * 
  * @author Amelia
+ * @author YangMaowei
  */
 @Getter
 @Setter

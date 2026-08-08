@@ -8,11 +8,23 @@ import org.springframework.data.repository.query.Param;
 /**
  * Persistence access for user accounts and the minimal role lookup required by
  * public registration.
+ * 
+ * @author Amelia
+ * @author YangMaowei
  */
 public interface UserAccountRepository extends JpaRepository<UserAccount, Long> {
 
+    // Check if a user with the given email exists
     boolean existsByEmail(String email);
 
+    // Find a user by email
+    Optional<UserAccount> findByEmail(String email);
+
+    // Find the role ID by name
     @Query(value = "select id from roles where name = :roleName", nativeQuery = true)
     Optional<Long> findRoleIdByName(@Param("roleName") String roleName);
+
+    // Find the role name by ID
+    @Query(value = "select name from roles where id = :roleId", nativeQuery = true)
+    Optional<String> findRoleNameById(@Param("roleId") Long roleId);
 }
