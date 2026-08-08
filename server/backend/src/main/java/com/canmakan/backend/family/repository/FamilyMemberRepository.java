@@ -1,6 +1,7 @@
 package com.canmakan.backend.family.repository;
 
 import java.util.Optional;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,4 +24,11 @@ public interface FamilyMemberRepository extends JpaRepository<FamilyMember, Fami
         where fm.id.userId = :userId
         """)
     Optional<FamilyMember> findMembershipByUserId(@Param("userId") Long userId);
+
+    // UC6: Fetch List of Active Family Members by Family ID
+    @Query("""
+        select fm from FamilyMember fm
+        where fm.id.familyId = :familyId and fm.isActive = true
+        """)
+    List<FamilyMember> findActiveMembersByFamilyId(@Param("familyId") Long familyId);
 }

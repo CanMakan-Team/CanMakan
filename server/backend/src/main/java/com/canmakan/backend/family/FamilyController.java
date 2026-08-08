@@ -3,6 +3,8 @@ package com.canmakan.backend.family;
 import com.canmakan.backend.dietaryprofile.DietaryProfileService;
 import com.canmakan.backend.family.model.CreateFamilyRequest;
 import com.canmakan.backend.family.model.FamilyMeResponse;
+import com.canmakan.backend.family.model.FamilyRestrictionSumRes;
+import com.canmakan.backend.user.UserAccount;
 
 import jakarta.validation.Valid;
 import java.util.List;
@@ -64,5 +66,18 @@ public class FamilyController {
             dietaryProfileService.getProfilesByFamilyId(familyId);
         log.info("GET /families/{}/profiles → 200", familyId);
         return resp;
+    }
+
+    /**
+     * UC6 View Family Allergy Summary Grid
+     * Returns a matrix of all active family members and their dietary restrictions.
+     * Accessible to any member of the family.
+     */
+    @GetMapping("/me/restriction-summary")
+    public ResponseEntity<FamilyRestrictionSumRes> getRestrictionSummary(
+            @RequestHeader("X-User-Id") Long userId
+    ) {
+        FamilyRestrictionSumRes summary = familyService.getFamilyRestrictionSummary(userId);
+        return ResponseEntity.ok(summary);
     }
 }

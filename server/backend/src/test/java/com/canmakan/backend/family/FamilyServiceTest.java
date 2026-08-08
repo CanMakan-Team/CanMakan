@@ -183,6 +183,7 @@ class FamilyServiceTest {
         FamilyMember membership = new FamilyMember(
                 new FamilyMember.FamilyMemberId(1L, 4L),
                 FamilyMember.ROLE_PRIMARY_ADMIN,
+                true,
                 null
         );
         when(familyMemberRepository.findMembershipByUserId(4L)).thenReturn(Optional.of(membership));
