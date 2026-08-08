@@ -25,5 +25,14 @@ User registration, authentication and session management.
 - The 7.2 data/network foundation models login, refresh, logout and `/me`.
 - `AuthRepository` maps HTTP, network and invalid-response failures without
   exposing backend or credential details.
-- Access-token storage, persistent cookies, Bearer authentication, automatic
-  refresh, Login UI and authentication navigation remain intentionally deferred.
+- The 7.3 session foundation stores the access token and authenticated-user
+  summary in Keystore-backed encrypted preferences with a synchronized memory
+  snapshot for future request authentication.
+- The shared OkHttp client now uses an encrypted persistent `CookieJar` limited
+  to the `canmakan_refresh` cookie. OkHttp host, path, Secure and expiry matching
+  remain authoritative; rotation replaces cookies by name/domain/path.
+- OkHttp 5.4's cookie model preserves SameSite, but `CookieJar` request matching
+  has no browser-style site context and therefore cannot enforce SameSite itself.
+- Shared preferences are already excluded from cloud backup and device transfer.
+- Bearer authentication, automatic refresh, Login UI and authentication
+  navigation remain intentionally deferred.

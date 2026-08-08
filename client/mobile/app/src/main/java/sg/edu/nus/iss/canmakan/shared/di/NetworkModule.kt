@@ -10,6 +10,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import okhttp3.CookieJar
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -17,6 +18,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import sg.edu.nus.iss.canmakan.BuildConfig
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthApiService
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationApiService
+import sg.edu.nus.iss.canmakan.features.auth.session.PersistentRefreshCookieJar
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryApiService
@@ -70,9 +72,19 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(loggingInterceptor: HttpLoggingInterceptor): OkHttpClient {
+    fun provideCookieJar(refreshCookieJar: PersistentRefreshCookieJar): CookieJar {
+        return refreshCookieJar
+    }
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(
+        loggingInterceptor: HttpLoggingInterceptor,
+        cookieJar: CookieJar = CookieJar.NO_COOKIES,
+    ): OkHttpClient {
         return OkHttpClient.Builder()
             .proxy(Proxy.NO_PROXY)
+            .cookieJar(cookieJar)
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
                 val skipRetries = originalRequest.header(NO_RETRY_HEADER)
