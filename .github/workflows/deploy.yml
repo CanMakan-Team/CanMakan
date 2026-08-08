@@ -82,9 +82,10 @@ jobs:
               sleep 3
             fi
 
-            # Move new artefact into place
-            mv /home/ubuntu/app/deploy-temp/*.jar /home/ubuntu/app/canmakan-backend.jar
-
+            # Move new artifact into place
+            JAR_PATH="$(ls -t /home/ubuntu/app/deploy-temp/*.jar 2>/dev/null | grep -v '\.original$' | head -n 1)"
+            if [ -z "$JAR_PATH" ]; then echo "ERROR: No deployable JAR found in /home/ubuntu/app/deploy-temp"; exit 1; fi
+            mv "$JAR_PATH" /home/ubuntu/app/canmakan-backend.jar
             # Force the non-interactive SSH session to load and export the environment variables
             set -a
             source /etc/environment
