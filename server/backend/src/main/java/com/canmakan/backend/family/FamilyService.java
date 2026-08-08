@@ -7,12 +7,19 @@ import com.canmakan.backend.family.exception.FamilyNotFoundException;
 import com.canmakan.backend.family.model.CreateFamilyRequest;
 import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.family.model.FamilyMeResponse;
+import com.canmakan.backend.family.model.FamilyMeRestrictionDetail;
+import com.canmakan.backend.family.model.FamilyMeRestrictionSum;
 import com.canmakan.backend.family.model.FamilyMember;
+import com.canmakan.backend.family.model.FamilyRestrictionSumRes;
 import com.canmakan.backend.family.repository.FamilyMemberRepository;
 import com.canmakan.backend.family.repository.FamilyRepository;
 import com.canmakan.backend.user.UserAccount;
 import com.canmakan.backend.user.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
+
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,6 +87,51 @@ public class FamilyService {
         } catch (DataIntegrityViolationException ex) {
             throw new AlreadyInFamilyException("You already belong to a family circle.");
         }
+    }
+
+    /**
+     * UC6 
+     * Retrieves a summary of dietary restrictions for all active members in the authenticated user's family circle.
+     */
+    @Transactional(readOnly = true)
+    public FamilyRestrictionSumRes getFamilyRestrictionSummary(Long currentUserId) {
+        // 1. Validate Family's Circle Membership and get Family ID
+        FamilyMember membership = familyMemberRepository.findMembershipByUserId(currentUserId)
+                .orElseThrow(() -> new FamilyNotFoundException("User is not a Member of Family Circle."));
+        
+        // 2. Fetch Active Family Members
+        List<FamilyMember> activeMembers = familyMemberRepository.findActiveMembersByFamilyId(membership.getFamilyId());
+
+        // 3. For each active member, fetch their dietary restrictions and map to DTO
+        List<FamilyMeRestrictionSum> familyMembersSummary = activeMembers.stream().map(member -> {
+
+            // 3.1 Fetch Dietary Profile associated with the Family Member User ID
+            Optional<DietaryProfile> dietaryProfileOpt = dietaryProfileRepository.findByLinkedUser_Id(member.getId().getUserId());
+
+            // 3.2 Extract the Profile Name
+            String name = dietaryProfileOpt.map(profile -> profile.getProfileName())
+                .orElse("Unknown Member");
+            
+            // 3.3 Extract and Map Dietary Restrictions to DTO
+            List<FamilyMeRestrictionDetail> restrictionDetails = dietaryProfileOpt.map(profile ->
+                // Assuming the collection in DietaryProfile is named profileRestrictions
+                profile.getProfileRestrictions().stream()
+                    .map(restriction -> new FamilyMeRestrictionDetail(
+                        restriction.getDietaryRestriction().getCode(),
+                        restriction.getDietaryRestriction().getDisplayName(),
+                        restriction.getSeverityLevel()
+                    )).toList()
+            ).orElse(List.of());
+
+            return new FamilyMeRestrictionSum(
+                member.getUserId(),
+                name,
+                member.getIsActive(),
+                restrictionDetails
+            );
+        }).toList();
+
+        return new FamilyRestrictionSumRes(familyMembersSummary);
     }
 
     @Transactional(readOnly = true)
