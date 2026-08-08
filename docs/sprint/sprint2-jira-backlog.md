@@ -244,7 +244,7 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 | UC5 | Core | **Not started** — Alternatives tab shell (“No alternatives available yet”); no recommendations API |
 | UC6 | Core | **Partial** — web `FamilyRestrictionSummaryPage` mock matrix; **mobile primary + summary API missing** |
 | UC7 | Core | **Partial** — admin `ConsumerTrendsPage` mock; `daily_consumer_trends` unused by Java |
-| UC8 | Core | **Partial** — `POST /api/families` + `GET /families/me` + D2 UNIQUE + web create empty-state; controller takes temporary `X-User-Id` (auth/JWT later under UC19) |
+| UC8 | Core | **Partial** — create + `/me` + D2 + web empty-state done; temp `X-User-Id`. Open: AC8 auth/401 (UC19), AC10 mobile `/me` (UC11) |
 | UC9 | Core | **Partial** — web mock immediate link + dependant modals; `family_invitations` unused; no PENDING invite APIs |
 | UC10 | Core | **Not started** |
 | UC11 | Core | **Partial** — mobile drawer switch via `ActiveProfileManager`; loads `GET /families/{id}/profiles` with **`familyId=1L`**; not server-persisted |
@@ -253,7 +253,7 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 | UC14 | Enhanced | **Not started** |
 | UC15–UC16 | Enhanced | **Not started** |
 | UC17 | Enhanced | **Not started** |
-| UC18 | Enhanced | **Not started** (auth package README) |
+| UC18 | Enhanced | **Partial** — register API + web `/family-register` + pre-JWT login; mobile UI open; JWT → UC19 |
 | UC19 | Enhanced | **Not started** (web prototype `mockLogin` / ProtectedRoute; no JWT/Security); **Core critical path** |
 | UC20 | Nice-to-Have | **Not started** / reporting README |
 | UC21 | Nice-to-Have | **Partial** — `AiExecutionLogService` write path (flag default off) + seeds; no admin dashboard |
@@ -648,8 +648,8 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | **UC19-S3** | Protect existing business endpoints | UC19: 4 | P0 |
 | **UC19-S4** | Logout — invalidate token; clear local credentials | UC19: 8–10 | P1 |
 | **UC19-S5** | Mobile + web login/logout UX (loading/error) | UC19: 11–12 | P1 |
-| **UC18-S1** | Register API — duplicates rejected; secure hash | UC18: 1–4, 6 | P2 |
-| **UC18-S2** | Mobile + web register UI → login/onboarding | UC18: 5, 7–8 | P2 |
+| **UC18-S1** | Register API — duplicates rejected; secure hash — **Done** | UC18: 1–4, 6 | P2 |
+| **UC18-S2** | Mobile + web register UI → login/onboarding — **Done (web)**; mobile open | UC18: 5, 7–8 | P2 |
 
 ### UC1 — Dietary profile
 
@@ -665,10 +665,10 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 
 | Story | Summary | AC # | Priority |
 | --- | --- | --- | --- |
-| **UC8-S1** | Optional UNIQUE membership (D2) | UC8: 6 | P0 |
-| **UC8-S2** | POST `/api/families` + PRIMARY_ADMIN + SELF profile | UC8: 1–5, 7–8 | P0 |
-| **UC8-S3** | GET `/api/families/me` | UC8: 5, 10 | P0 |
-| **UC8-S4** | Web create CTA + loading/validation/error | UC8: 9, 11 | P1 |
+| **UC8-S1** | Optional UNIQUE membership (D2) — **Done** | UC8: 6 | P0 |
+| **UC8-S2** | POST `/api/families` + PRIMARY_ADMIN + SELF profile — **Done** (AC8 open → UC19) | UC8: 1–5, 7–8 | P0 |
+| **UC8-S3** | GET `/api/families/me` — **Done** (API + web; mobile → UC11) | UC8: 5, 10 | P0 |
+| **UC8-S4** | Web create CTA + loading/validation/error — **Done** | UC8: 9, 11 | P1 |
 | **UC9-S1** | Invitation migration / status constraints (M5) | UC9: (supports 2–4) | P0 |
 | **UC9-S2** | User search + create PENDING invitation | UC9: 1–7 | P0 |
 | **UC9-S3** | Create dependant dietary profile | UC9: 9–13 | P0 |

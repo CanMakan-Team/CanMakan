@@ -1,5 +1,19 @@
 # Family circle APIs (UC8)
 
+## Progress
+
+| Area | Status |
+| --- | --- |
+| Schema D2 `UNIQUE(family_members.user_id)` | Done |
+| `POST /api/families` (PRIMARY_ADMIN + SELF profile) | Done |
+| `GET /api/families/me` | Done |
+| Request validation (`@Valid` family name) | Done |
+| Web create empty-state (`FamilyMeGate`) | Done |
+| Real auth / HTTP 401 (AC8) | Open — UC19 |
+| Mobile resolve via `/me` (AC10) | Open — UC11 |
+
+---
+
 ## Identity (temporary)
 
 Until UC19 (Spring Security + JWT), create/`/me` take the caller as a request header:
