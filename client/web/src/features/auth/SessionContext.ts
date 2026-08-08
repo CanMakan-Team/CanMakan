@@ -1,10 +1,18 @@
 import { createContext } from 'react'
-import type { AuthenticatedSession, Portal } from '../../shared/api/types'
+import type { AuthenticatedSession } from '../../shared/api/types'
+import type { CredentialLoginInput, RegisterInput } from './authService'
 
+/** Session context value
+ * 
+ * @author Amelia
+ */
 export interface SessionContextValue {
   session: AuthenticatedSession | null
   loading: boolean
-  login: (portal: Portal) => Promise<AuthenticatedSession>
+  loginWithCredentials: (
+    input: CredentialLoginInput,
+  ) => Promise<AuthenticatedSession>
+  registerAndLogin: (input: RegisterInput) => Promise<AuthenticatedSession>
   logout: () => void
 }
 

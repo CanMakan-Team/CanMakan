@@ -39,6 +39,32 @@ export interface AuthenticatedSession {
   prototype: boolean
 }
 
+/** POST /api/auth/register success body (UC18). */
+export interface RegistrationResponse {
+  userId: number
+  profileId: number
+  name: string
+  email: string
+  active: boolean
+}
+
+/** POST /api/auth/login success body (pre-JWT). */
+export interface LoginResponse {
+  userId: number
+  displayName: string
+  roles: Role[]
+  prototype: boolean
+}
+
+/** Current family context from GET /api/families/me (UC8). */
+export interface FamilyMe {
+  familyId: number
+  familyName: string
+  memberRole: string
+  selfProfileId: number | null
+  createdByUserId: number
+}
+
 export interface FamilyMember {
   memberId: number
   profileName: string

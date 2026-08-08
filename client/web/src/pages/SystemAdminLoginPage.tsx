@@ -1,5 +1,6 @@
-import { PrototypeLoginForm } from '../shared/ui/PrototypeLoginForm'
+import { FamilyCredentialLoginForm } from '../shared/ui/FamilyCredentialLoginForm'
 
+/** System admin login — live email/password against POST /api/auth/login. */
 export function SystemAdminLoginPage() {
   return (
     <main className="login-page login-page--system">
@@ -30,20 +31,18 @@ export function SystemAdminLoginPage() {
           className="login-card login-card--system"
           aria-labelledby="system-login-title"
         >
-          <p className="eyebrow">Restricted Prototype Login</p>
+          <p className="eyebrow">System Administration</p>
           <h2 id="system-login-title">System Administrator sign in</h2>
           <p>
-            Enter the Sprint 1 prototype to review anonymised trends and user
-            access controls.
+            Sign in with an administrator account to review anonymised trends and
+            user access controls.
           </p>
-          <PrototypeLoginForm
+          <FamilyCredentialLoginForm
             portal="SYSTEM"
             expectedRole="ROLE_SYSTEM_ADMIN"
             destination="/system"
-            email="admin@demo.canmakan"
             buttonLabel="Enter System Administration"
             buttonClassName="button--dark"
-            fieldId="system-demo-email"
           />
         </section>
       </div>

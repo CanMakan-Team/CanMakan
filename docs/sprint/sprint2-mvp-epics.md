@@ -484,9 +484,9 @@ UC19 · Related: UC22
 
 - **Schema:** `UNIQUE(family_members.user_id)` in `00_schema.sql` + additive `migrations/M2_family_members_unique_user.sql` (D2). Seeds remain one membership per user.
 - **Backend:** `POST /api/families` and `GET /api/families/me` via `FamilyService` / `FamilyController`. Create is transactional: `families` + `PRIMARY_ADMIN` membership + SELF `dietary_profiles` (`linked_user_id`, `family_id`, `is_primary`). Existing `GET /api/families/{familyId}/profiles` unchanged.
-- **Identity:** Controller takes temporary `X-User-Id` and passes `userId` into `FamilyService`. No auth filter yet — Spring Security / JWT under UC19.
+- **Identity:** Controller takes temporary `X-User-Id` and passes `userId` into `FamilyService`. No auth filter yet — Spring Security / JWT under UC19 (**AC8** open).
 - **Web:** `FamilyMeGate` loads `/families/me`; 404 → `CreateFamilyCirclePage` (name + loading/validation/error). `apiClient` sends `X-User-Id` from session `userId`. Mock path supports getMe/create + clear-membership demo on Account.
-- **Gaps:** Real JWT (UC19); mobile still hardcodes `familyId=1` (UC11); invite/manage still UC9/UC12.
+- **Gaps:** Real JWT / 401 (UC19, AC8); mobile still hardcodes `familyId=1` (UC11, AC10); invite/manage still UC9/UC12.
 
 ### User story
 
@@ -502,26 +502,26 @@ Bootstraps SELF dietary profile for UC1.
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | Authenticated APP_USER without a family can submit a family name via `POST /api/families`. |
-| [ ] | 2 | On success, a `families` row is persisted. |
-| [ ] | 3 | Creator is inserted as `family_members.member_role = PRIMARY_ADMIN`. |
-| [ ] | 4 | A linked SELF dietary profile is created for the creator (`linked_user_id` = caller, `family_id` set). |
-| [ ] | 5 | `GET /api/families/me` returns the new family as the user’s current family context. |
-| [ ] | 6 | If one-family-per-user rule applies (D2), a second create returns HTTP 409. |
-| [ ] | 7 | Blank or invalid family name returns HTTP 400. |
-| [ ] | 8 | Unauthenticated create returns HTTP 401. |
-| [ ] | 9 | Web empty-state CTA allows create when `/families/me` is empty/404. |
-| [ ] | 10 | Clients that previously hardcoded `familyId=1` can resolve family via `/families/me` for this flow. |
-| [ ] | 11 | Loading, validation, and error states are handled on the create UI. |
+| [x] | 1 | Authenticated APP_USER without a family can submit a family name via `POST /api/families`. *(via temporary `X-User-Id`; real auth = UC19)* |
+| [x] | 2 | On success, a `families` row is persisted. |
+| [x] | 3 | Creator is inserted as `family_members.member_role = PRIMARY_ADMIN`. |
+| [x] | 4 | A linked SELF dietary profile is created for the creator (`linked_user_id` = caller, `family_id` set). |
+| [x] | 5 | `GET /api/families/me` returns the new family as the user’s current family context. |
+| [x] | 6 | If one-family-per-user rule applies (D2), a second create returns HTTP 409. |
+| [x] | 7 | Blank or invalid family name returns HTTP 400. |
+| [ ] | 8 | Unauthenticated create returns HTTP 401. *(open — UC19)* |
+| [x] | 9 | Web empty-state CTA allows create when `/families/me` is empty/404. |
+| [ ] | 10 | Clients that previously hardcoded `familyId=1` can resolve family via `/families/me` for this flow. *(web done; mobile → UC11)* |
+| [x] | 11 | Loading, validation, and error states are handled on the create UI. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC8-S1** | 6 | Optional UNIQUE membership |
-| **UC8-S2** | 1–5, 7–8 | POST create + PRIMARY_ADMIN + SELF |
-| **UC8-S3** | 5, 10 | GET `/families/me` |
-| **UC8-S4** | 9, 11 | Web create UX |
+| **UC8-S1** | 6 | Done — UNIQUE membership |
+| **UC8-S2** | 1–5, 7–8 | Done except AC8 (401 → UC19) |
+| **UC8-S3** | 5, 10 | Done for API + web; mobile hardcode → UC11 |
+| **UC8-S4** | 9, 11 | Done — web create UX |
 
 Full table: [backlog §5 family lifecycle](sprint2-jira-backlog.md#uc8--uc9--uc10--family-lifecycle).
 

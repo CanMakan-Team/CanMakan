@@ -15,6 +15,3 @@ Implements authentication/authorization mechanisms used by the whole application
 ## Note
 The actual **login / logout / session** endpoints and flow live in the `auth` package.
 This package only provides the underlying security machinery.
-
-Family create/`/me` currently accept a temporary `X-User-Id` header on the controller
-until UC19 (Spring Security + JWT) replaces it with `@AuthenticationPrincipal`.
