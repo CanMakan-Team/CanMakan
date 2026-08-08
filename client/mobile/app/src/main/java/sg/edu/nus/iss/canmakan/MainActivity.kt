@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import dagger.hilt.android.AndroidEntryPoint
 import sg.edu.nus.iss.canmakan.features.product.scan.ScannerScreen
 import sg.edu.nus.iss.canmakan.navigation.CanMakanNavGraph
+import sg.edu.nus.iss.canmakan.navigation.ROUTE_REGISTRATION
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.theme.CanMakanTheme
 
@@ -31,6 +32,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             CanMakanTheme {
                 CanMakanNavGraph()
+//                CanMakanNavGraph(startDestination = ROUTE_REGISTRATION)
             }
         }
     }

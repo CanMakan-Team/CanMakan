@@ -11,6 +11,10 @@ import java.util.Locale;
 
 /** Request body for public user registration. */
 public record RegistrationRequest(
+    @NotBlank(message = "Name is required.")
+    @Size(min = 3, max = 100, message = "Name must be between 3 and 100 characters.")
+    String name,
+
     @NotBlank(message = "Email is required.")
     @Email(message = "Email must be valid.")
     @Size(max = 255, message = "Email must not exceed 255 characters.")
@@ -24,6 +28,7 @@ public record RegistrationRequest(
     private static final int MAX_BCRYPT_PASSWORD_BYTES = 72;
 
     public RegistrationRequest {
+        name = name == null ? null : name.strip();
         email = email == null ? null : email.strip().toLowerCase(Locale.ROOT);
     }
 
@@ -36,7 +41,7 @@ public record RegistrationRequest(
 
     @Override
     public String toString() {
-        return "RegistrationRequest[email=" + email + ", password=<redacted>]";
+        return "RegistrationRequest[name=" + name + ", email=" + email + ", password=<redacted>]";
     }
 
     /** Reject fields outside the frozen public registration contract. */

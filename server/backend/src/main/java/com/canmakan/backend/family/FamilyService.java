@@ -56,10 +56,16 @@ public class FamilyService {
             membership.setMemberRole(FamilyMember.ROLE_PRIMARY_ADMIN);
             familyMemberRepository.saveAndFlush(membership);
 
-            DietaryProfile selfProfile = new DietaryProfile();
+            // Registration already creates a family-less profile for this user
+            // (see RegistrationService); reuse it here rather than creating a
+            // second row, since linked_user_id is unique per user.
+            DietaryProfile selfProfile = dietaryProfileRepository.findByLinkedUser_Id(userId)
+                    .orElseGet(DietaryProfile::new);
             selfProfile.setFamily(savedFamily);
             selfProfile.setLinkedUser(user);
-            selfProfile.setProfileName(profileNameFromUser(user));
+            if (selfProfile.getProfileName() == null || selfProfile.getProfileName().isBlank()) {
+                selfProfile.setProfileName(profileNameFromUser(user));
+            }
             selfProfile.setRelationship("SELF");
             selfProfile.setPrimary(true);
             DietaryProfile savedProfile = dietaryProfileRepository.saveAndFlush(selfProfile);

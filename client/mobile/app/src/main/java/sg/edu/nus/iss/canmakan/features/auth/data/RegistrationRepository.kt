@@ -16,5 +16,5 @@ sealed interface RegistrationResult {
 }
 
 interface RegistrationRepository {
-    suspend fun register(email: String, password: String): RegistrationResult
+    suspend fun register(name: String, email: String, password: String): RegistrationResult
 }

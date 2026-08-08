@@ -104,6 +104,47 @@ class FamilyServiceTest {
         assertEquals(true, profileCaptor.getValue().isPrimary());
     }
 
+    // UC8 reuses the profile registration already created for this user
+    // instead of creating a second row (linked_user_id is unique per user)
+    @Test
+    @DisplayName("reuses the profile created at registration rather than duplicating it")
+    void createFamilyReusesExistingProfileFromRegistration() {
+        when(familyMemberRepository.existsByIdUserId(14L)).thenReturn(false);
+
+        UserAccount user = new UserAccount();
+        user.setId(14L);
+        user.setEmail("person@example.com");
+        when(userAccountRepository.findById(14L)).thenReturn(Optional.of(user));
+
+        DietaryProfile existingProfile = new DietaryProfile();
+        existingProfile.setId(77L);
+        existingProfile.setProfileName("Sarah Abdullah");
+        when(dietaryProfileRepository.findByLinkedUser_Id(14L)).thenReturn(Optional.of(existingProfile));
+
+        when(familyRepository.saveAndFlush(any(Family.class))).thenAnswer(invocation -> {
+            Family family = invocation.getArgument(0);
+            family.setId(50L);
+            return family;
+        });
+        when(familyMemberRepository.saveAndFlush(any(FamilyMember.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        familyService.createFamily(14L, new CreateFamilyRequest("Abdullah Family"));
+
+        ArgumentCaptor<DietaryProfile> profileCaptor = ArgumentCaptor.forClass(DietaryProfile.class);
+        verify(dietaryProfileRepository).saveAndFlush(profileCaptor.capture());
+        DietaryProfile savedProfile = profileCaptor.getValue();
+
+        // Same row (same id), name from registration preserved, now attached to the family
+        assertEquals(77L, savedProfile.getId());
+        assertEquals("Sarah Abdullah", savedProfile.getProfileName());
+        assertEquals(50L, savedProfile.getFamily().getId());
+        assertEquals("SELF", savedProfile.getRelationship());
+        assertEquals(true, savedProfile.isPrimary());
+    }
+
     // UC8 rejects second create when user already has membership
     @Test
     @DisplayName("rejects second create when user already has membership")

@@ -38,18 +38,21 @@ class RegistrationControllerTest {
     @DisplayName("UC18 HTTP1: valid registration returns 201 with only safe account fields")
     void validRegistrationReturnsSafeCreatedResponse() throws Exception {
         when(registrationService.register(any(RegistrationRequest.class)))
-            .thenReturn(new RegistrationResponse(14L, "person@example.com", true));
+            .thenReturn(new RegistrationResponse(14L, 77L, "Person Name", "person@example.com", true));
 
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
+                      "name": "Person Name",
                       "email": "  Person@Example.COM  ",
                       "password": "Password1!"
                     }
                     """))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.userId").value(14))
+            .andExpect(jsonPath("$.profileId").value(77))
+            .andExpect(jsonPath("$.name").value("Person Name"))
             .andExpect(jsonPath("$.email").value("person@example.com"))
             .andExpect(jsonPath("$.active").value(true))
             .andExpect(jsonPath("$.password").doesNotExist())
@@ -58,7 +61,7 @@ class RegistrationControllerTest {
             .andExpect(jsonPath("$.token").doesNotExist());
 
         verify(registrationService).register(
-            new RegistrationRequest("person@example.com", "Password1!")
+            new RegistrationRequest("Person Name", "person@example.com", "Password1!")
         );
     }
 
@@ -79,7 +82,7 @@ class RegistrationControllerTest {
     void missingPasswordReturnsBadRequest() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"person@example.com\"}"))
+                .content("{\"name\":\"Person Name\",\"email\":\"person@example.com\"}"))
             .andExpect(status().isBadRequest());
 
         verify(registrationService, never()).register(any());
@@ -90,7 +93,29 @@ class RegistrationControllerTest {
     void shortPasswordReturnsBadRequest() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"person@example.com\",\"password\":\"Short1\"}"))
+                .content("{\"name\":\"Person Name\",\"email\":\"person@example.com\",\"password\":\"Short1\"}"))
+            .andExpect(status().isBadRequest());
+
+        verify(registrationService, never()).register(any());
+    }
+
+    @Test
+    @DisplayName("UC18 HTTP4b: missing name returns 400")
+    void missingNameReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
+            .andExpect(status().isBadRequest());
+
+        verify(registrationService, never()).register(any());
+    }
+
+    @Test
+    @DisplayName("UC18 HTTP4c: name shorter than three characters returns 400")
+    void shortNameReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Al\",\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
             .andExpect(status().isBadRequest());
 
         verify(registrationService, never()).register(any());
@@ -103,7 +128,7 @@ class RegistrationControllerTest {
 
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"person@example.com\",\"password\":\""
+                .content("{\"name\":\"Person Name\",\"email\":\"person@example.com\",\"password\":\""
                     + oversizedPassword + "\"}"))
             .andExpect(status().isBadRequest());
 
@@ -117,6 +142,7 @@ class RegistrationControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
+                      "name": "Person Name",
                       "email": "person@example.com",
                       "password": "Password1!",
                       "role": "ADMIN",
@@ -143,7 +169,7 @@ class RegistrationControllerTest {
 
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
+                .content("{\"name\":\"Person Name\",\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.message")
                 .value("An account with this email already exists."));
@@ -157,7 +183,7 @@ class RegistrationControllerTest {
 
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
+                .content("{\"name\":\"Person Name\",\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
             .andExpect(status().isInternalServerError())
             .andExpect(jsonPath("$.message").value("Registration could not be completed."))
             .andExpect(content().string(not(containsString("do-not-expose"))));

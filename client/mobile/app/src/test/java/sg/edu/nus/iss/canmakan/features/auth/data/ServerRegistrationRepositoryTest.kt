@@ -15,12 +15,12 @@ import retrofit2.Response
 class ServerRegistrationRepositoryTest {
 
     @Test
-    @DisplayName("UC18 A1: request JSON contains only email and password and redacts its string form")
+    @DisplayName("UC18 A1: request JSON contains only name, email and password and redacts its string form")
     fun requestContainsOnlyFrozenFieldsAndRedactsPassword() {
-        val request = RegistrationRequest("person@example.com", "Password1!")
+        val request = RegistrationRequest("Person Name", "person@example.com", "Password1!")
 
         assertEquals(
-            "{\"email\":\"person@example.com\",\"password\":\"Password1!\"}",
+            "{\"name\":\"Person Name\",\"email\":\"person@example.com\",\"password\":\"Password1!\"}",
             Gson().toJson(request),
         )
         assertFalse(request.toString().contains("Password1!"))
@@ -30,23 +30,30 @@ class ServerRegistrationRepositoryTest {
     @DisplayName("UC18 A2: 201 response becomes account success")
     fun createdResponseBecomesSuccess() = kotlinx.coroutines.test.runTest {
         val api = FakeRegistrationApiService(
-            response = Response.success(201, RegistrationResponse(14L, "person@example.com", true))
+            response = Response.success(
+                201,
+                RegistrationResponse(14L, 77L, "Person Name", "person@example.com", true),
+            )
         )
 
         val result = ServerRegistrationRepository(api).register(
+            "Person Name",
             "person@example.com",
             "Password1!",
         )
 
         val success = assertInstanceOf(RegistrationResult.Success::class.java, result)
         assertEquals(14L, success.account.userId)
-        assertEquals(RegistrationRequest("person@example.com", "Password1!"), api.lastRequest)
+        assertEquals(
+            RegistrationRequest("Person Name", "person@example.com", "Password1!"),
+            api.lastRequest,
+        )
     }
 
     @Test
     @DisplayName("UC18 A3: 400 response maps to invalid registration")
     fun badRequestMapsToInvalidRegistration() = kotlinx.coroutines.test.runTest {
-        val result = repositoryForStatus(400).register("person@example.com", "Password1!")
+        val result = repositoryForStatus(400).register("Person Name", "person@example.com", "Password1!")
 
         val failure = assertInstanceOf(RegistrationResult.Failure::class.java, result)
         assertEquals(RegistrationFailureType.INVALID_REQUEST, failure.type)
@@ -56,7 +63,7 @@ class ServerRegistrationRepositoryTest {
     @Test
     @DisplayName("UC18 A4: 409 response maps to the frozen duplicate-email message")
     fun conflictMapsToDuplicateEmail() = kotlinx.coroutines.test.runTest {
-        val result = repositoryForStatus(409).register("person@example.com", "Password1!")
+        val result = repositoryForStatus(409).register("Person Name", "person@example.com", "Password1!")
 
         val failure = assertInstanceOf(RegistrationResult.Failure::class.java, result)
         assertEquals(RegistrationFailureType.DUPLICATE_EMAIL, failure.type)
@@ -66,7 +73,7 @@ class ServerRegistrationRepositoryTest {
     @Test
     @DisplayName("UC18 A5: 500 response maps to a safe generic failure")
     fun serverErrorMapsToSafeFailure() = kotlinx.coroutines.test.runTest {
-        val result = repositoryForStatus(500).register("person@example.com", "Password1!")
+        val result = repositoryForStatus(500).register("Person Name", "person@example.com", "Password1!")
 
         val failure = assertInstanceOf(RegistrationResult.Failure::class.java, result)
         assertEquals(RegistrationFailureType.SERVER, failure.type)
@@ -79,6 +86,7 @@ class ServerRegistrationRepositoryTest {
         val api = FakeRegistrationApiService(exception = IOException("password=do-not-expose"))
 
         val result = ServerRegistrationRepository(api).register(
+            "Person Name",
             "person@example.com",
             "Password1!",
         )
