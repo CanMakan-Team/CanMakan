@@ -146,10 +146,31 @@
             "problemMatcher": []
         },
         {
+            "label": "Run Web Tests",
+            "type": "shell",
+            "command": "npm",
+            "options": {
+                "cwd": "${workspaceFolder}/client/web"
+            },
+            "args": [
+                "run",
+                "test"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Web typecheck + eslint (no unit-test runner yet)."
+        },
+        {
             "label": "Run Tests",
             "dependsOn": [
                 "Run Backend Tests",
-                "Run Mobile Tests"
+                "Run Mobile Tests",
+                "Run Web Tests"
             ],
             "dependsOrder": "sequence",
             "group": {
@@ -157,7 +178,7 @@
                 "isDefault": true
             },
             "problemMatcher": [],
-            "detail": "Runs all available unit tests (backend Maven + mobile Gradle). Web has no test script yet."
+            "detail": "Runs backend Maven tests, mobile Gradle tests, and web typecheck+lint."
         }
     ]
 }
