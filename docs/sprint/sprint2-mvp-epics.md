@@ -480,7 +480,13 @@ UC19 · Related: UC22
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Web Client (Family)  
 **Tech:** React; Spring Boot; RDS  
-**Current code state:** Not started
+**Current code state:** Partial (UC8-S1–S4 implemented; pre-JWT identity)
+
+- **Schema:** `UNIQUE(family_members.user_id)` in `00_schema.sql` + additive `migrations/M2_family_members_unique_user.sql` (D2). Seeds remain one membership per user.
+- **Backend:** `POST /api/families` and `GET /api/families/me` via `FamilyService` / `FamilyController`. Create is transactional: `families` + `PRIMARY_ADMIN` membership + SELF `dietary_profiles` (`linked_user_id`, `family_id`, `is_primary`). Existing `GET /api/families/{familyId}/profiles` unchanged.
+- **Identity:** Controller takes temporary `X-User-Id` and passes `userId` into `FamilyService`. No auth filter yet — Spring Security / JWT under UC19.
+- **Web:** `FamilyMeGate` loads `/families/me`; 404 → `CreateFamilyCirclePage` (name + loading/validation/error). `apiClient` sends `X-User-Id` from session `userId`. Mock path supports getMe/create + clear-membership demo on Account.
+- **Gaps:** Real JWT (UC19); mobile still hardcodes `familyId=1` (UC11); invite/manage still UC9/UC12.
 
 ### User story
 

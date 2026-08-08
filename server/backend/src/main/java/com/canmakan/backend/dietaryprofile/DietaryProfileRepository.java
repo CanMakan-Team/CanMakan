@@ -29,4 +29,7 @@ public interface DietaryProfileRepository extends JpaRepository<DietaryProfile, 
 
     @Query("select dp from DietaryProfile dp where dp.family.id = :familyId order by dp.profileName asc")
     List<DietaryProfile> findProfilesByFamilyId(@Param("familyId") Long familyId);
+
+    // UC8 find dietary profile by linked user id
+    Optional<DietaryProfile> findByLinkedUser_Id(Long linkedUserId);
 }

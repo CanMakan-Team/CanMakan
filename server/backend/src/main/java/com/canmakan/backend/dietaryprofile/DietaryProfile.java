@@ -1,6 +1,6 @@
 package com.canmakan.backend.dietaryprofile;
 
-import com.canmakan.backend.family.Family;
+import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.shared.AuditableEntity;
 import com.canmakan.backend.user.UserAccount;
 

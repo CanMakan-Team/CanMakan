@@ -1,4 +1,4 @@
-package com.canmakan.backend.family;
+package com.canmakan.backend.family.model;
 
 import com.canmakan.backend.dietaryprofile.DietaryProfile;
 import com.canmakan.backend.shared.AuditableEntity;
@@ -10,6 +10,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,7 +24,7 @@ import java.util.Set;
 
 /**
  * Represents a family account that can own multiple dietary profiles.
- * 
+ *
  * @author Amelia Wong
  */
 @Getter
@@ -37,9 +40,12 @@ public class Family extends AuditableEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "Family name is required.")
+    @Size(max = 100, message = "Family name must be at most 100 characters.")
     @Column(name = "family_name", nullable = false, length = 100)
     private String familyName;
 
+    @NotNull(message = "Created-by user id is required.")
     @Column(name = "created_by_user_id", nullable = false)
     private Long createdByUserId;
 

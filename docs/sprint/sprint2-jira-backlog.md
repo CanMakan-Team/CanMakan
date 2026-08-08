@@ -244,7 +244,7 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 | UC5 | Core | **Not started** — Alternatives tab shell (“No alternatives available yet”); no recommendations API |
 | UC6 | Core | **Partial** — web `FamilyRestrictionSummaryPage` mock matrix; **mobile primary + summary API missing** |
 | UC7 | Core | **Partial** — admin `ConsumerTrendsPage` mock; `daily_consumer_trends` unused by Java |
-| UC8 | Core | **Not started** — schema/seeds only; no `POST /families` or `GET /families/me` |
+| UC8 | Core | **Partial** — `POST /api/families` + `GET /families/me` + D2 UNIQUE + web create empty-state; controller takes temporary `X-User-Id` (auth/JWT later under UC19) |
 | UC9 | Core | **Partial** — web mock immediate link + dependant modals; `family_invitations` unused; no PENDING invite APIs |
 | UC10 | Core | **Not started** |
 | UC11 | Core | **Partial** — mobile drawer switch via `ActiveProfileManager`; loads `GET /families/{id}/profiles` with **`familyId=1L`**; not server-persisted |
