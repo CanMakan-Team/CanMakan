@@ -5,6 +5,11 @@ import type { FamilyProfileInput } from '../../shared/api/types'
 import { Modal } from '../../shared/ui/Modal'
 import { ProfileForm } from './ProfileForm'
 
+/** UC8 Create family profile modal
+ * 
+ * @author Amelia
+ */
+
 export function CreateFamilyProfileModal({
   onClose,
   onSuccess,
