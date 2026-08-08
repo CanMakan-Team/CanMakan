@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { getErrorMessage } from '../../shared/api/apiErrors'
-import { familyService } from './familyService'
+import { getErrorMessage } from '../../../shared/api/apiErrors'
+import { familyApiService } from '../api/familyApiService'
 import type {
   DataCompleteness,
   FamilyMember,
   ScanRecord,
   Verdict,
-} from '../../shared/api/types'
-import { Modal } from '../../shared/ui/Modal'
-import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
-import { StatusBadge } from '../../shared/ui/StatusBadge'
+} from '../../../shared/api/types'
+import { Modal } from '../../../shared/ui/Modal'
+import { EmptyState, ErrorState, LoadingState } from '../../../shared/ui/PageState'
+import { StatusBadge } from '../../../shared/ui/StatusBadge'
 
 type Period = 'ALL' | '7' | '30'
 
@@ -29,8 +29,8 @@ export function FamilyScanHistoryPage() {
     setError('')
     try {
       const [loadedRecords, loadedMembers] = await Promise.all([
-        familyService.getScanHistory(),
-        familyService.getMembers(),
+        familyApiService.getScanHistory(),
+        familyApiService.getMembers(),
       ])
       setRecords(loadedRecords)
       setMembers(loadedMembers)

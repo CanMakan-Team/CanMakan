@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getErrorMessage } from '../../shared/api/apiErrors'
-import { familyService } from './familyService'
-import type { FamilyMember } from '../../shared/api/types'
-import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
-import { summaryRestrictions } from './profileOptions'
+import { getErrorMessage } from '../../../shared/api/apiErrors'
+import { familyApiService } from '../api/familyApiService'
+import type { FamilyMember } from '../../../shared/api/types'
+import { EmptyState, ErrorState, LoadingState } from '../../../shared/ui/PageState'
+import { summaryRestrictions } from '../lib/profileOptions'
 
 export function FamilyRestrictionSummaryPage() {
   const [members, setMembers] = useState<FamilyMember[]>([])
@@ -14,7 +14,7 @@ export function FamilyRestrictionSummaryPage() {
     setLoading(true)
     setError('')
     try {
-      setMembers(await familyService.getRestrictionSummary())
+      setMembers(await familyApiService.getRestrictionSummary())
     } catch (caughtError) {
       setError(getErrorMessage(caughtError))
     } finally {

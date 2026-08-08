@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getErrorMessage } from '../../shared/api/apiErrors'
-import { familyService } from './familyService'
-import type { ActiveProfile, FamilyMember, ScanRecord } from '../../shared/api/types'
-import { ErrorState, LoadingState } from '../../shared/ui/PageState'
-import { StatusBadge } from '../../shared/ui/StatusBadge'
+import { getErrorMessage } from '../../../shared/api/apiErrors'
+import { familyApiService } from '../api/familyApiService'
+import type { ActiveProfile, FamilyMember, ScanRecord } from '../../../shared/api/types'
+import { ErrorState, LoadingState } from '../../../shared/ui/PageState'
+import { StatusBadge } from '../../../shared/ui/StatusBadge'
 
 export function FamilyDashboardPage() {
   const [members, setMembers] = useState<FamilyMember[]>([])
@@ -18,9 +18,9 @@ export function FamilyDashboardPage() {
     setError('')
     try {
       const [loadedMembers, loadedScans, loadedActive] = await Promise.all([
-        familyService.getMembers(),
-        familyService.getScanHistory(),
-        familyService.getActiveProfile(),
+        familyApiService.getMembers(),
+        familyApiService.getScanHistory(),
+        familyApiService.getActiveProfile(),
       ])
       setMembers(loadedMembers)
       setScans(loadedScans)

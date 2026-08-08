@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { getErrorMessage } from '../../shared/api/apiErrors'
-import { familyService } from './familyService'
-import type { FamilyMember, FamilyProfileInput } from '../../shared/api/types'
-import { Modal } from '../../shared/ui/Modal'
+import { getErrorMessage } from '../../../shared/api/apiErrors'
+import { familyApiService } from '../api/familyApiService'
+import type { FamilyMember, FamilyProfileInput } from '../../../shared/api/types'
+import { Modal } from '../../../shared/ui/Modal'
 import { ProfileForm } from './ProfileForm'
 
 export function EditFamilyProfileModal({
@@ -29,7 +29,7 @@ export function EditFamilyProfileModal({
     setSaving(true)
     setError('')
     try {
-      const updated = await familyService.updateProfile(member.memberId, input)
+      const updated = await familyApiService.updateProfile(member.memberId, input)
       onSuccess(`${updated.profileName}’s dietary profile was updated.`)
       onClose()
     } catch (caughtError) {

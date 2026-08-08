@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { getErrorMessage } from '../../shared/api/apiErrors'
-import { familyService } from './familyService'
-import type { FamilyProfileInput } from '../../shared/api/types'
-import { Modal } from '../../shared/ui/Modal'
+import { getErrorMessage } from '../../../shared/api/apiErrors'
+import { familyApiService } from '../api/familyApiService'
+import type { FamilyProfileInput } from '../../../shared/api/types'
+import { Modal } from '../../../shared/ui/Modal'
 import { ProfileForm } from './ProfileForm'
 
 /** UC8 Create family profile modal
@@ -25,7 +25,7 @@ export function CreateFamilyProfileModal({
     setSaving(true)
     setError('')
     try {
-      const member = await familyService.createProfile(input)
+      const member = await familyApiService.createProfile(input)
       onSuccess(`${member.profileName} was created as a non-login family profile.`)
       onClose()
     } catch (caughtError) {

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { getErrorMessage } from '../../shared/api/apiErrors'
-import { familyService } from './familyService'
-import type { ActiveProfile, FamilyMember } from '../../shared/api/types'
-import { StatusBadge } from '../../shared/ui/StatusBadge'
+import { getErrorMessage } from '../../../shared/api/apiErrors'
+import type { ActiveProfile, FamilyMember } from '../../../shared/api/types'
+import { StatusBadge } from '../../../shared/ui/StatusBadge'
+import { familyApiService } from '../api/familyApiService'
 
 /** Active profile selector
  * 
@@ -23,7 +23,7 @@ export function ActiveProfileSelector({
   // This function is used to get the active profile from the server.
   // If the active profile is not found, it will set the error to the state.
   useEffect(() => {
-    void familyService.getActiveProfile().then(setActive).catch((caughtError) => {
+    void familyApiService.getActiveProfile().then(setActive).catch((caughtError) => {
       setError(getErrorMessage(caughtError))
     })
   }, [])
@@ -39,7 +39,7 @@ export function ActiveProfileSelector({
     setMessage('')
     setError('')
     try {
-      const selected = await familyService.setActiveProfile(memberId)
+      const selected = await familyApiService.setActiveProfile(memberId)
       setActive(selected)
       setMessage(`${selected.profileName} is now the active assessment profile.`)
     } catch (caughtError) {

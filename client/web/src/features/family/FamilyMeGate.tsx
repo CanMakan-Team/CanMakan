@@ -3,13 +3,13 @@ import { Outlet } from 'react-router-dom'
 import { ApiError, getErrorMessage } from '../../shared/api/apiErrors'
 import type { FamilyMe } from '../../shared/api/types'
 import { ErrorState, LoadingState } from '../../shared/ui/PageState'
-import { CreateFamilyCirclePage } from './CreateFamilyCirclePage'
-import { familyService } from './familyService'
+import { familyApiService } from './api/familyApiService'
+import { CreateFamilyCirclePage } from './pages/CreateFamilyCirclePage'
 
 /**
  * Loads GET /families/me before family portal pages.
  * 404 → UC8 create-circle empty state; 200 → child routes.
- * 
+ *
  * @author Amelia
  */
 export function FamilyMeGate() {
@@ -18,7 +18,7 @@ export function FamilyMeGate() {
   const [error, setError] = useState('')
   const [needsCreate, setNeedsCreate] = useState(false)
 
-  // UC8 load my family
+  // load my family
   // This function is used to load the family information from the server.
   // If the family information is not found, it will redirect to the create family circle page.
   // If the family information is found, it will set the family information to the state.
@@ -27,7 +27,7 @@ export function FamilyMeGate() {
     setError('')
     setNeedsCreate(false)
     try {
-      const me = await familyService.getMyFamily()
+      const me = await familyApiService.getMyFamily()
       setFamily(me)
     } catch (caughtError) {
       if (caughtError instanceof ApiError && caughtError.status === 404) {
@@ -42,16 +42,10 @@ export function FamilyMeGate() {
   }, [])
 
   // UC8 use effect
-  // This function is used to load the family information from the server.
-  // If the family information is not found, it will redirect to the create family circle page.
-  // If the family information is found, it will set the family information to the state.
+  // Deferred so setState is not synchronous in the effect body (eslint react-hooks).
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadMe(), 0)
-    window.addEventListener('canmakan:family-me-changed', loadMe)
-    return () => {
-      window.clearTimeout(timeoutId)
-      window.removeEventListener('canmakan:family-me-changed', loadMe)
-    }
+    return () => window.clearTimeout(timeoutId)
   }, [loadMe])
 
   if (loading) {
@@ -64,5 +58,5 @@ export function FamilyMeGate() {
     return <CreateFamilyCirclePage onCreated={() => void loadMe()} />
   }
 
-  return <Outlet context={{ family }} />
+  return <Outlet />
 }

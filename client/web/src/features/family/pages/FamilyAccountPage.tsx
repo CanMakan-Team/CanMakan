@@ -1,15 +1,13 @@
-import { useSession } from '../auth/useSession'
+import { useSession } from '../../auth/useSession'
 
-/** Account settings — current live session (X-User-Id until UC19 JWT). 
- * 
+/**
+ * Account settings — current live session (X-User-Id until UC19 JWT).
+ *
  * @author Amelia
-*/
+ */
 export function FamilyAccountPage() {
-
-  // Get the session
   const { session } = useSession()
 
-  // Return the family account page
   return (
     <>
       <header className="page-header">
@@ -54,15 +52,6 @@ export function FamilyAccountPage() {
           </div>
         </dl>
       </section>
-
-      <div className="notice notice--neutral">
-        <strong>Family circle</strong>
-        <p>
-          Seeded app users 4–13 already belong to Tan/Lim/Wong families. Register
-          a new account at <code>/family-register</code> to exercise create-circle
-          (GET /families/me → 404).
-        </p>
-      </div>
     </>
   )
 }
