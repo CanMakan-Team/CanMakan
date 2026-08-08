@@ -19,3 +19,11 @@ User registration, authentication and session management.
   selected dietary information is deferred after account creation instead of
   creating an empty or family/dependant profile.
 - Login, logout, tokens and session restoration remain deferred to UC19.
+
+## UC19 implementation status
+
+- The 7.2 data/network foundation models login, refresh, logout and `/me`.
+- `AuthRepository` maps HTTP, network and invalid-response failures without
+  exposing backend or credential details.
+- Access-token storage, persistent cookies, Bearer authentication, automatic
+  refresh, Login UI and authentication navigation remain intentionally deferred.

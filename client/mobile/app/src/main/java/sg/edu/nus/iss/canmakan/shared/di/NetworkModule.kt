@@ -15,6 +15,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import sg.edu.nus.iss.canmakan.BuildConfig
+import sg.edu.nus.iss.canmakan.features.auth.data.AuthApiService
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationApiService
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
@@ -142,6 +143,12 @@ object NetworkModule {
     @Singleton
     fun provideRegistrationApiService(retrofit: Retrofit): RegistrationApiService {
         return retrofit.create(RegistrationApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAuthApiService(retrofit: Retrofit): AuthApiService {
+        return retrofit.create(AuthApiService::class.java)
     }
 
     @Provides
