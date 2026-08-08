@@ -29,9 +29,11 @@ enum class ProfileSetupStatus {
 }
 
 data class RegistrationUiState(
+    val name: String = "",
     val email: String = "",
     val password: String = "",
     val confirmPassword: String = "",
+    val nameError: String? = null,
     val emailError: String? = null,
     val passwordError: String? = null,
     val confirmPasswordError: String? = null,
@@ -48,7 +50,7 @@ data class RegistrationUiState(
     val profileSetupMessage: String? = null,
 ) {
     override fun toString(): String {
-        return "RegistrationUiState(email=$email, password=<redacted>, " +
+        return "RegistrationUiState(name=$name, email=$email, password=<redacted>, " +
             "confirmPassword=<redacted>, step=$step, isSubmitting=$isSubmitting, " +
             "accountCreated=${account != null}, profileSetupStatus=$profileSetupStatus)"
     }
@@ -65,6 +67,15 @@ class RegistrationViewModel @Inject constructor(
 
     init {
         loadDietaryOptions()
+    }
+
+    fun updateName(name: String) {
+        _uiState.value = _uiState.value.copy(
+            name = name,
+            nameError = null,
+            registrationError = null,
+            registrationFailureType = null,
+        )
     }
 
     fun updateEmail(email: String) {
@@ -97,6 +108,12 @@ class RegistrationViewModel @Inject constructor(
 
     fun continueToDietaryProfile() {
         val state = _uiState.value
+        val normalizedName = state.name.trim()
+        val nameError = when {
+            normalizedName.isEmpty() -> "Name is required."
+            normalizedName.length < MIN_NAME_LENGTH -> "Name must be at least 3 characters."
+            else -> null
+        }
         val normalizedEmail = state.email.trim()
         val emailError = when {
             normalizedEmail.isEmpty() -> "Email is required."
@@ -117,12 +134,15 @@ class RegistrationViewModel @Inject constructor(
         }
 
         _uiState.value = state.copy(
+            nameError = nameError,
             emailError = emailError,
             passwordError = passwordError,
             confirmPasswordError = confirmPasswordError,
             registrationError = null,
             registrationFailureType = null,
-            step = if (emailError == null && passwordError == null && confirmPasswordError == null) {
+            step = if (nameError == null && emailError == null &&
+                passwordError == null && confirmPasswordError == null
+            ) {
                 RegistrationStep.OPTIONAL_DIETARY_PROFILE
             } else {
                 RegistrationStep.ACCOUNT_INFORMATION
@@ -180,6 +200,7 @@ class RegistrationViewModel @Inject constructor(
             )
 
             when (val result = registrationRepository.register(
+                name = state.name.trim(),
                 email = state.email.trim().lowercase(Locale.ROOT),
                 password = state.password,
             )) {
@@ -203,7 +224,7 @@ class RegistrationViewModel @Inject constructor(
         }
     }
 
-    private fun handleAccountCreated(account: RegistrationResponse) {
+    private suspend fun handleAccountCreated(account: RegistrationResponse) {
         val state = _uiState.value
         if (state.selectedRestrictionIds.isEmpty()) {
             _uiState.value = state.copy(
@@ -214,8 +235,31 @@ class RegistrationViewModel @Inject constructor(
                 account = account,
                 profileSetupStatus = ProfileSetupStatus.NOT_REQUESTED,
             )
+            return
+        }
+
+        // Attempt to persist the selected restrictions onto the profile that
+        // was just created alongside the account. Only fall back to the
+        // deferred message if this actually fails, e.g. a network error —
+        // not merely because restrictions were selected.
+        val selections = state.selectedRestrictionIds.associateWith { DEFAULT_SEVERITY_LEVEL }
+        val saved = try {
+            dietaryRestrictionRepository.saveDietaryRestrictionSelections(account.profileId, selections)
+        } catch (_: Exception) {
+            false
+        }
+
+        _uiState.value = if (saved) {
+            state.copy(
+                step = RegistrationStep.COMPLETE,
+                isSubmitting = false,
+                password = "",
+                confirmPassword = "",
+                account = account,
+                profileSetupStatus = ProfileSetupStatus.SELECTED,
+            )
         } else {
-            _uiState.value = state.copy(
+            state.copy(
                 isSubmitting = false,
                 password = "",
                 confirmPassword = "",
@@ -252,7 +296,9 @@ class RegistrationViewModel @Inject constructor(
 
         private const val MAX_EMAIL_LENGTH = 255
         private const val MIN_PASSWORD_LENGTH = 8
+        private const val MIN_NAME_LENGTH = 3
         private const val RELIGIOUS_CATEGORY = "RELIGIOUS"
+        private const val DEFAULT_SEVERITY_LEVEL = "STRICT_AVOID"
         private val EMAIL_PATTERN = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
     }
 }

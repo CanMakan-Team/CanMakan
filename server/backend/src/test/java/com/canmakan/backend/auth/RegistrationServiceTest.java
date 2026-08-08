@@ -3,6 +3,7 @@ package com.canmakan.backend.auth;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -10,6 +11,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.canmakan.backend.dietaryprofile.DietaryProfile;
+import com.canmakan.backend.dietaryprofile.DietaryProfileRepository;
 import com.canmakan.backend.user.UserAccount;
 import com.canmakan.backend.user.UserAccountRepository;
 import java.sql.SQLIntegrityConstraintViolationException;
@@ -33,13 +36,20 @@ class RegistrationServiceTest {
     @Mock
     private UserAccountRepository userAccountRepository;
 
+    @Mock
+    private DietaryProfileRepository dietaryProfileRepository;
+
     private PasswordEncoder passwordEncoder;
     private RegistrationService registrationService;
 
     @BeforeEach
     void setUp() {
         passwordEncoder = new BCryptPasswordEncoder(10);
-        registrationService = new RegistrationService(userAccountRepository, passwordEncoder);
+        registrationService = new RegistrationService(
+            userAccountRepository,
+            dietaryProfileRepository,
+            passwordEncoder
+        );
     }
 
     @Test
@@ -47,6 +57,7 @@ class RegistrationServiceTest {
     void createsActiveUserWithNormalizedEmailAndBcryptHash() {
         String rawPassword = "  KeepCase Password1!  ";
         RegistrationRequest request = new RegistrationRequest(
+            "Person Name",
             "  Person@Example.COM  ",
             rawPassword
         );
@@ -56,6 +67,11 @@ class RegistrationServiceTest {
             UserAccount account = invocation.getArgument(0);
             account.setId(14L);
             return account;
+        });
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class))).thenAnswer(invocation -> {
+            DietaryProfile profile = invocation.getArgument(0);
+            profile.setId(77L);
+            return profile;
         });
 
         RegistrationResponse response = registrationService.register(request);
@@ -74,7 +90,18 @@ class RegistrationServiceTest {
         assertFalse(persisted.toString().contains(persisted.getPasswordHash()));
         assertFalse(request.toString().contains(rawPassword));
 
+        ArgumentCaptor<DietaryProfile> profileCaptor = ArgumentCaptor.forClass(DietaryProfile.class);
+        verify(dietaryProfileRepository).saveAndFlush(profileCaptor.capture());
+        DietaryProfile persistedProfile = profileCaptor.getValue();
+
+        assertEquals("Person Name", persistedProfile.getProfileName());
+        assertEquals("SELF", persistedProfile.getRelationship());
+        assertEquals(persisted, persistedProfile.getLinkedUser());
+        assertNull(persistedProfile.getFamily());
+
         assertEquals(14L, response.userId());
+        assertEquals(77L, response.profileId());
+        assertEquals("Person Name", response.name());
         assertEquals("person@example.com", response.email());
         assertTrue(response.active());
         verify(userAccountRepository).findRoleIdByName(RegistrationService.PUBLIC_REGISTRATION_ROLE);
@@ -83,7 +110,7 @@ class RegistrationServiceTest {
     @Test
     @DisplayName("UC18 BE2: reports a friendly conflict before insert when email already exists")
     void rejectsExistingEmailBeforeInsert() {
-        RegistrationRequest request = new RegistrationRequest("person@example.com", "Password1!");
+        RegistrationRequest request = new RegistrationRequest("Person Name", "person@example.com", "Password1!");
         when(userAccountRepository.existsByEmail("person@example.com")).thenReturn(true);
 
         assertThrows(DuplicateEmailException.class, () -> registrationService.register(request));
@@ -95,7 +122,7 @@ class RegistrationServiceTest {
     @Test
     @DisplayName("UC18 BE3: translates a concurrent email UNIQUE race into duplicate conflict")
     void translatesConcurrentDuplicateInsert() {
-        RegistrationRequest request = new RegistrationRequest("person@example.com", "Password1!");
+        RegistrationRequest request = new RegistrationRequest("Person Name", "person@example.com", "Password1!");
         when(userAccountRepository.existsByEmail("person@example.com")).thenReturn(false);
         when(userAccountRepository.findRoleIdByName("USER")).thenReturn(Optional.of(2L));
         when(userAccountRepository.saveAndFlush(any(UserAccount.class)))
@@ -110,7 +137,7 @@ class RegistrationServiceTest {
     @Test
     @DisplayName("UC18 BE4: non-duplicate integrity failures remain controlled server errors")
     void doesNotMisreportOtherIntegrityFailuresAsDuplicateEmail() {
-        RegistrationRequest request = new RegistrationRequest("person@example.com", "Password1!");
+        RegistrationRequest request = new RegistrationRequest("Person Name", "person@example.com", "Password1!");
         when(userAccountRepository.existsByEmail("person@example.com")).thenReturn(false);
         when(userAccountRepository.findRoleIdByName("USER")).thenReturn(Optional.of(2L));
         when(userAccountRepository.saveAndFlush(any(UserAccount.class)))
@@ -122,7 +149,7 @@ class RegistrationServiceTest {
     @Test
     @DisplayName("UC18 BE5: missing USER role is a controlled configuration failure")
     void missingUserRoleIsControlledFailure() {
-        RegistrationRequest request = new RegistrationRequest("person@example.com", "Password1!");
+        RegistrationRequest request = new RegistrationRequest("Person Name", "person@example.com", "Password1!");
         when(userAccountRepository.existsByEmail("person@example.com")).thenReturn(false);
         when(userAccountRepository.findRoleIdByName("USER")).thenReturn(Optional.empty());
 
@@ -133,7 +160,7 @@ class RegistrationServiceTest {
     @Test
     @DisplayName("UC18 BE6: unexpected persistence details are wrapped by a safe failure")
     void wrapsUnexpectedPersistenceFailure() {
-        RegistrationRequest request = new RegistrationRequest("person@example.com", "Password1!");
+        RegistrationRequest request = new RegistrationRequest("Person Name", "person@example.com", "Password1!");
         when(userAccountRepository.existsByEmail("person@example.com"))
             .thenThrow(new DataAccessResourceFailureException("internal-host:3306 password=secret"));
 

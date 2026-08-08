@@ -7,16 +7,19 @@ import retrofit2.http.Headers
 import retrofit2.http.POST
 
 data class RegistrationRequest(
+    @SerializedName("name") val name: String,
     @SerializedName("email") val email: String,
     @SerializedName("password") val password: String,
 ) {
     override fun toString(): String {
-        return "RegistrationRequest(email=$email, password=<redacted>)"
+        return "RegistrationRequest(name=$name, email=$email, password=<redacted>)"
     }
 }
 
 data class RegistrationResponse(
     @SerializedName("userId") val userId: Long,
+    @SerializedName("profileId") val profileId: Long,
+    @SerializedName("name") val name: String,
     @SerializedName("email") val email: String,
     @SerializedName("active") val active: Boolean,
 )

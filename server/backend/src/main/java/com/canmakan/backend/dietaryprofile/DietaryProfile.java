@@ -43,8 +43,10 @@ public class DietaryProfile extends AuditableEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Nullable: a profile can exist before its owner has joined or created a
+    // family, e.g. the profile created at registration time.
     @ManyToOne
-    @JoinColumn(name = "family_id", nullable = false)
+    @JoinColumn(name = "family_id", nullable = true)
     private Family family;
 
     @OneToOne

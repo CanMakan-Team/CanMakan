@@ -128,7 +128,7 @@ CREATE TABLE family_invitations (
 
 CREATE TABLE dietary_profiles (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    family_id BIGINT NOT NULL,
+    family_id BIGINT NULL,
     linked_user_id BIGINT NULL,
     profile_name VARCHAR(100) NOT NULL,
     relationship VARCHAR(30) DEFAULT 'SELF',
