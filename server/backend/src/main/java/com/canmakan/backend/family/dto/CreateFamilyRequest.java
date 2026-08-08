@@ -1,4 +1,4 @@
-package com.canmakan.backend.family.model;
+package com.canmakan.backend.family.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

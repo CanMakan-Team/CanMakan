@@ -1,4 +1,4 @@
-package com.canmakan.backend.family.model;
+package com.canmakan.backend.family.dto;
 
 /**
  * Family context for the authenticated caller ({@code GET /api/families/me} and create response).

@@ -10,15 +10,17 @@ import static org.mockito.Mockito.when;
 import com.canmakan.backend.dietaryprofile.DietaryProfile;
 import com.canmakan.backend.dietaryprofile.DietaryProfileRepository;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
+import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.family.exception.FamilyNotFoundException;
-import com.canmakan.backend.family.model.CreateFamilyRequest;
+import com.canmakan.backend.family.dto.CreateFamilyRequest;
+import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.model.Family;
-import com.canmakan.backend.family.model.FamilyMeResponse;
 import com.canmakan.backend.family.model.FamilyMember;
 import com.canmakan.backend.family.repository.FamilyMemberRepository;
 import com.canmakan.backend.family.repository.FamilyRepository;
 import com.canmakan.backend.user.UserAccount;
 import com.canmakan.backend.user.UserAccountRepository;
+import java.sql.SQLException;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -160,20 +162,53 @@ class FamilyServiceTest {
 
     // UC8 maps unique constraint violation to already-in-family
     @Test
-    @DisplayName("maps unique constraint violation to already-in-family")
+    @DisplayName("maps membership unique constraint violation to already-in-family")
     void createFamilyMapsUniqueViolation() {
         when(familyMemberRepository.existsByIdUserId(14L)).thenReturn(false);
         UserAccount user = new UserAccount();
         user.setId(14L);
         user.setEmail("person@example.com");
         when(userAccountRepository.findById(14L)).thenReturn(Optional.of(user));
+        SQLException duplicateKey = new SQLException("Duplicate entry", "23000", 1062);
         when(familyRepository.saveAndFlush(any(Family.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate"));
+                .thenThrow(new DataIntegrityViolationException("duplicate", duplicateKey));
 
         assertThrows(
                 AlreadyInFamilyException.class,
                 () -> familyService.createFamily(14L, new CreateFamilyRequest("Race"))
         );
+    }
+
+    // UC8 does not treat unrelated integrity failures as already-in-family
+    @Test
+    @DisplayName("rethrows unrelated data integrity violations")
+    void createFamilyRethrowsUnrelatedIntegrityViolation() {
+        when(familyMemberRepository.existsByIdUserId(14L)).thenReturn(false);
+        UserAccount user = new UserAccount();
+        user.setId(14L);
+        user.setEmail("person@example.com");
+        when(userAccountRepository.findById(14L)).thenReturn(Optional.of(user));
+        when(familyRepository.saveAndFlush(any(Family.class)))
+                .thenThrow(new DataIntegrityViolationException("fk_other_table"));
+
+        assertThrows(
+                DataIntegrityViolationException.class,
+                () -> familyService.createFamily(14L, new CreateFamilyRequest("Other"))
+        );
+    }
+
+    // UC8 missing caller user
+    @Test
+    @DisplayName("rejects create when authenticated user id is unknown")
+    void createFamilyMissingUser() {
+        when(familyMemberRepository.existsByIdUserId(999L)).thenReturn(false);
+        when(userAccountRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(
+                AuthenticatedUserNotFoundException.class,
+                () -> familyService.createFamily(999L, new CreateFamilyRequest("Orphan"))
+        );
+        verify(familyRepository, never()).saveAndFlush(any());
     }
 
     // UC8 gets family by user id

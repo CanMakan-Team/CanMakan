@@ -39,8 +39,11 @@ Web `ROLE_FAMILY_ADMIN` is **not** the same as DB `PRIMARY_ADMIN`. Creating a ci
 
 ## Registration boundary
 - Accepts `name`, `email`, `password` only.
+- Email / password rules live on `RegistrationRequest` (Jakarta `@Email`, `@Pattern`, `@Size`, BCrypt byte `@AssertTrue`).
+  Email requires a dotted domain (rejects `test1@abc`). Password needs 8+ chars with upper, lower, digit, and special.
 - Creates `users` row + SELF `dietary_profiles` with `family_id` NULL.
 - UC8 `POST /api/families` attaches that profile when the user creates a circle.
+- Clients cannot choose platform role or create ADMIN via this API.
 
 ## Ops note
 With `spring.sql.init.mode=always`, schema/seed reload wipes newly registered users on backend restart.

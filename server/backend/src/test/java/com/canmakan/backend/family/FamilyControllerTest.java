@@ -15,8 +15,10 @@ import com.canmakan.backend.dietaryprofile.DietaryProfileService;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyExceptionHandler;
 import com.canmakan.backend.family.exception.FamilyNotFoundException;
-import com.canmakan.backend.family.model.CreateFamilyRequest;
-import com.canmakan.backend.family.model.FamilyMeResponse;
+import com.canmakan.backend.family.dto.CreateFamilyRequest;
+import com.canmakan.backend.family.dto.FamilyMeResponse;
+import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
+import com.canmakan.backend.shared.exception.GlobalExceptionHandler;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,7 +47,7 @@ class FamilyControllerTest {
                 LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
                 validator.afterPropertiesSet();
                 mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                        .setControllerAdvice(new FamilyExceptionHandler())
+                        .setControllerAdvice(new FamilyExceptionHandler(), new GlobalExceptionHandler())
                         .setValidator(validator)
                         .build();
         }
@@ -95,6 +97,22 @@ class FamilyControllerTest {
                                 .header("X-User-Id", "4"))
                         .andExpect(status().isConflict())
                         .andExpect(jsonPath("$.message").value("You already belong to a family circle."));
+        }
+
+        // UC8 create with unknown X-User-Id returns 401
+        @Test
+        @DisplayName("POST /api/families unknown user returns 401")
+        void createUnknownUser() throws Exception {
+                when(familyService.createFamily(eq(999L), any(CreateFamilyRequest.class)))
+                        .thenThrow(new AuthenticatedUserNotFoundException(
+                                "Authenticated user was not found."));
+
+                mockMvc.perform(post("/api/families")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"familyName\":\"Orphan\"}")
+                                .header("X-User-Id", "999"))
+                        .andExpect(status().isUnauthorized())
+                        .andExpect(jsonPath("$.message").value("Authenticated user was not found."));
         }
 
         // UC8 get circle by user id returns 200

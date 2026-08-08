@@ -1,14 +1,13 @@
 package com.canmakan.backend.family;
 
 import com.canmakan.backend.dietaryprofile.DietaryProfileService;
-import com.canmakan.backend.family.model.CreateFamilyRequest;
-import com.canmakan.backend.family.model.FamilyMeResponse;
-import com.canmakan.backend.family.model.FamilyRestrictionSumRes;
-import com.canmakan.backend.user.UserAccount;
+import com.canmakan.backend.family.dto.CreateFamilyRequest;
+import com.canmakan.backend.family.dto.FamilyMeResponse;
+import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
 
 import jakarta.validation.Valid;
 import java.util.List;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,11 +24,11 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * Caller id is taken as {@code X-User-Id} for now. Authentication / Spring Security
  * will replace this under UC19 (e.g. {@code @AuthenticationPrincipal}).
- * 
+ *
  * @author Amelia
  */
 @Slf4j
-@AllArgsConstructor
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/families")
 public class FamilyController {
@@ -57,7 +56,7 @@ public class FamilyController {
         return me;
     }
 
-    // UC8 get profiles by family id
+    // Profiles for a family (seeded / list path; not create-circle)
     // Returns 200 OK and the list of profiles
     @GetMapping("/{familyId}/profiles")
     public List<DietaryProfileService.DietaryProfileSummaryDto> getProfilesByFamilyId(
