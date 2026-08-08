@@ -99,10 +99,12 @@ CREATE TABLE families (
 
 CREATE TABLE family_members (
     family_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL UNIQUE,
     member_role VARCHAR(30) NOT NULL DEFAULT 'MEMBER',
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (family_id, user_id),
+    -- D2 / UC8-S1: one family membership per user (MVP)
+    CONSTRAINT uq_family_members_user_id UNIQUE (user_id),
     CONSTRAINT fk_fam_members_family
         FOREIGN KEY (family_id) REFERENCES families(id)
         ON DELETE CASCADE ON UPDATE CASCADE,
@@ -416,7 +418,8 @@ CREATE INDEX idx_refresh_tokens_expiry_date ON refresh_tokens (expiry_date);
 
 CREATE INDEX idx_families_created_by_user_id ON families (created_by_user_id);
 
-CREATE INDEX idx_family_members_user_id ON family_members (user_id);
+-- Covered by UNIQUE(user_id) constraint
+-- CREATE INDEX idx_family_members_user_id ON family_members (user_id);
 
 CREATE INDEX idx_family_invitations_family_id ON family_invitations (family_id);
 CREATE INDEX idx_family_invitations_invited_email ON family_invitations (invited_email);

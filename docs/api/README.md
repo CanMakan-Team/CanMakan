@@ -1,5 +1,13 @@
 # API Documentation
 
+## Family circle (UC8)
+
+See [`families.md`](families.md) for:
+
+- `POST /api/families` — create circle + PRIMARY_ADMIN + SELF profile
+- `GET /api/families/me` — current family context
+- Pre-JWT temporary `X-User-Id` header on the controller (auth under UC19)
+
 ## UC18 user registration
 
 `POST /api/auth/register`
