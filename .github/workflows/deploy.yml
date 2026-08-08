@@ -43,7 +43,16 @@ jobs:
         working-directory: server/backend
         run: mvn -B clean package -DskipTests
 
-      # 2.3 COPY .JAR PACKAGE TO EC2 VIA SCP
+      # 2.3 PREPARE REMOTE DEPLOY DIRECTORY
+      - name: Ensure remote deploy directory exists
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: mkdir -p /home/ubuntu/app/deploy-temp
+
+      # 2.4 COPY .JAR PACKAGE TO EC2 VIA SCP
       - name: Copy JAR to EC2 via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -54,7 +63,7 @@ jobs:
           target: "/home/ubuntu/app/deploy-temp"
           strip_components: 3
 
-      # 2.4 START REMOTE SSH CLI
+      # 2.5 START REMOTE SSH CLI
       - name: Execute Remote SSH Startup Commands
         uses: appleboy/ssh-action@v1.0.3
         with:
