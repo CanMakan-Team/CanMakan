@@ -46,6 +46,10 @@ public class FamilyMember {
     @Column(name = "member_role", nullable = false, length = 30)
     private String memberRole;
 
+    // UC6: Allow Family Members to be Deactivated without Removing them from the Family Circle
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
+
     @Column(name = "joined_at", insertable = false, updatable = false)
     private Instant joinedAt;
 
