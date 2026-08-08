@@ -34,5 +34,10 @@ User registration, authentication and session management.
 - OkHttp 5.4's cookie model preserves SameSite, but `CookieJar` request matching
   has no browser-style site context and therefore cannot enforce SameSite itself.
 - Shared preferences are already excluded from cloud backup and device transfer.
-- Bearer authentication, automatic refresh, Login UI and authentication
-  navigation remain intentionally deferred.
+- The 7.4 `LoginViewModel` validates and normalizes email input, preserves the
+  password exactly, prevents duplicate submissions, calls `AuthRepository`, and
+  considers Login successful only after `AuthSessionStore` persists the session.
+- The standalone Compose Login route exposes only a safe authenticated-user
+  success callback and is not yet connected to root Navigation.
+- Bearer authentication, automatic refresh and authentication navigation remain
+  intentionally deferred.
