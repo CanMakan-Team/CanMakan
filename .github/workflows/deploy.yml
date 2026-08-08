@@ -76,9 +76,9 @@ jobs:
 
             # Stop the existing Java process running on port 8080 cleanly
             PID=$(lsof -t -i:8080 || true)
-            if [ ! -z "$PID" ]; then
+            if [ -n "$PID" ]; then
               echo "Stopping active process on port 8080 (PID: $PID)..."
-              kill -15 $PID
+              kill -15 $PID || true
               sleep 3
             fi
 
