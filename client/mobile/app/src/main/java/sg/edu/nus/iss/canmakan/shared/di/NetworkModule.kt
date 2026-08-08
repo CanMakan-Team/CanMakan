@@ -11,6 +11,8 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import okhttp3.CookieJar
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -18,6 +20,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 import sg.edu.nus.iss.canmakan.BuildConfig
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthApiService
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationApiService
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
+import sg.edu.nus.iss.canmakan.features.auth.session.BearerAuthInterceptor
 import sg.edu.nus.iss.canmakan.features.auth.session.PersistentRefreshCookieJar
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
@@ -78,13 +82,41 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideBearerAuthInterceptor(
+        authSessionStore: AuthSessionStore,
+    ): BearerAuthInterceptor {
+        return BearerAuthInterceptor(authSessionStore, resolveBaseUrl())
+    }
+
+    @Provides
+    @Singleton
     fun provideOkHttpClient(
         loggingInterceptor: HttpLoggingInterceptor,
-        cookieJar: CookieJar = CookieJar.NO_COOKIES,
+        cookieJar: CookieJar,
+        bearerAuthInterceptor: BearerAuthInterceptor,
     ): OkHttpClient {
-        return OkHttpClient.Builder()
+        return buildOkHttpClient(loggingInterceptor, cookieJar, bearerAuthInterceptor)
+    }
+
+    // Retains the narrow UC18 unit-test entry point without constructing auth storage.
+    fun provideOkHttpClient(loggingInterceptor: HttpLoggingInterceptor): OkHttpClient {
+        return buildOkHttpClient(loggingInterceptor, CookieJar.NO_COOKIES, null)
+    }
+
+    private fun buildOkHttpClient(
+        loggingInterceptor: HttpLoggingInterceptor,
+        cookieJar: CookieJar,
+        bearerAuthInterceptor: BearerAuthInterceptor?,
+    ): OkHttpClient {
+        val builder = OkHttpClient.Builder()
             .proxy(Proxy.NO_PROXY)
             .cookieJar(cookieJar)
+
+        if (bearerAuthInterceptor != null) {
+            builder.addInterceptor(bearerAuthInterceptor)
+        }
+
+        return builder
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
                 val skipRetries = originalRequest.header(NO_RETRY_HEADER)
@@ -133,16 +165,21 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit {
-        val configuredBaseUrl = BuildConfig.BASE_URL.trim()
-        val baseUrl = if (configuredBaseUrl.isNotEmpty()) configuredBaseUrl else DEFAULT_BASE_URL
-        val normalizedBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
-        Timber.tag("NetworkModule").d("Initializing Retrofit with base URL: $normalizedBaseUrl")
+        val baseUrl = resolveBaseUrl()
+        Timber.tag("NetworkModule").d("Initializing Retrofit with base URL: $baseUrl")
 
         return Retrofit.Builder()
-            .baseUrl(normalizedBaseUrl)
+            .baseUrl(baseUrl)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
+    }
+
+    private fun resolveBaseUrl(): HttpUrl {
+        val configuredBaseUrl = BuildConfig.BASE_URL.trim()
+        val baseUrl = if (configuredBaseUrl.isNotEmpty()) configuredBaseUrl else DEFAULT_BASE_URL
+        val normalizedBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        return normalizedBaseUrl.toHttpUrl()
     }
 
     @Provides

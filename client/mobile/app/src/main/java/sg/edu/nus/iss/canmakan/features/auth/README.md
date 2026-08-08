@@ -39,5 +39,10 @@ User registration, authentication and session management.
   considers Login successful only after `AuthSessionStore` persists the session.
 - The standalone Compose Login route exposes only a safe authenticated-user
   success callback and is not yet connected to root Navigation.
-- Bearer authentication, automatic refresh and authentication navigation remain
-  intentionally deferred.
+- The 7.5 Bearer interceptor reads the current access token from
+  `AuthSessionStore` for each eligible request, restricts it to the configured
+  API scheme/host/port, and excludes exact public auth endpoints.
+- `AuthRepository.getCurrentUser()` now reaches `GET auth/me` through the shared
+  authenticated OkHttp client. It returns the Backend user without rewriting
+  stored user metadata.
+- Automatic refresh and authentication navigation remain intentionally deferred.
