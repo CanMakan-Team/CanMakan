@@ -2,11 +2,14 @@ import { useState, type SubmitEvent as ReactSubmitEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { getErrorMessage } from '../shared/api/apiErrors'
 import { useSession } from '../features/auth/useSession'
+import { PasswordField } from '../shared/ui/PasswordField'
+import { getRegistrationPasswordError } from '../shared/validation/authFields'
+import { getEmailValidationError } from '../shared/validation/email'
 
 /**
  * UC18 family-portal registration. Matches FamilyLoginPage theme.
  * Does not create a family circle — FamilyMeGate / UC8 handles that next.
- * 
+ *
  * @author Amelia
  */
 export function FamilyRegisterPage() {
@@ -24,16 +27,19 @@ export function FamilyRegisterPage() {
     return <Navigate to="/family" replace />
   }
 
+  const clearValidationError = () => {
+    if (validationError) setValidationError('')
+  }
+
   // Handle the submission of the form
   const handleSubmit = async (event: ReactSubmitEvent<HTMLFormElement>) => {
-
     // 1. Prevent the default form submission behavior
     event.preventDefault()
 
     // 2. Reset the submit error
     setSubmitError('')
 
-    // 3. Validate the form data
+    // 3. Validate the form data (mirror backend limits to avoid failed API calls)
     const trimmedName = name.trim()
     const trimmedEmail = email.trim()
 
@@ -41,12 +47,14 @@ export function FamilyRegisterPage() {
       setValidationError('Name must be between 3 and 100 characters.')
       return
     }
-    if (!trimmedEmail || !trimmedEmail.includes('@')) {
-      setValidationError('Enter a valid email address.')
+    const emailError = getEmailValidationError(trimmedEmail)
+    if (emailError) {
+      setValidationError(emailError)
       return
     }
-    if (password.length < 8) {
-      setValidationError('Password must be at least 8 characters.')
+    const passwordError = getRegistrationPasswordError(password)
+    if (passwordError) {
+      setValidationError(passwordError)
       return
     }
     if (password !== confirmPassword) {
@@ -111,7 +119,7 @@ export function FamilyRegisterPage() {
               value={name}
               onChange={(event) => {
                 setName(event.target.value)
-                if (validationError) setValidationError('')
+                clearValidationError()
               }}
               disabled={loading}
             />
@@ -123,31 +131,29 @@ export function FamilyRegisterPage() {
               value={email}
               onChange={(event) => {
                 setEmail(event.target.value)
-                if (validationError) setValidationError('')
+                clearValidationError()
               }}
               disabled={loading}
             />
-            <label htmlFor="register-password">Password</label>
-            <input
+            <PasswordField
               id="register-password"
-              type="password"
+              label="Password"
               autoComplete="new-password"
               value={password}
-              onChange={(event) => {
-                setPassword(event.target.value)
-                if (validationError) setValidationError('')
+              onChange={(next) => {
+                setPassword(next)
+                clearValidationError()
               }}
               disabled={loading}
             />
-            <label htmlFor="register-confirm-password">Confirm password</label>
-            <input
+            <PasswordField
               id="register-confirm-password"
-              type="password"
+              label="Confirm password"
               autoComplete="new-password"
               value={confirmPassword}
-              onChange={(event) => {
-                setConfirmPassword(event.target.value)
-                if (validationError) setValidationError('')
+              onChange={(next) => {
+                setConfirmPassword(next)
+                clearValidationError()
               }}
               disabled={loading}
             />
@@ -167,11 +173,6 @@ export function FamilyRegisterPage() {
 
           <p className="login-card__footer">
             Already have an account? <Link to="/family-login">Sign in</Link>
-          </p>
-          <p className="login-card__security">
-            Passwords are stored as BCrypt hashes on the server. No family circle
-            or orphan profile is created beyond the SELF dietary profile from
-            registration.
           </p>
         </section>
       </div>
