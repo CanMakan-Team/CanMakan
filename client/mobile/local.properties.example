@@ -1,0 +1,12 @@
+## Example local overrides (copy values into untracked local.properties)
+#
+# SDK path is usually written by Android Studio:
+# sdk.dir=C\:\\Users\\you\\AppData\\Local\\Android\\Sdk
+#
+# Emulator default (also BuildConfig default): host loopback via 10.0.2.2
+# BASE_URL=http://10.0.2.2:8080/api/
+#
+# Physical device on same Wi-Fi — use your PC's LAN IP (backend binds 0.0.0.0:8080):
+# BASE_URL=http://192.168.1.50:8080/api/
+#
+# Backend CORS allows private LAN browser origins; native Retrofit does not need CORS.

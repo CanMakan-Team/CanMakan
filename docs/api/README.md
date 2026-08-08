@@ -92,3 +92,23 @@ and sees create-circle (`GET /api/families/me` → 404).
 
 Web clients store this as `canmakan.session` (plus `portal`) and send
 `X-User-Id` until UC19 JWT replaces it.
+
+## CORS (browser clients)
+
+Browser web (Vite → Spring on `:8080`) is cross-origin. Backend
+`canmakan.cors.*` defaults allow:
+
+- Exact: `http://localhost:5173`, `http://127.0.0.1:5173`, preview `:4173`
+- Patterns: private LAN hosts (`10.*`, `192.168.*`, `172.*`) any port
+
+Override at deploy time (comma-separated) without rebuilding:
+
+- `CANMAKAN_CORS_ALLOWED_ORIGINS` — exact web origins (e.g. `https://app.example.com`)
+- `CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS` — optional patterns; set empty to disable LAN wildcards in prod
+- `CANMAKAN_CORS_ALLOW_CREDENTIALS` / `CANMAKAN_CORS_MAX_AGE_SECONDS`
+
+Allowed headers include `Content-Type`, `Authorization`, and temporary `X-User-Id`.
+
+Native Android Retrofit (emulator `http://10.0.2.2:8080/api/` or device LAN IP)
+typically sends no `Origin`, so CORS does not apply; the API still must listen on
+`0.0.0.0` (default `server.address`).
