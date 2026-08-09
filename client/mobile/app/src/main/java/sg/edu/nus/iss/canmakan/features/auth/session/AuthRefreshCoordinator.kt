@@ -29,6 +29,9 @@ class AuthRefreshCoordinator @Inject constructor(
     private val refreshClient: AuthRefreshClient,
     private val authSessionStore: AuthSessionStore,
     private val refreshCookieJar: PersistentRefreshCookieJar,
+    private val logoutClient: AuthLogoutClient = AuthLogoutClient {
+        LogoutClientResult.INVALID_RESPONSE
+    },
 ) {
     private val refreshLock = ReentrantLock()
 
@@ -51,6 +54,30 @@ class AuthRefreshCoordinator @Inject constructor(
             authSessionStore.currentAccessToken()
                 ?.let(RefreshDecision::RetryWithToken)
                 ?: performRefreshLocked()
+        }
+    }
+
+    /**
+     * Serializes user logout with refresh and session replacement using the same lock.
+     *
+     * This method is synchronous by design: callers must execute it on an IO worker. The access
+     * session is removed before the backend exchange, while the refresh cookie remains available
+     * until the dedicated logout request has had an opportunity to revoke it. Final local cleanup
+     * is unconditional, including server, network, and unexpected failures.
+     */
+    fun logout() {
+        refreshLock.withLock {
+            authSessionStore.clearSession()
+            try {
+                logoutClient.logout()
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            } catch (_: Exception) {
+                // User-requested local logout is authoritative for this device.
+            } finally {
+                authSessionStore.clearSession()
+                refreshCookieJar.clearAuthCookies()
+            }
         }
     }
 

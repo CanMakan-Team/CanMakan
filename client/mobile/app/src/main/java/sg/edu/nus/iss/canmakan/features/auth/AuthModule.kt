@@ -8,8 +8,10 @@ import javax.inject.Singleton
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthRepository
 import sg.edu.nus.iss.canmakan.features.auth.data.ServerAuthRepository
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionPersistence
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthLogoutAction
 import sg.edu.nus.iss.canmakan.features.auth.session.EncryptedAuthPreferences
 import sg.edu.nus.iss.canmakan.features.auth.session.RefreshCookiePersistence
+import sg.edu.nus.iss.canmakan.features.auth.session.SerializedAuthLogoutAction
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -32,4 +34,10 @@ abstract class AuthModule {
     abstract fun bindRefreshCookiePersistence(
         preferences: EncryptedAuthPreferences,
     ): RefreshCookiePersistence
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthLogoutAction(
+        action: SerializedAuthLogoutAction,
+    ): AuthLogoutAction
 }

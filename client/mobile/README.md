@@ -16,10 +16,10 @@ registration, dietary restrictions, family profile reads, scan assessment and
 scan history. Some supplied screens still contain prototype-only callbacks or
 sample presentation data.
 
-UC18 registration is available as an opt-in navigation route so the existing
-scanner start destination remains unchanged. Host `CanMakanNavGraph` with
-`startDestination = ROUTE_REGISTRATION` to exercise the two-screen flow until a
-future authentication entry point is approved.
+The application root now validates the encrypted authentication session before
+showing either the Login/Registration flow or the consumer mobile flow. UC18
+registration remains account creation only and returns to Login without
+automatically authenticating the new account.
 
 ## Design Principles
 

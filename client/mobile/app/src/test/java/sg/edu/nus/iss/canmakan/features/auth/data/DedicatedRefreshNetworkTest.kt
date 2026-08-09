@@ -22,6 +22,7 @@ import retrofit2.http.Headers
 import retrofit2.http.POST
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthRefreshClient
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthRefreshCoordinator
+import sg.edu.nus.iss.canmakan.features.auth.session.LogoutClientResult
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthRequestPolicy
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionPersistence
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
@@ -31,6 +32,7 @@ import sg.edu.nus.iss.canmakan.features.auth.session.PersistentRefreshCookieJar
 import sg.edu.nus.iss.canmakan.features.auth.session.RefreshClientResult
 import sg.edu.nus.iss.canmakan.features.auth.session.RefreshCookiePersistence
 import sg.edu.nus.iss.canmakan.features.auth.session.RetrofitAuthRefreshClient
+import sg.edu.nus.iss.canmakan.features.auth.session.RetrofitAuthLogoutClient
 import sg.edu.nus.iss.canmakan.shared.di.NetworkModule
 
 @DisplayName("UC19 7.6: dedicated non-recursive refresh network")
@@ -42,6 +44,19 @@ class DedicatedRefreshNetworkTest {
 
         assertEquals(
             "auth/refresh",
+            requireNotNull(method.getAnnotation(POST::class.java)).value,
+        )
+        assertNull(method.getAnnotation(Headers::class.java))
+        assertFalse(method.parameterAnnotations.flatten().any { it is Body })
+        assertEquals(0, method.parameterCount)
+    }
+
+    @Test
+    fun logoutContractHasNoBodyOrInternalControlHeader() {
+        val method = RefreshApiService::class.java.getDeclaredMethod("logout")
+
+        assertEquals(
+            "auth/logout",
             requireNotNull(method.getAnnotation(POST::class.java)).value,
         )
         assertNull(method.getAnnotation(Headers::class.java))
@@ -99,6 +114,36 @@ class DedicatedRefreshNetworkTest {
     }
 
     @Test
+    fun logoutUsesOneDedicatedCredentialSafeRequestAndMaps204() {
+        val capture = NetworkCapture(code = 204, body = "")
+
+        assertEquals(LogoutClientResult.SUCCESS, executeLogout(capture))
+        assertEquals(1, capture.calls.get())
+        assertEquals("POST", capture.method)
+        assertEquals("/api/auth/logout", capture.path)
+        assertNull(capture.authorization)
+        assertNull(capture.internalNoRetryHeader)
+    }
+
+    @Test
+    fun logoutServerAndNetworkFailuresRemainSingleAttemptOutcomes() {
+        val server = NetworkCapture(code = 503)
+        assertEquals(LogoutClientResult.SERVER_FAILURE, executeLogout(server))
+        assertEquals(1, server.calls.get())
+
+        val offline = NetworkCapture(exception = IOException("offline"))
+        assertEquals(LogoutClientResult.NETWORK_FAILURE, executeLogout(offline))
+        assertEquals(1, offline.calls.get())
+
+        val alreadyUnauthenticated = NetworkCapture(code = 401)
+        assertEquals(
+            LogoutClientResult.INVALID_RESPONSE,
+            executeLogout(alreadyUnauthenticated),
+        )
+        assertEquals(1, alreadyUnauthenticated.calls.get())
+    }
+
+    @Test
     fun mainAndRefreshClientsShareTheSameJarButOnlyMainHasBearerAndAuthenticator() {
         val jar = refreshCookieJar()
         val store = AuthSessionStore(FakeSessionPersistence(), Gson())
@@ -128,6 +173,16 @@ class DedicatedRefreshNetworkTest {
     }
 
     private fun execute(capture: NetworkCapture): RefreshClientResult {
+        val service = dedicatedService(capture)
+        return RetrofitAuthRefreshClient(service).refresh()
+    }
+
+    private fun executeLogout(capture: NetworkCapture): LogoutClientResult {
+        val service = dedicatedService(capture)
+        return RetrofitAuthLogoutClient(service).logout()
+    }
+
+    private fun dedicatedService(capture: NetworkCapture): RefreshApiService {
         val baseClient = NetworkModule.provideAuthRefreshOkHttpClient(refreshCookieJar())
         val testClient = baseClient.newBuilder()
             .addInterceptor { chain ->
@@ -153,7 +208,7 @@ class DedicatedRefreshNetworkTest {
             apiBaseUrl = API_BASE_URL,
         )
         val service = NetworkModule.provideRefreshApiService(retrofit)
-        return RetrofitAuthRefreshClient(service).refresh()
+        return service
     }
 
     private fun refreshCookieJar(): PersistentRefreshCookieJar {

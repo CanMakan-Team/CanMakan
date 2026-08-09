@@ -18,14 +18,19 @@ sealed interface AuthRestorationResult {
 }
 
 /** Restores authentication state without making navigation or UI decisions. */
+fun interface AuthRestorer {
+    suspend fun restore(): AuthRestorationResult
+}
+
+/** Validates persisted credentials against the backend before application entry. */
 class AuthSessionRestorer(
     private val authRepository: AuthRepository,
     private val authSessionStore: AuthSessionStore,
     private val refreshCoordinator: AuthRefreshCoordinator,
     private val refreshCookieJar: PersistentRefreshCookieJar,
     private val refreshUrl: HttpUrl,
-) {
-    suspend fun restore(): AuthRestorationResult {
+) : AuthRestorer {
+    override suspend fun restore(): AuthRestorationResult {
         val initialSession = authSessionStore.loadSession()
         if (initialSession == null) {
             if (!refreshCookieJar.hasAuthCookieFor(refreshUrl)) {

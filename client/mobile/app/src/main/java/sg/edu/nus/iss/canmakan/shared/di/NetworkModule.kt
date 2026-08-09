@@ -25,13 +25,16 @@ import sg.edu.nus.iss.canmakan.features.auth.data.RefreshApiService
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationApiService
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthRefreshClient
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthRefreshCoordinator
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthLogoutClient
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthRequestPolicy
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthRestorer
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionRestorer
 import sg.edu.nus.iss.canmakan.features.auth.session.BearerAuthInterceptor
 import sg.edu.nus.iss.canmakan.features.auth.session.BearerAuthenticator
 import sg.edu.nus.iss.canmakan.features.auth.session.PersistentRefreshCookieJar
 import sg.edu.nus.iss.canmakan.features.auth.session.RetrofitAuthRefreshClient
+import sg.edu.nus.iss.canmakan.features.auth.session.RetrofitAuthLogoutClient
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryApiService
@@ -156,6 +159,14 @@ object NetworkModule {
         refreshApiService: RefreshApiService,
     ): AuthRefreshClient {
         return RetrofitAuthRefreshClient(refreshApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAuthLogoutClient(
+        refreshApiService: RefreshApiService,
+    ): AuthLogoutClient {
+        return RetrofitAuthLogoutClient(refreshApiService)
     }
 
     @Provides
@@ -306,7 +317,7 @@ object NetworkModule {
         refreshCoordinator: AuthRefreshCoordinator,
         refreshCookieJar: PersistentRefreshCookieJar,
         apiBaseUrl: HttpUrl,
-    ): AuthSessionRestorer {
+    ): AuthRestorer {
         return AuthSessionRestorer(
             authRepository = authRepository,
             authSessionStore = authSessionStore,

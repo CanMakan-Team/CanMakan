@@ -27,6 +27,19 @@ fun interface AuthRefreshClient {
     fun refresh(): RefreshClientResult
 }
 
+/** Token-free outcome of one best-effort backend logout exchange. */
+enum class LogoutClientResult {
+    SUCCESS,
+    NETWORK_FAILURE,
+    SERVER_FAILURE,
+    INVALID_RESPONSE,
+}
+
+/** Synchronous logout boundary sharing the dedicated refresh network and CookieJar. */
+fun interface AuthLogoutClient {
+    fun logout(): LogoutClientResult
+}
+
 /** Executes refresh on the dedicated Retrofit service, outside the main OkHttp graph. */
 class RetrofitAuthRefreshClient(
     private val refreshApiService: RefreshApiService,
@@ -59,6 +72,33 @@ class RetrofitAuthRefreshClient(
         const val HTTP_OK = 200
         const val HTTP_UNAUTHORIZED = 401
         const val HTTP_FORBIDDEN = 403
+        val HTTP_SERVER_ERROR_RANGE = 500..599
+    }
+}
+
+/** Executes logout without Bearer authentication, Authenticator recursion, or generic retries. */
+class RetrofitAuthLogoutClient(
+    private val refreshApiService: RefreshApiService,
+) : AuthLogoutClient {
+    override fun logout(): LogoutClientResult {
+        return try {
+            val response = refreshApiService.logout().execute()
+            when {
+                response.code() == HTTP_NO_CONTENT -> LogoutClientResult.SUCCESS
+                response.code() in HTTP_SERVER_ERROR_RANGE -> LogoutClientResult.SERVER_FAILURE
+                else -> LogoutClientResult.INVALID_RESPONSE
+            }
+        } catch (_: IOException) {
+            LogoutClientResult.NETWORK_FAILURE
+        } catch (_: Exception) {
+            LogoutClientResult.INVALID_RESPONSE
+        }
+    }
+
+    override fun toString(): String = "RetrofitAuthLogoutClient(service=<redacted>)"
+
+    private companion object {
+        const val HTTP_NO_CONTENT = 204
         val HTTP_SERVER_ERROR_RANGE = 500..599
     }
 }

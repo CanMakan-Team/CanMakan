@@ -18,7 +18,7 @@ User registration, authentication and session management.
 - The current backend has no compatible primary-profile creation endpoint, so
   selected dietary information is deferred after account creation instead of
   creating an empty or family/dependant profile.
-- Login, logout, tokens and session restoration remain deferred to UC19.
+- UC18 Registration remains separate from authentication and never auto-logs in.
 
 ## UC19 implementation status
 
@@ -37,8 +37,8 @@ User registration, authentication and session management.
 - The 7.4 `LoginViewModel` validates and normalizes email input, preserves the
   password exactly, prevents duplicate submissions, calls `AuthRepository`, and
   considers Login successful only after `AuthSessionStore` persists the session.
-- The standalone Compose Login route exposes only a safe authenticated-user
-  success callback and is not yet connected to root Navigation.
+- The Compose Login route exposes only a safe authenticated-user success callback
+  and links to the separate UC18 Registration route.
 - The 7.5 Bearer interceptor reads the current access token from
   `AuthSessionStore` for each eligible request, restricts it to the configured
   API scheme/host/port, and excludes exact public auth endpoints.
@@ -62,5 +62,19 @@ User registration, authentication and session management.
 - `AuthSessionRestorer` provides token-safe `Authenticated`, `Unauthenticated`,
   `TemporarilyUnavailable`, and `Forbidden` results. Backend `/me` metadata
   replaces the stored user summary while preserving the current access token.
-- Root authentication navigation and user-initiated logout remain intentionally
-  deferred.
+- The 7.7 root `AppAuthViewModel` begins in `Restoring` and validates persisted
+  credentials before allowing either auth or consumer UI. Its public StateFlow
+  contains only safe user metadata; `AuthSessionStore` exposes a matching
+  token-free user signal for session invalidation and backend-authoritative role
+  changes.
+- USER accounts enter the existing consumer mobile graph. Canonical ADMIN
+  accounts never map to family `PRIMARY_ADMIN` and instead receive a small
+  unsupported-mobile-account state with Sign Out.
+- Login/Registration and consumer-main graphs have separate root compositions,
+  so successful Login, confirmed session expiry and Logout destroy the opposite
+  navigation back stack.
+- User Logout runs synchronously on an IO worker through the same lock as refresh.
+  It clears access state, attempts the dedicated non-recursive cookie-authenticated
+  backend logout, then clears access state and refresh cookies in every outcome.
+  The dedicated client has no Bearer interceptor, Authenticator, generic retry or
+  HTTP logging.

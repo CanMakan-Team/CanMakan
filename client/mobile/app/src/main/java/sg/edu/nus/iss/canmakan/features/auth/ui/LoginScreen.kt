@@ -32,6 +32,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -62,6 +63,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 @Composable
 fun LoginRoute(
     onLoginSuccess: (AuthenticatedUser) -> Unit = {},
+    onCreateAccount: () -> Unit = {},
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -76,6 +78,7 @@ fun LoginRoute(
         onEmailChange = viewModel::updateEmail,
         onPasswordChange = viewModel::updatePassword,
         onLogin = viewModel::login,
+        onCreateAccount = onCreateAccount,
     )
 }
 
@@ -85,6 +88,7 @@ fun LoginScreen(
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onLogin: () -> Unit,
+    onCreateAccount: () -> Unit = {},
 ) {
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     val formEnabled = !state.isSubmitting && state.authenticatedUser == null
@@ -195,6 +199,14 @@ fun LoginScreen(
                 } else {
                     Text("Sign In")
                 }
+            }
+
+            TextButton(
+                onClick = onCreateAccount,
+                enabled = formEnabled,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Create Account")
             }
         }
     }

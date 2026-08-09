@@ -74,6 +74,29 @@ class AuthSessionStoreTest {
     }
 
     @Test
+    fun tokenFreeUserSignalTracksSaveRefreshMetadataAndClear() {
+        val store = AuthSessionStore(FakeAuthSessionPersistence(), Gson())
+        assertNull(store.authenticatedUser.value)
+
+        assertTrue(store.saveSession(validSession()))
+        assertEquals(
+            AuthenticatedUser(12L, "person@example.com", AuthRole.USER),
+            store.authenticatedUser.value,
+        )
+
+        assertTrue(store.saveSession(validSession(accessToken = "replacement-access-token")))
+        assertEquals(AuthRole.USER, store.authenticatedUser.value?.role)
+        assertFalse(store.authenticatedUser.value.toString().contains("replacement-access-token"))
+
+        val authoritativeUser = AuthenticatedUser(12L, "updated@example.com", AuthRole.ADMIN)
+        assertTrue(store.updateAuthenticatedUser(authoritativeUser))
+        assertEquals(authoritativeUser, store.authenticatedUser.value)
+
+        store.clearSession()
+        assertNull(store.authenticatedUser.value)
+    }
+
+    @Test
     fun metadataPersistenceFailureClearsTheSessionInsteadOfKeepingPartialState() {
         val persistence = FakeAuthSessionPersistence()
         val store = AuthSessionStore(persistence, Gson())

@@ -7,6 +7,9 @@ import java.nio.charset.StandardCharsets
 import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthRole
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedSession
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
@@ -34,6 +37,10 @@ class AuthSessionStore @Inject constructor(
 ) {
     private val lock = Any()
     private var currentSession: AuthSessionSnapshot? = restoreSession()
+    private val _authenticatedUser = MutableStateFlow(currentSession?.user)
+
+    /** Token-free session signal for application lifecycle state and UI eligibility. */
+    val authenticatedUser: StateFlow<AuthenticatedUser?> = _authenticatedUser.asStateFlow()
 
     fun saveSession(session: AuthenticatedSession): Boolean = synchronized(lock) {
         val snapshot = validatedSnapshot(session.accessToken, session.user)
@@ -108,6 +115,7 @@ class AuthSessionStore @Inject constructor(
 
     private fun clearLocked(): Boolean {
         currentSession = null
+        _authenticatedUser.value = null
         return runCatching { persistence.clearSession() }.getOrDefault(false)
     }
 
@@ -125,8 +133,10 @@ class AuthSessionStore @Inject constructor(
 
         if (saved) {
             currentSession = snapshot
+            _authenticatedUser.value = snapshot.user
         } else {
             currentSession = null
+            _authenticatedUser.value = null
             clearPersistenceBestEffort()
         }
         return saved
