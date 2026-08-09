@@ -14,7 +14,7 @@ class ServerAuthRepository @Inject constructor(
     ): AuthResult<AuthenticatedSession> = safely {
         val response = authApiService.login(LoginRequest(email = email, password = password))
         when {
-            response.code() == HTTP_OK -> validatedSession(response.body())
+            response.code() == HTTP_OK -> AuthResponseValidator.validatedSession(response.body())
                 ?.let { AuthResult.Success(it) }
                 ?: AuthResult.Failure(AuthFailureType.INVALID_RESPONSE)
 
@@ -30,7 +30,7 @@ class ServerAuthRepository @Inject constructor(
     override suspend fun refresh(): AuthResult<AuthenticatedSession> = safely {
         val response = authApiService.refresh()
         if (response.code() == HTTP_OK) {
-            validatedSession(response.body())
+            AuthResponseValidator.validatedSession(response.body())
                 ?.let { AuthResult.Success(it) }
                 ?: AuthResult.Failure(AuthFailureType.INVALID_RESPONSE)
         } else {
@@ -54,7 +54,7 @@ class ServerAuthRepository @Inject constructor(
     override suspend fun getCurrentUser(): AuthResult<AuthenticatedUser> = safely {
         val response = authApiService.getCurrentUser()
         if (response.code() == HTTP_OK) {
-            validatedUser(response.body())
+            AuthResponseValidator.validatedUser(response.body())
                 ?.let { AuthResult.Success(it) }
                 ?: AuthResult.Failure(AuthFailureType.INVALID_RESPONSE)
         } else {
@@ -76,30 +76,6 @@ class ServerAuthRepository @Inject constructor(
         }
     }
 
-    private fun validatedSession(response: AuthResponse?): AuthenticatedSession? {
-        response ?: return null
-        val accessToken = response.accessToken?.takeIf { it.isNotBlank() } ?: return null
-        if (!response.tokenType.equals(TOKEN_TYPE_BEARER, ignoreCase = true)) return null
-        val expiresIn = response.expiresIn?.takeIf { it > 0 } ?: return null
-        val user = validatedUser(response.user) ?: return null
-
-        return AuthenticatedSession(
-            accessToken = accessToken,
-            tokenType = TOKEN_TYPE_BEARER,
-            expiresIn = expiresIn,
-            user = user,
-        )
-    }
-
-    private fun validatedUser(response: AuthenticatedUserResponse?): AuthenticatedUser? {
-        response ?: return null
-        val userId = response.userId?.takeIf { it > 0 } ?: return null
-        val email = response.email?.takeIf { it.isNotBlank() } ?: return null
-        val role = response.role ?: return null
-
-        return AuthenticatedUser(userId = userId, email = email, role = role)
-    }
-
     private fun mapHttpFailure(
         statusCode: Int,
         unauthorizedFailure: AuthFailureType,
@@ -119,6 +95,5 @@ class ServerAuthRepository @Inject constructor(
         const val HTTP_UNAUTHORIZED = 401
         const val HTTP_FORBIDDEN = 403
         val HTTP_SERVER_ERROR_RANGE = 500..599
-        const val TOKEN_TYPE_BEARER = "Bearer"
     }
 }

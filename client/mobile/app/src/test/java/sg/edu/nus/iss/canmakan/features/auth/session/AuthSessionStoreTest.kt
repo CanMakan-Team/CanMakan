@@ -58,6 +58,39 @@ class AuthSessionStoreTest {
     }
 
     @Test
+    fun backendUserMetadataUpdatePreservesTheCurrentAccessToken() {
+        val persistence = FakeAuthSessionPersistence()
+        val store = AuthSessionStore(persistence, Gson())
+        assertTrue(store.saveSession(validSession()))
+
+        val authoritativeUser = AuthenticatedUser(12L, "updated@example.com", AuthRole.ADMIN)
+        assertTrue(store.updateAuthenticatedUser(authoritativeUser))
+
+        assertEquals(TEST_ACCESS_TOKEN, store.currentAccessToken())
+        assertEquals(authoritativeUser, store.loadSession()?.user)
+        val recreated = AuthSessionStore(persistence, Gson())
+        assertEquals(TEST_ACCESS_TOKEN, recreated.currentAccessToken())
+        assertEquals(authoritativeUser, recreated.loadSession()?.user)
+    }
+
+    @Test
+    fun metadataPersistenceFailureClearsTheSessionInsteadOfKeepingPartialState() {
+        val persistence = FakeAuthSessionPersistence()
+        val store = AuthSessionStore(persistence, Gson())
+        assertTrue(store.saveSession(validSession()))
+        persistence.writeSucceeds = false
+
+        assertFalse(
+            store.updateAuthenticatedUser(
+                AuthenticatedUser(12L, "updated@example.com", AuthRole.ADMIN)
+            )
+        )
+
+        assertNull(store.loadSession())
+        assertNull(persistence.serializedSession)
+    }
+
+    @Test
     fun incompletePersistedSessionIsRejectedAndCleared() {
         val persistence = FakeAuthSessionPersistence(
             serializedSession = """{"encodedAccessToken":"dGVzdA","userId":12,"email":"person@example.com"}"""
@@ -172,12 +205,13 @@ class AuthSessionStoreTest {
         var serializedSession: String? = null,
     ) : AuthSessionPersistence {
         var clearCalls = 0
+        var writeSucceeds = true
 
         override fun readSession(): String? = serializedSession
 
         override fun writeSession(serializedSession: String): Boolean {
-            this.serializedSession = serializedSession
-            return true
+            if (writeSucceeds) this.serializedSession = serializedSession
+            return writeSucceeds
         }
 
         override fun clearSession(): Boolean {

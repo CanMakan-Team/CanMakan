@@ -13,21 +13,16 @@ import okhttp3.Response
  */
 class BearerAuthInterceptor(
     private val authSessionStore: AuthSessionStore,
-    apiBaseUrl: HttpUrl,
+    private val authRequestPolicy: AuthRequestPolicy,
 ) : Interceptor {
-    private val apiOrigin = ApiOrigin.from(apiBaseUrl)
-    private val publicEndpoints = setOf(
-        PublicEndpoint("POST", requireNotNull(apiBaseUrl.resolve("auth/register")).encodedPath),
-        PublicEndpoint("POST", requireNotNull(apiBaseUrl.resolve("auth/login")).encodedPath),
-        PublicEndpoint("POST", requireNotNull(apiBaseUrl.resolve("auth/refresh")).encodedPath),
-        PublicEndpoint("POST", requireNotNull(apiBaseUrl.resolve("auth/logout")).encodedPath),
-        PublicEndpoint("GET", HEALTH_PATH),
+    constructor(authSessionStore: AuthSessionStore, apiBaseUrl: HttpUrl) : this(
+        authSessionStore,
+        AuthRequestPolicy(apiBaseUrl),
     )
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
-        if (!apiOrigin.matches(request.url) ||
-            PublicEndpoint(request.method, request.url.encodedPath) in publicEndpoints ||
+        if (!authRequestPolicy.isProtectedFirstParty(request) ||
             request.header(AUTHORIZATION_HEADER) != null
         ) {
             return chain.proceed(request)
@@ -43,35 +38,11 @@ class BearerAuthInterceptor(
     }
 
     override fun toString(): String {
-        return "BearerAuthInterceptor(apiOrigin=${apiOrigin.displayValue}, token=<redacted>)"
-    }
-
-    private data class PublicEndpoint(
-        val method: String,
-        val encodedPath: String,
-    )
-
-    private data class ApiOrigin(
-        val scheme: String,
-        val host: String,
-        val port: Int,
-    ) {
-        val displayValue: String = "$scheme://$host:$port"
-
-        fun matches(url: HttpUrl): Boolean {
-            return url.scheme == scheme && url.host == host && url.port == port
-        }
-
-        companion object {
-            fun from(url: HttpUrl): ApiOrigin {
-                return ApiOrigin(url.scheme, url.host, url.port)
-            }
-        }
+        return "BearerAuthInterceptor(policy=$authRequestPolicy, token=<redacted>)"
     }
 
     private companion object {
         const val AUTHORIZATION_HEADER = "Authorization"
         const val BEARER_PREFIX = "Bearer"
-        const val HEALTH_PATH = "/actuator/health"
     }
 }

@@ -133,6 +133,21 @@ class PersistentRefreshCookieJarTest {
     }
 
     @Test
+    fun cookiePresenceCanBeCheckedWithoutExposingItsValue() {
+        val jar = newJar()
+        assertFalse(jar.hasAuthCookieFor(HTTPS_REFRESH_URL))
+
+        jar.saveFromResponse(HTTPS_LOGIN_URL, listOf(refreshCookie(TEST_REFRESH_A)))
+
+        assertTrue(jar.hasAuthCookieFor(HTTPS_REFRESH_URL))
+        assertFalse(
+            jar.hasAuthCookieFor(
+                "https://other.example.test/api/auth/refresh".toHttpUrl()
+            )
+        )
+    }
+
+    @Test
     fun unrelatedCookiesAreIgnoredByTheLeastPrivilegeJar() {
         val persistence = FakeRefreshCookiePersistence()
         val jar = newJar(persistence)

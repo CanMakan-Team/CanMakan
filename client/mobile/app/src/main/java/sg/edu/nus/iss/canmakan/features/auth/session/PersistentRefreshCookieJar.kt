@@ -59,6 +59,15 @@ class PersistentRefreshCookieJar internal constructor(
         cookiesByIdentity.values.filter { cookie -> cookie.matches(url) }
     }
 
+    /** Reports usable refresh-cookie presence without exposing its value outside the CookieJar. */
+    fun hasAuthCookieFor(url: HttpUrl): Boolean = synchronized(lock) {
+        val now = currentTimeMillis()
+        removeExpiredCookiesLocked(now)
+        cookiesByIdentity.values.any { cookie ->
+            cookie.name == REFRESH_COOKIE_NAME && cookie.matches(url)
+        }
+    }
+
     fun clearAuthCookies(): Boolean = synchronized(lock) {
         cookiesByIdentity.clear()
         runCatching { persistence.clearCookies() }.getOrDefault(false)

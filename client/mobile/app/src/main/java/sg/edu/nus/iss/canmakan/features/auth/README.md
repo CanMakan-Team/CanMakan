@@ -45,4 +45,22 @@ User registration, authentication and session management.
 - `AuthRepository.getCurrentUser()` now reaches `GET auth/me` through the shared
   authenticated OkHttp client. It returns the Backend user without rewriting
   stored user metadata.
-- Automatic refresh and authentication navigation remain intentionally deferred.
+- The 7.6 refresh path uses a dedicated synchronous Retrofit service sharing the
+  persistent refresh `CookieJar`, with no Bearer interceptor, Authenticator,
+  generic retry, or HTTP logging. Its endpoint declares no internal control header.
+- `AuthRefreshCoordinator` serializes rotating refresh calls, double-checks the
+  current token while holding its refresh lock, persists a valid replacement
+  session before releasing waiters, and fails closed after confirmed invalidation,
+  invalid rotated responses, or session-persistence failure. Network and 5xx
+  failures preserve the existing session and cookie for later recovery.
+- `BearerAuthenticator` handles one eligible first-party 401 recovery only;
+  public auth endpoints, foreign origins, requests without Bearer credentials,
+  403 responses, and an already retried request never trigger refresh.
+- The shared generic retry layer now treats all HTTP 4xx responses as terminal;
+  its existing transient 5xx and I/O retry behavior remains for ordinary
+  requests, while an authentication follow-up response is never retried again.
+- `AuthSessionRestorer` provides token-safe `Authenticated`, `Unauthenticated`,
+  `TemporarilyUnavailable`, and `Forbidden` results. Backend `/me` metadata
+  replaces the stored user summary while preserving the current access token.
+- Root authentication navigation and user-initiated logout remain intentionally
+  deferred.

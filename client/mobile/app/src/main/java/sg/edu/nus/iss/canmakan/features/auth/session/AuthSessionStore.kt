@@ -41,30 +41,23 @@ class AuthSessionStore @Inject constructor(
             clearLocked()
             return@synchronized false
         }
-
-        val record = StoredSessionRecord(
-            encodedAccessToken = encodeSecret(snapshot.accessToken),
-            userId = snapshot.user.userId,
-            email = snapshot.user.email,
-            role = snapshot.user.role.name,
-        )
-        val serialized = runCatching { gson.toJson(record) }.getOrNull()
-        val saved = serialized != null && runCatching {
-            persistence.writeSession(serialized)
-        }.getOrDefault(false)
-
-        if (saved) {
-            currentSession = snapshot
-        } else {
-            currentSession = null
-            clearPersistenceBestEffort()
-        }
-        saved
+        persistSnapshotLocked(snapshot)
     }
 
     fun loadSession(): AuthSessionSnapshot? = synchronized(lock) { currentSession }
 
     fun currentAccessToken(): String? = synchronized(lock) { currentSession?.accessToken }
+
+    /** Replaces Backend-authoritative user metadata while preserving the latest access token. */
+    fun updateAuthenticatedUser(user: AuthenticatedUser): Boolean = synchronized(lock) {
+        val session = currentSession ?: return@synchronized false
+        val updated = validatedSnapshot(session.accessToken, user)
+        if (updated == null) {
+            clearLocked()
+            return@synchronized false
+        }
+        persistSnapshotLocked(updated)
+    }
 
     fun clearSession(): Boolean = synchronized(lock) { clearLocked() }
 
@@ -116,6 +109,27 @@ class AuthSessionStore @Inject constructor(
     private fun clearLocked(): Boolean {
         currentSession = null
         return runCatching { persistence.clearSession() }.getOrDefault(false)
+    }
+
+    private fun persistSnapshotLocked(snapshot: AuthSessionSnapshot): Boolean {
+        val record = StoredSessionRecord(
+            encodedAccessToken = encodeSecret(snapshot.accessToken),
+            userId = snapshot.user.userId,
+            email = snapshot.user.email,
+            role = snapshot.user.role.name,
+        )
+        val serialized = runCatching { gson.toJson(record) }.getOrNull()
+        val saved = serialized != null && runCatching {
+            persistence.writeSession(serialized)
+        }.getOrDefault(false)
+
+        if (saved) {
+            currentSession = snapshot
+        } else {
+            currentSession = null
+            clearPersistenceBestEffort()
+        }
+        return saved
     }
 
     private fun clearPersistenceBestEffort() {
