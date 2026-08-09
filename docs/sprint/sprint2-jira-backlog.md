@@ -186,7 +186,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 | UC4 two surfaces | Personal history (mobile) + family-admin filterable list (web). Charts are **UC14**, not UC4. |
 | UC5 vs UC17 | UC5 = suggest alternatives at verdict time; UC17 = list **past** recommendations (Enhanced). |
 | UC7 vs UC14 vs UC22 | UC7 = anonymised platform trends (Core); UC14 = family verdict chart (Enhanced); UC22 = CSV export of UC7-style aggregates (Nice-to-Have). |
-| UC18 / UC19 | Enhanced package; **UC19 is Core critical path** — lean login + protect endpoints before production Core APIs (live endpoints are public today) |
+| UC18 / UC19 | Enhanced package; **UC19 JWT mostly shipped** (login/refresh/logout + clients). Finish S3 for remaining public business routes (restrictions/history/validate). Family Admin stays membership-based. |
 | Profile vs account active | `dietary_profiles.is_active` (UC12) ≠ `users.is_active` (UC13 / UC19 login gate). |
 | Family Admin | `family_members.PRIMARY_ADMIN` — not a platform JWT role. |
 
@@ -194,7 +194,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 
 | ID | Decision | Proposal |
 | --- | --- | --- |
-| D1 | Platform roles + JWT | `APP_USER` / `SYSTEM_ADMIN`; JWT `ROLE_*` |
+| D1 | Platform roles + JWT | Live: `USER` / `ADMIN` in JWT; web portal maps to `ROLE_FAMILY_ADMIN` / `ROLE_SYSTEM_ADMIN`. Rename to `APP_USER` / `SYSTEM_ADMIN` still optional. |
 | D2 | One family per user (MVP)? | Yes + `UNIQUE(family_members.user_id)` |
 | D3 | Admin edit another adult’s restrictions? | No — self + unlinked dependants only |
 | D4 | Invite then accept | PENDING + UC10 (matches UC9/UC10) |
@@ -216,7 +216,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 
 **Nice-to-Have (UC20–UC24)** covers product reporting, AI admin logs, trend export, subscriptions, and OCR scan.
 
-**Current repo gaps:** no Spring Security on live APIs; role vocabulary drift; hardcoded mobile `familyId=1`; web mock-default; restriction/verdict code mismatches; no profile `is_active` / active-profile persistence.
+**Current repo gaps (post-UC19 integration):** dietary restrictions / history / validate still transitional `permitAll`; no profile ownership authz on assess/history/restrictions; mobile `DEFAULT_PROFILE_ID=1` fallback until UC11 server active-profile; web mock still used for unfinished family/admin surfaces; restriction/verdict code mismatches; no profile `is_active` / `active_profile_id` persistence.
 
 ---
 
@@ -224,22 +224,26 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 
 ### Live APIs (reuse / harden)
 
-| Method | Path |
-| --- | --- |
-| GET | `/api/families/{familyId}/profiles` |
-| GET | `/api/restrictions` |
-| GET/PUT | `/api/profiles/{profileId}/restrictions` |
-| POST | `/api/scan/validate`, `/api/scan/assess` |
-| GET | `/api/profiles/{profileId}/history` |
+| Method | Path | Auth today |
+| --- | --- | --- |
+| POST | `/api/auth/register`, `/login`, `/refresh`, `/logout` | Public (logout cookie-auth) |
+| GET | `/api/auth/me` | JWT |
+| GET/POST | `/api/families`, `/api/families/me`, `/me/restriction-summary` | JWT |
+| GET | `/api/families/{familyId}/profiles` | JWT (family subtree) |
+| POST | `/api/scan/assess` | JWT |
+| GET | `/api/restrictions` | Transitional public |
+| GET/PUT | `/api/profiles/{profileId}/restrictions` | Transitional public |
+| POST | `/api/scan/validate` | Transitional public |
+| GET | `/api/profiles/{profileId}/history` | Transitional public |
 
-All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitations, summary, family scans, recommendations, admin APIs.
+Missing: ownership authz on profile-scoped routes; invitations; family scans; recommendations; admin list/PATCH APIs; server active-profile.
 
 ### Required migrations
 
 | ID | Change |
 | --- | --- |
-| M1 | Canonical platform roles |
-| M2 | `UNIQUE(user_id)` on `family_members` if D2 |
+| M1 | Canonical platform roles *(live `USER`/`ADMIN`; optional rename)* |
+| M2 | `UNIQUE(user_id)` on `family_members` if D2 — **Done** |
 | M3 | `user_preferences.active_profile_id` |
 | M4 | `dietary_profiles.is_active` |
 | M5 | Invitation constraints / `invited_by` |
@@ -250,29 +254,29 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 
 | UC | Package | Status (detail) |
 | --- | --- | --- |
-| UC1 | Core | **Partial** — live `GET/PUT` restrictions + mobile `DietaryRestrictionSheet`; no authz; severity fixed `STRICT_AVOID`; post-reg SELF profile + family link via **UC8** create (not orphan create) |
-| UC2 | Core | **Partial** — ML Kit camera → live validate/assess (`ScanController` / `AssessmentOrchestrator`); assess JWT principal; no profile ownership check |
-| UC3 | Core | **Partial** — rule engine + colour-coded `ProductDetailScreen` (SAFE/WARNING/Avoid); MCP resolver; Alternatives tab empty (UC5) |
-| UC4 | Core | **Partial** — mobile personal history live (`ScanHistoryController`); family web history mock only; no family scans API |
-| UC5 | Core | **Not started** — Alternatives tab shell (“No alternatives available yet”); no recommendations API |
-| UC6 | Core | **Partial** — web `FamilyRestrictionSummaryPage` mock matrix; **mobile primary + summary API missing** |
-| UC7 | Core | **Partial** — admin `ConsumerTrendsPage` mock; `daily_consumer_trends` unused by Java |
-| UC8 | Core | **Partial (S1–S4 + UC19 identity)** — `POST /api/families`, `GET /me`, D2 UNIQUE, web `FamilyMeGate` / create page; mobile `/me` + create-when-empty; JWT principal. Open: architecture diagrams |
-| UC9 | Core | **Partial** — web mock immediate link + dependant modals; mobile invite/share not built; `family_invitations` unused; no PENDING invite APIs. Target: mobile+web invite via link/code + share |
+| UC1 | Core | **Partial** — live `GET/PUT` restrictions + mobile sheet; still public + no ownership authz; SELF via UC8 |
+| UC2 | Core | **Partial** — ML Kit → validate/assess; assess JWT principal; no profile ownership / inactive checks |
+| UC3 | Core | **Partial** — rule engine + colour-coded verdict; Alternatives empty (UC5) |
+| UC4 | Core | **Partial** — mobile personal history live; family web history mock; history GET still public |
+| UC5 | Core | **Not started** — Alternatives shell; no recommendations API |
+| UC6 | Core | **Partial (S1/S2 mostly shipped)** — live `/me/restriction-summary` + mobile grid; web parity mock; AC4/AC8/AC12 polish |
+| UC7 | Core | **Partial** — admin trends mock; `daily_consumer_trends` unused by Java |
+| UC8 | Core | **Partial (S1–S4 done)** — create + `/me` + JWT 401 + web/mobile empty-state; diagrams open |
+| UC9 | Core | **Partial** — web mock immediate link; no PENDING invite APIs; mobile invite/share not built |
 | UC10 | Core | **Not started** |
-| UC11 | Core | **Partial** — mobile drawer switch via `ActiveProfileManager`; loads `GET /families/{id}/profiles` with **`familyId=1L`**; not server-persisted |
-| UC12 | Core | **Partial** — web mock list/edit; mobile create screens stub (no API); no remove/`is_active` |
-| UC13 | Core | **Partial** — `UserAccessPage` mock only; schema has users/roles/audit; no admin controller |
+| UC11 | Core | **Partial** — drawer switch + `/me`-resolved profiles; `DEFAULT_PROFILE_ID=1` fallback; not server-persisted |
+| UC12 | Core | **Partial** — web mock list/edit; mobile stubs; no remove/`is_active` |
+| UC13 | Core | **Partial** — `UserAccessPage` mock; no admin controller |
 | UC14 | Enhanced | **Not started** |
 | UC15–UC16 | Enhanced | **Not started** |
 | UC17 | Enhanced | **Not started** |
-| UC18 | Enhanced | **Partial** — register API + web `/family-register` + pre-JWT login; email/password validation hardened; mobile UI present; JWT → UC19 |
-| UC19 | Enhanced | **Not started** (web session + `ProtectedRoute` + pre-JWT login; CORS env allow-list; no JWT/Security filter); **Core critical path** |
+| UC18 | Enhanced | **Mostly complete** — register API + web/mobile UI; no auto-login |
+| UC19 | Enhanced | **Mostly complete** — JWT login/refresh/logout + mobile/web clients; S3 residual (public dietary/history/validate); AC3 distinct 403 polish |
 | UC20 | Nice-to-Have | **Not started** / reporting README |
 | UC21 | Nice-to-Have | **Partial** — `AiExecutionLogService` write path (flag default off) + seeds; no admin dashboard |
 | UC22–UC24 | Nice-to-Have | **Not started** |
 
-**Cross-cutting:** no Spring Security / JWT on backend; web defaults to `VITE_USE_MOCK_API=true`. Highest-maturity path today: mobile scan → assess → verdict → personal history + restriction edit against seeded family data.
+**Cross-cutting:** Spring Security + JWT shipped for families + assess + admin; web default mock is **off** (`VITE_USE_MOCK_API=false`). Highest-maturity path: register/login → create circle or seeded family → mobile scan → assess → verdict → history + UC6 summary.
 
 ---
 
@@ -351,10 +355,13 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 
 | | |
 | --- | --- |
-| **Stories** | UC19-S1…S5; blocks production Core APIs |
-| **Dependencies** | None (required before production Core API use) |
+| **Status** | **Mostly complete** — JWT login/refresh/logout + mobile/web clients; residual S3 + suspended-403 polish |
+| **Stories** | UC19-S1…S5 |
+| **Dependencies** | None |
 | **In** | Spring Security + JWT; login/logout/refresh; protect business APIs; mobile/web token clients |
 | **Out** | OAuth; MFA; polished password-reset (unless added) |
+| **Shipped** | `AuthController`/`AuthService`; Bearer + refresh cookie; `AuthSessionStore` + web session; families + assess protected |
+| **Open** | UC19-S3 remaining `permitAll` routes; distinct 403 for inactive accounts; web auto-refresh |
 
 ---
 
@@ -364,12 +371,12 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 
 | | |
 | --- | --- |
-| **Status** | **Partial** — API + web register/login glue done; JWT still UC19 |
+| **Status** | **Mostly complete** — API + web/mobile register; no auto-login (UC19) |
 | **Stories** | UC18-S1 register API; UC18-S2 register UI |
-| **Dependencies** | UC19 (JWT / Security); unblocks UC8 empty-state demo for new users |
+| **Dependencies** | UC19 (login after register); unblocks UC8 empty-state demo for new users |
 | **In** | Register with required details; reject duplicates; secure credential storage; proceed to login/onboarding; does **not** create a family circle |
 | **Out** | Social sign-up |
-| **Shipped** | `POST /api/auth/register` + pre-JWT login; web `/family-register`; email dotted-domain + registration password strength / BCrypt byte limits |
+| **Shipped** | `POST /api/auth/register`; web `/family-register`; mobile registration flow; email/password validation |
 
 ---
 
@@ -393,7 +400,8 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 | | |
 | --- | --- |
 | **Stories** | UC2-S1…S5 (authz, camera/validate, assess, failure states, no web scan) |
-| **Dependencies** | UC19-S3, UC11; UC1 for restriction quality (assess inputs) |
+| **Dependencies** | UC19-S3 (finish public routes), UC11; UC1 for restriction quality |
+| **Note** | Assess JWT identity shipped (AC5); profile ownership / inactive checks still open |
 
 ---
 
@@ -443,6 +451,7 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 | --- | --- |
 | **Stories** | UC6-S1 summary API; UC6-S2 mobile grid; UC6-S3 optional web parity |
 | **Dependencies** | UC19, UC8, UC1 |
+| **Status** | **Partial** — S1/S2 mostly shipped (live summary API + mobile grid); S3 web parity + AC polish open |
 | **In** | Matrix of members vs restrictions; family-scoped only; primary client mobile |
 | **Out** | Editing (→ UC12) |
 
@@ -467,12 +476,12 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 
 | | |
 | --- | --- |
-| **Status** | **Partial** — UC8-S1–S4 done (API + web + mobile create-when-empty); AC8→UC19; AC10 polish→UC11 |
+| **Status** | **Partial** — UC8-S1–S4 done (API + web + mobile create-when-empty + JWT 401) |
 | **Stories** | UC8-S1…S4 |
-| **Dependencies** | UC19 (real 401); UC18 helps demo empty-state create |
+| **Dependencies** | UC19 (JWT shipped for family routes); UC18 helps demo empty-state create |
 | **In** | Create circle; creator PRIMARY_ADMIN; bootstrap SELF profile; `GET /families/me`; web + mobile empty-state create |
 | **Out** | Invites (UC9); accept (UC10); manage roster (UC12); architecture diagrams still open |
-| **Shipped** | D2 UNIQUE; `POST /api/families`; `GET /me`; web `FamilyMeGate` / `CreateFamilyCirclePage`; mobile drawer + `CreateFamilyCircleScreen`; tests for 201/400/409/401(unknown user); `family/dto` packaging |
+| **Shipped** | D2 UNIQUE; `POST /api/families`; `GET /me`; web `FamilyMeGate` / `CreateFamilyCirclePage`; mobile drawer + `CreateFamilyCircleScreen`; tests for 201/400/409/401; `family/dto` packaging |
 | **Caller identity** | Bearer JWT (`@AuthenticationPrincipal`). DB `PRIMARY_ADMIN` vs web portal `ROLE_FAMILY_ADMIN` — document mapping |
 
 ---
@@ -510,7 +519,8 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 | | |
 | --- | --- |
 | **Stories** | UC11-S1…S4 |
-| **Dependencies** | UC19; UC8-S3 (`/families/me`) or seeded membership for early delivery; full UC8-S2 for create-circle path |
+| **Dependencies** | UC19; UC8-S3 (`/families/me`) or seeded membership for early delivery |
+| **Status** | **Partial** — local switch + `/me`-resolved profiles; server active-profile + drop DEFAULT_PROFILE_ID fallback open |
 | **In** | Daily active-profile switch on mobile (server-persisted) |
 | **Out** | Web profile switcher (not required for MVP) |
 
@@ -663,13 +673,13 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 
 | Story | Summary | AC # (mvp) | Priority |
 | --- | --- | --- | --- |
-| **UC19-S1** | Spring Security + JWT login/refresh | UC19: 1–3, 7 | P0 |
-| **UC19-S2** | Canonical platform roles + authority mapping | UC19: 5–6 | P0 |
-| **UC19-S3** | Protect existing business endpoints | UC19: 4 | P0 |
-| **UC19-S4** | Logout — invalidate token; clear local credentials | UC19: 8–10 | P1 |
-| **UC19-S5** | Mobile + web login/logout UX (loading/error) | UC19: 11–12 | P1 |
+| **UC19-S1** | Spring Security + JWT login/refresh — **Mostly done** (AC3 distinct 403 polish) | UC19: 1–3, 7 | P0 |
+| **UC19-S2** | Canonical platform roles + authority mapping — **Done** (`USER`/`ADMIN`) | UC19: 5–6 | P0 |
+| **UC19-S3** | Protect existing business endpoints — **Partial** (families + assess; finish dietary/history/validate) | UC19: 4 | P0 |
+| **UC19-S4** | Logout — invalidate token; clear local credentials — **Done** | UC19: 8–10 | P1 |
+| **UC19-S5** | Mobile + web login/logout UX (loading/error) — **Done** | UC19: 11–12 | P1 |
 | **UC18-S1** | Register API — duplicates rejected; secure hash + validation — **Done** | UC18: 1–4, 6 | P2 |
-| **UC18-S2** | Mobile + web register UI → login/onboarding — **Done (web)**; mobile UI present | UC18: 5, 7–8 | P2 |
+| **UC18-S2** | Mobile + web register UI → login/onboarding — **Done** (no auto-login) | UC18: 5, 7–8 | P2 |
 
 ### UC1 — Dietary profile
 
@@ -686,9 +696,9 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | Story | Summary | AC # | Priority |
 | --- | --- | --- | --- |
 | **UC8-S1** | UNIQUE membership (D2) — **Done** (`uq_family_members_user_id`) | UC8: 6 | P0 |
-| **UC8-S2** | POST `/api/families` + PRIMARY_ADMIN + SELF profile — **Done** (AC8 real 401 → UC19) | UC8: 1–5, 7–8 | P0 |
+| **UC8-S2** | POST `/api/families` + PRIMARY_ADMIN + SELF profile — **Done** (incl. JWT 401) | UC8: 1–5, 7–8 | P0 |
 | **UC8-S3** | GET `/api/families/me` — **Done** (API + web + mobile resolve) | UC8: 5, 10 | P0 |
-| **UC8-S4** | Create CTA + loading/validation/error — **Done** (web `FamilyMeGate` / `CreateFamilyCirclePage`; mobile drawer + `CreateFamilyCircleScreen` when no family) | UC8: 9, 11 | P1 |
+| **UC8-S4** | Create CTA + loading/validation/error — **Done** (web + mobile when no family) | UC8: 9, 11 | P1 |
 | **UC8 follow-on** | Class/sequence diagrams under `docs/architecture/` — **Open** | Design | P2 |
 | **UC9-S1** | Invitation migration / status constraints (M5); share token/code | UC9: (supports 2–4, 15) | P0 |
 | **UC9-S2** | User search + create PENDING invitation returning shareable code/link | UC9: 1–7, 15 | P0 |
@@ -719,7 +729,7 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 
 | Story | Summary | AC # | Priority |
 | --- | --- | --- | --- |
-| **UC2-S1** | Authorize assess by family + active/inactive rules; JWT userId | UC2: 5–7 | P0 |
+| **UC2-S1** | Authorize assess by family + active/inactive rules; JWT userId — **Partial** (JWT done; ownership/inactive open) | UC2: 5–7 | P0 |
 | **UC2-S2** | Camera + ML Kit barcode → `POST /scan/validate` | UC2: 1–3 | P0 |
 | **UC2-S3** | Assess call + navigate to verdict (UC3) | UC2: 4, 12 | P0 |
 | **UC2-S4** | Failure states — unknown / non-food / network (never false Safe) | UC2: 8–11 | P0 |
@@ -740,8 +750,8 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 
 | Story | Summary | AC # | Priority |
 | --- | --- | --- | --- |
-| **UC6-S1** | Restriction-summary API (`/families/me/restriction-summary`) | UC6: 1–2, 5–6, 11 | P0 |
-| **UC6-S2** | Mobile primary grid + overlap highlight + empty/edit CTA | UC6: 3–4, 7–10 | P0 |
+| **UC6-S1** | Restriction-summary API (`/families/me/restriction-summary`) — **Mostly done** | UC6: 1–2, 5–6, 11 | P0 |
+| **UC6-S2** | Mobile primary grid + empty/error — **Mostly done** (polish AC4/AC8) | UC6: 3–4, 7–10 | P0 |
 | **UC6-S3** | Optional web parity page (same API) | UC6: 12 | P2 |
 | **UC7-S1** | Anonymised consumer-trends API (no PII; admin-only) | UC7: 1–2, 4–5 | P0 |
 | **UC7-S2** | System Admin trends dashboard UI | UC7: 3, 6–8 | P0 |
@@ -774,29 +784,31 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 **Core MVP target:** UC1–UC13.  
 **Canonical sequence** (also used by mvp-epics build order).
 
-**Already shipped (pre-JWT):** UC18-S1/S2 (web register + login glue); UC8-S1–S4 (create + `/me` + web/mobile empty-state create). Remaining on UC8: AC8 → UC19; AC10 polish → UC11.
+**Already shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT + clients); UC8-S1–S4 (incl. AC8); UC6-S1/S2 (summary API + mobile). Remaining auth: UC19-S3 close-out + AC3 polish.
 
 | Sprint | Focus | Stretch |
 | --- | --- | --- |
-| **Sprint 2** | UC19-S1/S3/S5; UC11-S1…S3 (drop `familyId=1`); UC2-S1…S4; UC3-S1…S2; UC4-S1 | UC1-S1/S3 |
-| **Sprint 3** | UC12-S1…S6; UC9-S3 | UC6-S1/S2; UC9-S1/S2 |
+| **Sprint 2** | UC19-S3 + UC1-S1; UC11-S1…S3; UC2 profile authz; UC3 polish; UC4-S1 authz | UC1-S3 |
+| **Sprint 3** | UC12-S1…S6; UC9-S3 | UC6-S3; UC9-S1/S2 |
 
-**Remaining Core MVP (next):** UC4-S2/S3; UC5-S1/S2; UC7-S1/S2; UC9–UC10 invite loop; UC13-S1…S3; UC6-S3 if needed.
+**Remaining Core MVP (next):** UC4-S2/S3; UC5-S1/S2; UC7-S1/S2; UC9–UC10 invite loop; UC13-S1…S3.
 
-**Seeded-family exception:** Scan work may still use Tan/Lim/Wong seeds until UC11 resolves membership without `familyId=1` hardcodes. New users can create a circle via UC8 web empty-state after UC18 register.
+**Seeded-family exception:** Scan work may still use Tan/Lim/Wong seeds until UC11 persists active profile. New users create a circle via UC8 after UC18 register + UC19 login.
 
-**Enhanced / Nice-to-Have:** UC14–UC24 after Core commitment, except **UC19** which precedes production Core APIs (closes UC8 AC8 and other 401 gaps).
+**Enhanced / Nice-to-Have:** UC14–UC24 after Core commitment. UC19 foundation is in place; finish S3 before treating all Core APIs as production-authz complete.
 ---
 
 ## 6. Dependency map
 
 ```text
-UC18 (shipped, pre-JWT) ──► UC8-S2/S4 empty-state demo
-UC8-S1…S4 (shipped, pre-JWT) ──► UC9 ──► UC10
-                              └──► UC9-S3 (dependant)
+UC18 (shipped) ──► UC8 empty-state demo (after UC19 login)
+UC19 (mostly shipped) ──► UC8 AC8 done; protects families + assess
+UC19-S3 (open) ──► UC1/UC4 dietary+history authz
+UC8-S1…S4 (shipped) ──► UC9 ──► UC10
+                       └──► UC9-S3 (dependant)
 UC8-S3 (/me) ──► UC11 ──► UC2 ──► UC3 ──► UC4
-UC19 ──► closes UC8 AC8 + protects UC1/UC2/… business APIs
-UC19 ──► UC1 ──► UC6
+UC6-S1/S2 (mostly shipped) ──► UC6-S3 web parity
+UC19 ──► UC1 ownership authz ──► UC6 / UC12
 UC8 + UC1 + UC11 ──► UC12
 UC3 ──► UC5 ──► UC17
 UC2/UC3 ──► UC14, UC24
@@ -842,21 +854,22 @@ UC3 ──► UC20
 
 ### Auth (UC18 / UC19)
 
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
-- `POST /api/auth/logout`
+- `POST /api/auth/register` — **live**
+- `POST /api/auth/login` — **live** (JWT + refresh cookie)
+- `POST /api/auth/refresh` — **live**
+- `POST /api/auth/logout` — **live**
+- `GET /api/auth/me` — **live** (JWT)
 
 ### Family / me (UC8–UC12, UC6, UC4, UC14)
 
-- `GET|POST /api/families`, `GET /api/families/me`
+- `GET|POST /api/families`, `GET /api/families/me` — **live**
+- `GET /api/families/me/restriction-summary` — **live** (UC6)
 - `GET /api/families/me/members|profiles`
 - `POST /api/families/me/profiles` — dependant (UC9)
 - `PUT|PATCH /api/families/me/profiles/{profileId}`
 - `DELETE /api/families/me/members/{userId}`
 - `GET /api/families/me/user-search`, `POST …/invitations`
 - `GET|PUT /api/families/me/active-profile`
-- `GET /api/families/me/restriction-summary`
 - `GET /api/families/me/scans` — UC4 family list
 - `GET /api/families/me/scan-verdict-trends` — UC14
 
