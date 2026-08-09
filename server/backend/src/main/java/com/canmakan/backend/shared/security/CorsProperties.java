@@ -53,7 +53,6 @@ public class CorsProperties {
             "Content-Type",
             "Accept",
             "Origin",
-            "X-User-Id",
             "X-Requested-With");
 
     /**

@@ -7,9 +7,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import sg.edu.nus.iss.canmakan.features.auth.data.CurrentUserSession
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
@@ -21,18 +22,14 @@ import javax.inject.Inject
 
 /**
  * ViewModel for CanMakanNavGraph — active profile, family membership via /families/me,
- * and drawer-facing family state.
- *
- * @author Amelia
- * @author Kwok Heng
- * @author Khai
+ * and drawer-facing family state. Session identity comes from [AuthSessionStore] (UC19).
  */
 @HiltViewModel
 class CanMakanNavGraphViewModel @Inject constructor(
     private val activeProfileManager: ActiveProfileManager,
     private val dietaryRestrictionRepo: DietaryRestrictionRepository,
     private val familyProfileRepository: FamilyProfileRepository,
-    private val currentUserSession: CurrentUserSession,
+    private val authSessionStore: AuthSessionStore,
 ) : ViewModel() {
 
     val currentProfileId: StateFlow<Long> = activeProfileManager.currentProfileId
@@ -72,22 +69,28 @@ class CanMakanNavGraphViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            currentProfileId.collect { profileId ->
-                _isLoading.value = true
-                _error.value = null
-                try {
-                    loadDataWithRetry(profileId)
-                } finally {
-                    _isLoading.value = false
-                }
+            combine(
+                authSessionStore.authenticatedUser,
+                currentProfileId,
+            ) { user, profileId ->
+                user to profileId
+            }.collect { (user, profileId) ->
+                _hasUserSession.value = user != null
+                loadDataWithRetry(profileId)
             }
         }
     }
 
     private suspend fun loadDataWithRetry(profileId: Long) {
-        loadFamilyMembershipAndProfiles(profileId)
-        val effectiveProfileId = activeProfileManager.currentProfileId.value
-        loadRestrictions(effectiveProfileId)
+        _isLoading.value = true
+        _error.value = null
+        try {
+            loadFamilyMembershipAndProfiles(profileId)
+            val effectiveProfileId = activeProfileManager.currentProfileId.value
+            loadRestrictions(effectiveProfileId)
+        } finally {
+            _isLoading.value = false
+        }
     }
 
     private suspend fun loadRestrictions(profileId: Long) {
@@ -117,10 +120,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
     }
 
     private suspend fun loadFamilyMembershipAndProfiles(profileId: Long) {
-        val userId = currentUserSession.userId
-        _hasUserSession.value = userId != null
-
-        if (userId == null) {
+        if (authSessionStore.authenticatedUser.value == null) {
             _hasFamily.value = false
             _familyName.value = null
             _profiles.value = listOf(personalPlaceholder(profileId))
@@ -128,15 +128,11 @@ class CanMakanNavGraphViewModel @Inject constructor(
         }
 
         try {
-            val me = familyProfileRepository.getMyFamily(userId)
+            val me = familyProfileRepository.getMyFamily()
             if (me == null) {
                 _hasFamily.value = false
                 _familyName.value = null
-                val personalId = currentUserSession.selfProfileId ?: profileId
-                _profiles.value = listOf(personalPlaceholder(personalId))
-                if (activeProfileManager.currentProfileId.value != personalId) {
-                    activeProfileManager.switchProfile(personalId)
-                }
+                _profiles.value = listOf(personalPlaceholder(profileId))
                 return
             }
 
@@ -156,9 +152,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
             _error.value = "Unable to connect to the server. Please check your network and try again."
             _hasFamily.value = false
             _familyName.value = null
-            _profiles.value = listOf(
-                personalPlaceholder(currentUserSession.selfProfileId ?: profileId),
-            )
+            _profiles.value = listOf(personalPlaceholder(profileId))
         }
     }
 
@@ -183,10 +177,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
 
     fun refreshRestrictions() {
         viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
             loadDataWithRetry(currentProfileId.value)
-            _isLoading.value = false
         }
     }
 
@@ -195,13 +186,12 @@ class CanMakanNavGraphViewModel @Inject constructor(
     }
 
     /**
-     * UC8 create-circle. Only for users with a session and no existing family.
+     * UC8 create-circle. Only for authenticated users with no existing family.
      * On success, reloads `/me` + profiles.
      */
     fun createFamilyCircle(familyName: String, onSuccess: () -> Unit) {
-        val userId = currentUserSession.userId
-        if (userId == null) {
-            _createFamilyError.value = "Register an account before creating a family circle."
+        if (authSessionStore.authenticatedUser.value == null) {
+            _createFamilyError.value = "Sign in before creating a family circle."
             return
         }
         if (_hasFamily.value) {
@@ -212,7 +202,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
             _isCreatingFamily.value = true
             _createFamilyError.value = null
             try {
-                val created = familyProfileRepository.createFamily(userId, familyName.trim())
+                val created = familyProfileRepository.createFamily(familyName.trim())
                 activeProfileManager.switchProfile(created.selfProfileId)
                 loadDataWithRetry(created.selfProfileId)
                 onSuccess()
@@ -234,6 +224,6 @@ class CanMakanNavGraphViewModel @Inject constructor(
             "You're not in a family circle yet. Create one here, or use the web Family Portal."
 
         const val NO_SESSION_FAMILY_MESSAGE =
-            "Register an account to create a family circle (or set one up on the web Family Portal)."
+            "Sign in to create a family circle (or set one up on the web Family Portal)."
     }
 }

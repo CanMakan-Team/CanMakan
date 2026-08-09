@@ -6,7 +6,7 @@ Global exception handling.
 Defines shared exceptions and central error handling for the API.
 
 ## Contents
-- `AuthenticatedUserNotFoundException` — caller id (e.g. `X-User-Id`) not found in `users`
+- `AuthenticatedUserNotFoundException` — authenticated caller not found in `users`
 - `GlobalExceptionHandler` — maps that to HTTP 401
 - `ProductLookupExceptionHandler` — product lookup failures
 

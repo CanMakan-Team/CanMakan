@@ -1,7 +1,5 @@
 package sg.edu.nus.iss.canmakan.features.family.data
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import retrofit2.Response
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
@@ -12,9 +10,10 @@ class FamilyProfileRepository @Inject constructor(
 ) {
     /**
      * Returns the caller's family context, or null when the user has no membership (HTTP 404).
+     * Identity comes from the Bearer token attached by the auth interceptor.
      */
-    suspend fun getMyFamily(userId: Long): FamilyMeResponse? {
-        val response = apiService.getMyFamily(userId)
+    suspend fun getMyFamily(): FamilyMeResponse? {
+        val response = apiService.getMyFamily()
         if (response.code() == 404) {
             return null
         }
@@ -28,13 +27,12 @@ class FamilyProfileRepository @Inject constructor(
     /**
      * Creates a family circle. HTTP 409 (already a member) reloads `/me` instead of failing.
      */
-    suspend fun createFamily(userId: Long, familyName: String): FamilyMeResponse {
+    suspend fun createFamily(familyName: String): FamilyMeResponse {
         val response = apiService.createFamily(
-            userId = userId,
             request = CreateFamilyRequestBody(familyName = familyName),
         )
         if (response.code() == 409) {
-            return getMyFamily(userId)
+            return getMyFamily()
                 ?: throw IllegalStateException("Family already exists but GET /families/me returned 404")
         }
         if (!response.isSuccessful) {
@@ -53,27 +51,26 @@ class FamilyProfileRepository @Inject constructor(
         if (raw.isBlank()) {
             return "Could not create family circle."
         }
-        // Lightweight extract so JVM unit tests do not need Android org.json.
         val match = Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(raw)
         val extracted = match?.groupValues?.getOrNull(1).orEmpty()
         return extracted.ifBlank { "Could not create family circle." }
     }
 
-    /**
-     * (UC6) View Family Allergy Summary Grid
-     */
-    suspend fun getFamilyRestrictionSummary(userId: Long): Result<FamilyRestrictionSumRes> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val response = apiService.getFamilyRestrictionSummary(userId)
-                if (response.isSuccessful && response.body() != null) {
-                    Result.success(response.body()!!)
-                } else {
-                    Result.failure(Exception("Failed to Fetch Family Restriction Summary, HTTP ${response.code()}"))
-                }
-            } catch (e: Exception) {
-                Result.failure(e)
+    /** (UC6) View Family Allergy Summary Grid */
+    suspend fun getFamilyRestrictionSummary(): Result<FamilyRestrictionSumRes> {
+        return try {
+            val response = apiService.getFamilyRestrictionSummary()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(
+                    Exception(
+                        "Failed to Fetch Family Restriction Summary, HTTP ${response.code()}",
+                    ),
+                )
             }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 }

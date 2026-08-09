@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Missing users.id for the supplied caller identity (e.g. X-User-Id)
+    // Missing users.id for the authenticated caller
     @ExceptionHandler(AuthenticatedUserNotFoundException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public Map<String, String> handleAuthenticatedUserNotFound(

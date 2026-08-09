@@ -68,6 +68,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   // Logout
   const logout = () => {
+    void authService.logout()
     localStorage.removeItem(sessionKey)
     setSession(null)
   }

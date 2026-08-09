@@ -3,12 +3,14 @@ package com.canmakan.backend.product.scan;
 import com.canmakan.backend.integration.BarcodeValidationClient;
 import com.canmakan.backend.product.assessment.AssessmentOrchestrator;
 import com.canmakan.backend.product.assessment.AssessmentRequest;
+import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
+import com.canmakan.backend.shared.security.AuthUserDetails;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -33,11 +35,11 @@ public class ScanController {
      * Assess a barcode against a dietary profile, persist, and return the verdict.
      *
      * <p>{@code profileId} is required in the body (seeded profiles start at {@code 1}).
-     * {@code X-User-Id} may be omitted for local/pre-auth testing.
+     * Caller identity comes from the JWT principal.
      */
     @PostMapping("/assess")
     public ResponseEntity<?> scan(
-            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @AuthenticationPrincipal AuthUserDetails userDetails,
             @RequestBody AssessmentRequest request) {
         if (request == null || request.barcode() == null || request.barcode().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("message", "Product Barcode is required"));
@@ -48,6 +50,7 @@ public class ScanController {
                     "Profile ID is required"
             ));
         }
+        Long userId = requireUserId(userDetails);
         return ResponseEntity.ok(orchestrator.assess(userId, request));
     }
 
@@ -60,4 +63,12 @@ public class ScanController {
         ValidationResponse response = validationClient.validateProduct(request.barcode());
         return ResponseEntity.ok(response);
     }
+
+    private static long requireUserId(AuthUserDetails userDetails) {
+        if (userDetails == null || userDetails.getUserId() == null) {
+            throw new AuthenticatedUserNotFoundException("Authenticated user was not found.");
+        }
+        return userDetails.getUserId();
+    }
+
 }

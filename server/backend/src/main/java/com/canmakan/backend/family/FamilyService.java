@@ -28,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * UC8 create-circle and family context for the caller.
- * Caller id is supplied by the controller (temporary {@code X-User-Id}; JWT later).
+ * Caller id is supplied by the controller from the JWT principal.
  * Request field validation is handled by {@code @Valid} on the controller.
  *
  * @author Amelia
@@ -74,7 +74,7 @@ public class FamilyService {
             familyMemberRepository.saveAndFlush(membership);
 
             // Registration already creates a family-less profile for this user
-            // (see RegistrationService); reuse it here rather than creating a
+            // (see AuthService.register); reuse it here rather than creating a
             // second row, since linked_user_id is unique per user.
             DietaryProfile selfProfile = dietaryProfileRepository.findByLinkedUser_Id(userId)
                 .orElseGet(DietaryProfile::new);

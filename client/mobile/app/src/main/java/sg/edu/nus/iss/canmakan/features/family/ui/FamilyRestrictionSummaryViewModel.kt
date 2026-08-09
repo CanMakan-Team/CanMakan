@@ -1,32 +1,37 @@
 package sg.edu.nus.iss.canmakan.features.family.ui
 
-import androidx.lifecycle.*
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import sg.edu.nus.iss.canmakan.features.auth.data.CurrentUserSession
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import javax.inject.Inject
 
 /**
- * (UC6) Create a ViewModel to Handle the Business Logic
- * for the Family Restriction Summary Screen.
+ * (UC6) Family restriction summary screen.
  */
-
 @HiltViewModel
 class FamilyRestrictionSummaryViewModel @Inject constructor(
     private val familyProfileRepository: FamilyProfileRepository,
-    private val currentUserSession: CurrentUserSession
+    private val authSessionStore: AuthSessionStore,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow<FamilyRestrictionSummaryUiState>(FamilyRestrictionSummaryUiState.Loading)
+    private val _uiState =
+        MutableStateFlow<FamilyRestrictionSummaryUiState>(FamilyRestrictionSummaryUiState.Loading)
     val uiState: StateFlow<FamilyRestrictionSummaryUiState> = _uiState.asStateFlow()
 
     fun fetchSummary() {
-        val userId = currentUserSession.userId ?: return
+        if (authSessionStore.authenticatedUser.value == null) {
+            _uiState.value = FamilyRestrictionSummaryUiState.Error("Sign in to view family restrictions.")
+            return
+        }
 
         viewModelScope.launch {
             _uiState.value = FamilyRestrictionSummaryUiState.Loading
-            val result = familyProfileRepository.getFamilyRestrictionSummary(userId)
+            val result = familyProfileRepository.getFamilyRestrictionSummary()
 
             result.fold(
                 onSuccess = { response ->
@@ -34,7 +39,6 @@ class FamilyRestrictionSummaryViewModel @Inject constructor(
                     if (activeMembers.isEmpty()) {
                         _uiState.value = FamilyRestrictionSummaryUiState.Empty
                     } else {
-                        // Extract unique restrictions from the response
                         val uniqueRestrictions = activeMembers
                             .flatMap { it.restrictions }
                             .map { it.displayName }
@@ -42,15 +46,15 @@ class FamilyRestrictionSummaryViewModel @Inject constructor(
 
                         _uiState.value = FamilyRestrictionSummaryUiState.Success(
                             response.copy(familyMembers = activeMembers),
-                            uniqueRestrictions
+                            uniqueRestrictions,
                         )
                     }
                 },
                 onFailure = { error ->
                     _uiState.value = FamilyRestrictionSummaryUiState.Error(
-                        error.message ?: "Unknown Error Occurred"
+                        error.message ?: "Unknown Error Occurred",
                     )
-                }
+                },
             )
         }
     }

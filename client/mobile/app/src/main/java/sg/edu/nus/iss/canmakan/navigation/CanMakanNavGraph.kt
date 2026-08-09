@@ -34,7 +34,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
-import sg.edu.nus.iss.canmakan.features.auth.ui.RegistrationRoute
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui.DietaryRestrictionSheet
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
 import sg.edu.nus.iss.canmakan.features.product.history.ScanHistoryViewModel
@@ -49,7 +48,6 @@ import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryViewModel
 
 private const val ROUTE_SCANNER = "scanner"
-const val ROUTE_REGISTRATION = "registration"
 private const val ROUTE_HISTORY = "history"
 private const val ROUTE_PRODUCT_DETAIL = "product_detail"
 private const val ROUTE_CREATE_FAMILY = "create_family"
@@ -65,22 +63,9 @@ private const val ROUTE_ADD_PROFILE = "add_profile"
 @Composable
 fun CanMakanNavGraph(
     navGraphViewModel: CanMakanNavGraphViewModel = hiltViewModel(),
-    startDestination: String = ROUTE_SCANNER,
-    onRegistrationComplete: () -> Unit = {},
+    onSignOut: () -> Unit = {},
 ) {
     val navController = rememberNavController()
-
-    // UC18 has no confirmed global authentication entry point yet. Keeping this
-    // route opt-in preserves the supplied scanner start destination while making
-    // registration directly hostable and testable.
-    if (startDestination == ROUTE_REGISTRATION) {
-        NavHost(navController = navController, startDestination = ROUTE_REGISTRATION) {
-            composable(ROUTE_REGISTRATION) {
-                RegistrationRoute(onRegistrationComplete = onRegistrationComplete)
-            }
-        }
-        return
-    }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val editDietarySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -161,7 +146,10 @@ fun CanMakanNavGraph(
                         closeDrawer()
                         navController.navigate(ROUTE_HISTORY)
                     },
-                    onSignOutClick = { closeDrawer() },
+                    onSignOutClick = {
+                        closeDrawer()
+                        onSignOut()
+                    },
                     onCloseClick = { closeDrawer() },
                     onCreateFamilyCircleClick = {
                         closeDrawer()
@@ -181,10 +169,7 @@ fun CanMakanNavGraph(
         }
     ) {
         // NavHost is used to switch between the three screens
-        NavHost(navController = navController, startDestination = startDestination) {
-            composable(ROUTE_REGISTRATION) {
-                RegistrationRoute(onRegistrationComplete = onRegistrationComplete)
-            }
+        NavHost(navController = navController, startDestination = ROUTE_SCANNER) {
             composable(ROUTE_SCANNER) {
                 ScannerScreen(
                     activeProfile = activeProfile,
@@ -215,7 +200,8 @@ fun CanMakanNavGraph(
                 FamilyRestrictionSummaryScreen(
                     viewModel = viewModel,
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToEditMembers = { navController.navigate("family/members") }
+                    // Member-edit destination is web-primary; keep empty-state CTA local until UC9/UC12.
+                    onNavigateToEditMembers = { navController.popBackStack() }
                 )
             }
             composable(ROUTE_HISTORY) {

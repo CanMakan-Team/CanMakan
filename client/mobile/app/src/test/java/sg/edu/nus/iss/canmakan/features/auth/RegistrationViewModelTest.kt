@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
-import sg.edu.nus.iss.canmakan.features.auth.data.CurrentUserSession
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationFailureType
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationRepository
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResponse
@@ -31,7 +30,6 @@ class RegistrationViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var registrationRepository: FakeRegistrationRepository
     private lateinit var dietaryRepository: FakeDietaryRestrictionRepository
-    private lateinit var currentUserSession: FakeCurrentUserSession
     private lateinit var activeProfileManager: ActiveProfileManager
     private lateinit var viewModel: RegistrationViewModel
 
@@ -40,12 +38,10 @@ class RegistrationViewModelTest {
         Dispatchers.setMain(testDispatcher)
         registrationRepository = FakeRegistrationRepository()
         dietaryRepository = FakeDietaryRestrictionRepository()
-        currentUserSession = FakeCurrentUserSession()
         activeProfileManager = ActiveProfileManager()
         viewModel = RegistrationViewModel(
             registrationRepository,
             dietaryRepository,
-            currentUserSession,
             activeProfileManager,
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -197,8 +193,6 @@ class RegistrationViewModelTest {
         assertEquals("", state.password)
         assertEquals("", state.confirmPassword)
         assertEquals(0, dietaryRepository.saveCalls)
-        assertEquals(14L, currentUserSession.userId)
-        assertEquals(77L, currentUserSession.selfProfileId)
         assertEquals(77L, activeProfileManager.currentProfileId.value)
     }
 
@@ -407,23 +401,6 @@ class RegistrationViewModelTest {
             lastPassword = password
             gate?.await()
             return result
-        }
-    }
-
-    private class FakeCurrentUserSession : CurrentUserSession {
-        override var userId: Long? = null
-            private set
-        override var selfProfileId: Long? = null
-            private set
-
-        override fun save(userId: Long, selfProfileId: Long) {
-            this.userId = userId
-            this.selfProfileId = selfProfileId
-        }
-
-        override fun clear() {
-            userId = null
-            selfProfileId = null
         }
     }
 

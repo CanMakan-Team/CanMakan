@@ -1,19 +1,17 @@
 import { apiRequest } from '../../shared/api/apiClient'
 import type {
   AuthenticatedSession,
-  LoginResponse,
+  AuthLoginResponse,
   Portal,
   RegistrationResponse,
   Role,
 } from '../../shared/api/types'
 
-/** Live auth against Spring Boot (pre-JWT; session drives X-User-Id). 
- * 
- * @author Amelia
-*/
+/** Live auth against Spring Boot UC19 JWT login. */
 export const authEndpoints = {
   login: '/api/auth/login',
   register: '/api/auth/register',
+  logout: '/api/auth/logout',
 } as const
 
 export type RegisterInput = {
@@ -28,14 +26,28 @@ export type CredentialLoginInput = {
   portal: Portal
 }
 
+function mapSystemRoleToPortalRoles(role: 'USER' | 'ADMIN'): Role[] {
+  if (role === 'ADMIN') {
+    return ['ROLE_SYSTEM_ADMIN']
+  }
+  // Family portal access for normal accounts (membership PRIMARY_ADMIN is separate).
+  return ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN']
+}
+
+function displayNameFromEmail(email: string): string {
+  const at = email.indexOf('@')
+  return at > 0 ? email.slice(0, at) : email
+}
+
 function toSession(
-  response: LoginResponse,
+  response: AuthLoginResponse,
   portal: Portal,
 ): AuthenticatedSession {
   return {
-    userId: response.userId,
-    displayName: response.displayName,
-    roles: response.roles as Role[],
+    accessToken: response.accessToken,
+    userId: response.user.userId,
+    displayName: displayNameFromEmail(response.user.email),
+    roles: mapSystemRoleToPortalRoles(response.user.role),
     portal,
     prototype: false,
   }
@@ -52,12 +64,20 @@ export const authService = {
   loginWithCredentials(
     input: CredentialLoginInput,
   ): Promise<AuthenticatedSession> {
-    return apiRequest<LoginResponse>(authEndpoints.login, {
+    return apiRequest<AuthLoginResponse>(authEndpoints.login, {
       method: 'POST',
       body: JSON.stringify({
         email: input.email,
         password: input.password,
       }),
     }).then((response) => toSession(response, input.portal))
+  },
+
+  async logout(): Promise<void> {
+    try {
+      await apiRequest<void>(authEndpoints.logout, { method: 'POST' })
+    } catch {
+      // Local session clear remains authoritative for the browser.
+    }
   },
 }

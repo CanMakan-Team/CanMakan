@@ -86,9 +86,11 @@ Detailed acceptance-criteria checklists (one row per criterion) live in [`sprint
 | --- | --- | --- | --- |
 | **Authentication & Account** | UC18 Registration; UC19 Login / Logout (**UC19 = Core critical path**) | Mobile + Web + Backend (Android Kotlin; React; Spring Boot Auth API; Spring Security; JWT; AWS RDS MySQL) | Authentication & Security |
 | **Family Management** | UC8 Create Circle; UC9 Invite / Dependant; UC10 Accept; UC11 Switch Profile; UC12 Manage Circle; UC6 Allergy Summary | See rows below | Mixed |
-| → Create / Invite / Manage | UC8, UC9, UC12 | Web + Backend (React; Spring Boot REST; RDS) | Web Client (Family) |
-| → Accept invitation | UC10 | Mobile + Backend (Android; Spring Boot; RDS; **Resend**) | Mobile Client & Email |
-| → Switch profile | UC11 | Mobile + Backend (Android; Spring Boot; RDS) | Mobile Client |
+| → Create family circle | UC8 | Mobile + Web + Backend (simple empty-state create) | Shared (Mobile + Web Family) |
+| → Invite member (link/code + share) | UC9 | Mobile + Web + Backend; **mobile preferred for native share** | Shared (Mobile + Web Family) |
+| → Accept / decline invitation | UC10 | Mobile + Backend (+ optional web); Resend email | **Mobile Client** (primary); Web optional |
+| → Switch profile | UC11 | Mobile + Backend (daily use) | **Mobile Client** |
+| → Manage family circle | UC12 | Web primary (roster, edit, remove, toggle active); mobile optional/limited | **Web Client (Family)** (primary) |
 | → Allergy summary | UC6 | Mobile + Backend *(optional React web parity)* (Android; React; Spring Boot; RDS) | **Mobile Client** (primary); Web Family optional |
 | **Dietary Profile** | UC1 | Mobile + Backend (Android; Spring Boot; RDS) | Mobile Client |
 | **Scanning & Verdicts** | UC2 Barcode; UC24 OCR; UC3 Verdicts; UC5 Alternatives; UC17 Rec. history; UC4 Scan history; UC20 Report | See stack per UC | Mobile / Shared |
@@ -109,10 +111,20 @@ Detailed acceptance-criteria checklists (one row per criterion) live in [`sprint
 
 | Client | Primary UCs |
 | --- | --- |
-| **Mobile** | UC1–UC3, UC5, UC6 (primary), UC10, UC11, UC17, UC24; shares UC4, UC18–UC20 |
-| **Web Family** | UC8, UC9, UC12, UC14; shares UC4 (family list), UC6 (optional parity) |
+| **Mobile** | UC1–UC3, UC5, UC6 (primary), UC8 (create), UC9 (invite + share), UC10 (accept), UC11 (switch), UC17, UC24; shares UC4, UC18–UC20; UC12 optional/limited |
+| **Web Family** | UC8 (create), UC9 (invite), UC12 (manage primary), UC14; optional UC10 accept; shares UC4 (family list), UC6 (optional parity) |
 | **Web System / Admin** | UC7, UC13, UC15, UC16, UC21–UC23; shares UC20 |
 | **Backend** | Source of truth for all mutations and authorization |
+
+### Family lifecycle — mobile vs web (product split)
+
+| Action | Mobile | Web | Notes |
+| --- | --- | --- | --- |
+| Create Family Circle (UC8) | Yes | Yes | Very simple |
+| Invite Member — link/code + share (UC9) | Yes | Yes | Mobile is better for sharing |
+| Accept / Decline Invitation (UC10) | Yes | Optional | Mainly mobile |
+| Switch Profile (UC11) | Yes | — | Daily use |
+| Manage Family Circle (UC12) | Optional / limited | Primary | Roster, edit, remove, toggle active |
 
 ---
 
@@ -169,7 +181,8 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 | Rule | Resolution |
 | --- | --- |
 | UC1 “create profile after registration” | `dietary_profiles.family_id` is NOT NULL today → approved path is **UC8** bootstrap SELF profile (or nullable `family_id` migration if owners approve). Do not ship orphan profiles silently. |
-| UC9 invite **or** dependant | One epic, two stories: **UC9-S2** invite existing user; **UC9-S3** create admin-managed dependant (`linked_user_id` NULL). |
+| UC9 invite **or** dependant | One epic: **UC9-S2** PENDING invite with shareable link/code (mobile + web); **UC9-S3** admin-managed dependant (`linked_user_id` NULL, web-primary UI). |
+| Family client split | Create + invite on **both** clients; accept mainly **mobile**; switch **mobile-only**; manage **web-primary** (mobile optional/limited). |
 | UC4 two surfaces | Personal history (mobile) + family-admin filterable list (web). Charts are **UC14**, not UC4. |
 | UC5 vs UC17 | UC5 = suggest alternatives at verdict time; UC17 = list **past** recommendations (Enhanced). |
 | UC7 vs UC14 vs UC22 | UC7 = anonymised platform trends (Core); UC14 = family verdict chart (Enhanced); UC22 = CSV export of UC7-style aggregates (Nice-to-Have). |
@@ -238,14 +251,14 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 | UC | Package | Status (detail) |
 | --- | --- | --- |
 | UC1 | Core | **Partial** — live `GET/PUT` restrictions + mobile `DietaryRestrictionSheet`; no authz; severity fixed `STRICT_AVOID`; post-reg SELF profile + family link via **UC8** create (not orphan create) |
-| UC2 | Core | **Partial** — ML Kit camera → live validate/assess (`ScanController` / `AssessmentOrchestrator`); public APIs; `X-User-Id` / `userId=profileId` weak; no profile ownership check |
+| UC2 | Core | **Partial** — ML Kit camera → live validate/assess (`ScanController` / `AssessmentOrchestrator`); assess JWT principal; no profile ownership check |
 | UC3 | Core | **Partial** — rule engine + colour-coded `ProductDetailScreen` (SAFE/WARNING/Avoid); MCP resolver; Alternatives tab empty (UC5) |
 | UC4 | Core | **Partial** — mobile personal history live (`ScanHistoryController`); family web history mock only; no family scans API |
 | UC5 | Core | **Not started** — Alternatives tab shell (“No alternatives available yet”); no recommendations API |
 | UC6 | Core | **Partial** — web `FamilyRestrictionSummaryPage` mock matrix; **mobile primary + summary API missing** |
 | UC7 | Core | **Partial** — admin `ConsumerTrendsPage` mock; `daily_consumer_trends` unused by Java |
-| UC8 | Core | **Partial (S1–S4 done)** — `POST /api/families`, `GET /me`, D2 UNIQUE, web `FamilyMeGate` / create page; mobile `/me` + create-when-empty drawer CTA; temp `X-User-Id`. Open: AC8→UC19; architecture diagrams still open |
-| UC9 | Core | **Partial** — web mock immediate link + dependant modals; `family_invitations` unused; no PENDING invite APIs |
+| UC8 | Core | **Partial (S1–S4 + UC19 identity)** — `POST /api/families`, `GET /me`, D2 UNIQUE, web `FamilyMeGate` / create page; mobile `/me` + create-when-empty; JWT principal. Open: architecture diagrams |
+| UC9 | Core | **Partial** — web mock immediate link + dependant modals; mobile invite/share not built; `family_invitations` unused; no PENDING invite APIs. Target: mobile+web invite via link/code + share |
 | UC10 | Core | **Not started** |
 | UC11 | Core | **Partial** — mobile drawer switch via `ActiveProfileManager`; loads `GET /families/{id}/profiles` with **`familyId=1L`**; not server-persisted |
 | UC12 | Core | **Partial** — web mock list/edit; mobile create screens stub (no API); no remove/`is_active` |
@@ -319,8 +332,8 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 | Architecture package | Epics |
 | --- | --- |
 | Authentication & Security | UC18, UC19 |
-| Web Client (Family) | UC8, UC9, UC12, UC14; UC4 family-list surface (coordinate with UC4 owner) |
-| Mobile Client | UC1–UC3, UC5, UC6 (primary), UC10, UC11, UC17, UC24 |
+| Web Client (Family) | UC8, UC9, UC12 (manage primary), UC14; optional UC10; UC4 family-list surface (coordinate with UC4 owner) |
+| Mobile Client | UC1–UC3, UC5, UC6 (primary), UC8, UC9 (invite + share), UC10, UC11, UC17, UC24; UC12 optional/limited |
 | Shared Client | UC4 (personal + family list), UC20 |
 | Web Client (Admin) | UC7, UC13, UC15, UC16, UC21–UC23 |
 
@@ -450,43 +463,43 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 
 ### EPIC UC8 — Create Family Circle
 
-**Owner:** Amelia · **Package:** Core MVP · **Architecture:** Web Client (Family)
+**Owner:** Amelia · **Package:** Core MVP · **Architecture:** Shared (Mobile + Web Family)
 
 | | |
 | --- | --- |
 | **Status** | **Partial** — UC8-S1–S4 done (API + web + mobile create-when-empty); AC8→UC19; AC10 polish→UC11 |
 | **Stories** | UC8-S1…S4 |
 | **Dependencies** | UC19 (real 401); UC18 helps demo empty-state create |
-| **In** | Create circle; creator PRIMARY_ADMIN; bootstrap SELF profile; `GET /families/me`; web empty-state |
-| **Out** | Invites (UC9); accept (UC10); mobile create UI (optional); architecture diagrams still open |
-| **Shipped** | D2 UNIQUE; `POST /api/families`; `GET /me`; web `FamilyMeGate` / `CreateFamilyCirclePage`; tests for 201/400/409/401(unknown user); `family/dto` packaging |
-| **Interim identity** | `X-User-Id` header (not JWT). DB `PRIMARY_ADMIN` vs web `ROLE_FAMILY_ADMIN` — document until UC19 |
+| **In** | Create circle; creator PRIMARY_ADMIN; bootstrap SELF profile; `GET /families/me`; web + mobile empty-state create |
+| **Out** | Invites (UC9); accept (UC10); manage roster (UC12); architecture diagrams still open |
+| **Shipped** | D2 UNIQUE; `POST /api/families`; `GET /me`; web `FamilyMeGate` / `CreateFamilyCirclePage`; mobile drawer + `CreateFamilyCircleScreen`; tests for 201/400/409/401(unknown user); `family/dto` packaging |
+| **Caller identity** | Bearer JWT (`@AuthenticationPrincipal`). DB `PRIMARY_ADMIN` vs web portal `ROLE_FAMILY_ADMIN` — document mapping |
 
 ---
 
 ### EPIC UC9 — Invite Family Member to Circle
 
-**Owner:** Amelia · **Package:** Core MVP · **Architecture:** Web Client (Family)
+**Owner:** Amelia · **Package:** Core MVP · **Architecture:** Shared (Mobile + Web Family) — **mobile preferred for share**
 
 | | |
 | --- | --- |
-| **Stories** | UC9-S1…S4 (migration; invite; dependant; mock-off/UI) |
+| **Stories** | UC9-S1…S4 (migration; invite+share API; dependant API; mobile+web UI) |
 | **Dependencies** | UC19, UC8; UC1 for dependant restrictions |
-| **In** | PENDING invite for existing user **or** admin-managed dependant profile |
-| **Out** | Accept/decline (UC10); silent mock link |
+| **In** | PENDING invite with **shareable link/code**; email/user-search where useful; admin-managed dependant profile (API + web-primary UI) |
+| **Out** | Accept/decline (UC10); silent mock link; full roster manage (UC12) |
 
 ---
 
 ### EPIC UC10 — Accept Family Invitation
 
-**Owner:** Amelia · **Package:** Core MVP · **Architecture:** Mobile Client & Email (Resend)
+**Owner:** Amelia · **Package:** Core MVP · **Architecture:** Mobile Client (primary) & Email (Resend); web optional
 
 | | |
 | --- | --- |
 | **Stories** | UC10-S1…S4 (list; accept; decline/guards; Resend) |
 | **Dependencies** | UC19, UC9 |
-| **In** | Accept → MEMBER + linked profile; decline → DECLINED |
-| **Out** | Creating invitations |
+| **In** | Accept → MEMBER + linked profile; decline → DECLINED; mobile inbox primary |
+| **Out** | Creating invitations (UC9); web accept is optional parity only |
 
 ---
 
@@ -498,19 +511,21 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 | --- | --- |
 | **Stories** | UC11-S1…S4 |
 | **Dependencies** | UC19; UC8-S3 (`/families/me`) or seeded membership for early delivery; full UC8-S2 for create-circle path |
+| **In** | Daily active-profile switch on mobile (server-persisted) |
+| **Out** | Web profile switcher (not required for MVP) |
 
 ---
 
 ### EPIC UC12 — Manage Family Circle
 
-**Owner:** Amelia · **Package:** Core MVP · **Architecture:** Web Client (Family)
+**Owner:** Amelia · **Package:** Core MVP · **Architecture:** Web Client (Family) primary; mobile optional/limited
 
 | | |
 | --- | --- |
 | **Stories** | UC12-S1…S7 (migration; view; update metadata; update restrictions; remove; activate; polish) |
 | **Dependencies** | UC19, UC8, UC1, UC11 |
-| **In** | View; update; remove; activate/deactivate |
-| **Out** | Transfer PRIMARY_ADMIN without process; hard-delete profiles with scans |
+| **In** | View; update; remove; activate/deactivate on **web**; mobile may expose limited subset later |
+| **Out** | Transfer PRIMARY_ADMIN without process; hard-delete profiles with scans; full mobile admin parity |
 
 **User stories**
 
@@ -675,11 +690,11 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | **UC8-S3** | GET `/api/families/me` — **Done** (API + web + mobile resolve) | UC8: 5, 10 | P0 |
 | **UC8-S4** | Create CTA + loading/validation/error — **Done** (web `FamilyMeGate` / `CreateFamilyCirclePage`; mobile drawer + `CreateFamilyCircleScreen` when no family) | UC8: 9, 11 | P1 |
 | **UC8 follow-on** | Class/sequence diagrams under `docs/architecture/` — **Open** | Design | P2 |
-| **UC9-S1** | Invitation migration / status constraints (M5) | UC9: (supports 2–4) | P0 |
-| **UC9-S2** | User search + create PENDING invitation | UC9: 1–7 | P0 |
-| **UC9-S3** | Create dependant dietary profile | UC9: 9–13 | P0 |
-| **UC9-S4** | Remove silent mock link; invite/dependant UI states | UC9: 8, 14 | P1 |
-| **UC10-S1** | List pending invitations (mobile primary) | UC10: 1–2, 10, 12 | P0 |
+| **UC9-S1** | Invitation migration / status constraints (M5); share token/code | UC9: (supports 2–4, 15) | P0 |
+| **UC9-S2** | User search + create PENDING invitation returning shareable code/link | UC9: 1–7, 15 | P0 |
+| **UC9-S3** | Create dependant dietary profile (API; web-primary UI) | UC9: 9–13 | P0 |
+| **UC9-S4** | Mobile invite+share + web invite (no silent link); UI states | UC9: 8, 14–16 | P1 |
+| **UC10-S1** | List pending invitations (mobile primary; web optional) | UC10: 1–2, 10, 12 | P0 |
 | **UC10-S2** | Accept invitation → MEMBER + linked profile | UC10: 3–4, 7–9 | P0 |
 | **UC10-S3** | Decline + expired/invalid/mismatch guards | UC10: 5–8 | P0 |
 | **UC10-S4** | Resend invitation email (as designed) | UC10: 11 | P1 |
@@ -691,7 +706,7 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | **UC11-S1** | Migration `active_profile_id` | UC11: (supports 2–4) | P0 |
 | **UC11-S2** | GET/PUT active-profile API + authz (family / inactive) | UC11: 1–3, 6–7 | P0 |
 | **UC11-S3** | Persist across restart; drive assess; remove hardcodes | UC11: 4–5, 8 | P0 |
-| **UC11-S4** | Switcher UX + optional web selector sync | UC11: 9–10 | P1 |
+| **UC11-S4** | Mobile switcher UX (web selector not required) | UC11: 9–10 | P1 |
 | **UC12-S1** | Migration `dietary_profiles.is_active` | UC12: 1 | P0 |
 | **UC12-S2** | View roster — members + profiles APIs + UI | UC12: 2–6 | P0 |
 | **UC12-S3** | Update profile metadata | UC12: 7, 9, 19 | P0 |

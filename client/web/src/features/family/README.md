@@ -39,8 +39,8 @@ family/
 | --- | --- |
 | `FamilyMeGate` | Loads `GET /api/families/me`; **404** → create-circle UI |
 | `pages/CreateFamilyCirclePage` | Name field + loading / validation / error; `POST /api/families` |
-| `api/familyService.getMyFamily` / `createFamily` | **Always live** (session `X-User-Id`); not mocked |
-| `apiClient` | Sends temporary `X-User-Id` from session `userId` |
+| `api/familyService.getMyFamily` / `createFamily` | **Always live** (Bearer JWT); not mocked |
+| `apiClient` | Sends `Authorization: Bearer` from session `accessToken` |
 | UC18 register | `/family-register` → live login → this gate |
 
 **Create-circle tip:** seeded users 4–13 already have families; register a new account to see empty-state create.
