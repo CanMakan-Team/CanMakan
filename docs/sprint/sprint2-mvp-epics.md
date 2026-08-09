@@ -57,14 +57,15 @@ Full table: [backlog §0c](sprint2-jira-backlog.md#0c-task-assignment).
 
 ```mermaid
 flowchart TB
-  UC18shipped[UC18 shipped pre-JWT] --> UC8create[UC8-S2/S4 shipped]
+  UC18shipped[UC18 register shipped] --> UC8create[UC8-S2/S4 shipped]
+  UC19shipped[UC19 JWT mostly shipped] --> UC8auth[UC8 AC8 401 done]
+  UC19shipped --> UC8create
   UC8me[UC8-S3 /me shipped] --> UC11
   UC8create --> UC9
   UC9 --> UC10
   UC8create --> UC12
   UC8me --> UC6
-  UC19 --> UC8auth[UC8 AC8 real 401]
-  UC19 --> UC11
+  UC19shipped --> UC11
   UC11 --> UC2
   UC2 --> UC3
   UC3 --> UC4
@@ -72,18 +73,18 @@ flowchart TB
   UC5 --> UC17
   UC2 --> UC14
   UC2 --> UC24
-  UC19 --> UC1
-  UC1 --> UC6
-  UC1 --> UC12
+  UC19shipped --> UC1authz[UC1 ownership authz]
+  UC1authz --> UC6
+  UC1authz --> UC12
   UC11 --> UC12
   UC7 --> UC22
   UC13 --> UC23
   UC3 --> UC20
-  UC19 --> UC7
-  UC19 --> UC13
-  UC19 --> UC15
-  UC19 --> UC16
-  UC19 --> UC21
+  UC19shipped --> UC7
+  UC19shipped --> UC13
+  UC19shipped --> UC15
+  UC19shipped --> UC16
+  UC19shipped --> UC21
 ```
 
 ---
@@ -94,11 +95,11 @@ flowchart TB
 
 **Owner:** Kwok Heng · **Package:** Core MVP · **Architecture:** Dietary Profile / Mobile Client  
 **Tech:** Android Kotlin; Spring Boot REST; AWS RDS MySQL  
-**Current code state:** Partial
+**Current code state:** Partial — live catalog/PUT + mobile editor; JWT + ownership authz still open; severity fixed `STRICT_AVOID`
 
-- **Backend:** `DietaryProfileController` — live `GET /api/restrictions` and `GET|PUT /api/profiles/{profileId}/restrictions`; catalog + `profile_restrictions` seeded. No ownership/authz (any caller can read/write any `profileId`). No Spring Security yet.
+- **Backend:** `DietaryProfileController` — live `GET /api/restrictions` and `GET|PUT /api/profiles/{profileId}/restrictions`; catalog + `profile_restrictions` seeded. No ownership/authz (any caller can read/write any `profileId`). Spring Security exists (UC19), but these dietary routes remain **transitional `permitAll`** — not yet JWT-required.
 - **Mobile:** `DietaryRestrictionSheet` + ViewModel wired from the drawer; loads/saves against the live API for the active profile. Severity is fixed to `STRICT_AVOID` in the VM (no PREFERENCE / INTOLERANCE picker). Loading/error paths exist.
-- **Missing:** unknown-code → consistent HTTP 400 mapping; authenticated-only access once UC19-S3 lands. SELF bootstrap after registration is via **UC8** create-circle (register leaves `family_id` NULL until then).
+- **Missing:** unknown-code → consistent HTTP 400 mapping; JWT + ownership authz on restriction endpoints (UC1-S1 / remaining UC19-S3). SELF bootstrap after registration is via **UC8** create-circle (register leaves `family_id` NULL until then).
 
 ### User story
 
@@ -121,32 +122,32 @@ Profile create after registration must respect `dietary_profiles.family_id NOT N
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | Authenticated user can load the restriction catalog via `GET /api/restrictions`. |
-| [ ] | 2 | Authenticated user can load existing restrictions for an authorized profile via `GET /api/profiles/{profileId}/restrictions`. |
-| [ ] | 3 | User can add one or more catalog restrictions to their authorized profile. |
-| [ ] | 4 | User can change severity for an existing profile restriction. |
-| [ ] | 5 | User can remove a restriction from their authorized profile. |
-| [ ] | 6 | `PUT /api/profiles/{profileId}/restrictions` persists changes and a subsequent GET returns the saved set. |
-| [ ] | 7 | The next successful scan/assess for that profile uses the updated restrictions (not a stale set). |
-| [ ] | 8 | After registration (or first authenticated session), the user obtains a usable SELF dietary profile via the approved path (UC8 bootstrap, or an explicit schema-approved alternative). |
-| [ ] | 9 | Creating a profile does not invent an orphan row when `family_id` is NOT NULL (no silent family-less insert). |
+| [ ] | 1 | Authenticated user can load the restriction catalog via `GET /api/restrictions`. *(catalog loads; JWT auth still open)* |
+| [ ] | 2 | Authenticated user can load existing restrictions for an authorized profile via `GET /api/profiles/{profileId}/restrictions`. *(GET works; authz still open)* |
+| [x] | 3 | User can add one or more catalog restrictions to their authorized profile. |
+| [ ] | 4 | User can change severity for an existing profile restriction. *(mobile hard-codes `STRICT_AVOID`)* |
+| [x] | 5 | User can remove a restriction from their authorized profile. |
+| [x] | 6 | `PUT /api/profiles/{profileId}/restrictions` persists changes and a subsequent GET returns the saved set. |
+| [x] | 7 | The next successful scan/assess for that profile uses the updated restrictions (not a stale set). |
+| [x] | 8 | After registration (or first authenticated session), the user obtains a usable SELF dietary profile via the approved path (UC8 bootstrap, or an explicit schema-approved alternative). |
+| [x] | 9 | Creating a profile does not invent an orphan row when `family_id` is NOT NULL (no silent family-less insert). *(register allows `family_id` NULL; UC8 attaches family)* |
 | [ ] | 10 | Unknown restriction codes are rejected with HTTP 400. |
 | [ ] | 11 | Unauthorized profile access (other adult’s linked profile under default D3) returns HTTP 403. |
 | [ ] | 12 | Unknown profile id returns HTTP 404 (or equivalent documented not-found). |
-| [ ] | 13 | Mobile shows a loading state while catalog or profile restrictions load. |
+| [x] | 13 | Mobile shows a loading state while catalog or profile restrictions load. |
 | [ ] | 14 | Mobile shows an empty state when the catalog or saved restriction set is empty. |
-| [ ] | 15 | Mobile shows an error state on network or save failure without crashing. |
-| [ ] | 16 | Restriction requests require authentication once UC19-S3 is in place (no public write/read of dietary data). |
+| [x] | 15 | Mobile shows an error state on network or save failure without crashing. |
+| [ ] | 16 | Restriction requests require authentication (UC19-S3 close-out — dietary routes still transitional `permitAll`). |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC1-S1** | 1–2, 10–12, 16 | Authz + catalog/load |
-| **UC1-S2** | supports 3–6 | Codes / PREFERENCE (D8/M6) |
-| **UC1-S3** | 3–7 | Mobile editor + save + next-scan |
-| **UC1-S4** | 8–9 | Create-after-registration / UC8 bootstrap |
-| **UC1-S5** | 13–15 | Loading / empty / error |
+| **UC1-S1** | 1–2, 10–12, 16 | Authz + catalog/load — **open** |
+| **UC1-S2** | supports 3–6 | Codes / PREFERENCE (D8/M6) — **open** (severity picker) |
+| **UC1-S3** | 3–7 | Mobile editor + save + next-scan — **mostly done** (AC4 severity open) |
+| **UC1-S4** | 8–9 | Create-after-registration / UC8 bootstrap — **done** |
+| **UC1-S5** | 13–15 | Loading / empty / error — **partial** (empty state polish) |
 
 Full table: [backlog §5 UC1](sprint2-jira-backlog.md#uc1--dietary-profile).
 
@@ -160,11 +161,11 @@ UC19, UC8 · Related: UC11, UC12
 
 **Owner:** Khai · **Package:** Core MVP · **Architecture:** Scanning & Verdicts / Mobile Client  
 **Tech:** Android; ML Kit Barcode; Spring Boot; Open Food Facts  
-**Current code state:** Partial
+**Current code state:** Partial — camera → validate → assess JWT path shipped; profile ownership / inactive checks open
 
-- **Mobile:** `ScannerScreen` + ML Kit `BarcodeAnalyzer` → `ScannerViewModel` calls validate then assess and navigates to the verdict screen. No web scan UI (by design).
-- **Backend:** `ScanController` — live `POST /api/scan/validate` and `POST /api/scan/assess`; `AssessmentOrchestrator` loads OFF product data, runs `DietaryRuleEngine`, optionally LLM evidence, and records a scan. Assess requires authentication (JWT).
-- **Identity:** Assess uses `@AuthenticationPrincipal` for `scans.user_id`. Remaining gaps: no family/ownership check on `profileId`; inactive-profile reject not wired. Persist can fail silently if `scans.user_id` FK is invalid while the verdict response still returns.
+- **Mobile:** `ScannerScreen` + ML Kit `BarcodeAnalyzer` → `ScannerViewModel` calls validate then assess and navigates to the verdict screen. Loading / non-food / network failure states exist. No web scan UI (by design).
+- **Backend:** `ScanController` — live `POST /api/scan/validate` (still `permitAll`) and `POST /api/scan/assess` (JWT). `AssessmentOrchestrator` loads OFF product data, runs `DietaryRuleEngine`, optionally LLM evidence, and records a scan.
+- **Identity:** Assess uses `@AuthenticationPrincipal` for `scans.user_id` (no `X-User-Id`). Gaps: no family/ownership check on `profileId`; inactive-profile 409 not wired; validate response is category/message (not rich product identity).
 
 ### User story
 
@@ -181,35 +182,35 @@ As an app user, I want to scan a product's barcode so that CanMakan can fetch th
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | Mobile camera captures a packaged-food barcode via ML Kit Barcode Scanning. |
-| [ ] | 2 | Client calls `POST /api/scan/validate` with the decoded barcode. |
-| [ ] | 3 | On successful validate, backend returns product identity details needed to proceed to assess. |
-| [ ] | 4 | Client calls `POST /api/scan/assess` with the active authorized `profileId`. |
+| [x] | 1 | Mobile camera captures a packaged-food barcode via ML Kit Barcode Scanning. |
+| [x] | 2 | Client calls `POST /api/scan/validate` with the decoded barcode. |
+| [ ] | 3 | On successful validate, backend returns product identity details needed to proceed to assess. *(validate returns category/message; rich identity comes on assess)* |
+| [x] | 4 | Client calls `POST /api/scan/assess` with the active authorized `profileId`. *(active profile local; ownership authz still open)* |
 | [x] | 5 | Assess requires authentication; `scans.user_id` is taken from the JWT (spoofable `X-User-Id` is not trusted as identity). |
 | [ ] | 6 | Assess rejects a `profileId` outside the caller’s family with HTTP 403. |
 | [ ] | 7 | Assess rejects an inactive profile (`dietary_profiles.is_active=0`) with HTTP 409 (or documented equivalent). |
-| [ ] | 8 | Unknown / not-found products show a clear failure state on mobile. |
-| [ ] | 9 | Unknown / not-found products are never displayed or persisted as Safe. |
-| [ ] | 10 | Non-food or unsupported barcode outcomes show a clear failure or guidance state (no false Safe). |
-| [ ] | 11 | Network / OFF upstream failure shows an error state without crashing the scanner. |
-| [ ] | 12 | Successful assess navigates to (or surfaces) the UC3 verdict view for that scan. |
-| [ ] | 13 | Web clients do not implement barcode scan for this UC. |
+| [x] | 8 | Unknown / not-found products show a clear failure state on mobile. |
+| [ ] | 9 | Unknown / not-found products are never displayed or persisted as Safe. *(validate blocks many cases; assess edge cases remain)* |
+| [x] | 10 | Non-food or unsupported barcode outcomes show a clear failure or guidance state (no false Safe). |
+| [x] | 11 | Network / OFF upstream failure shows an error state without crashing the scanner. |
+| [x] | 12 | Successful assess navigates to (or surfaces) the UC3 verdict view for that scan. |
+| [x] | 13 | Web clients do not implement barcode scan for this UC. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC2-S1** | 5–7 | Assess authz + JWT userId |
-| **UC2-S2** | 1–3 | Camera + validate |
-| **UC2-S3** | 4, 12 | Assess → UC3 |
-| **UC2-S4** | 8–11 | Failure states (never false Safe) |
-| **UC2-S5** | 13 | No web scan |
+| **UC2-S1** | 5–7 | JWT userId **done**; family ownership + inactive **open** |
+| **UC2-S2** | 1–3 | Camera + validate — **mostly done** (AC3 product-identity polish) |
+| **UC2-S3** | 4, 12 | Assess → UC3 — **done** |
+| **UC2-S4** | 8–11 | Failure states — **mostly done** (AC9 harden) |
+| **UC2-S5** | 13 | No web scan — **done** |
 
 Full table: [backlog §5 scan path](sprint2-jira-backlog.md#uc2--uc3--uc4--uc5--scan-path).
 
 ### Dependencies
 
-UC19-S3, UC11 · Related: UC1 (restriction quality), UC3, UC4, UC5
+UC19-S3 (remaining public routes), UC11 · Related: UC1 (restriction quality), UC3, UC4, UC5
 
 ---
 
@@ -217,11 +218,11 @@ UC19-S3, UC11 · Related: UC1 (restriction quality), UC3, UC4, UC5
 
 **Owner:** Huayuan · **Package:** Core MVP · **Architecture:** Scanning & Verdicts / Mobile Client  
 **Tech:** Android; Spring Boot; Dietary Rule Engine; AI-assisted analysis; RDS  
-**Current code state:** Partial (verdict path mostly usable; alternatives empty)
+**Current code state:** Mostly complete — colour-coded verdict + engine ownership shipped; Alternatives empty (UC5)
 
-- **Engine:** `DietaryRuleEngine` + checkers (allergen, restriction, nutrition, etc.); `@Primary` MCP ingredient resolver with stub fallback. Assess returns `SAFE` / `WARNING` / `UNSAFE`, findings, explanation, tier, `scanId`. LLM is evidence-only (does not own the verdict).
-- **Mobile:** `ProductDetailScreen` — colour-coded Safe / Warning / Avoid (`UNSAFE` → Avoid), Flags & Details tab from findings. Mapping via `ScannerViewModel.toVerdictDetail` and history → `VerdictDetail`.
-- **Gaps:** Alternatives tab still empty (UC5). Brand often missing on live assess responses. Incomplete-data / may-contain → Warning depends on product + MCP data quality.
+- **Engine:** `DietaryRuleEngine` + checkers; assess returns `SAFE` / `WARNING` / `UNSAFE`, findings, explanation, tier, `scanId`. LLM is evidence-only (engine re-owns final verdict). Cross-contam / incomplete data map to Warning (not fabricated Safe).
+- **Mobile:** `ProductDetailScreen` — colour-coded Safe / Warning / Avoid (`UNSAFE` → Avoid), Flags & Details from findings, product name/barcode when present. Mapping via `ScannerViewModel.toVerdictDetail` and history → `VerdictDetail`.
+- **Gaps:** Alternatives tab always present but empty (UC5). Post-nav loading relies on in-memory pending verdict (no refetch). E-number / complex-ingredient copy depends on assess payload richness.
 
 ### User story
 
@@ -237,26 +238,26 @@ As an app user, I want a detailed Safe / Warning / Unsafe verdict for a scanned 
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | After a successful assess, mobile displays a colour-coded verdict for the active profile. |
-| [ ] | 2 | Wire verdict values use backend `SAFE` \| `WARNING` \| `UNSAFE` (UI may label UNSAFE as Avoid). |
-| [ ] | 3 | Verdict includes a plain-language reason that names the relevant ingredient and rule where applicable. |
-| [ ] | 4 | Ingredient-level findings are shown in a simple colour-coded list/view (no complex charts). |
-| [ ] | 5 | Complex ingredients and E-numbers are explained in simple language when the assess payload provides them. |
-| [ ] | 6 | Cross-contamination / “may contain” signals are raised as Warning, not Safe. |
-| [ ] | 7 | Incomplete product data never results in a fabricated Safe verdict. |
-| [ ] | 8 | DietaryRuleEngine (or equivalent server authority) owns the final verdict; the client does not override it. |
-| [ ] | 9 | Optional AI/LLM output is treated as evidence only and cannot force Safe against engine rules. |
-| [ ] | 10 | Loading and error states are handled if assess detail is still fetching or fails after navigation. |
-| [ ] | 11 | Product name/barcode (when available) are shown with the verdict for user confirmation. |
+| [x] | 1 | After a successful assess, mobile displays a colour-coded verdict for the active profile. |
+| [x] | 2 | Wire verdict values use backend `SAFE` \| `WARNING` \| `UNSAFE` (UI may label UNSAFE as Avoid). |
+| [x] | 3 | Verdict includes a plain-language reason that names the relevant ingredient and rule where applicable. |
+| [x] | 4 | Ingredient-level findings are shown in a simple colour-coded list/view (no complex charts). |
+| [ ] | 5 | Complex ingredients and E-numbers are explained in simple language when the assess payload provides them. *(depends on payload / MCP quality)* |
+| [x] | 6 | Cross-contamination / “may contain” signals are raised as Warning, not Safe. |
+| [x] | 7 | Incomplete product data never results in a fabricated Safe verdict. |
+| [x] | 8 | DietaryRuleEngine (or equivalent server authority) owns the final verdict; the client does not override it. |
+| [x] | 9 | Optional AI/LLM output is treated as evidence only and cannot force Safe against engine rules. |
+| [ ] | 10 | Loading and error states are handled if assess detail is still fetching or fails after navigation. *(in-memory pending verdict; limited post-nav refetch)* |
+| [x] | 11 | Product name/barcode (when available) are shown with the verdict for user confirmation. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC3-S1** | 1–5, 11 | Colour-coded UI + findings |
-| **UC3-S2** | 6–9 | Engine-owned + incomplete/may-contain |
-| **UC3-S3** | 2 | Wire `UNSAFE` / Avoid |
-| **UC3-S4** | 10 | Loading/error after navigation |
+| **UC3-S1** | 1–5, 11 | Colour-coded UI + findings — **mostly done** (AC5 polish) |
+| **UC3-S2** | 6–9 | Engine-owned + incomplete/may-contain — **done** |
+| **UC3-S3** | 2 | Wire `UNSAFE` / Avoid — **done** |
+| **UC3-S4** | 10 | Loading/error after navigation — **open** |
 
 Full table: [backlog §5 scan path](sprint2-jira-backlog.md#uc2--uc3--uc4--uc5--scan-path).
 
@@ -270,11 +271,12 @@ UC2 · Related: UC5, UC4
 
 **Owner:** Kwok Heng · **Package:** Core MVP · **Architecture:** Shared Client  
 **Tech:** Android + React + Spring Boot + RDS  
-**Current code state:** Partial  
+**Current code state:** Partial — mobile personal history live (no authz); family web list API missing  
 **Coordination:** Family list API (UC4-S2) owned by Kwok Heng; Family Portal page shell/nav coordinates with Amelia.
 
-- **Mobile (personal):** `HistoryScreen` + `ServerScanHistoryRepository` against live `GET /api/profiles/{profileId}/history` (`ScanHistoryController`). Newest-first list with product join; tap opens product/verdict detail. No authz on the history GET.
-- **Web (family):** `FamilyScanHistoryPage` + `familyService.getScanHistory()` — mock when `VITE_USE_MOCK_API` (default). Filters/demo dates are prototype-only; no live family-scoped scans API yet.
+- **Mobile (personal):** `HistoryScreen` + `ServerScanHistoryRepository` against live `GET /api/profiles/{profileId}/history` (`ScanHistoryController`). Newest-first list; tap opens verdict detail. History GET is transitional `permitAll` with **no ownership authz**.
+- **Persist:** Successful assess records product, verdict, timestamp, profile, JWT `user_id`.
+- **Web (family):** `FamilyScanHistoryPage` expects `GET /api/families/me/scans` — **endpoint missing**; usable only when `VITE_USE_MOCK_API=true` (default is **false**). Page is list/detail (no trend chart). Web verdict types still include non-wire labels (`AVOID` / `INCOMPLETE`).
 - **Out of this UC:** charts/trends (UC14); CSV export (UC22).
 
 ### User stories
@@ -297,29 +299,29 @@ List/detail only. **Trend charts are UC14**, not UC4.
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | Each successful assess persists product, verdict, timestamp, and profile used for the scan. |
-| [ ] | 2 | Mobile lists the authenticated user’s personal scan history for an authorized profile via `GET /api/profiles/{profileId}/history`. |
-| [ ] | 3 | Selecting a mobile history row reopens the stored assessment / verdict detail. |
+| [x] | 1 | Each successful assess persists product, verdict, timestamp, and profile used for the scan. |
+| [ ] | 2 | Mobile lists the authenticated user’s personal scan history for an authorized profile via `GET /api/profiles/{profileId}/history`. *(list works; auth/authz still open)* |
+| [x] | 3 | Selecting a mobile history row reopens the stored assessment / verdict detail. |
 | [ ] | 4 | Mobile history requires authentication and denies unauthorized `profileId` with 403. |
 | [ ] | 5 | Family Admin can load household scans via `GET /api/families/me/scans`. |
 | [ ] | 6 | Family history rows show at least product, profile, verdict, and time. |
 | [ ] | 7 | Family history supports filters that narrow the list (e.g. profile, verdict, date range as implemented). |
 | [ ] | 8 | Selecting a family history row opens assessment detail for that scan. |
-| [ ] | 9 | Family history page remains a list/detail view and does **not** render a daily/weekly trend chart. |
+| [x] | 9 | Family history page remains a list/detail view and does **not** render a daily/weekly trend chart. *(page shell exists; live data missing)* |
 | [ ] | 10 | Non–Family Admin callers receive 403 on the family-wide scans API (per permission matrix). |
 | [ ] | 11 | Family history returns only scans for the authenticated admin’s family (no cross-family leakage). |
 | [ ] | 12 | Empty history shows an empty state on mobile and web (no fabricated demo rows when mock is off). |
-| [ ] | 13 | Loading and error states are handled on both clients. |
+| [x] | 13 | Loading and error states are handled on both clients. *(mobile yes; web mock path yes)* |
 | [ ] | 14 | Web wire verdict values align with backend `SAFE` \| `WARNING` \| `UNSAFE` (UI label mapping allowed). |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC4-S1** | 1–4, 12–13 | Personal history (mobile) |
-| **UC4-S2** | 5–6, 10–11 | Family list API |
-| **UC4-S3** | 7–9, 12–13 | Family history web page |
-| **UC4-S4** | 14 | Verdict wire alignment |
+| **UC4-S1** | 1–4, 12–13 | Personal history — **partial** (persist + list/detail; authz/empty open) |
+| **UC4-S2** | 5–6, 10–11 | Family list API — **open** |
+| **UC4-S3** | 7–9, 12–13 | Family history web page — **partial** (shell; live API open) |
+| **UC4-S4** | 14 | Verdict wire alignment — **open** |
 
 Full table: [backlog §5 scan path](sprint2-jira-backlog.md#uc2--uc3--uc4--uc5--scan-path).
 
@@ -333,7 +335,11 @@ UC2, UC3; UC8 for family list
 
 **Owner:** Chai Lee · **Package:** Core MVP · **Architecture:** Scanning & Verdicts / Mobile Client  
 **Tech:** Android; Spring Boot; Open Food Facts; recommendation logic  
-**Current code state:** Not started / empty tab
+**Current code state:** Not started — Alternatives tab shell only (always empty on live assess)
+
+- **Backend:** no recommendations controller/service.
+- **Mobile:** `ProductDetailScreen` Alternatives tab is always visible; live assess returns empty alternatives. Sample data only in `ProductSampleData`.
+- **Boundary:** No separate recommendation-history screen (UC17) exists.
 
 ### User story
 
@@ -359,15 +365,15 @@ Generating alternatives = UC5. **Listing past recommendations = UC17** (Enhanced
 | [ ] | 6 | When no alternatives exist, API returns an empty list and UI shows an appropriate empty state. |
 | [ ] | 7 | Unauthorized profile access returns 403. |
 | [ ] | 8 | Loading and error states are handled on the Alternatives UI. |
-| [ ] | 9 | This UC does not implement a separate recommendation-history screen (UC17). |
+| [x] | 9 | This UC does not implement a separate recommendation-history screen (UC17). |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC5-S1** | 1, 4–5, 7 | Recommendations API |
-| **UC5-S2** | 2–3, 6, 8 | Alternatives tab UX |
-| **UC5-S3** | 9 | UC17 boundary |
+| **UC5-S1** | 1, 4–5, 7 | Recommendations API — **open** |
+| **UC5-S2** | 2–3, 6, 8 | Alternatives tab UX — **open** |
+| **UC5-S3** | 9 | UC17 boundary — **done** |
 
 Full table: [backlog §5 scan path](sprint2-jira-backlog.md#uc2--uc3--uc4--uc5--scan-path).
 
@@ -381,11 +387,12 @@ UC2, UC3 · Feeds: UC17
 
 **Owner:** Khai · **Package:** Core MVP · **Architecture:** Family Management / **Mobile Client** (primary; optional React web parity)  
 **Tech:** Android (primary); React (optional parity); Spring Boot; RDS  
-**Current code state:** Partial (web mock only; mobile primary missing)
+**Current code state:** Mostly complete — **UC6-S1 API + UC6-S2 mobile grid shipped**; web parity still mock-oriented
 
-- **Web:** `FamilyRestrictionSummaryPage` at `/family/restrictions` builds a C / ✓ / — style matrix from `familyService.getRestrictionSummary()` → mock members when mock API is on. Edit CTA navigates toward member management (UC12 intent).
-- **Backend:** no `/families/me/restriction-summary` (or equivalent) endpoint. Only related live call today is `GET /api/families/{familyId}/profiles`.
-- **Mobile:** no allergy-summary / matrix screen yet (primary client for this UC). `dietary_profiles.is_active` not in schema yet (UC12 migration).
+- **Backend:** live `GET /api/families/me/restriction-summary` (`FamilyController` / `FamilyService`) — JWT principal, membership-scoped, active members + restrictions. Also `GET /api/families/{familyId}/profiles` (legacy path; prefer `/me` for new work).
+- **Mobile (primary):** drawer → `FamilyRestrictionSummaryScreen` + `FamilyRestrictionSummaryViewModel`; calls the live summary API with Bearer from `AuthSessionStore`; loading / empty / error + session gate. Empty-state edit CTA is local (no `family/members` route yet — UC12).
+- **Web:** `FamilyRestrictionSummaryPage` at `/family/restrictions` still uses mock when `VITE_USE_MOCK_API=true`; live parity against the same summary API is remaining (UC6-S3).
+- **Gaps:** dependant profiles without `family_members` may be under-represented vs UC9/UC12; `dietary_profiles.is_active` not in schema yet (UC12 migration); overlap highlighting polish as designed.
 
 ### User story
 
@@ -401,27 +408,28 @@ As a family account holder, I want a grid of family members and their allergies/
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | Authenticated family member can call `GET /api/families/me/restriction-summary`. |
-| [ ] | 2 | Response includes profiles in the caller’s family with their restrictions (code, display name, severity as designed). |
-| [ ] | 3 | **Primary client (mobile)** presents a matrix/grid of members (or profiles) against restrictions. |
+| Done | # | Criterion |
+| --- | --- | --- |
+| [x] | 1 | Authenticated family member can call `GET /api/families/me/restriction-summary`. |
+| [x] | 2 | Response includes profiles in the caller’s family with their restrictions (code, display name, severity as designed). |
+| [x] | 3 | **Primary client (mobile)** presents a matrix/grid of members (or profiles) against restrictions. |
 | [ ] | 4 | Overlapping restrictions across members are visually highlighted as designed. |
-| [ ] | 5 | Only the authenticated user’s family data is returned (no cross-family leakage; `/me` scoping). |
+| [x] | 5 | Only the authenticated user’s family data is returned (no cross-family leakage; `/me` scoping). |
 | [ ] | 6 | Inactive profiles are omitted or clearly marked per product choice documented with UC12. |
-| [ ] | 7 | Empty family / no restrictions shows an empty state with guidance (e.g. link toward UC12 members). |
-| [ ] | 8 | Edit actions navigate to UC12 (or UC1 for self) and do not mutate restrictions inside this UC. |
-| [ ] | 9 | Loading and error states are handled. |
-| [ ] | 10 | Production path works with mock API disabled. |
-| [ ] | 11 | Non-members cannot access another family’s summary. |
+| [x] | 7 | Empty family / no restrictions shows an empty state with guidance (e.g. link toward UC12 members). |
+| [ ] | 8 | Edit actions navigate to UC12 (or UC1 for self) and do not mutate restrictions inside this UC. *(empty CTA currently pops back; full UC12 manage not wired)* |
+| [x] | 9 | Loading and error states are handled. |
+| [x] | 10 | Production path works with mock API disabled. *(mobile uses live API; web mock still optional)* |
+| [x] | 11 | Non-members cannot access another family’s summary. |
 | [ ] | 12 | Optional web parity (if shipped) uses the same summary API and does not become a second source of truth. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC6-S1** | 1–2, 5–6, 11 | Restriction-summary API |
-| **UC6-S2** | 3–4, 7–10 | Mobile primary grid |
+| **UC6-S1** | 1–2, 5–6, 11 | **Mostly done** — API live; AC6 waits on UC12 `is_active` |
+| **UC6-S2** | 3–4, 7–10 | **Mostly done** — mobile grid; polish AC4/AC8 |
 | **UC6-S3** | 12 | Optional web parity |
-
 Full table: [backlog §5](sprint2-jira-backlog.md#uc6--uc7--uc13).
 
 ### Dependencies
@@ -434,11 +442,12 @@ UC19, UC8, UC1 · Related: UC12
 
 **Owner:** Maowei · **Package:** Core MVP · **Architecture:** Analytics / Web Client (Admin)  
 **Tech:** React Admin; Spring Boot aggregation; anonymisation; RDS  
-**Current code state:** Partial (admin UI mock; DB rollup unused)
+**Current code state:** Partial (admin UI mock; DB rollup unused by Java)
 
-- **Web:** `ConsumerTrendsPage` (+ dashboard entry) via `adminService.getConsumerTrends()` → `mockAdminRepository` / mock data. Period controls do not hit a real query API.
+- **Web:** `ConsumerTrendsPage` (+ dashboard entry) via `adminService.getConsumerTrends()` → mock when `VITE_USE_MOCK_API=true`; live path would hit missing `/api/admin/consumer-trends` (404). Period controls do not hit a real query API.
 - **Schema:** `daily_consumer_trends` exists in `00_schema.sql` and may be seeded, but there is no Java controller/service reading or writing it from `scans`.
-- **Missing:** anonymised aggregation job/API, SYSTEM_ADMIN authz, live filters.
+- **Security:** `/api/admin/**` requires `ROLE_ADMIN` once an API exists.
+- **Missing:** anonymised aggregation job/API, SYSTEM_ADMIN authz on a real endpoint, live filters.
 
 ### User story
 
@@ -459,14 +468,14 @@ UC7 = generate/view trends. **CSV export = UC22**. **Family charts = UC14**.
 | [ ] | 5 | Non–System Admin callers receive HTTP 403. |
 | [ ] | 6 | Empty range shows an empty state (no fabricated numbers when mock is off). |
 | [ ] | 7 | Loading and error states are handled on the admin page. |
-| [ ] | 8 | This UC does not implement CSV download (UC22) or family verdict charts (UC14). |
+| [x] | 8 | This UC does not implement CSV download (UC22) or family verdict charts (UC14). |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC7-S1** | 1–2, 4–5 | Anonymised trends API |
-| **UC7-S2** | 3, 6–8 | Admin dashboard UI |
+| **UC7-S1** | 1–2, 4–5 | Anonymised trends API — **open** |
+| **UC7-S2** | 3, 6–8 | Admin dashboard UI — **partial** (shell/mock; AC8 boundary done) |
 
 Full table: [backlog §5](sprint2-jira-backlog.md#uc6--uc7--uc13).
 
@@ -492,7 +501,7 @@ UC19 · Related: UC22
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Shared (Mobile + Web Family)  
 **Tech:** Android; React; Spring Boot; RDS  
-**Current code state:** Partial — **UC8-S1–S4 shipped** for API + web + mobile create-when-empty; **UC19 JWT identity** on family routes
+**Current code state:** Complete (MVP ACs) — **UC8-S1–S4 shipped** (API + web + mobile create-when-empty + JWT 401)
 
 - **Schema:** `UNIQUE(family_members.user_id)` via `uq_family_members_user_id` in `00_schema.sql` (D2 / one circle per user). Seeds remain one membership per user.
 - **Backend:** `POST /api/families` and `GET /api/families/me` via `FamilyService` / `FamilyController`. Create is transactional: `families` (`created_by_user_id`) + `PRIMARY_ADMIN` membership + SELF `dietary_profiles` (`linked_user_id`, `family_id`, `is_primary`). Package layout: `family/dto/`, `model/`, `repository/`, `exception/`. Contract: `docs/api/families.md`.
@@ -500,7 +509,7 @@ UC19 · Related: UC22
 - **Role model:** DB `family_members.member_role = PRIMARY_ADMIN`; web portal maps JWT `USER` → `ROLE_FAMILY_ADMIN` for the family gate. Full RBAC alignment remains shared with UC13.
 - **Web:** Register (`/family-register`) / login → `/family` → `FamilyMeGate` loads `/families/me`; **404** → `CreateFamilyCirclePage` (name + loading/validation/error). `apiClient` sends `Authorization: Bearer`. Feature packaged under `features/family/{api,components,pages,lib}`.
 - **Mobile:** Resolves `/families/me` with Bearer from `AuthSessionStore`. When 404 and a session exists, drawer CTA → `CreateFamilyCircleScreen` (`POST /api/families`); create is hidden once the user already has a family. Invite (UC9) and limited manage (UC12) follow the ownership matrix above.
-- **Tests:** Backend create success, blank name 400, second create 409, missing/invalid JWT 401 (`FamilyControllerTest` / `FamilyServiceTest`). Mobile repository covers `/me` 200/404 and create 201/409/400.
+- **Tests:** Backend create success, blank name 400, second create 409, missing/invalid JWT 401 (`FamilyControllerTest` / `FamilyServiceTest`). Mobile repository + nav ViewModel cover `/me`, create, and session gates.
 - **Diagrams:** Class/sequence under `docs/architecture/` for create-circle still **open** (planned `domain-family.mmd`).
 - **Demo tip:** Seeded users 4–13 already have families — register a new account to hit empty-state create.
 - **Gaps:** Invites/manage (UC9/UC12); server-persisted active profile (UC11).
@@ -536,7 +545,7 @@ Bootstraps SELF dietary profile for UC1.
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
 | **UC8-S1** | 6 | **Done** — UNIQUE membership |
-| **UC8-S2** | 1–5, 7–8 | **Done** except AC8 (401 → UC19) |
+| **UC8-S2** | 1–5, 7–8 | **Done** — create + JWT 401 (UC19) |
 | **UC8-S3** | 5, 10 | **Done** — API + web + mobile `/me` resolve |
 | **UC8-S4** | 9, 11 | **Done** — web + mobile create UX (mobile only when no family) |
 
@@ -544,7 +553,7 @@ Full table: [backlog §5 family lifecycle](sprint2-jira-backlog.md#uc8--uc9--uc1
 
 ### Dependencies
 
-UC19 (real auth) · UC18 (register new users to demo empty-state) · Unblocks: UC9–UC12, UC6, UC11
+UC19 (JWT shipped for family routes) · UC18 (register new users to demo empty-state) · Unblocks: UC9–UC12, UC6, UC11
 
 ---
 
@@ -555,10 +564,10 @@ UC19 (real auth) · UC18 (register new users to demo empty-state) · Unblocks: U
 **Current code state:** Partial (web mock immediate link; no invite APIs; mobile invite/share not built)
 
 - **Product:** Invite via **shareable link/code** on **both** clients; mobile uses native share. Dependant-create API in this epic; **dependant UI is web-primary** (full roster manage is UC12).
-- **Web:** FamilyMembersPage with LinkExistingUserModal and CreateFamilyProfileModal. Mock path searches users and **links immediately** as a member (no PENDING invitation). Must become PENDING invite + copy link/code.
+- **Web:** `FamilyMembersPage` with `LinkExistingUserModal` and `CreateFamilyProfileModal`. Mock path searches users and **links immediately** as a member (no PENDING invitation). Must become PENDING invite + copy link/code.
 - **Mobile:** No invite+share flow yet; add-profile stubs are not the UC9 share path.
-- **Client contracts:** amilyService expects user-search / invitations / profiles endpoints when mock is off — backend implementations are missing.
-- **Schema:** amily_invitations table exists; no seed/API/entity usage found for PENDING → accept (UC10). Production must not keep silent mock membership.
+- **Client contracts:** `familyService` expects user-search / invitations / profiles endpoints when mock is off — backend implementations are **missing**.
+- **Schema:** `family_invitations` table exists; no seed/API/entity usage found for PENDING → accept (UC10). Production must not keep silent mock membership.
 
 ### User story
 
@@ -589,10 +598,10 @@ As a Family Admin, I want to invite someone with a shareable link/code (and opti
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC9-S1** | supports 2–4, 15 | Invitation migration (M5) + share token/code |
-| **UC9-S2** | 1–7, 15 | Invite API + shareable payload |
-| **UC9-S3** | 9–13 | Dependant create (web-primary UI) |
-| **UC9-S4** | 8, 14–16 | Mobile invite+share + web invite; mock-off |
+| **UC9-S1** | supports 2–4, 15 | Invitation migration (M5) + share token/code — **open** |
+| **UC9-S2** | 1–7, 15 | Invite API + shareable payload — **open** |
+| **UC9-S3** | 9–13 | Dependant create (web-primary UI) — **open** |
+| **UC9-S4** | 8, 14–16 | Mobile invite+share + web invite; mock-off — **open** |
 
 Full table: [backlog §5 family lifecycle](sprint2-jira-backlog.md#uc8--uc9--uc10--family-lifecycle).
 
@@ -606,7 +615,7 @@ UC19, UC8, UC1 · Related: UC10
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Mobile Client (primary) & Email; web optional  
 **Tech:** Android; Spring Boot; RDS; **Resend** *(optional React web parity)*  
-**Current code state:** Not started
+**Current code state:** Not started — schema `family_invitations` only; no list/accept/decline APIs, mobile inbox, or Resend integration
 
 ### User story
 
@@ -637,10 +646,10 @@ As an invited app user, I want to accept or decline a family invitation on mobil
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC10-S1** | 1–2, 10, 12 | List pending (mobile primary; web optional) |
-| **UC10-S2** | 3–4, 7–9 | Accept → MEMBER + profile |
-| **UC10-S3** | 5–8 | Decline + expired/invalid guards |
-| **UC10-S4** | 11 | Resend email |
+| **UC10-S1** | 1–2, 10, 12 | List pending (mobile primary; web optional) — **open** |
+| **UC10-S2** | 3–4, 7–9 | Accept → MEMBER + profile — **open** |
+| **UC10-S3** | 5–8 | Decline + expired/invalid guards — **open** |
+| **UC10-S4** | 11 | Resend email — **open** |
 
 Full table: [backlog §5 family lifecycle](sprint2-jira-backlog.md#uc8--uc9--uc10--family-lifecycle).
 
@@ -654,10 +663,10 @@ UC19, UC9
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Mobile Client  
 **Tech:** Android; Spring Boot; RDS  
-**Current code state:** Partial (local switch; hardcoded family 1)
+**Current code state:** Partial (local switch; `/me`-resolved family; not server-persisted)
 
-- **Mobile (required):** ActiveProfileManager + drawer (ProfileDrawerContent) lets the user pick a profile for scan/history/restrictions in-session. Default profile id falls back to 1L. Selection is not server-persisted (ctive_profile_id migration not applied). Daily-use surface for this UC.
-- **Profiles load:** GET /api/families/{familyId}/profiles via FamilyController; nav graph previously hardcoded amilyId = 1L — remove remaining hardcodes as UC11 lands.
+- **Mobile (required):** `ActiveProfileManager` + drawer (`ProfileDrawerContent`) lets the user pick a profile for scan/history/restrictions in-session. Default profile id falls back to `1L` until a family `/me` load switches to `selfProfileId`. Selection is **not** server-persisted (`active_profile_id` migration not applied).
+- **Profiles load:** Nav graph resolves membership via `GET /api/families/me`, then loads `GET /api/families/{familyId}/profiles` for that family id (no longer hardcoded `familyId=1` for membership). Unauthenticated → personal placeholder only.
 - **Web:** Not required for MVP switch (ownership: mobile only). Any existing web selector must not become a divergent source of truth if kept for demos.
 
 ### User story
@@ -668,25 +677,25 @@ As an app user in a family circle, I want to select which eligible family profil
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | Authenticated member can list eligible in-family profiles for switching. |
+| [x] | 1 | Authenticated member can list eligible in-family profiles for switching. *(via `/me` then `GET /families/{id}/profiles`; path authz still coarse)* |
 | [ ] | 2 | GET /api/families/me/active-profile returns the current active profile (or documented default). |
 | [ ] | 3 | PUT /api/families/me/active-profile sets the active profile for the caller. |
 | [ ] | 4 | Selection persists across app restart (server-backed, not memory-only). |
-| [ ] | 5 | Subsequent UC2 assess uses the selected profileId. |
+| [x] | 5 | Subsequent UC2 assess uses the selected profileId. *(in-session `ActiveProfileManager`)* |
 | [ ] | 6 | Profiles outside the user’s family cannot be selected (HTTP 403). |
 | [ ] | 7 | Inactive profiles (is_active=0) cannot be selected once UC12 activation exists. |
-| [ ] | 8 | Client path no longer hardcodes amilyId=1L or DEFAULT_PROFILE_ID=1L for switch/scan context. |
-| [ ] | 9 | Loading and error states are handled on the **mobile** switcher UI. |
-| [ ] | 10 | Web profile switcher is **out of MVP scope**; if a demo selector remains, it must not override server active-profile for scanning. |
+| [ ] | 8 | Client path no longer hardcodes familyId=1L or DEFAULT_PROFILE_ID=1L for switch/scan context. *(membership resolve via `/me` done; DEFAULT_PROFILE_ID=1L fallback remains)* |
+| [x] | 9 | Loading and error states are handled on the **mobile** switcher UI. |
+| [x] | 10 | Web profile switcher is **out of MVP scope**; if a demo selector remains, it must not override server active-profile for scanning. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC11-S1** | supports 2–4 | ctive_profile_id migration |
-| **UC11-S2** | 1–3, 6–7 | GET/PUT active-profile + authz |
-| **UC11-S3** | 4–5, 8 | Persist + drive assess + remove hardcodes |
-| **UC11-S4** | 9–10 | Mobile switcher UX (web not required) |
+| **UC11-S1** | supports 2–4 | `active_profile_id` migration — **open** |
+| **UC11-S2** | 1–3, 6–7 | GET/PUT active-profile + authz — **partial** (list only) |
+| **UC11-S3** | 4–5, 8 | Persist + drive assess + remove hardcodes — **partial** (AC5 done) |
+| **UC11-S4** | 9–10 | Mobile switcher UX (web not required) — **mostly done** |
 
 Full table: [backlog §5](sprint2-jira-backlog.md#uc11--uc12--switch--manage).
 
@@ -700,11 +709,12 @@ UC19; UC8-S3 (/families/me) or seeded membership for early delivery · Critical 
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Web Client (Family) primary; mobile optional/limited  
 **Tech:** React; Spring Boot; RDS *(optional Android limited surface)*  
-**Current code state:** Partial (mock roster/edit; no manage APIs)
+**Current code state:** Partial (web mock roster/edit; no manage APIs; no `dietary_profiles.is_active`)
 
-- **Web (primary):** FamilyMembersPage, EditFamilyProfileModal, ProfileForm — list/edit against mock repository when VITE_USE_MOCK_API is on. Real admin work (roster, edit, remove, toggle active) lands here.
-- **Mobile (optional/limited):** stubs exist (CreateNewProfileScreen / AddProfileToFamilyScreen); full manage parity is not required for MVP.
-- **Missing:** live members/profiles CRUD, remove-member, soft-remove vs scan FK, dietary_profiles.is_active column + activate/deactivate, PRIMARY_ADMIN authz. Do not overload users.is_active for profile scanning.
+- **Web (primary):** `FamilyMembersPage`, `EditFamilyProfileModal`, `ProfileForm` — list/edit against mock when `VITE_USE_MOCK_API=true`; live members/profiles CRUD endpoints **missing** (default mock is off → broken live).
+- **Mobile (optional/limited):** stubs (`CreateNewProfileScreen` / `AddProfileToFamilyScreen`); manage entry points stay hidden (`showManageFamilyActions = false`).
+- **Schema:** `dietary_profiles` has **no** `is_active` column (do not overload `users.is_active`). `family_members.is_active` exists separately.
+- **Missing:** live members/profiles CRUD, remove-member, soft-remove vs scan FK, activate/deactivate, PRIMARY_ADMIN authz.
 
 ### User stories
 
@@ -742,13 +752,13 @@ UC19; UC8-S3 (/families/me) or seeded membership for early delivery · Critical 
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC12-S1** | 1 | `is_active` migration |
-| **UC12-S2** | 2–6 | View roster |
-| **UC12-S3** | 7, 9, 19 | Update metadata |
-| **UC12-S4** | 8–9 | Update restrictions (UC1/D3) |
-| **UC12-S5** | 10–14 | Remove member |
-| **UC12-S6** | 15–18 | Activate/deactivate |
-| **UC12-S7** | 19–20 | Mock-off + polish |
+| **UC12-S1** | 1 | `is_active` migration — **open** |
+| **UC12-S2** | 2–6 | View roster — **open** (mock UI only) |
+| **UC12-S3** | 7, 9, 19 | Update metadata — **open** |
+| **UC12-S4** | 8–9 | Update restrictions (UC1/D3) — **open** |
+| **UC12-S5** | 10–14 | Remove member — **open** |
+| **UC12-S6** | 15–18 | Activate/deactivate — **open** |
+| **UC12-S7** | 19–20 | Mock-off + polish — **open** |
 
 Full table: [backlog §5](sprint2-jira-backlog.md#uc11--uc12--switch--manage).
 
@@ -762,11 +772,12 @@ UC19, UC8, UC1, UC11
 
 **Owner:** Maowei · **Package:** Core MVP · **Architecture:** Web Client (Admin)  
 **Tech:** React Admin; Spring Boot; Spring Security; RBAC; RDS  
-**Current code state:** Partial (admin UI mock only)
+**Current code state:** Partial (admin UI shell/mock only; no admin users controller)
 
-- **Web:** `UserAccessPage` + dashboard entry; `adminService` → `/api/admin/users` served by `mockAdminRepository` (including mock audit messages). Role/status toggles do not hit a real backend.
-- **Schema/entity:** `users`, `roles`, `admin_audit_logs`; `UserAccount` entity with `is_active`. No admin users controller/service for list/PATCH/audit writes.
-- **Missing:** SYSTEM_ADMIN RBAC, real PATCH access + audit persistence, last-admin / self-lockout guards, Spring Security protection.
+- **Web:** `UserAccessPage` + dashboard entry; `adminService` → `/api/admin/users` (and audit). Loading/error UI exists; live APIs **missing** (mock when forced on).
+- **Schema/entity:** `users`, `roles`, `admin_audit_logs`; `UserAccount` with `is_active`. No list/PATCH/audit write controller/service.
+- **Security:** `/api/admin/**` requires `ROLE_ADMIN` once implemented.
+- **Missing:** SYSTEM_ADMIN RBAC end-to-end, real PATCH access + audit persistence, last-admin / self-lockout guards; mock still may show `ROLE_FAMILY_ADMIN` as a platform role (AC conflict).
 
 ### User story
 
@@ -786,17 +797,17 @@ As a System Admin, I want to manage user accounts, platform roles, and account s
 | [ ] | 8 | Server RBAC enforces System Admin only; non-admin callers receive 403 (React guards alone are insufficient). |
 | [ ] | 9 | Protect last SYSTEM_ADMIN from self-demotion/suspend where applicable (HTTP 409). |
 | [ ] | 10 | Admin can view audit entries via `GET /api/admin/audit` (or equivalent). |
-| [ ] | 11 | Loading and error states are handled on the admin UI. |
+| [x] | 11 | Loading and error states are handled on the admin UI. *(UI shell; not production-usable with mock off)* |
 | [ ] | 12 | Production path works with mock API disabled. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC13-S1** | 1, 11–12 | List users + admin page |
-| **UC13-S2** | 2–4, 10 | PATCH access + audit |
-| **UC13-S3** | 5–9 | Roles / suspend / last-admin |
-| **UC13-T1** | — | Role-model docs |
+| **UC13-S1** | 1, 11–12 | List users + admin page — **partial** (UI shell) |
+| **UC13-S2** | 2–4, 10 | PATCH access + audit — **open** |
+| **UC13-S3** | 5–9 | Roles / suspend / last-admin — **open** |
+| **UC13-T1** | — | Role-model docs — **open** |
 
 Full table: [backlog §5](sprint2-jira-backlog.md#uc6--uc7--uc13).
 
@@ -812,7 +823,7 @@ UC19
 
 **Owner:** Huayuan · **Package:** Enhanced · **Architecture:** Web Client (Family)  
 **Tech:** React chart library; Analytics API; RDS  
-**Current code state:** Not started
+**Current code state:** Not started — no trends API or dedicated chart page (UC4 history is list-only; dashboard counts ≠ time-series)
 
 ### User story
 
@@ -826,7 +837,7 @@ As a Family Admin, I want charts of family Safe / Warning / Unsafe verdicts over
 | [ ] | 2 | Response returns time buckets with Safe / Warning / Unsafe counts for the admin’s family only. |
 | [ ] | 3 | Family Portal chart page renders the series with an agreed legend (Unsafe may display as Avoid). |
 | [ ] | 4 | Empty periods / no scans show an appropriate empty state (no fabricated series when mock is off). |
-| [ ] | 5 | Chart is **not** implemented inside the UC4 family history list page. |
+| [x] | 5 | Chart is **not** implemented inside the UC4 family history list page. |
 | [ ] | 6 | Data is distinct from UC7 anonymised platform trends (family-identifiable household patterns only; no other families). |
 | [ ] | 7 | Non-admin members receive 403 if matrix stays admin-only. |
 | [ ] | 8 | Loading and error states are handled. |
@@ -835,8 +846,8 @@ As a Family Admin, I want charts of family Safe / Warning / Unsafe verdicts over
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC14-S1** | 1–2, 6–7 | Family verdict-trends API |
-| **UC14-S2** | 3–5, 8 | Chart page (not UC4 list) |
+| **UC14-S1** | 1–2, 6–7 | Family verdict-trends API — **open** |
+| **UC14-S2** | 3–5, 8 | Chart page (not UC4 list) — **partial** (AC5 boundary done) |
 
 Full table: [backlog §5 Enhanced](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
@@ -850,7 +861,7 @@ UC19, UC8, UC2–UC4
 
 **Owner:** *Unassigned* · **Package:** Enhanced · **Architecture:** Web Client (Admin)  
 **Tech:** React Analytics Dashboard; Spring Boot Analytics API; RDS  
-**Current code state:** Not started
+**Current code state:** Not started — Future Features placeholder card only; no usage-stats API
 
 ### User story
 
@@ -865,13 +876,13 @@ As a System Admin, I want overall engagement and usage metrics (e.g. active user
 | [ ] | 3 | Measures are sourced from backend data (not hardcoded client demos when mock is off). |
 | [ ] | 4 | Non–System Admin access is denied (403). |
 | [ ] | 5 | Loading, empty, and error states are handled. |
-| [ ] | 6 | This UC does not replace UC7 category consumer trends or UC14 family charts. |
+| [x] | 6 | This UC does not replace UC7 category consumer trends or UC14 family charts. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC15-S1** | 1–6 | Usage stats API + dashboard |
+| **UC15-S1** | 1–6 | Usage stats API + dashboard — **open** (AC6 boundary done) |
 
 Full table: [backlog §5 Enhanced](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
@@ -881,7 +892,7 @@ Full table: [backlog §5 Enhanced](sprint2-jira-backlog.md#enhanced--nice-to-hav
 
 **Owner:** *Unassigned* · **Package:** Enhanced · **Architecture:** Web Client (Admin)  
 **Tech:** React Admin; Spring Boot Actuator; application logging; AWS EC2 monitoring  
-**Current code state:** Not started
+**Current code state:** Not started — public `GET /actuator/health` only; Future Features “System Logs & Health” disabled; no admin health-events API/UI
 
 ### User story
 
@@ -895,13 +906,13 @@ As a System Admin, I want application and infrastructure health events/logs.
 | [ ] | 2 | Events can be filtered or searched. |
 | [ ] | 3 | Access is restricted to System Admins (403 otherwise). |
 | [ ] | 4 | Loading, empty, and error states are handled. |
-| [ ] | 5 | This UC does not replace UC21 AI reasoning performance logs. |
+| [x] | 5 | This UC does not replace UC21 AI reasoning performance logs. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC16-S1** | 1–5 | Health events list/filter |
+| **UC16-S1** | 1–5 | Health events list/filter — **open** (AC5 boundary done) |
 
 Full table: [backlog §5 Enhanced](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
@@ -911,7 +922,7 @@ Full table: [backlog §5 Enhanced](sprint2-jira-backlog.md#enhanced--nice-to-hav
 
 **Owner:** Chai Lee · **Package:** Enhanced · **Architecture:** Mobile Client  
 **Tech:** Android; Spring Boot; RDS  
-**Current code state:** Not started
+**Current code state:** Not started — no recommendation-history API/table; Alternatives tab is UC5 verdict-time shell only
 
 ### User story
 
@@ -930,13 +941,13 @@ UC5 generates alternatives at verdict time. **UC17** persists/lists that history
 | [ ] | 3 | Empty history shows an empty state. |
 | [ ] | 4 | Unauthorized profile access returns 403. |
 | [ ] | 5 | Loading and error states are handled. |
-| [ ] | 6 | This UC does not generate new alternatives at verdict time (UC5 owns that). |
+| [x] | 6 | This UC does not generate new alternatives at verdict time (UC5 owns that). |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC17-S1** | 1–6 | Recommendation history API + list |
+| **UC17-S1** | 1–6 | Recommendation history API + list — **open** (AC6 boundary done) |
 
 Full table: [backlog §5 Enhanced](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
@@ -950,12 +961,12 @@ UC5
 
 **Owner:** Maowei · **Package:** Enhanced · **Architecture:** Authentication & Security  
 **Tech:** Mobile + Web + Spring Boot Auth API; Security; JWT; RDS  
-**Current code state:** Partial — register API + web register/login glue shipped; JWT still UC19
+**Current code state:** Complete — register API + mobile/web UIs; **does not auto-login** (UC19 owns session)
 
-- **Backend:** `POST /api/auth/register` creates `users` + SELF `dietary_profiles` with `family_id` NULL (circle created later via UC8). Pre-JWT `POST /api/auth/login` for web session. Password BCrypt; email requires dotted domain; registration password strength (upper/lower/digit/special) + 72-byte BCrypt limit on DTOs.
-- **Web:** `/family-register` + credential login; session → `/family` → UC8 `FamilyMeGate` when no circle.
-- **Mobile:** Registration UI/ViewModel present; align remaining gaps with API as needed.
-- **Gaps:** JWT session (UC19); does not itself create a family circle (by design — UC8).
+- **Backend:** `POST /api/auth/register` on combined `AuthController` / `AuthService` creates `users` + SELF `dietary_profiles` with `family_id` NULL (circle later via UC8). Password BCrypt; email dotted-domain; registration password strength + 72-byte BCrypt limit. No JWT issued on register.
+- **Web:** `/family-register` → then credential login (UC19) → `/family` → UC8 `FamilyMeGate` when no circle.
+- **Mobile:** Registration UI/ViewModel; success does **not** write `AuthSessionStore` (user must login).
+- **Gaps:** polish only; family circle remains UC8.
 
 ### User story
 
@@ -969,9 +980,9 @@ As a new user, I want to register for a CanMakan account so I can access persona
 | [x] | 2 | Duplicate email/account is rejected with a clear error. |
 | [x] | 3 | Credentials are stored securely (password hashed; no plaintext secrets in DB/logs). |
 | [x] | 4 | Successful registration creates an active account (`users.is_active=1` unless designed otherwise). |
-| [x] | 5 | Flow proceeds to login or onboarding as designed. *(web: register → session → `/family` / UC8)* |
+| [x] | 5 | Flow proceeds to login or onboarding as designed. *(web/mobile: register → separate UC19 login → `/family` / consumer main)* |
 | [x] | 6 | Validation errors return HTTP 400 with actionable messages. |
-| [x] | 7 | Loading and error states are handled on mobile and web register UIs. *(web done; mobile present — polish as needed)* |
+| [x] | 7 | Loading and error states are handled on mobile and web register UIs. |
 | [x] | 8 | This UC does not create a family circle (UC8) or orphan dietary profile against schema rules. |
 
 ### Jira child stories
@@ -979,13 +990,13 @@ As a new user, I want to register for a CanMakan account so I can access persona
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
 | **UC18-S1** | 1–4, 6 | **Done** — register API + validation |
-| **UC18-S2** | 5, 7–8 | **Done** (web); mobile UI present |
+| **UC18-S2** | 5, 7–8 | **Done** — web + mobile UI; no auto-login |
 
 Full table: [backlog §5 auth](sprint2-jira-backlog.md#uc19--uc18-authentication--security).
 
 ### Dependencies
 
-UC19 (JWT / real auth) · Unblocks demo of UC8 empty-state create
+UC19 (login after register) · Unblocks demo of UC8 empty-state create
 
 ---
 
@@ -993,7 +1004,13 @@ UC19 (JWT / real auth) · Unblocks demo of UC8 empty-state create
 
 **Owner:** Maowei · **Package:** Enhanced (**Core critical path**) · **Architecture:** Authentication & Security  
 **Tech:** Mobile + Web + Spring Boot Auth; Security; JWT; RDS  
-**Current code state:** Not started (scaffold only)
+**Current code state:** Mostly complete — JWT login/refresh/logout + clients shipped; residual endpoint protection gaps
+
+- **Backend:** Spring Security + JWT filter (`SecurityConfig`). Single `AuthController` / `AuthService`: `POST /api/auth/login` (access JWT + refresh cookie), `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me`. Auth package layout: `dto/` / `model/` / `exception/` / `repository/`. Platform roles `USER` / `ADMIN` (not Family Admin).
+- **Protected today:** `/api/families/**`, `POST /api/scan/assess`, `GET /api/auth/me`, `/api/admin/**` (ADMIN). **Still transitional `permitAll`:** dietary restrictions, scan validate, profile history, and other non-family business routes.
+- **Mobile:** `AuthSessionStore` (encrypted prefs); Bearer interceptor + authenticator; dedicated cookie refresh/logout client; `AppAuthViewModel` restore/login/logout; Login/Registration graphs. Unit tests cover login, session, refresh, logout, nav session gates.
+- **Web:** JWT session in `canmakan.session`; `Authorization: Bearer`; login/logout UX; portal maps `USER`→`ROLE_FAMILY_ADMIN`. Vitest suite under `client/web/src/test/`. Web does **not** yet auto-call refresh on 401 (mobile does).
+- **Gaps:** distinct HTTP 403 for suspended accounts (today often same safe 401); finish UC19-S3 for remaining public business APIs; web refresh/rotation parity; ownership authz still separate (UC1/UC2 profile checks).
 
 ### User stories
 
@@ -1004,34 +1021,34 @@ UC19 (JWT / real auth) · Unblocks demo of UC8 empty-state create
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | Valid email/password login returns access (and refresh if designed) tokens via `POST /api/auth/login`. |
-| [ ] | 2 | Invalid credentials return HTTP 401. |
-| [ ] | 3 | Suspended account (`users.is_active=0`) cannot obtain tokens (HTTP 403). |
-| [ ] | 4 | Protected business APIs require a valid JWT after UC19-S3 (unauthenticated → 401). |
-| [ ] | 5 | JWT carries agreed platform authorities (UC19-S2 role mapping). |
-| [ ] | 6 | Family Admin capability is **not** granted solely by a platform FAMILY_ADMIN JWT claim (membership remains source of truth). |
-| [ ] | 7 | Refresh token flow works as designed (`POST /api/auth/refresh`) or is explicitly deferred with documented scope. |
-| [ ] | 8 | Logout invalidates/terminates the session or refresh token as designed (`POST /api/auth/logout`). |
-| [ ] | 9 | Logout clears locally stored credentials/tokens on mobile and web. |
-| [ ] | 10 | After logout, protected features require re-authentication. |
-| [ ] | 11 | Mobile and web both support login and logout for their portals. |
-| [ ] | 12 | Loading and error states are handled on auth UIs. |
+| [x] | 1 | Valid email/password login returns access (and refresh if designed) tokens via `POST /api/auth/login`. |
+| [x] | 2 | Invalid credentials return HTTP 401. |
+| [ ] | 3 | Suspended account (`users.is_active=0`) cannot obtain tokens (HTTP 403). *(inactive currently fails closed as generic 401)* |
+| [ ] | 4 | Protected business APIs require a valid JWT after UC19-S3 (unauthenticated → 401). *(families + assess done; restrictions/history/validate still public)* |
+| [x] | 5 | JWT carries agreed platform authorities (UC19-S2 role mapping). *(live: `USER` / `ADMIN`)* |
+| [x] | 6 | Family Admin capability is **not** granted solely by a platform FAMILY_ADMIN JWT claim (membership remains source of truth). |
+| [x] | 7 | Refresh token flow works as designed (`POST /api/auth/refresh`). *(backend + mobile; web auto-refresh still thin)* |
+| [x] | 8 | Logout invalidates/terminates the session or refresh token as designed (`POST /api/auth/logout`). |
+| [x] | 9 | Logout clears locally stored credentials/tokens on mobile and web. |
+| [x] | 10 | After logout, protected features require re-authentication. |
+| [x] | 11 | Mobile and web both support login and logout for their portals. |
+| [x] | 12 | Loading and error states are handled on auth UIs. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC19-S1** | 1–3, 7 | Login/refresh JWT |
-| **UC19-S2** | 5–6 | Platform roles + mapping |
-| **UC19-S3** | 4 | Protect business endpoints |
-| **UC19-S4** | 8–10 | Logout invalidate + clear local |
-| **UC19-S5** | 11–12 | Mobile + web auth UX |
+| **UC19-S1** | 1–3, 7 | **Mostly done** — login/refresh; AC3 distinct 403 polish |
+| **UC19-S2** | 5–6 | **Done** — platform `USER`/`ADMIN` + family membership separate |
+| **UC19-S3** | 4 | **Partial** — families + assess; finish remaining business routes |
+| **UC19-S4** | 8–10 | **Done** — logout invalidate + clear local |
+| **UC19-S5** | 11–12 | **Done** — mobile + web auth UX |
 
 Full table: [backlog §5 auth](sprint2-jira-backlog.md#uc19--uc18-authentication--security).
 
 ### Dependencies
 
-None · **Blocks** production use of Core MVP APIs
+None · **Unblocks** production use of protected Core APIs; remaining public routes still need S3 close-out
 
 ---
 
@@ -1041,7 +1058,7 @@ None · **Blocks** production use of Core MVP APIs
 
 **Owner:** *Unassigned* · **Package:** Nice-to-Have · **Architecture:** Shared Client  
 **Tech:** Android; React Admin; Reporting API; RDS  
-**Current code state:** README / not started
+**Current code state:** Not started — mobile `product/reporting` README only; Future Features “Product Data Issues” disabled; no report API
 
 ### User story
 
@@ -1056,14 +1073,14 @@ As an app user, I want to flag incorrect product or ingredient data for review.
 | [ ] | 3 | System Admin can view submitted reports in the admin portal (as designed). |
 | [ ] | 4 | Unauthorized users cannot submit or browse others’ reports beyond designed authz. |
 | [ ] | 5 | Loading, confirmation, and error states are handled. |
-| [ ] | 6 | This UC does not auto-correct Open Food Facts or override engine verdicts. |
+| [x] | 6 | This UC does not auto-correct Open Food Facts or override engine verdicts. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC20-S1** | 1–2, 5–6 | Mobile flag |
-| **UC20-S2** | 3–4 | Admin review queue |
+| **UC20-S1** | 1–2, 5–6 | Mobile flag — **open** (AC6 boundary done) |
+| **UC20-S2** | 3–4 | Admin review queue — **open** |
 
 Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
@@ -1092,13 +1109,13 @@ As a System Admin, I want AI analysis/execution logs with accuracy indicators, l
 | [ ] | 3 | Logs can be filtered (e.g. by date/outcome). |
 | [ ] | 4 | Access is restricted to System Admins (403 otherwise). |
 | [ ] | 5 | Loading, empty, and error states are handled. |
-| [ ] | 6 | This UC does not retrain models or change UC3 verdict ownership. |
+| [x] | 6 | This UC does not retrain models or change UC3 verdict ownership. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC21-S1** | 1–6 | AI logs dashboard + filters |
+| **UC21-S1** | 1–6 | AI logs dashboard + filters — **open** (write path only; AC6 boundary done) |
 
 Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
@@ -1108,7 +1125,7 @@ Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
 **Owner:** *Unassigned* · **Package:** Nice-to-Have · **Architecture:** Web Client (Admin)  
 **Tech:** React Admin; CSV export; RDS  
-**Current code state:** Not started
+**Current code state:** Not started — no CSV export endpoint/UI; depends on missing UC7 live aggregates
 
 ### User story
 
@@ -1123,13 +1140,13 @@ As a System Admin, I want to export aggregated anonymised trend data (e.g. CSV).
 | [ ] | 3 | Exported file contains no personally identifiable user or family information. |
 | [ ] | 4 | Non–System Admin cannot export (403). |
 | [ ] | 5 | Error/empty export cases are handled. |
-| [ ] | 6 | This UC depends on UC7 aggregates and does not invent a separate identifiable family export. |
+| [x] | 6 | This UC depends on UC7 aggregates and does not invent a separate identifiable family export. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC22-S1** | 1–6 | CSV export (no PII) |
+| **UC22-S1** | 1–6 | CSV export (no PII) — **open** (AC6 boundary done) |
 
 Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
@@ -1143,7 +1160,7 @@ UC7
 
 **Owner:** *Unassigned* · **Package:** Nice-to-Have · **Architecture:** Web Client (Admin)  
 **Tech:** React Admin; Spring Boot; RDS  
-**Current code state:** Not started
+**Current code state:** Not started — schema/seeds only (`subscription_plans`, `features`, …); no admin CRUD API/UI
 
 ### User story
 
@@ -1159,13 +1176,13 @@ As a System Admin, I want to configure subscription tiers and feature availabili
 | [ ] | 4 | Changes persist after save. |
 | [ ] | 5 | Only authorised System Admins can modify plans (403 otherwise). |
 | [ ] | 6 | Loading, validation, and error states are handled. |
-| [ ] | 7 | Payment-provider billing integration is out of scope unless explicitly expanded later. |
+| [x] | 7 | Payment-provider billing integration is out of scope unless explicitly expanded later. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC23-S1** | 1–7 | Tier CRUD + feature flags |
+| **UC23-S1** | 1–7 | Tier CRUD + feature flags — **open** (AC7 boundary done) |
 
 Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
@@ -1175,7 +1192,7 @@ Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
 **Owner:** *Unassigned* · **Package:** Nice-to-Have · **Architecture:** Mobile Client  
 **Tech:** Android; ML Kit Text Recognition; Spring Boot  
-**Current code state:** Not started
+**Current code state:** Not started — barcode ML Kit only; schema `ocr_scans` unused; no text-recognition dependency or OCR → assess UX
 
 ### User story
 
@@ -1193,14 +1210,14 @@ As an app user, I want to capture ingredient text via OCR on an unbarcoded produ
 | [ ] | 6 | OCR failure produces a clear error state. |
 | [ ] | 7 | OCR failure never produces a false Safe verdict. |
 | [ ] | 8 | Loading and error states are handled across capture → extract → assess. |
-| [ ] | 9 | This UC does not replace the Core barcode scan path (UC2). |
+| [x] | 9 | This UC does not replace the Core barcode scan path (UC2). |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC24-S1** | 1–2, 6–8 | Capture + OCR extract |
-| **UC24-S2** | 3–5, 7, 9 | Review → same assess pipeline |
+| **UC24-S1** | 1–2, 6–8 | Capture + OCR extract — **open** |
+| **UC24-S2** | 3–5, 7, 9 | Review → same assess pipeline — **partial** (AC9 boundary done) |
 
 Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
@@ -1218,16 +1235,16 @@ Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
 Canonical with [backlog §5b](sprint2-jira-backlog.md#5b-recommended-delivery-sequence):
 
-1. UC19-S1/S3/S5 (critical path — real JWT / 401)  
-2. **Shipped (pre-JWT):** UC18-S1/S2 (web); UC8-S1–S4 (API + web/mobile create-when-empty); remaining UC8 = AC8→UC19; AC10 polish → UC11  
-3. UC11-S1…S3 (drop `familyId=1`) → UC2-S1…S4 → UC3-S1…S2 → UC4-S1  
-4. UC12-S1…S6 → UC9-S3; stretch UC1-S1/S3, UC6-S1/S2, UC9-S1/S2  
-5. UC9–UC10 invite loop → UC6-S3 if needed  
+1. **Shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT login/refresh/logout + clients); UC8-S1–S4 (incl. AC8 401); UC6-S1/S2 (summary API + mobile grid)  
+2. **Finish auth hard-edges:** UC19-S3 (protect remaining business routes) + UC19 AC3 (suspended → 403); UC1-S1 ownership authz  
+3. UC11-S1…S3 (server active-profile; drop `DEFAULT_PROFILE_ID=1` fallback) → UC2 remaining authz (profile ownership / inactive) → UC3 polish → UC4-S1 authz  
+4. UC12-S1…S6 → UC9-S3; stretch UC1-S3, UC9-S1/S2, UC6-S3 web parity  
+5. UC9–UC10 invite loop  
 6. UC4-S2/S3 → UC5-S1/S2 → UC7-S1/S2 → UC13-S1…S3  
-7. Enhanced: UC14-S1/S2, UC15–UC17; polish UC18–UC19  
+7. Enhanced: UC14-S1/S2, UC15–UC17  
 8. Nice-to-Have: UC20-S1/S2 … UC24-S1/S2  
 
-Seeded families still useful for scan work until UC11 resolves membership without hardcodes.
+Seeded families still useful for scan work until UC11 persists active profile server-side.
 
 ---
 
