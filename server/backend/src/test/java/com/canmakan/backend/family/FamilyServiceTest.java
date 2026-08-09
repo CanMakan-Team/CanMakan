@@ -437,6 +437,56 @@ class FamilyServiceTest {
         assertEquals("Toddler", summary.getFamilyMembers().get(1).getName());
     }
 
+    @Test
+    @DisplayName("listFamilyMembers returns linked user and dependant roster rows")
+    void listFamilyMembersIncludesLinkedAndDependant() {
+        FamilyMember membership = new FamilyMember(
+            new FamilyMember.FamilyMemberId(1L, 10L),
+            FamilyMember.ROLE_PRIMARY_ADMIN,
+            true,
+            null
+        );
+        when(familyMemberRepository.findMembershipByUserId(10L)).thenReturn(Optional.of(membership));
+        when(familyMemberRepository.findActiveMembersByFamilyId(1L)).thenReturn(List.of(membership));
+
+        DietaryProfile self = new DietaryProfile();
+        self.setId(1L);
+        self.setProfileName("Admin");
+        self.setRelationship("SELF");
+        when(dietaryProfileRepository.findByLinkedUser_Id(10L)).thenReturn(Optional.of(self));
+
+        UserAccount admin = new UserAccount();
+        admin.setId(10L);
+        admin.setEmail("admin@example.com");
+        when(userAccountRepository.findById(10L)).thenReturn(Optional.of(admin));
+
+        DietaryProfile dependant = new DietaryProfile();
+        dependant.setId(2L);
+        dependant.setProfileName("Toddler");
+        dependant.setRelationship("CHILD");
+        when(dietaryProfileRepository.findDependantProfilesByFamilyId(1L))
+            .thenReturn(List.of(dependant));
+
+        List<com.canmakan.backend.family.dto.FamilyMemberRosterDto> rows =
+            familyService.listFamilyMembers(10L);
+
+        assertEquals(2, rows.size());
+        assertEquals(10L, rows.get(0).memberId());
+        assertEquals("REGISTERED_USER", rows.get(0).source());
+        assertEquals("a***n@example.com", rows.get(0).maskedEmail());
+        assertEquals(2L, rows.get(1).memberId());
+        assertEquals("DEPENDANT_PROFILE", rows.get(1).source());
+        assertEquals("Toddler", rows.get(1).profileName());
+        assertEquals("UNSPECIFIED", rows.get(1).ageGroup());
+    }
+
+    @Test
+    @DisplayName("listFamilyMembers without membership throws 404-style FamilyNotFoundException")
+    void listFamilyMembersNotInFamily() {
+        when(familyMemberRepository.findMembershipByUserId(99L)).thenReturn(Optional.empty());
+        assertThrows(FamilyNotFoundException.class, () -> familyService.listFamilyMembers(99L));
+    }
+
     private void stubPrimaryAdmin(long userId, long familyId) {
         FamilyMember membership = new FamilyMember(
             new FamilyMember.FamilyMemberId(familyId, userId),

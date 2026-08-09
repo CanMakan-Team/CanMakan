@@ -43,7 +43,10 @@ export const familyApiService = {
     }),
 
   // Get the members
-  getMembers: () => apiRequest<FamilyMember[]>(familyEndpoints.members),
+  getMembers: () =>
+    useMockApi
+      ? mockFamilyRepository.getMembers()
+      : apiRequest<FamilyMember[]>(familyEndpoints.members),
 
   // Search for an existing user
   searchExistingUser: (email: string) =>

@@ -168,8 +168,10 @@ fun AddProfileToFamilyScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
                     onClick = {
+                        val appDeepLink = "canmakan://invite/${invitation.invitationToken}"
                         val shareText =
-                            "Join my CanMakan family:\n${invitation.inviteUrl}\nCode: ${invitation.inviteCode}"
+                            "Join my CanMakan family:\n$appDeepLink\n" +
+                                "Web: ${invitation.inviteUrl}\nCode: ${invitation.inviteCode}"
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, shareText)

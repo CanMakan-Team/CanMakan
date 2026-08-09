@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.navigation
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -82,6 +83,7 @@ fun CanMakanNavGraph(
     val pendingVerdict by navGraphViewModel.pendingVerdict.collectAsStateWithLifecycle()
     val isCreatingFamily by navGraphViewModel.isCreatingFamily.collectAsStateWithLifecycle()
     val createFamilyError by navGraphViewModel.createFamilyError.collectAsStateWithLifecycle()
+    val inviteClaimError by navGraphViewModel.inviteClaimError.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -169,8 +171,18 @@ fun CanMakanNavGraph(
             }
         }
     ) {
-        // NavHost is used to switch between the three screens
-        NavHost(navController = navController, startDestination = ROUTE_SCANNER) {
+        Column {
+            inviteClaimError?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable { navGraphViewModel.clearInviteClaimError() },
+                )
+            }
+            // NavHost is used to switch between the three screens
+            NavHost(navController = navController, startDestination = ROUTE_SCANNER) {
             composable(ROUTE_SCANNER) {
                 ScannerScreen(
                     activeProfile = activeProfile,
@@ -276,10 +288,10 @@ fun CanMakanNavGraph(
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },
                     onCancelClick = { navController.popBackStack() },
-                    onCreateClick = { _, _, _ -> 
+                    onCreated = {
                         navController.popBackStack()
                         navGraphViewModel.refreshRestrictions()
-                    }
+                    },
                 )
             }
             composable(ROUTE_ADD_PROFILE) {
@@ -296,6 +308,7 @@ fun CanMakanNavGraph(
                     }
                 )
             }
+        }
         }
 
         // ModalBottomSheet is used to open and close the edit dietary requirements sheet

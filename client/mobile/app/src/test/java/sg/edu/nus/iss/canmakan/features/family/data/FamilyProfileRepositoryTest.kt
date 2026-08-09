@@ -121,5 +121,23 @@ class FamilyProfileRepositoryTest {
 
         override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> =
             Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun searchUserByEmail(email: String): Response<UserSearchResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun createInvitation(
+            request: CreateInvitationRequestBody,
+        ): Response<InvitationResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun claimInvitation(
+            request: ClaimInvitationRequestBody,
+        ): Response<FamilyMeResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun createDependantProfile(
+            request: CreateDependantProfileRequestBody,
+        ): Response<DependantProfileResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
     }
 }

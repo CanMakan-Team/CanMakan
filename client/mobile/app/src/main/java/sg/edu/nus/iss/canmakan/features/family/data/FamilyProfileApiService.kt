@@ -31,6 +31,24 @@ data class InvitationResponse(
     @SerializedName("inviteeRegistered") val inviteeRegistered: Boolean,
 )
 
+data class ClaimInvitationRequestBody(
+    @SerializedName("invitationToken") val invitationToken: String,
+)
+
+data class CreateDependantProfileRequestBody(
+    @SerializedName("profileName") val profileName: String,
+    @SerializedName("relationship") val relationship: String,
+    @SerializedName("commonRequirements") val commonRequirements: List<String> = emptyList(),
+    @SerializedName("restrictions") val restrictions: List<String> = emptyList(),
+)
+
+data class DependantProfileResponse(
+    @SerializedName("profileId") val profileId: Long,
+    @SerializedName("profileName") val profileName: String,
+    @SerializedName("relationship") val relationship: String,
+    @SerializedName("familyId") val familyId: Long,
+)
+
 interface FamilyProfileApiService {
     @GET("families/me")
     suspend fun getMyFamily(): Response<FamilyMeResponse>
@@ -57,4 +75,14 @@ interface FamilyProfileApiService {
     suspend fun createInvitation(
         @Body request: CreateInvitationRequestBody,
     ): Response<InvitationResponse>
+
+    @POST("families/me/invitations/claim")
+    suspend fun claimInvitation(
+        @Body request: ClaimInvitationRequestBody,
+    ): Response<FamilyMeResponse>
+
+    @POST("families/me/profiles")
+    suspend fun createDependantProfile(
+        @Body request: CreateDependantProfileRequestBody,
+    ): Response<DependantProfileResponse>
 }

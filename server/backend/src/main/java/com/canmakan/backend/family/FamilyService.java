@@ -4,11 +4,13 @@ import com.canmakan.backend.dietaryprofile.DietaryProfile;
 import com.canmakan.backend.dietaryprofile.DietaryProfileRepository;
 import com.canmakan.backend.dietaryprofile.DietaryProfileService;
 import com.canmakan.backend.dietaryprofile.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.ProfileRestriction;
 import com.canmakan.backend.family.dto.ClaimInvitationRequest;
 import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
 import com.canmakan.backend.family.dto.CreateInvitationRequest;
 import com.canmakan.backend.family.dto.DependantProfileResponse;
+import com.canmakan.backend.family.dto.FamilyMemberRosterDto;
 import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.dto.FamilyMeRestrictionDetail;
 import com.canmakan.backend.family.dto.FamilyMeRestrictionSum;
@@ -170,6 +172,66 @@ public class FamilyService {
         }
 
         return new FamilyRestrictionSumRes(rows);
+    }
+
+    /**
+     * Lists linked members and dependant profiles for the caller's family.
+     * Registered rows use {@code memberId = userId}; dependants use {@code memberId = profileId}.
+     * Restriction codes with category RELIGIOUS go to commonRequirements; all others to restrictions.
+     * ageGroup is always UNSPECIFIED until UC12 persists it.
+     */
+    @Transactional(readOnly = true)
+    public List<FamilyMemberRosterDto> listFamilyMembers(long currentUserId) {
+        FamilyMember membership = requireMembership(currentUserId);
+        Long familyId = membership.getFamilyId();
+
+        List<FamilyMemberRosterDto> rows = new ArrayList<>();
+
+        for (FamilyMember member : familyMemberRepository.findActiveMembersByFamilyId(familyId)) {
+            Optional<DietaryProfile> dietaryProfileOpt =
+                dietaryProfileRepository.findByLinkedUser_Id(member.getUserId());
+            String name = dietaryProfileOpt.map(DietaryProfile::getProfileName)
+                .orElse("Unknown Member");
+            String relationship = dietaryProfileOpt.map(DietaryProfile::getRelationship)
+                .filter(value -> value != null && !value.isBlank())
+                .orElse("OTHER");
+            RestrictionCodeSplit codes = splitRestrictionCodes(dietaryProfileOpt);
+            String masked = userAccountRepository.findById(member.getUserId())
+                .map(UserAccount::getEmail)
+                .map(FamilyService::maskEmail)
+                .orElse(null);
+            rows.add(new FamilyMemberRosterDto(
+                member.getUserId(),
+                name,
+                relationship,
+                FamilyMemberRosterDto.AGE_GROUP_UNSPECIFIED,
+                codes.commonRequirements(),
+                codes.restrictions(),
+                FamilyMemberRosterDto.SOURCE_REGISTERED,
+                masked
+            ));
+        }
+
+        for (DietaryProfile dependant :
+                dietaryProfileRepository.findDependantProfilesByFamilyId(familyId)) {
+            String relationship = dependant.getRelationship() == null
+                || dependant.getRelationship().isBlank()
+                ? "DEPENDANT"
+                : dependant.getRelationship();
+            RestrictionCodeSplit codes = splitRestrictionCodes(Optional.of(dependant));
+            rows.add(new FamilyMemberRosterDto(
+                dependant.getId(),
+                dependant.getProfileName(),
+                relationship,
+                FamilyMemberRosterDto.AGE_GROUP_UNSPECIFIED,
+                codes.commonRequirements(),
+                codes.restrictions(),
+                FamilyMemberRosterDto.SOURCE_DEPENDANT,
+                null
+            ));
+        }
+
+        return rows;
     }
 
     // Get the family me response
@@ -572,6 +634,42 @@ public class FamilyService {
                     restriction.getSeverityLevel()
                 )).toList()
         ).orElse(List.of());
+    }
+
+    /**
+     * Splits profile restriction codes for the roster DTO.
+     * RELIGIOUS category → commonRequirements; all other categories → restrictions.
+     */
+    private static RestrictionCodeSplit splitRestrictionCodes(
+            Optional<DietaryProfile> dietaryProfileOpt) {
+        List<String> common = new ArrayList<>();
+        List<String> individual = new ArrayList<>();
+        if (dietaryProfileOpt.isEmpty()) {
+            return new RestrictionCodeSplit(common, individual);
+        }
+        for (ProfileRestriction profileRestriction :
+                dietaryProfileOpt.get().getProfileRestrictions()) {
+            DietaryRestriction restriction = profileRestriction.getDietaryRestriction();
+            if (restriction == null || restriction.getCode() == null) {
+                continue;
+            }
+            String code = restriction.getCode();
+            String category = restriction.getCategory() == null
+                ? ""
+                : restriction.getCategory().trim().toUpperCase(Locale.ROOT);
+            if ("RELIGIOUS".equals(category)) {
+                common.add(code);
+            } else {
+                individual.add(code);
+            }
+        }
+        return new RestrictionCodeSplit(List.copyOf(common), List.copyOf(individual));
+    }
+
+    private record RestrictionCodeSplit(
+        List<String> commonRequirements,
+        List<String> restrictions
+    ) {
     }
 
     // Generate a unique invitation token

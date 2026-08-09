@@ -23,6 +23,7 @@ import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
 import com.canmakan.backend.shared.security.SystemRole;
 
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -199,6 +200,51 @@ class FamilyControllerTest {
                 .content("{\"profileName\":\"Child\",\"relationship\":\"CHILD\"}"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.profileId").value(55));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/me/members returns 200")
+    void listMembersOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.listFamilyMembers(10L)).thenReturn(List.of(
+            new com.canmakan.backend.family.dto.FamilyMemberRosterDto(
+                10L,
+                "Admin",
+                "SELF",
+                "UNSPECIFIED",
+                List.of("HALAL"),
+                List.of("PEANUT_ALLERGY"),
+                "REGISTERED_USER",
+                "a***n@example.com"),
+            new com.canmakan.backend.family.dto.FamilyMemberRosterDto(
+                2L,
+                "Toddler",
+                "CHILD",
+                "UNSPECIFIED",
+                List.of(),
+                List.of(),
+                "DEPENDANT_PROFILE",
+                null)
+        ));
+
+        mockMvc.perform(get("/api/families/me/members"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].memberId").value(10))
+            .andExpect(jsonPath("$[0].source").value("REGISTERED_USER"))
+            .andExpect(jsonPath("$[1].memberId").value(2))
+            .andExpect(jsonPath("$[1].source").value("DEPENDANT_PROFILE"));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/me/members without membership returns 404")
+    void listMembersNotFound() throws Exception {
+        authenticateAs(99L);
+        when(familyService.listFamilyMembers(99L))
+            .thenThrow(new FamilyNotFoundException("You are not a member of a family circle."));
+
+        mockMvc.perform(get("/api/families/me/members"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("You are not a member of a family circle."));
     }
 
     private static void authenticateAs(long userId) {

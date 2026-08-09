@@ -6,6 +6,7 @@ import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
 import com.canmakan.backend.family.dto.CreateInvitationRequest;
 import com.canmakan.backend.family.dto.DependantProfileResponse;
+import com.canmakan.backend.family.dto.FamilyMemberRosterDto;
 import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
 import com.canmakan.backend.family.dto.InvitationResponse;
@@ -83,6 +84,16 @@ public class FamilyController {
         long userId = requireUserId(userDetails);
         FamilyRestrictionSumRes summary = familyService.getFamilyRestrictionSummary(userId);
         return ResponseEntity.ok(summary);
+    }
+
+    // GET /api/families/me/members -> roster of linked members + dependants
+    @GetMapping("/me/members")
+    public List<FamilyMemberRosterDto> listMembers(
+            @AuthenticationPrincipal AuthUserDetails userDetails) {
+        long userId = requireUserId(userDetails);
+        List<FamilyMemberRosterDto> members = familyService.listFamilyMembers(userId);
+        log.info("GET /families/me/members → 200 count={}", members.size());
+        return members;
     }
 
     // GET /api/families/me/user-search -> search for a user by email
