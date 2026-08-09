@@ -1,208 +1,354 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { adminService } from '../admin/adminService'
-import { getErrorMessage } from '../../shared/api/apiErrors'
-import type { ConsumerTrendResponse } from '../../shared/api/types'
+import { useCallback, useEffect, useState } from 'react'
+import { ApiError, getErrorMessage } from '../../shared/api/apiErrors'
 import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
-import { StatusBadge } from '../../shared/ui/StatusBadge'
+import { consumerTrendsApiService } from './consumerTrendsApiService'
+import type {
+  ConsumerTrendsQuery,
+  ConsumerTrendsResponse,
+  TrendSummary,
+} from './consumerTrendsTypes'
+
+const SINGAPORE_TIMEZONE = 'Asia/Singapore'
+const SINGAPORE_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: SINGAPORE_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+const SINGAPORE_DATETIME_FORMATTER = new Intl.DateTimeFormat('en-SG', {
+  timeZone: SINGAPORE_TIMEZONE,
+  dateStyle: 'medium',
+  timeStyle: 'short',
+})
+
+type PeriodDays = 7 | 30 | 90
+
+interface PageError {
+  kind: 'validation' | 'service' | 'unexpected'
+  message: string
+}
+
+function currentSingaporeDate(now = new Date()): string {
+  let year = ''
+  let month = ''
+  let day = ''
+  for (const part of SINGAPORE_DATE_FORMATTER.formatToParts(now)) {
+    if (part.type === 'year') year = part.value
+    if (part.type === 'month') month = part.value
+    if (part.type === 'day') day = part.value
+  }
+  return `${year}-${month}-${day}`
+}
+
+function subtractCalendarDays(isoDate: string, days: number): string {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day - days))
+  return date.toISOString().slice(0, 10)
+}
+
+function buildPeriodQuery(days: PeriodDays): ConsumerTrendsQuery {
+  const to = currentSingaporeDate()
+  return {
+    from: subtractCalendarDays(to, days - 1),
+    to,
+  }
+}
+
+function percentage(count: number, total: number): number {
+  return total === 0 ? 0 : Math.round((count / total) * 100)
+}
+
+function buildVerdictGradient(summary: TrendSummary): string {
+  if (summary.totalScans === 0) return '#e7eeea'
+  const safeEnd = (summary.safeCount / summary.totalScans) * 100
+  const warningEnd =
+    safeEnd + (summary.warningCount / summary.totalScans) * 100
+  return `conic-gradient(
+    #27875b 0 ${safeEnd}%,
+    #d6a12b ${safeEnd}% ${warningEnd}%,
+    #b24b44 ${warningEnd}% 100%
+  )`
+}
+
+function formatGeneratedAt(value: string): string {
+  try {
+    return SINGAPORE_DATETIME_FORMATTER.format(new Date(value))
+  } catch {
+    return value
+  }
+}
+
+function classifyPageError(error: unknown): PageError {
+  if (error instanceof ApiError) {
+    return {
+      kind: error.status === 400 ? 'validation' : 'service',
+      message: getErrorMessage(error),
+    }
+  }
+  return { kind: 'unexpected', message: getErrorMessage(error) }
+}
 
 export function ConsumerTrendsPage() {
-  const [data, setData] = useState<ConsumerTrendResponse | null>(null)
-  const [period, setPeriod] = useState('30')
-  const [category, setCategory] = useState('ALL')
-  const [platform, setPlatform] = useState('ALL')
+  const [data, setData] = useState<ConsumerTrendsResponse | null>(null)
+  const [periodDays, setPeriodDays] = useState<PeriodDays>(30)
+  const [query, setQuery] = useState<ConsumerTrendsQuery>()
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<PageError | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
-    setError('')
+    setError(null)
     try {
-      setData(await adminService.getConsumerTrends())
+      setData(
+        await (query
+          ? consumerTrendsApiService.getConsumerTrends(query)
+          : consumerTrendsApiService.getConsumerTrends()),
+      )
     } catch (caughtError) {
-      setError(getErrorMessage(caughtError))
+      setError(classifyPageError(caughtError))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [query])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void load(), 0)
     return () => window.clearTimeout(timeoutId)
-  }, [load, period, platform])
+  }, [load])
 
-  const categories = useMemo(
-    () =>
-      category === 'ALL'
-        ? data?.productCategories
-        : data?.productCategories?.filter((item) => item.category === category),
-    [category, data],
-  )
-  const totalVerdicts =
-    data?.verdictDistribution.reduce((sum, item) => sum + item.count, 0) ?? 0
-  const maxIngredient = Math.max(
-    ...(data?.flaggedIngredients.map((item) => item.count) ?? [1]),
-  )
+  const changePeriod = (value: string) => {
+    const days = Number(value)
+    if (days !== 7 && days !== 30 && days !== 90) return
+    setPeriodDays(days)
+    setQuery(buildPeriodQuery(days))
+  }
+
+  const errorMessage =
+    error?.kind === 'validation'
+      ? `The selected reporting period could not be used. ${error.message}`
+      : error?.kind === 'service'
+        ? `The analytics service could not complete the request. ${error.message}`
+        : error?.kind === 'unexpected'
+          ? `An unexpected error occurred. ${error.message}`
+          : undefined
 
   return (
     <>
       <header className="page-header page-header--system">
         <div>
-          <p className="eyebrow">Feature 7 · anonymised aggregate data</p>
+          <p className="eyebrow">Feature 7 - anonymised aggregate data</p>
           <h1>Consumer Trends</h1>
           <p>
-            Aggregated scan and assessment patterns only. Named users, families,
-            emails and individual dietary profiles are excluded.
+            Aggregated scan trends and flagged ingredients only. Named users,
+            families and individual dietary profiles are excluded.
           </p>
         </div>
       </header>
 
-      <section className="filter-bar filter-bar--system" aria-label="Trend controls">
+      <section
+        className="filter-bar filter-bar--system filter-bar--analytics"
+        aria-label="Trend controls"
+      >
         <div className="field-group">
           <label htmlFor="trend-period">Reporting period</label>
-          <select id="trend-period" value={period} onChange={(event) => setPeriod(event.target.value)}>
+          <select
+            id="trend-period"
+            value={periodDays}
+            disabled={loading}
+            onChange={(event) => changePeriod(event.target.value)}
+          >
             <option value="7">Last 7 days</option>
             <option value="30">Last 30 days</option>
             <option value="90">Last 90 days</option>
           </select>
         </div>
-        <div className="field-group">
-          <label htmlFor="trend-category">Product category</label>
-          <select id="trend-category" value={category} onChange={(event) => setCategory(event.target.value)}>
-            <option value="ALL">All categories</option>
-            {data?.productCategories?.map((item) => (
-              <option key={item.category} value={item.category}>{item.category}</option>
-            ))}
-          </select>
-        </div>
-        <div className="field-group">
-          <label htmlFor="trend-platform">Platform scope</label>
-          <select id="trend-platform" value={platform} onChange={(event) => setPlatform(event.target.value)}>
-            <option value="ALL">All supported platforms</option>
-            <option value="ANDROID">Android</option>
-            <option value="WEB">Web assessment records</option>
-          </select>
-        </div>
       </section>
 
       {loading ? (
-        <LoadingState label="Generating anonymised consumer trends…" />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
-      ) : !data || totalVerdicts === 0 ? (
-        <EmptyState
-          title="No aggregate data"
-          description="There is no anonymised assessment data for this reporting period."
-        />
-      ) : (
-        <>
-          {data.partial && (
-            <div className="notice notice--warning">
-              <strong>Partial aggregate data</strong>
-              <p>
-                Some category and platform dimensions are not supplied by the
-                mock dataset. Counts shown remain aggregate and anonymised.
-              </p>
-            </div>
-          )}
-          <div className="trend-grid">
-            <section className="panel" aria-labelledby="verdict-chart-title">
-              <div className="panel__header">
-                <div>
-                  <p className="eyebrow">Assessment outcomes</p>
-                  <h2 id="verdict-chart-title">Verdict distribution</h2>
-                </div>
-                <strong>{totalVerdicts.toLocaleString()} assessments</strong>
-              </div>
-              <div className="donut-layout">
-                <div
-                  className="donut-chart"
-                  role="img"
-                  aria-label="Verdict distribution chart. Full values are available in the adjacent table."
-                >
-                  <span>{totalVerdicts.toLocaleString()}<small>Total</small></span>
-                </div>
-                <table className="compact-table">
-                  <caption>Accessible verdict distribution values</caption>
-                  <thead><tr><th>Verdict</th><th>Count</th><th>Percent</th></tr></thead>
-                  <tbody>
-                    {data.verdictDistribution.map((item) => (
-                      <tr key={item.verdict}>
-                        <td><StatusBadge status={item.verdict} /></td>
-                        <td>{item.count.toLocaleString()}</td>
-                        <td>{Math.round((item.count / totalVerdicts) * 100)}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+        <LoadingState label="Generating anonymised consumer trends..." />
+      ) : errorMessage ? (
+        <ErrorState message={errorMessage} onRetry={load} />
+      ) : data ? (
+        <ConsumerTrendsResult data={data} />
+      ) : null}
+    </>
+  )
+}
 
-            <section className="panel" aria-labelledby="ingredient-chart-title">
-              <p className="eyebrow">Resolved names</p>
-              <h2 id="ingredient-chart-title">Most commonly flagged ingredients</h2>
+function ConsumerTrendsResult({ data }: { data: ConsumerTrendsResponse }) {
+  const verdicts = [
+    { label: 'SAFE', count: data.summary.safeCount },
+    { label: 'WARNING', count: data.summary.warningCount },
+    { label: 'UNSAFE', count: data.summary.unsafeCount },
+  ] as const
+  const maxIngredientCount = Math.max(
+    ...data.topFlaggedIngredients.map((item) => item.flaggedCount),
+    1,
+  )
+
+  return (
+    <>
+      <p className="trend-result-meta">
+        Reporting period: <time dateTime={data.period.from}>{data.period.from}</time>
+        {' to '}
+        <time dateTime={data.period.to}>{data.period.to}</time>
+        {` - ${data.period.timezone} - Generated `}
+        <time dateTime={data.generatedAt}>{formatGeneratedAt(data.generatedAt)}</time>
+      </p>
+
+      {data.dataQuality.partial && (
+        <div className="notice notice--warning">
+          <strong>Partial ingredient-ranking data</strong>
+          <p>
+            Some ingredient-ranking data could not be processed (
+            {data.dataQuality.skippedMalformedFindings.toLocaleString()} skipped
+            {data.dataQuality.skippedMalformedFindings === 1 ? ' record' : ' records'}).
+            {' '}Aggregate scan trends remain available.
+          </p>
+        </div>
+      )}
+
+      <section className="summary-grid" aria-label="Consumer trend summary">
+        <SummaryCard label="Total Scans" value={data.summary.totalScans} icon="#" />
+        <SummaryCard label="Safe" value={data.summary.safeCount} icon="S" />
+        <SummaryCard label="Warning" value={data.summary.warningCount} icon="!" />
+        <SummaryCard label="Unsafe" value={data.summary.unsafeCount} icon="U" />
+      </section>
+
+      {data.summary.totalScans === 0 && (
+        <EmptyState
+          title="No eligible scans for this period"
+          description="The reporting period is valid, but no scans matched the analytics criteria."
+        />
+      )}
+
+      <div className="trend-grid">
+        <section className="panel" aria-labelledby="verdict-chart-title">
+          <div className="panel__header">
+            <div>
+              <p className="eyebrow">Assessment outcomes</p>
+              <h2 id="verdict-chart-title">Verdict distribution</h2>
+            </div>
+            <strong>{data.summary.totalScans.toLocaleString()} scans</strong>
+          </div>
+          <div className="donut-layout">
+            <div
+              className="donut-chart"
+              style={{ background: buildVerdictGradient(data.summary) }}
+              role="img"
+              aria-label={`Verdict distribution: ${data.summary.safeCount} safe, ${data.summary.warningCount} warning, ${data.summary.unsafeCount} unsafe.`}
+            >
+              <span>
+                {data.summary.totalScans.toLocaleString()}
+                <small>Total</small>
+              </span>
+            </div>
+            <table className="compact-table">
+              <caption>Accessible verdict distribution values</caption>
+              <thead>
+                <tr><th>Verdict</th><th>Count</th><th>Percent</th></tr>
+              </thead>
+              <tbody>
+                {verdicts.map((item) => (
+                  <tr key={item.label}>
+                    <td>
+                      <span className={`status-badge status-badge--${item.label.toLowerCase()}`}>
+                        {item.label}
+                      </span>
+                    </td>
+                    <td>{item.count.toLocaleString()}</td>
+                    <td>{percentage(item.count, data.summary.totalScans)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="panel" aria-labelledby="ingredient-chart-title">
+          <p className="eyebrow">Distinct scans</p>
+          <h2 id="ingredient-chart-title">Most commonly flagged ingredients</h2>
+          {data.topFlaggedIngredients.length === 0 ? (
+            <p>No flagged ingredients were available for this period.</p>
+          ) : (
+            <>
               <div className="bar-chart" aria-hidden="true">
-                {data.flaggedIngredients.map((item) => (
-                  <div key={item.resolvedIngredient}>
-                    <span>{item.resolvedIngredient}</span>
-                    <i style={{ width: `${(item.count / maxIngredient) * 100}%` }} />
-                    <strong>{item.count}</strong>
+                {data.topFlaggedIngredients.map((item) => (
+                  <div key={item.ingredientName}>
+                    <span>{item.ingredientName}</span>
+                    <i style={{ width: `${(item.flaggedCount / maxIngredientCount) * 100}%` }} />
+                    <strong>{item.flaggedCount}</strong>
                   </div>
                 ))}
               </div>
               <table className="compact-table accessible-equivalent">
                 <caption>Accessible flagged ingredient values</caption>
-                <thead><tr><th>Resolved ingredient</th><th>Assessments</th><th>Share of flagged list</th></tr></thead>
-                <tbody>
-                  {data.flaggedIngredients.map((item) => (
-                    <tr key={item.resolvedIngredient}>
-                      <td>{item.resolvedIngredient}</td>
-                      <td>{item.count}</td>
-                      <td>
-                        {Math.round(
-                          (item.count /
-                            data.flaggedIngredients.reduce(
-                              (sum, ingredient) => sum + ingredient.count,
-                              0,
-                            )) *
-                            100,
-                        )}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-          </div>
-
-          <section className="panel panel--table">
-            <div className="panel__header">
-              <div>
-                <p className="eyebrow">Optional third view</p>
-                <h2>Verdicts by product category</h2>
-              </div>
-            </div>
-            <div className="responsive-table">
-              <table className="data-table">
-                <caption>Aggregate verdict counts by product category</caption>
                 <thead>
-                  <tr><th>Category</th><th>Safe</th><th>Warning</th><th>Avoid</th><th>Incomplete</th></tr>
+                  <tr><th>Ingredient</th><th>Flagged scans</th></tr>
                 </thead>
                 <tbody>
-                  {categories?.map((item) => (
-                    <tr key={item.category}>
-                      <th scope="row">{item.category}</th>
-                      <td>{item.safeCount}</td>
-                      <td>{item.warningCount}</td>
-                      <td>{item.avoidCount}</td>
-                      <td>{item.incompleteCount}</td>
+                  {data.topFlaggedIngredients.map((item) => (
+                    <tr key={item.ingredientName}>
+                      <th scope="row">{item.ingredientName}</th>
+                      <td>{item.flaggedCount.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-          </section>
-        </>
-      )}
+            </>
+          )}
+        </section>
+      </div>
+
+      <section className="panel panel--table" aria-labelledby="daily-trend-title">
+        <div className="panel__header">
+          <div>
+            <p className="eyebrow">Singapore calendar dates</p>
+            <h2 id="daily-trend-title">Daily scan trend</h2>
+          </div>
+        </div>
+        <div className="responsive-table">
+          <table className="data-table data-table--analytics">
+            <caption>Daily scan verdict counts</caption>
+            <thead>
+              <tr>
+                <th>Date</th><th>Total</th><th>Safe</th><th>Warning</th><th>Unsafe</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.dailyTrend.map((point) => (
+                <tr key={point.date}>
+                  <th scope="row"><time dateTime={point.date}>{point.date}</time></th>
+                  <td>{point.totalCount.toLocaleString()}</td>
+                  <td>{point.safeCount.toLocaleString()}</td>
+                  <td>{point.warningCount.toLocaleString()}</td>
+                  <td>{point.unsafeCount.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </>
+  )
+}
+
+function SummaryCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string
+  value: number
+  icon: string
+}) {
+  return (
+    <article className="summary-card">
+      <span className="summary-card__icon" aria-hidden="true">{icon}</span>
+      <div>
+        <span>{label}</span>
+        <strong>{value.toLocaleString()}</strong>
+      </div>
+    </article>
   )
 }
