@@ -51,7 +51,6 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    private const val DEFAULT_BASE_URL = "http://10.0.2.2:8080/api/"
     private const val NO_RETRY_HEADER = "X-CanMakan-No-Retry"
     private const val AUTH_REFRESH_NETWORK = "AuthRefreshNetwork"
     private val HTTP_CLIENT_ERROR_RANGE = 400..499
@@ -286,8 +285,12 @@ object NetworkModule {
 
     private fun resolveBaseUrl(): HttpUrl {
         val configuredBaseUrl = BuildConfig.BASE_URL.trim()
-        val baseUrl = if (configuredBaseUrl.isNotEmpty()) configuredBaseUrl else DEFAULT_BASE_URL
-        val normalizedBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        require(configuredBaseUrl.isNotEmpty()) { "Android API base URL is not configured." }
+        val normalizedBaseUrl = if (configuredBaseUrl.endsWith("/")) {
+            configuredBaseUrl
+        } else {
+            "$configuredBaseUrl/"
+        }
         return normalizedBaseUrl.toHttpUrl()
     }
 

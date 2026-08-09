@@ -78,3 +78,15 @@ configuration. Keep machine-specific SDK paths in an untracked
 `local.properties` file. If your backend is not on the default emulator host,
 add a `BASE_URL` entry such as `BASE_URL=http://192.168.1.50:8080/api/` in
 `client/mobile/local.properties` (or pass `-PBASE_URL=...` when building).
+
+Cleartext HTTP is supported only by the Debug build for emulator and local
+development. Release builds have no emulator fallback and require an explicitly
+configured `BASE_URL` with an HTTPS scheme, a host, and a trailing slash. For
+example, supply the deployment-managed value without storing it in the project:
+
+```powershell
+.\gradlew.bat :app:assembleRelease "-PBASE_URL=$env:CANMAKAN_RELEASE_API_URL"
+```
+
+Release configuration fails closed when the value is missing, malformed, uses
+HTTP, or lacks the Retrofit-required trailing slash.
