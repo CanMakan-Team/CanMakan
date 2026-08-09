@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getErrorMessage } from '../../../shared/api/apiErrors'
 import { familyApiService } from '../api/familyApiService'
-import type { FamilyMember } from '../../../shared/api/types'
+import type { FamilyRestrictionSumRes, Verdict } from '../../../shared/api/types'
 import { EmptyState, ErrorState, LoadingState } from '../../../shared/ui/PageState'
-import { summaryRestrictions } from '../lib/profileOptions'
+import { StatusBadge } from '../../../shared/ui/StatusBadge'
 
 export function FamilyRestrictionSummaryPage() {
-  const [members, setMembers] = useState<FamilyMember[]>([])
+  const [data, setData] = useState<FamilyRestrictionSumRes | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -14,7 +14,7 @@ export function FamilyRestrictionSummaryPage() {
     setLoading(true)
     setError('')
     try {
-      setMembers(await familyApiService.getRestrictionSummary())
+      setData(await familyApiService.getRestrictionSummary())
     } catch (caughtError) {
       setError(getErrorMessage(caughtError))
     } finally {
@@ -31,6 +31,18 @@ export function FamilyRestrictionSummaryPage() {
     }
   }, [loadSummary])
 
+  // Dynamically extract active members and unique columns
+  const activeMembers = useMemo(() => {
+    return data?.familyMembers.filter((m) => m.isActive) || []
+  }, [data])
+
+  const columns = useMemo(() => {
+    const allRestrictions = activeMembers.flatMap((m) =>
+      m.restrictions.map((r) => r.displayName)
+    )
+    return Array.from(new Set(allRestrictions))
+  }, [activeMembers])
+
   return (
     <>
       <header className="page-header">
@@ -38,74 +50,68 @@ export function FamilyRestrictionSummaryPage() {
           <p className="eyebrow">At-a-glance comparison</p>
           <h1>Family Allergy & Dietary Requirement Summary</h1>
           <p>
-            This grid is derived from each returned profile’s common requirements
-            and individual restriction codes.
+            This grid dynamically aggregates all active restrictions and allergies
+            across your household.
           </p>
         </div>
       </header>
 
       {loading ? (
-        <LoadingState label="Building family restriction summary…" />
+        <LoadingState label="Building family restriction summary " />
       ) : error ? (
         <ErrorState message={error} onRetry={loadSummary} />
-      ) : members.length === 0 ? (
+      ) : activeMembers.length === 0 ? (
         <EmptyState
           title="No summary available"
-          description="Add a family profile to build the restriction grid."
+          description="Add an active family profile to build the restriction grid."
         />
       ) : (
         <section className="panel">
           <div className="matrix-legend" aria-label="Restriction grid legend">
-            <span><i className="matrix-cell matrix-cell--common">C</i> Common requirement</span>
-            <span><i className="matrix-cell matrix-cell--individual">✓</i> Individual restriction</span>
-            <span><i className="matrix-cell">—</i> Not recorded</span>
+            <span><StatusBadge status="AVOID" /> Strict Avoid / Unsafe</span>
+            <span><StatusBadge status="WARNING" /> Intolerance / Warning</span>
+            <span><i className="matrix-cell"> </i> Not recorded</span>
           </div>
+
           <div className="responsive-table">
             <table className="restriction-matrix">
               <caption>Family restrictions by member</caption>
               <thead>
                 <tr>
                   <th scope="col">Family member</th>
-                  {summaryRestrictions.map((restriction) => (
-                    <th scope="col" key={restriction.value}>
-                      {restriction.shortLabel}
+                  {columns.map((colName) => (
+                    <th scope="col" key={colName}>
+                      {colName}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {members.map((member) => (
-                  <tr key={member.memberId}>
-                    <th scope="row">
-                      {member.profileName}
-                      <span>{member.relationship.toLowerCase()}</span>
-                    </th>
-                    {summaryRestrictions.map((restriction) => {
-                      const isCommon = member.commonRequirements.includes(
-                        restriction.value,
+                {activeMembers.map((member) => (
+                  <tr key={member.userId}>
+                    <th scope="row">{member.name}</th>
+                    {columns.map((colName) => {
+                      const restriction = member.restrictions.find(
+                        (r) => r.displayName === colName
                       )
-                      const isIndividual = member.restrictions.includes(
-                        restriction.value,
-                      )
-                      const label = isCommon
-                        ? 'Common requirement'
-                        : isIndividual
-                          ? 'Individual restriction'
-                          : 'Not recorded'
+                      
+                      let status: Verdict | undefined
+                      if (restriction) {
+                        const sev = restriction.severity.toUpperCase()
+                        status = ['STRICT_AVOID', 'STRICT', 'HIGH', 'UNSAFE'].includes(sev)
+                          ? 'AVOID'
+                          : ['INTOLERANCE', 'WARNING', 'MEDIUM', 'MODERATE'].includes(sev)
+                          ? 'WARNING'
+                          : 'SAFE'
+                      }
+
                       return (
-                        <td key={restriction.value}>
-                          <span
-                            className={`matrix-cell ${
-                              isCommon
-                                ? 'matrix-cell--common'
-                                : isIndividual
-                                  ? 'matrix-cell--individual'
-                                  : ''
-                            }`}
-                            aria-label={`${restriction.shortLabel}: ${label}`}
-                          >
-                            {isCommon ? 'C' : isIndividual ? '✓' : '—'}
-                          </span>
+                        <td key={colName}>
+                          {status ? (
+                            <StatusBadge status={status} />
+                          ) : (
+                            <span className="matrix-cell" aria-label="Not recorded"> </span>
+                          )}
                         </td>
                       )
                     })}

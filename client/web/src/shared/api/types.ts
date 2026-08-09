@@ -159,3 +159,25 @@ export interface AuditEntry {
   targetUserId: number
   createdAt: string
 }
+
+/**
+ * UC6 Setting up the DTO interfaces to match the backend payloads,
+ * {FamilyMeRestrictionDetail, FamilyMeRestrictionSum, FamilyRestrictionSumRes}
+ * from backend/family/dto
+ */
+export interface FamilyMeRestrictionDetail {
+  code: string,
+  displayName: string,
+  severity: string
+}
+
+export interface FamilyMeRestrictionSum {
+  userId: number,
+  name: string,
+  isActive: boolean,
+  restrictions: FamilyMeRestrictionDetail[]
+}
+
+export interface FamilyRestrictionSumRes {
+  familyMembers: FamilyMeRestrictionSum[]
+}
