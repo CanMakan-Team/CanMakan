@@ -1,5 +1,5 @@
 import { useState, type SubmitEvent as ReactSubmitEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../shared/api/apiErrors'
 import { useSession } from '../features/auth/useSession'
 import { PasswordField } from '../shared/ui/PasswordField'
@@ -8,38 +8,44 @@ import { getEmailValidationError } from '../shared/validation/email'
 
 /**
  * UC18 family-portal registration. Matches FamilyLoginPage theme.
- * Does not create a family circle — FamilyMeGate / UC8 handles that next.
- *
+ * Optional UC9 invitationToken joins the invitee's family after register.
+ * 
  * @author Amelia
+ * @author YangMaowei
  */
+
+/* Define the FamilyRegisterPage component */
 export function FamilyRegisterPage() {
+  const [searchParams] = useSearchParams()
+  /* Define the invitation token */
+  const invitationToken = searchParams.get('invitationToken')?.trim() || undefined
+  /* Define the state variables */
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [validationError, setValidationError] = useState('')
   const [submitError, setSubmitError] = useState('')
+  /* Define the session and navigation */
   const { session, registerAndLogin, loading } = useSession()
   const navigate = useNavigate()
 
-  // If the session has the family admin role, navigate to the family page
+  /* If the session has the family admin role, navigate to the family page */
   if (session?.roles.includes('ROLE_FAMILY_ADMIN')) {
     return <Navigate to="/family" replace />
   }
 
+  /* Define the clear validation error function */
   const clearValidationError = () => {
     if (validationError) setValidationError('')
   }
 
-  // Handle the submission of the form
+  /* Define the handle submit function */
   const handleSubmit = async (event: ReactSubmitEvent<HTMLFormElement>) => {
-    // 1. Prevent the default form submission behavior
     event.preventDefault()
-
-    // 2. Reset the submit error
     setSubmitError('')
 
-    // 3. Validate the form data (mirror backend limits to avoid failed API calls)
+    // Validate the form data (mirror backend limits to avoid failed API calls)
     const trimmedName = name.trim()
     const trimmedEmail = email.trim()
 
@@ -63,14 +69,15 @@ export function FamilyRegisterPage() {
     }
     setValidationError('')
 
-    // 4. Try to register and login
-    // 5. If the registration and login is successful, navigate to the family page
-    // 6. If the registration and login is not successful, set the submit error to the state
+    // Try to register and login
+    // On success, navigate to the family page
+    // On error, set the submit error
     try {
       await registerAndLogin({
         name: trimmedName,
         email: trimmedEmail,
         password,
+        invitationToken,
       })
       navigate('/family', { replace: true })
     } catch (caughtError) {
@@ -78,7 +85,7 @@ export function FamilyRegisterPage() {
     }
   }
 
-  // Return the family register page
+  /* Define the render function */
   return (
     <main className="login-page login-page--family">
       <div className="login-composition login-composition--family">
@@ -98,9 +105,9 @@ export function FamilyRegisterPage() {
           <p className="eyebrow">Family Portal</p>
           <h1 id="family-register-intro-title">Create your CanMakan account.</h1>
           <p>
-            Register with your name, email, and password. You can create a family
-            circle after sign-in — registration does not start a household by
-            itself.
+            {invitationToken
+              ? 'Register with the invited email to join the family circle automatically.'
+              : 'Register with your name, email, and password. You can create a family circle after sign-in — registration does not start a household by itself.'}
           </p>
         </section>
 
@@ -172,7 +179,16 @@ export function FamilyRegisterPage() {
           </form>
 
           <p className="login-card__footer">
-            Already have an account? <Link to="/family-login">Sign in</Link>
+            Already have an account?{' '}
+            <Link
+              to={
+                invitationToken
+                  ? `/family-login?invitationToken=${encodeURIComponent(invitationToken)}`
+                  : '/family-login'
+              }
+            >
+              Sign in
+            </Link>
           </p>
         </section>
       </div>

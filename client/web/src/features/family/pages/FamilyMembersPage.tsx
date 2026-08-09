@@ -58,7 +58,7 @@ export function FamilyMembersPage() {
             type="button"
             onClick={() => setOpenModal('link')}
           >
-            Add Existing App User
+            Invite to Family
           </button>
           <button
             className="button button--primary"

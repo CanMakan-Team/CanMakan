@@ -1,21 +1,41 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type SubmitEvent as ReactSubmitEvent } from 'react'
 import { getErrorMessage } from '../../../shared/api/apiErrors'
 import { familyApiService } from '../api/familyApiService'
-import type { ExistingUserSearchResult } from '../../../shared/api/types'
+import type {
+  ExistingUserSearchResult,
+  InvitationResponse,
+} from '../../../shared/api/types'
 import { Modal } from '../../../shared/ui/Modal'
 import { getEmailValidationError } from '../../../shared/validation/email'
 
+/** Link existing user modal component 
+ * 
+ * @author Amelia
+ * @author YangMaowei
+*/
+
+/* Define the search state enum */
+// initial: initial state
+// searching: searching for the user
+// found: user found
+// not-registered: user not registered
+// already-linked: user already linked
+// pending: user pending invitation
+// inviting: inviting the user
+// invited: user invited
+// error: error state
 type SearchState =
   | 'initial'
   | 'searching'
   | 'found'
-  | 'not-found'
+  | 'not-registered'
   | 'already-linked'
   | 'pending'
-  | 'linking'
-  | 'success'
+  | 'inviting'
+  | 'invited'
   | 'error'
 
+/* Define the LinkExistingUserModal component */
 export function LinkExistingUserModal({
   onClose,
   onSuccess,
@@ -23,69 +43,112 @@ export function LinkExistingUserModal({
   onClose: () => void
   onSuccess: (message: string) => void
 }) {
+
+  /* Define the state variables */
   const [email, setEmail] = useState('')
   const [state, setState] = useState<SearchState>('initial')
   const [result, setResult] = useState<ExistingUserSearchResult | null>(null)
+  const [invitation, setInvitation] = useState<InvitationResponse | null>(null)
   const [message, setMessage] = useState('')
+  const [copyNotice, setCopyNotice] = useState('')
 
-  const search = async (event: FormEvent) => {
+  /* Define the search function */
+  const search = async (event: ReactSubmitEvent<HTMLFormElement>) => {
+    // Prevent the default form submission behavior
     event.preventDefault()
+
+    // Validate the email address
     if (!email.trim()) {
       setState('error')
       setMessage('Enter an email address.')
       return
     }
+
+    // Validate the email address format
     const emailError = getEmailValidationError(email)
     if (emailError) {
       setState('error')
       setMessage(emailError)
       return
     }
+
+    // Set the state to searching and reset the state variables
     setState('searching')
     setMessage('')
     setResult(null)
+    setInvitation(null)
+    setCopyNotice('')
     try {
+      // Search for the existing user
       const match = await familyApiService.searchExistingUser(email)
-      if (!match) {
-        setState('not-found')
-        return
-      }
       setResult(match)
-      setState(
-        match.familyLinkStatus === 'ALREADY_LINKED'
-          ? 'already-linked'
-          : match.familyLinkStatus === 'PENDING'
-            ? 'pending'
-            : 'found',
-      )
+      if (match.familyLinkStatus === 'ALREADY_LINKED') {
+        setState('already-linked')
+      } else if (match.familyLinkStatus === 'PENDING') {
+        setState('pending')
+      } else if (match.accountStatus === 'NOT_REGISTERED') {
+        setState('not-registered')
+      } else {
+        setState('found')
+      }
     } catch (caughtError) {
+      // Set the state to error and set the error message
       setState('error')
       setMessage(getErrorMessage(caughtError))
     }
   }
 
-  const linkUser = async () => {
-    if (!result || state === 'linking') return
-    setState('linking')
+  /* Define the create invite function */
+  const createInvite = async () => {
+    if (state === 'inviting') return
+    setState('inviting')
     try {
-      const linked = await familyApiService.linkExistingUser(result.userId)
-      setState('success')
-      setMessage(`${linked.profileName} is now linked to this family.`)
-      onSuccess(`${linked.profileName} was linked as an existing App User.`)
+      // Create an invitation
+      const created = await familyApiService.createInvitation(email.trim())
+      setInvitation(created)
+      setState('invited')
+      onSuccess(`Invitation created for ${created.invitedEmail}.`)
     } catch (caughtError) {
+      // Set the state to error and set the error message
       setState('error')
       setMessage(getErrorMessage(caughtError))
     }
   }
 
+  /* Define the copy text function */
+  const copyText = async (label: string, value: string) => {
+    try {
+      // Copy the text to the clipboard
+      await navigator.clipboard.writeText(value)
+      setCopyNotice(`${label} copied.`)
+    } catch {
+      setCopyNotice(`Could not copy ${label.toLowerCase()}.`)
+    }
+  }
+
+  /* Define the mailto href function */
+  const mailtoHref = invitation
+    ? `mailto:${encodeURIComponent(invitation.invitedEmail)}?subject=${encodeURIComponent(
+        'You are invited to join a CanMakan family',
+      )}&body=${encodeURIComponent(
+        `You have been invited to join a CanMakan family circle.\n\nOpen this link: ${invitation.inviteUrl}\nOr use invite code: ${invitation.inviteCode}\n`,
+      )}`
+    : undefined
+
+  /* Define the can invite function */
+  const canInvite =
+    result &&
+    (state === 'found' || state === 'not-registered' || state === 'inviting')
+
+  /* Define the render function */
   return (
     <Modal
-      title="Add Existing App User"
-      description="Search for a person who already has a registered CanMakan App account."
+      title="Invite to Family"
+      description="Search by email. Registered or not-yet-registered addresses can receive a shareable invite."
       onClose={onClose}
     >
       <form className="search-form" onSubmit={search}>
-        <label htmlFor="existing-user-email">Registered email address</label>
+        <label htmlFor="existing-user-email">Email address</label>
         <div className="search-form__row">
           <input
             id="existing-user-email"
@@ -93,63 +156,94 @@ export function LinkExistingUserModal({
             value={email}
             placeholder="jamie@example.com"
             onChange={(event) => setEmail(event.target.value)}
-            disabled={state === 'searching' || state === 'linking'}
+            disabled={state === 'searching' || state === 'inviting'}
           />
           <button
             className="button button--primary"
             type="submit"
-            disabled={state === 'searching' || state === 'linking'}
+            disabled={state === 'searching' || state === 'inviting'}
           >
             {state === 'searching' ? 'Searching…' : 'Search'}
           </button>
         </div>
-        <span className="field-hint">
-          Demo: jamie@example.com, alicia@example.com, pending@example.com or
-          error@demo.test.
-        </span>
       </form>
 
       <div className="search-result" aria-live="polite">
         {state === 'initial' && (
           <p>Only a display name, masked email and account status will be shown.</p>
         )}
-        {state === 'not-found' && (
-          <div className="notice notice--neutral">
-            <strong>No registered user found</strong>
-            <p>Check the address or create a separate non-login profile instead.</p>
-          </div>
-        )}
-        {result && ['found', 'already-linked', 'pending', 'linking'].includes(state) && (
-          <article className="matched-user">
-            <span className="avatar">{result.displayName.slice(0, 1)}</span>
-            <div>
-              <strong>{result.displayName}</strong>
-              <span>{result.maskedEmail}</span>
-              <span>Account: {result.accountStatus}</span>
-            </div>
-            {state === 'found' || state === 'linking' ? (
-              <button
-                className="button button--primary"
-                type="button"
-                disabled={state === 'linking'}
-                onClick={linkUser}
-              >
-                {state === 'linking' ? 'Linking…' : 'Confirm link'}
-              </button>
-            ) : (
-              <span className="status-badge status-badge--warning">
-                {state === 'pending' ? 'Pending invitation' : 'Already in family'}
+        {result &&
+          ['found', 'not-registered', 'already-linked', 'pending', 'inviting'].includes(
+            state,
+          ) && (
+            <article className="matched-user">
+              <span className="avatar">
+                {(result.displayName ?? result.maskedEmail).slice(0, 1).toUpperCase()}
               </span>
-            )}
-          </article>
-        )}
-        {state === 'success' && (
+              <div>
+                <strong>
+                  {result.displayName ??
+                    (result.accountStatus === 'NOT_REGISTERED'
+                      ? 'Not registered yet'
+                      : 'CanMakan user')}
+                </strong>
+                <span>{result.maskedEmail}</span>
+                <span>Account: {result.accountStatus}</span>
+              </div>
+              {canInvite ? (
+                <button
+                  className="button button--primary"
+                  type="button"
+                  disabled={state === 'inviting'}
+                  onClick={() => void createInvite()}
+                >
+                  {state === 'inviting' ? 'Creating invite…' : 'Create invite'}
+                </button>
+              ) : (
+                <span className="status-badge status-badge--warning">
+                  {state === 'pending' ? 'Pending invitation' : 'Already in a family'}
+                </span>
+              )}
+            </article>
+          )}
+        {state === 'invited' && invitation && (
           <div className="notice notice--success">
-            <strong>Existing user linked</strong>
-            <p>{message}</p>
-            <button className="button button--secondary" type="button" onClick={onClose}>
-              Done
-            </button>
+            <strong>Invitation ready</strong>
+            <p>
+              Share the link or short code. The invitee joins when they register or
+              sign in with this email.
+            </p>
+            <p>
+              <code>{invitation.inviteUrl}</code>
+            </p>
+            <p>
+              Code: <strong>{invitation.inviteCode}</strong>
+            </p>
+            {copyNotice && <p>{copyNotice}</p>}
+            <div className="page-header__actions">
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => void copyText('Invite link', invitation.inviteUrl)}
+              >
+                Copy link
+              </button>
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => void copyText('Invite code', invitation.inviteCode)}
+              >
+                Copy code
+              </button>
+              {mailtoHref && (
+                <a className="button button--secondary" href={mailtoHref}>
+                  Send via Email
+                </a>
+              )}
+              <button className="button button--primary" type="button" onClick={onClose}>
+                Done
+              </button>
+            </div>
           </div>
         )}
         {state === 'error' && (

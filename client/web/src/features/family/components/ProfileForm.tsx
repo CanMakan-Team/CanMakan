@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type SubmitEvent as ReactSubmitEvent } from 'react'
 import type {
   AgeGroup,
   FamilyProfileInput,
@@ -49,7 +49,7 @@ export function ProfileForm({
     }))
   }
 
-  const handleSubmit = async (event: FormEvent) => {
+  const handleSubmit = async (event: ReactSubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
     const trimmedName = form.profileName.trim()
     if (!trimmedName) {

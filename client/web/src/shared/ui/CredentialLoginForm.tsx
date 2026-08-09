@@ -1,8 +1,9 @@
 import { useState, type SubmitEvent as ReactSubmitEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/apiErrors'
 import type { Portal, Role } from '../api/types'
 import { useSession } from '../../features/auth/useSession'
+import { familyApiService } from '../../features/family/api/familyApiService'
 import { isPasswordWithinBcryptLimit } from '../validation/authFields'
 import { getEmailValidationError } from '../validation/email'
 import { PasswordField } from './PasswordField'
@@ -31,6 +32,8 @@ export function CredentialLoginForm({
   buttonClassName,
   registerPath,
 }: CredentialLoginFormProps) {
+  const [searchParams] = useSearchParams()
+  const invitationToken = searchParams.get('invitationToken')?.trim() || undefined
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -67,26 +70,43 @@ export function CredentialLoginForm({
     }
 
     // 4. Try to login with the credentials
-    // 5. If the login is successful, check if the session has the expected role
-    // 6. If the session has the expected role, navigate to the destination
-    // 7. If the session does not have the expected role, logout and set the error
     try {
+      // Login with the credentials
       const authenticated = await loginWithCredentials({
         email: trimmedEmail,
         password,
         portal,
       })
+      // If the authenticated user does not have the expected role, logout and set the error
       if (!authenticated.roles.includes(expectedRole)) {
         logout()
         setError('This account cannot access this portal.')
         return
       }
+      // If the portal is family and there is an invitation token, claim the invitation
+      if (portal === 'FAMILY' && invitationToken) {
+        try {
+          await familyApiService.claimInvitation(invitationToken)
+        } catch (claimError) {
+          setError(getErrorMessage(claimError))
+          return
+        }
+      }
+      // Navigate to the destination
       navigate(destination, { replace: true })
     } catch (caughtError) {
+      // Set the error
       setError(getErrorMessage(caughtError))
     }
   }
 
+  // Define the resolved register path
+  const resolvedRegisterPath =
+    registerPath && invitationToken
+      ? `${registerPath}?invitationToken=${encodeURIComponent(invitationToken)}`
+      : registerPath
+
+  // Render the component
   return (
     <>
       <form onSubmit={(event) => void handleSubmit(event)} noValidate>
@@ -120,9 +140,9 @@ export function CredentialLoginForm({
           {loading ? 'Signing in…' : buttonLabel}
         </button>
       </form>
-      {registerPath ? (
+      {resolvedRegisterPath ? (
         <p className="login-card__footer">
-          New to CanMakan? <Link to={registerPath}>Create an account</Link>
+          New to CanMakan? <Link to={resolvedRegisterPath}>Create an account</Link>
         </p>
       ) : null}
       <p className="login-card__security">
