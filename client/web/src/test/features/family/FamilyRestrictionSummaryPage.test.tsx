@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
-import { FamilyRestrictionSummaryPage } from '../../../src/features/family/pages/FamilyRestrictionSummaryPage'
-import { familyApiService } from '../../../src/features/family/api/familyApiService'
-import { ApiError } from '../../../src/shared/api/apiErrors'
+import { FamilyRestrictionSummaryPage } from '../../../features/family/pages/FamilyRestrictionSummaryPage'
+import { familyApiService } from '../../../features/family/api/familyApiService'
+import { ApiError } from '../../../shared/api/apiErrors'
 
-vi.mock('../../../src/features/family/api/familyApiService', () => ({
+vi.mock('../../../features/family/api/familyApiService', () => ({
   familyApiService: {
     getRestrictionSummary: vi.fn(),
   },
