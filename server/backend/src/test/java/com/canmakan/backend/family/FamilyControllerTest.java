@@ -12,131 +12,146 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.canmakan.backend.dietaryprofile.DietaryProfileService;
+import com.canmakan.backend.family.dto.CreateFamilyRequest;
+import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyExceptionHandler;
 import com.canmakan.backend.family.exception.FamilyNotFoundException;
-import com.canmakan.backend.family.dto.CreateFamilyRequest;
-import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.shared.exception.GlobalExceptionHandler;
+import com.canmakan.backend.shared.security.AuthUserDetails;
+import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
+import com.canmakan.backend.shared.security.SystemRole;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
-/** UC8: FamilyController HTTP contract tests
- * 
- * @author Amelia
- */
+/** UC8: FamilyController HTTP contract tests */
 @DisplayName("UC8: FamilyController HTTP contract tests")
 class FamilyControllerTest {
 
-        private MockMvc mockMvc;
-        private FamilyService familyService;
+    private MockMvc mockMvc;
+    private FamilyService familyService;
 
-        // UC8 setup mock mvc and validator
-        @BeforeEach
-        void setUp() {
-                familyService = mock(FamilyService.class);
-                DietaryProfileService dietaryProfileService = mock(DietaryProfileService.class);
-                FamilyController controller = new FamilyController(dietaryProfileService, familyService);
-                LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
-                validator.afterPropertiesSet();
-                mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                        .setControllerAdvice(new FamilyExceptionHandler(), new GlobalExceptionHandler())
-                        .setValidator(validator)
-                        .build();
-        }
+    @BeforeEach
+    void setUp() {
+        familyService = mock(FamilyService.class);
+        DietaryProfileService dietaryProfileService = mock(DietaryProfileService.class);
+        FamilyController controller = new FamilyController(dietaryProfileService, familyService);
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+            .setControllerAdvice(new FamilyExceptionHandler(), new GlobalExceptionHandler())
+            .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+            .setValidator(validator)
+            .build();
+    }
 
-        // UC8 create circle returns 201
-        @Test
-        @DisplayName("POST /api/families returns 201")
-        void createReturns201() throws Exception {
-                when(familyService.createFamily(eq(14L), any(CreateFamilyRequest.class)))
-                        .thenReturn(new FamilyMeResponse(50L, "Wong Family", "PRIMARY_ADMIN", 77L, 14L));
+    @AfterEach
+    void clearSecurity() {
+        SecurityContextHolder.clearContext();
+    }
 
-                mockMvc.perform(post("/api/families")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"familyName\":\"Wong Family\"}")
-                                .header("X-User-Id", "14"))
-                        .andExpect(status().isCreated())
-                        .andExpect(jsonPath("$.familyId").value(50))
-                        .andExpect(jsonPath("$.familyName").value("Wong Family"))
-                        .andExpect(jsonPath("$.memberRole").value("PRIMARY_ADMIN"))
-                        .andExpect(jsonPath("$.selfProfileId").value(77));
-        }
+    @Test
+    @DisplayName("POST /api/families returns 201")
+    void createReturns201() throws Exception {
+        authenticateAs(14L);
+        when(familyService.createFamily(eq(14L), any(CreateFamilyRequest.class)))
+            .thenReturn(new FamilyMeResponse(50L, "Wong Family", "PRIMARY_ADMIN", 77L, 14L));
 
-        // UC8 create circle blank name returns 400 via @Valid
-        @Test
-        @DisplayName("POST /api/families blank name returns 400 via @Valid")
-        void createBlankName() throws Exception {
-                mockMvc.perform(post("/api/families")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"familyName\":\"  \"}")
-                                .header("X-User-Id", "14"))
-                        .andExpect(status().isBadRequest())
-                        .andExpect(jsonPath("$.message").value("Family name is required."));
+        mockMvc.perform(post("/api/families")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"familyName\":\"Wong Family\"}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.familyId").value(50))
+            .andExpect(jsonPath("$.familyName").value("Wong Family"))
+            .andExpect(jsonPath("$.memberRole").value("PRIMARY_ADMIN"))
+            .andExpect(jsonPath("$.selfProfileId").value(77));
+    }
 
-                verify(familyService, never()).createFamily(any(Long.class), any(CreateFamilyRequest.class));
-        }
+    @Test
+    @DisplayName("POST /api/families blank name returns 400 via @Valid")
+    void createBlankName() throws Exception {
+        authenticateAs(14L);
+        mockMvc.perform(post("/api/families")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"familyName\":\"  \"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Family name is required."));
 
-        // UC8 create circle second create returns 409
-        @Test
-        @DisplayName("POST /api/families second create returns 409")
-        void createConflict() throws Exception {
-                when(familyService.createFamily(eq(4L), any(CreateFamilyRequest.class)))
-                        .thenThrow(new AlreadyInFamilyException("You already belong to a family circle."));
+        verify(familyService, never()).createFamily(any(Long.class), any(CreateFamilyRequest.class));
+    }
 
-                mockMvc.perform(post("/api/families")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"familyName\":\"Second\"}")
-                                .header("X-User-Id", "4"))
-                        .andExpect(status().isConflict())
-                        .andExpect(jsonPath("$.message").value("You already belong to a family circle."));
-        }
+    @Test
+    @DisplayName("POST /api/families second create returns 409")
+    void createConflict() throws Exception {
+        authenticateAs(4L);
+        when(familyService.createFamily(eq(4L), any(CreateFamilyRequest.class)))
+            .thenThrow(new AlreadyInFamilyException("You already belong to a family circle."));
 
-        // UC8 create with unknown X-User-Id returns 401
-        @Test
-        @DisplayName("POST /api/families unknown user returns 401")
-        void createUnknownUser() throws Exception {
-                when(familyService.createFamily(eq(999L), any(CreateFamilyRequest.class)))
-                        .thenThrow(new AuthenticatedUserNotFoundException(
-                                "Authenticated user was not found."));
+        mockMvc.perform(post("/api/families")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"familyName\":\"Second\"}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("You already belong to a family circle."));
+    }
 
-                mockMvc.perform(post("/api/families")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"familyName\":\"Orphan\"}")
-                                .header("X-User-Id", "999"))
-                        .andExpect(status().isUnauthorized())
-                        .andExpect(jsonPath("$.message").value("Authenticated user was not found."));
-        }
+    @Test
+    @DisplayName("POST /api/families unknown user returns 401")
+    void createUnknownUser() throws Exception {
+        authenticateAs(999L);
+        when(familyService.createFamily(eq(999L), any(CreateFamilyRequest.class)))
+            .thenThrow(new AuthenticatedUserNotFoundException(
+                "Authenticated user was not found."));
 
-        // UC8 get circle by user id returns 200
-        @Test
-        @DisplayName("GET /api/families/me returns 200")
-        void getMeOk() throws Exception {
-                when(familyService.getMyFamily(4L))
-                        .thenReturn(new FamilyMeResponse(1L, "Tan Family", "PRIMARY_ADMIN", 1L, 4L));
+        mockMvc.perform(post("/api/families")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"familyName\":\"Orphan\"}"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.message").value("Authenticated user was not found."));
+    }
 
-                mockMvc.perform(get("/api/families/me").header("X-User-Id", "4"))
-                        .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.familyId").value(1))
-                        .andExpect(jsonPath("$.familyName").value("Tan Family"));
-        }
+    @Test
+    @DisplayName("GET /api/families/me returns 200")
+    void getMeOk() throws Exception {
+        authenticateAs(4L);
+        when(familyService.getMyFamily(4L))
+            .thenReturn(new FamilyMeResponse(1L, "Tan Family", "PRIMARY_ADMIN", 1L, 4L));
 
-        // UC8 get circle by user id without membership returns 404
-        @Test
-        @DisplayName("GET /api/families/me without membership returns 404")
-        void getMeNotFound() throws Exception {
-                when(familyService.getMyFamily(99L))
-                        .thenThrow(new FamilyNotFoundException("You are not a member of a family circle."));
+        mockMvc.perform(get("/api/families/me"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.familyId").value(1))
+            .andExpect(jsonPath("$.familyName").value("Tan Family"));
+    }
 
-                mockMvc.perform(get("/api/families/me").header("X-User-Id", "99"))
-                        .andExpect(status().isNotFound())
-                        .andExpect(jsonPath("$.message").value("You are not a member of a family circle."));
-        }
+    @Test
+    @DisplayName("GET /api/families/me without membership returns 404")
+    void getMeNotFound() throws Exception {
+        authenticateAs(99L);
+        when(familyService.getMyFamily(99L))
+            .thenThrow(new FamilyNotFoundException("You are not a member of a family circle."));
+
+        mockMvc.perform(get("/api/families/me"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("You are not a member of a family circle."));
+    }
+
+    private static void authenticateAs(long userId) {
+        AuthUserDetails principal = new AuthUserDetails(
+            new AuthenticatedPrincipal(userId, "user" + userId + "@example.com", true, SystemRole.USER),
+            "{noop}unused"
+        );
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities())
+        );
+    }
 }

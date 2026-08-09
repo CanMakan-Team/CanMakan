@@ -163,7 +163,27 @@
                 "clear": true
             },
             "problemMatcher": [],
-            "detail": "Web typecheck + eslint (no unit-test runner yet)."
+            "detail": "Vitest: all web client tests under client/web/src/test/"
+        },
+        {
+            "label": "Run Web Tests (watch)",
+            "type": "shell",
+            "command": "npm",
+            "options": {
+                "cwd": "${workspaceFolder}/client/web"
+            },
+            "args": [
+                "run",
+                "test:watch"
+            ],
+            "group": "test",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": [],
+            "detail": "Vitest watch mode for client/web"
         },
         {
             "label": "Run Tests",
@@ -178,7 +198,7 @@
                 "isDefault": true
             },
             "problemMatcher": [],
-            "detail": "Runs backend Maven tests, mobile Gradle tests, and web typecheck+lint."
+            "detail": "Runs backend Maven tests, mobile Gradle tests, and web Vitest suite."
         }
     ]
 }

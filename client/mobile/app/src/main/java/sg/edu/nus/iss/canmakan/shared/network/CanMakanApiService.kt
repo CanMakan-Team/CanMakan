@@ -2,7 +2,6 @@ package sg.edu.nus.iss.canmakan.shared.network
 
 import retrofit2.Response
 import retrofit2.http.Body
-import retrofit2.http.Header
 import retrofit2.http.POST
 
 data class ScanRequest(val barcode: String)
@@ -40,7 +39,6 @@ interface CanMakanApiService {
 
     @POST("/api/scan/assess")
     suspend fun assessBarcode(
-        @Header("X-User-Id") userId: Long?,
         @Body request: AssessmentRequest
     ): Response<AssessmentResponse>
 }

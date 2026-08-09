@@ -48,12 +48,16 @@ export interface RegistrationResponse {
   active: boolean
 }
 
-/** POST /api/auth/login success body (pre-JWT). */
-export interface LoginResponse {
-  userId: number
-  displayName: string
-  roles: Role[]
-  prototype: boolean
+/** POST /api/auth/login success body (UC19 JWT). */
+export interface AuthLoginResponse {
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+  user: {
+    userId: number
+    email: string
+    role: 'USER' | 'ADMIN'
+  }
 }
 
 /** Current family context from GET /api/families/me (UC8). */
@@ -154,4 +158,26 @@ export interface AuditEntry {
   action: string
   targetUserId: number
   createdAt: string
+}
+
+/**
+ * UC6 Setting up the DTO interfaces to match the backend payloads,
+ * {FamilyMeRestrictionDetail, FamilyMeRestrictionSum, FamilyRestrictionSumRes}
+ * from backend/family/dto
+ */
+export interface FamilyMeRestrictionDetail {
+  code: string,
+  displayName: string,
+  severity: string
+}
+
+export interface FamilyMeRestrictionSum {
+  userId: number,
+  name: string,
+  isActive: boolean,
+  restrictions: FamilyMeRestrictionDetail[]
+}
+
+export interface FamilyRestrictionSumRes {
+  familyMembers: FamilyMeRestrictionSum[]
 }

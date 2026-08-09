@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import sg.edu.nus.iss.canmakan.features.auth.data.CurrentUserSession
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationFailureType
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationRepository
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResponse
@@ -62,7 +61,6 @@ data class RegistrationUiState(
 class RegistrationViewModel @Inject constructor(
     private val registrationRepository: RegistrationRepository,
     private val dietaryRestrictionRepository: DietaryRestrictionRepository,
-    private val currentUserSession: CurrentUserSession,
     private val activeProfileManager: ActiveProfileManager,
 ) : ViewModel() {
 
@@ -234,7 +232,7 @@ class RegistrationViewModel @Inject constructor(
     }
 
     private suspend fun handleAccountCreated(account: RegistrationResponse) {
-        persistSession(account)
+        persistLocalProfile(account)
         val state = _uiState.value
         if (state.selectedRestrictionIds.isEmpty()) {
             _uiState.value = state.copy(
@@ -280,8 +278,8 @@ class RegistrationViewModel @Inject constructor(
         }
     }
 
-    private fun persistSession(account: RegistrationResponse) {
-        currentUserSession.save(userId = account.userId, selfProfileId = account.profileId)
+    private fun persistLocalProfile(account: RegistrationResponse) {
+        // Registration does not establish UC19 auth; login owns the session.
         activeProfileManager.switchProfile(account.profileId)
     }
 

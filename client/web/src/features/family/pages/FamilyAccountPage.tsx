@@ -1,7 +1,7 @@
 import { useSession } from '../../auth/useSession'
 
 /**
- * Account settings — current live session (X-User-Id until UC19 JWT).
+ * Account settings — current live JWT session.
  *
  * @author Amelia
  */
@@ -15,8 +15,8 @@ export function FamilyAccountPage() {
           <p className="eyebrow">Account</p>
           <h1>Account Settings</h1>
           <p>
-            Session identity comes from live login. API calls send X-User-Id until
-            JWT replaces it.
+            Session identity comes from live JWT login. API calls send
+            Authorization Bearer.
           </p>
         </div>
       </header>
@@ -47,7 +47,7 @@ export function FamilyAccountPage() {
             <dd>
               {session?.accessToken
                 ? 'Bearer token session'
-                : 'Live login (X-User-Id until JWT)'}
+                : 'Not signed in'}
             </dd>
           </div>
         </dl>

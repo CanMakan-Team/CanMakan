@@ -7,6 +7,7 @@ import type {
   FamilyMember,
   FamilyProfileInput,
   ScanRecord,
+  FamilyRestrictionSumRes
 } from '../../../shared/api/types'
 
 /** UC8 Family service endpoints
@@ -17,6 +18,9 @@ import type {
  * The endpoints are used to make requests to the family service.
  * The endpoints are used to get the family information, members, and profiles.
  * 
+ * UC6 Family Restriction Summary Endpoints
+ * The family restriction summary endpoints are used to get the restriction summary \
+ * of the user's family mamber in a family circle. * 
  */
 export const familyEndpoints = {
   families: '/api/families',
@@ -34,7 +38,6 @@ export const familyEndpoints = {
  * 
  * @author Amelia
  */
-
 export const familyApiService = {
 
   // Retrieve the current user's family
@@ -104,8 +107,8 @@ export const familyApiService = {
   // Retrieve the current user's restriction summary
   getRestrictionSummary: () =>
     useMockApi
-      ? mockFamilyRepository.getMembers()
-      : apiRequest<FamilyMember[]>(familyEndpoints.restrictionSummary),
+      ? mockFamilyRepository.getRestrictionSummary()
+      : apiRequest<FamilyRestrictionSumRes>(familyEndpoints.restrictionSummary),
 
   // Retrieve the current user's scan history
   getScanHistory: () =>

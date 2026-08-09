@@ -3,8 +3,33 @@
 Security infrastructure (not the login feature).
 
 ## Purpose
-Implements authentication/authorization mechanisms used by the whole application.
+Implements authentication and authorization infrastructure used by the whole application.
 
+## Current foundation
+- `SystemRole` supports only the database roles `USER` and `ADMIN` and maps them
+  to `ROLE_USER` and `ROLE_ADMIN`.
+- `AuthUserDetailsService` loads the account and current role in one query.
+- `AuthenticatedPrincipal` and `AuthUserDetails` keep persistence entities out
+  of the Spring Security principal.
+- `SecurityConfig` exposes the standard DAO authentication provider and manager
+  using the same BCrypt encoder as UC18 registration.
+- `JwtService` issues HS256 access tokens containing only standard identity
+  claims; `JwtAuthenticationFilter` validates them and reloads the current
+  account status and role before populating the security context.
+
+The current stateless filter chain protects `/api/auth/me`, `/api/families/**`,
+and `POST /api/scan/assess`, restricts `/api/admin/**` to `ADMIN`, and keeps
+registration, login, refresh, logout, and health public at the bearer-authorization
+layer. The refresh endpoint authenticates an opaque, hashed-at-rest, one-time
+refresh session from an HttpOnly, SameSite=Strict cookie. Remaining business
+routes stay temporarily permitted until their owning Use Cases adopt resource
+authorization.
+
+## Note
+Login, refresh, and logout HTTP flows live in the `auth` package. This package
+provides the shared security machinery.
+
+Family create/`/me` use `@AuthenticationPrincipal AuthUserDetails` (JWT).
 ## Typical contents
 - JWT filter / token provider (UC19)
 - `SecurityFilterChain` configuration (UC19)
@@ -24,8 +49,9 @@ cross-origin. `CorsFilter` allows:
 | LAN / physical device browser | Origin patterns `10.*`, `192.168.*`, `172.*` any port |
 | Android Retrofit (emulator `10.0.2.2`, device LAN IP) | Usually **no** `Origin` header — CORS does not apply; server already binds `0.0.0.0:8080` |
 
-Allowed request headers include `Authorization`, `Content-Type`, `Accept`, and
-temporary `X-User-Id`. Credentials mode is off (session is localStorage, not cookies).
+Allowed request headers include `Authorization`, `Content-Type`, and `Accept`.
+Credentials mode is off (access token is stored in localStorage; refresh cookies
+are path-scoped to `/api/auth` for native clients).
 
 ### Configuration (local defaults + deploy overrides)
 

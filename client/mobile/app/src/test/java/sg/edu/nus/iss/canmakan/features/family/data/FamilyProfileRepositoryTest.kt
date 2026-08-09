@@ -25,7 +25,7 @@ class FamilyProfileRepositoryTest {
         )
         val repository = FamilyProfileRepository(FakeFamilyProfileApiService(meResponse = Response.success(expected)))
 
-        val result = repository.getMyFamily(14L)
+        val result = repository.getMyFamily()
 
         assertEquals(expected, result)
     }
@@ -38,7 +38,7 @@ class FamilyProfileRepositoryTest {
             FakeFamilyProfileApiService(meResponse = Response.error(404, body)),
         )
 
-        val result = repository.getMyFamily(14L)
+        val result = repository.getMyFamily()
 
         assertNull(result)
     }
@@ -57,7 +57,7 @@ class FamilyProfileRepositoryTest {
             FakeFamilyProfileApiService(createResponse = Response.success(201, expected)),
         )
 
-        val result = repository.createFamily(14L, "Wong Family")
+        val result = repository.createFamily("Wong Family")
 
         assertEquals(expected, result)
     }
@@ -80,7 +80,7 @@ class FamilyProfileRepositoryTest {
             ),
         )
 
-        val result = repository.createFamily(14L, "Wong Family")
+        val result = repository.createFamily("Wong Family")
 
         assertEquals(existing, result)
     }
@@ -94,7 +94,7 @@ class FamilyProfileRepositoryTest {
         )
 
         val exception = assertThrows(CreateFamilyException::class.java) {
-            runBlocking { repository.createFamily(14L, "  ") }
+            runBlocking { repository.createFamily("  ") }
         }
 
         assertEquals("Family name is required.", exception.message)
@@ -111,13 +111,15 @@ class FamilyProfileRepositoryTest {
             "{}".toResponseBody("application/json".toMediaType()),
         ),
     ) : FamilyProfileApiService {
-        override suspend fun getMyFamily(userId: Long): Response<FamilyMeResponse> = meResponse
+        override suspend fun getMyFamily(): Response<FamilyMeResponse> = meResponse
 
         override suspend fun createFamily(
-            userId: Long,
             request: CreateFamilyRequestBody,
         ): Response<FamilyMeResponse> = createResponse
 
         override suspend fun getProfilesByFamilyId(familyId: Long): List<FamilyProfileResponse> = emptyList()
+
+        override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
     }
 }

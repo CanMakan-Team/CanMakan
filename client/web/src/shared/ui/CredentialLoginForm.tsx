@@ -126,8 +126,8 @@ export function CredentialLoginForm({
         </p>
       ) : null}
       <p className="login-card__security">
-        Credentials are checked against the database. Until JWT (UC19), the
-        client sends X-User-Id from this session on API calls.
+        Credentials are checked against the database. API calls use a Bearer
+        access token from this session.
       </p>
     </>
   )
