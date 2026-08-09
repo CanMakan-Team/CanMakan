@@ -2,7 +2,7 @@ import type {
   AgeGroup,
   Relationship,
   RestrictionCode,
-} from '../../shared/api/types'
+} from '../../../shared/api/types'
 
 export const relationshipOptions: Array<{
   value: Relationship

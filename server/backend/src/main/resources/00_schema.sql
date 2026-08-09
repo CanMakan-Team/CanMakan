@@ -99,7 +99,7 @@ CREATE TABLE families (
 
 CREATE TABLE family_members (
     family_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL UNIQUE,
+    user_id BIGINT NOT NULL,
     member_role VARCHAR(30) NOT NULL DEFAULT 'MEMBER',
     -- UC6: Allow Family Members to be Deactivated without Removing them from the Family Circle
     is_active BOOLEAN NOT NULL DEFAULT TRUE,

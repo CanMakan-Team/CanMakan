@@ -3,15 +3,18 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { getErrorMessage } from '../api/apiErrors'
 import type { Portal, Role } from '../api/types'
 import { useSession } from '../../features/auth/useSession'
+import { isPasswordWithinBcryptLimit } from '../validation/authFields'
+import { getEmailValidationError } from '../validation/email'
+import { PasswordField } from './PasswordField'
 
-/** Family credential login form
- * 
+/**
+ * Email/password login form shared by portal entry pages.
+ *
  * @author Amelia
  * @author YangMaowei
  */
 
-// Family credential login form props
-interface FamilyCredentialLoginFormProps {
+interface CredentialLoginFormProps {
   portal: Portal
   expectedRole: Role
   destination: '/family' | '/system'
@@ -20,15 +23,14 @@ interface FamilyCredentialLoginFormProps {
   registerPath?: string
 }
 
-// Family credential login form
-export function FamilyCredentialLoginForm({
+export function CredentialLoginForm({
   portal,
   expectedRole,
   destination,
   buttonLabel,
   buttonClassName,
   registerPath,
-}: FamilyCredentialLoginFormProps) {
+}: CredentialLoginFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -42,24 +44,32 @@ export function FamilyCredentialLoginForm({
 
   // Handle the submission of the form
   const handleSubmit = async (event: ReactSubmitEvent<HTMLFormElement>) => {
-
     // 1. Prevent the default form submission behavior
     event.preventDefault()
 
     // 2. Reset the error
     setError('')
 
-    // 3. Validate the form data
+    // 3. Validate the form data (mirror backend limits to avoid failed API calls)
     const trimmedEmail = email.trim()
     if (!trimmedEmail || !password) {
       setError('Enter your email and password to continue.')
+      return
+    }
+    const emailError = getEmailValidationError(trimmedEmail)
+    if (emailError) {
+      setError(emailError)
+      return
+    }
+    if (!isPasswordWithinBcryptLimit(password)) {
+      setError('Password must not exceed 72 UTF-8 bytes.')
       return
     }
 
     // 4. Try to login with the credentials
     // 5. If the login is successful, check if the session has the expected role
     // 6. If the session has the expected role, navigate to the destination
-    // 7. If the session does not have the expected role, logout and set the error to the state
+    // 7. If the session does not have the expected role, logout and set the error
     try {
       const authenticated = await loginWithCredentials({
         email: trimmedEmail,
@@ -77,7 +87,6 @@ export function FamilyCredentialLoginForm({
     }
   }
 
-  // Return the family credential login form
   return (
     <>
       <form onSubmit={(event) => void handleSubmit(event)} noValidate>
@@ -90,13 +99,12 @@ export function FamilyCredentialLoginForm({
           onChange={(event) => setEmail(event.target.value)}
           disabled={loading}
         />
-        <label htmlFor={`${portal.toLowerCase()}-password`}>Password</label>
-        <input
+        <PasswordField
           id={`${portal.toLowerCase()}-password`}
-          type="password"
+          label="Password"
           autoComplete="current-password"
           value={password}
-          onChange={(event) => setPassword(event.target.value)}
+          onChange={setPassword}
           disabled={loading}
         />
         {error && (

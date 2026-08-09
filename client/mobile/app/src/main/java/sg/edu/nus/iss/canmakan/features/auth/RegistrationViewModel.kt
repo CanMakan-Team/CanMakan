@@ -112,6 +112,8 @@ class RegistrationViewModel @Inject constructor(
         val nameError = when {
             normalizedName.isEmpty() -> "Name is required."
             normalizedName.length < MIN_NAME_LENGTH -> "Name must be at least 3 characters."
+            normalizedName.length > MAX_NAME_LENGTH ->
+                "Name must be between 3 and 100 characters."
             else -> null
         }
         val normalizedEmail = state.email.trim()
@@ -125,6 +127,9 @@ class RegistrationViewModel @Inject constructor(
             state.password.isBlank() -> "Password is required."
             state.password.length < MIN_PASSWORD_LENGTH ->
                 "Password must be at least 8 characters."
+            utf8ByteLength(state.password) > MAX_PASSWORD_UTF8_BYTES ->
+                "Password must not exceed 72 UTF-8 bytes."
+            !meetsRegistrationPasswordPolicy(state.password) -> PASSWORD_STRENGTH_MESSAGE
             else -> null
         }
         val confirmPasswordError = when {
@@ -296,9 +301,35 @@ class RegistrationViewModel @Inject constructor(
 
         private const val MAX_EMAIL_LENGTH = 255
         private const val MIN_PASSWORD_LENGTH = 8
+        private const val MAX_PASSWORD_UTF8_BYTES = 72
         private const val MIN_NAME_LENGTH = 3
+        private const val MAX_NAME_LENGTH = 100
         private const val RELIGIOUS_CATEGORY = "RELIGIOUS"
         private const val DEFAULT_SEVERITY_LEVEL = "STRICT_AVOID"
         private val EMAIL_PATTERN = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+        private const val PASSWORD_STRENGTH_MESSAGE =
+            "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character."
+
+        private fun utf8ByteLength(value: String): Int =
+            value.toByteArray(Charsets.UTF_8).size
+
+        private fun meetsRegistrationPasswordPolicy(password: String): Boolean {
+            if (password.length < MIN_PASSWORD_LENGTH) {
+                return false
+            }
+            var hasUpper = false
+            var hasLower = false
+            var hasDigit = false
+            var hasSpecial = false
+            for (character in password) {
+                when {
+                    character.isUpperCase() -> hasUpper = true
+                    character.isLowerCase() -> hasLower = true
+                    character.isDigit() -> hasDigit = true
+                    else -> hasSpecial = true
+                }
+            }
+            return hasUpper && hasLower && hasDigit && hasSpecial
+        }
     }
 }

@@ -1,5 +1,5 @@
-import { mockFamilyRepository } from '../../mocks/mockFamilyRepository'
-import { apiRequest, useMockApi } from '../../shared/api/apiClient'
+import { mockFamilyRepository } from '../../../mocks/mockFamilyRepository'
+import { apiRequest, useMockApi } from '../../../shared/api/apiClient'
 import type {
   ActiveProfile,
   ExistingUserSearchResult,
@@ -7,7 +7,7 @@ import type {
   FamilyMember,
   FamilyProfileInput,
   ScanRecord,
-} from '../../shared/api/types'
+} from '../../../shared/api/types'
 
 /** UC8 Family service endpoints
  * 
@@ -35,7 +35,7 @@ export const familyEndpoints = {
  * @author Amelia
  */
 
-export const familyService = {
+export const familyApiService = {
 
   // Retrieve the current user's family
   getMyFamily: () => apiRequest<FamilyMe>(familyEndpoints.me),

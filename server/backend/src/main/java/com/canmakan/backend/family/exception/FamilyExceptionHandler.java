@@ -10,10 +10,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.canmakan.backend.family.FamilyController;
 
-/** UC8-scoped error translation for family create / me endpoints. 
- * 
+/**
+ * UC8-scoped error translation for family create / me endpoints.
+ *
  * @author Amelia
-*/
+ */
 @RestControllerAdvice(assignableTypes = FamilyController.class)
 public class FamilyExceptionHandler {
 

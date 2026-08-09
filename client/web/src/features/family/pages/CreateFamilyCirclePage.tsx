@@ -1,6 +1,6 @@
 import { useState, type SubmitEvent as ReactSubmitEvent } from 'react'
-import { ApiError, getErrorMessage } from '../../shared/api/apiErrors'
-import { familyService } from './familyService'
+import { ApiError, getErrorMessage } from '../../../shared/api/apiErrors'
+import { familyApiService } from '../api/familyApiService'
 
 type CreateFamilyCirclePageProps = {
   onCreated: () => void
@@ -36,7 +36,7 @@ export function CreateFamilyCirclePage({ onCreated }: CreateFamilyCirclePageProp
     // 3. If the family name is valid, continue to the next step
     const trimmed = familyName.trim()
     if (!trimmed) {
-      setValidationError('Enter a family name to continue.')
+      setValidationError('Family name is required.')
       return
     }
     if (trimmed.length > 100) {
@@ -49,12 +49,13 @@ export function CreateFamilyCirclePage({ onCreated }: CreateFamilyCirclePageProp
     // 2. Set the submitting state to true
     // 3. Try to create a new family circle
     // 4. If the family circle is created successfully, call the onCreated callback
+    //    (409 also reloads: caller already has a circle from a race/double-submit)
     // 5. If the family circle is not created successfully, set the submit error to the state
     // 6. Finally, set the submitting state to false
     setValidationError('')
     setSubmitting(true)
     try {
-      await familyService.createFamily(trimmed)
+      await familyApiService.createFamily(trimmed)
       onCreated()
     } catch (caughtError) {
       if (caughtError instanceof ApiError && caughtError.status === 409) {

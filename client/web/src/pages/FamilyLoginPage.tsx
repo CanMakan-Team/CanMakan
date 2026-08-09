@@ -1,6 +1,6 @@
-import { FamilyCredentialLoginForm } from '../shared/ui/FamilyCredentialLoginForm'
+import { CredentialLoginForm } from '../shared/ui/CredentialLoginForm'
 
-/** Family login page — live email/password against POST /api/auth/login. */
+/** Family portal login — live email/password against POST /api/auth/login. */
 export function FamilyLoginPage() {
   return (
     <main className="login-page login-page--family">
@@ -27,7 +27,7 @@ export function FamilyLoginPage() {
           <p className="eyebrow">Family Portal</p>
           <h2 id="family-login-title">Family Admin sign in</h2>
           <p>Sign in with the email and password for your CanMakan account.</p>
-          <FamilyCredentialLoginForm
+          <CredentialLoginForm
             portal="FAMILY"
             expectedRole="ROLE_FAMILY_ADMIN"
             destination="/family"

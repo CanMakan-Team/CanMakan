@@ -116,18 +116,18 @@ local-storage keys to reset the prototype.
 
 ## Environment
 
-Copy `.env.example` to `.env.local` if machine-specific settings are needed:
+Copy `.env.example` to `.env` or `.env.local` if machine-specific settings are needed:
 
 ```text
 VITE_API_BASE_URL=http://localhost:8080
-VITE_USE_MOCK_API=true
+VITE_USE_MOCK_API=false
 ```
 
-Set `VITE_USE_MOCK_API=false` only when a compatible backend is available. The
-HTTP client is prepared to attach `Authorization: Bearer <token>` when a later
-authenticated session supplies an access token. A `401` clears the invalid
-session; a `403` is kept distinct as an authorisation error; network errors
-retain the current page and provide usable feedback.
+A checked-in `.env` defaults to the live backend. The browser calls Spring on
+port 8080 from Vite (`5173`); backend CORS must allow that origin (defaults under
+`canmakan.cors.*`, overridable via `CANMAKAN_CORS_ALLOWED_ORIGINS` for deploy).
+Network failures show “service is currently unreachable” in `apiClient` — that
+includes CORS blocks, not only a down server.
 
 Never put credentials or secrets in Vite environment variables.
 
@@ -143,8 +143,11 @@ Quality commands:
 ```powershell
 npm run lint
 npm run typecheck
+npm run test
 npm run build
 ```
+
+`npm run test` runs typecheck then lint (no unit-test framework yet).
 
 No automated frontend test runner was present when this Sprint 1 prototype was
 implemented.

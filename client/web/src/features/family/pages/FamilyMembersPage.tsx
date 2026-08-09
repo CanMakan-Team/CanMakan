@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getErrorMessage } from '../../shared/api/apiErrors'
-import { familyService } from './familyService'
-import type { FamilyMember } from '../../shared/api/types'
-import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
-import { ActiveProfileSelector } from './ActiveProfileSelector'
-import { CreateFamilyProfileModal } from './CreateFamilyProfileModal'
-import { EditFamilyProfileModal } from './EditFamilyProfileModal'
-import { LinkExistingUserModal } from './LinkExistingUserModal'
-import { formatCode } from './profileOptions'
+import { getErrorMessage } from '../../../shared/api/apiErrors'
+import { familyApiService } from '../api/familyApiService'
+import type { FamilyMember } from '../../../shared/api/types'
+import { EmptyState, ErrorState, LoadingState } from '../../../shared/ui/PageState'
+import { ActiveProfileSelector } from '../components/ActiveProfileSelector'
+import { CreateFamilyProfileModal } from '../components/CreateFamilyProfileModal'
+import { EditFamilyProfileModal } from '../components/EditFamilyProfileModal'
+import { LinkExistingUserModal } from '../components/LinkExistingUserModal'
+import { formatCode } from '../lib/profileOptions'
 
 type OpenModal = 'link' | 'create' | null
 
@@ -23,7 +23,7 @@ export function FamilyMembersPage() {
     setLoading(true)
     setError('')
     try {
-      setMembers(await familyService.getMembers())
+      setMembers(await familyApiService.getMembers())
     } catch (caughtError) {
       setError(getErrorMessage(caughtError))
     } finally {

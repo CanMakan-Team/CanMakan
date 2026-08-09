@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { getErrorMessage } from '../../shared/api/apiErrors'
-import { familyService } from './familyService'
-import type { ExistingUserSearchResult } from '../../shared/api/types'
-import { Modal } from '../../shared/ui/Modal'
+import { getErrorMessage } from '../../../shared/api/apiErrors'
+import { familyApiService } from '../api/familyApiService'
+import type { ExistingUserSearchResult } from '../../../shared/api/types'
+import { Modal } from '../../../shared/ui/Modal'
+import { getEmailValidationError } from '../../../shared/validation/email'
 
 type SearchState =
   | 'initial'
@@ -34,11 +35,17 @@ export function LinkExistingUserModal({
       setMessage('Enter an email address.')
       return
     }
+    const emailError = getEmailValidationError(email)
+    if (emailError) {
+      setState('error')
+      setMessage(emailError)
+      return
+    }
     setState('searching')
     setMessage('')
     setResult(null)
     try {
-      const match = await familyService.searchExistingUser(email)
+      const match = await familyApiService.searchExistingUser(email)
       if (!match) {
         setState('not-found')
         return
@@ -61,7 +68,7 @@ export function LinkExistingUserModal({
     if (!result || state === 'linking') return
     setState('linking')
     try {
-      const linked = await familyService.linkExistingUser(result.userId)
+      const linked = await familyApiService.linkExistingUser(result.userId)
       setState('success')
       setMessage(`${linked.profileName} is now linked to this family.`)
       onSuccess(`${linked.profileName} was linked as an existing App User.`)

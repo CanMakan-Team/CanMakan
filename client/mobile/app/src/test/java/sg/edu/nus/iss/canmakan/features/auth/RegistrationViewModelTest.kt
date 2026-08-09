@@ -93,6 +93,58 @@ class RegistrationViewModelTest {
     }
 
     @Test
+    @DisplayName("UC18 M2d: name longer than 100 characters remains on account information")
+    fun longNameStaysOnAccountStep() {
+        viewModel.updateName("A".repeat(101))
+        viewModel.updateEmail("person@example.com")
+        viewModel.updatePassword("Password1!")
+        viewModel.updateConfirmPassword("Password1!")
+        viewModel.continueToDietaryProfile()
+
+        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals(
+            "Name must be between 3 and 100 characters.",
+            viewModel.uiState.value.nameError,
+        )
+        assertEquals(0, registrationRepository.callCount)
+    }
+
+    @Test
+    @DisplayName("UC18 M2e: password over 72 UTF-8 bytes remains on account information")
+    fun passwordOverBcryptLimitStaysOnAccountStep() {
+        val tooLongPassword = "é".repeat(37) // 37 * 2 bytes = 74 UTF-8 bytes
+        viewModel.updateName("Person Name")
+        viewModel.updateEmail("person@example.com")
+        viewModel.updatePassword(tooLongPassword)
+        viewModel.updateConfirmPassword(tooLongPassword)
+        viewModel.continueToDietaryProfile()
+
+        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals(
+            "Password must not exceed 72 UTF-8 bytes.",
+            viewModel.uiState.value.passwordError,
+        )
+        assertEquals(0, registrationRepository.callCount)
+    }
+
+    @Test
+    @DisplayName("UC18 M2f: weak password without special character remains on account information")
+    fun weakPasswordStaysOnAccountStep() {
+        viewModel.updateName("Person Name")
+        viewModel.updateEmail("person@example.com")
+        viewModel.updatePassword("Password1")
+        viewModel.updateConfirmPassword("Password1")
+        viewModel.continueToDietaryProfile()
+
+        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals(
+            "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.",
+            viewModel.uiState.value.passwordError,
+        )
+        assertEquals(0, registrationRepository.callCount)
+    }
+
+    @Test
     @DisplayName("UC18 M3: password mismatch remains on account information")
     fun mismatchedPasswordStaysOnAccountStep() {
         viewModel.updateEmail("person@example.com")

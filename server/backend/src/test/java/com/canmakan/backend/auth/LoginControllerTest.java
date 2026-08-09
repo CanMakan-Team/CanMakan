@@ -94,6 +94,18 @@ class LoginControllerTest {
     }
 
     @Test
+    @DisplayName("email without dotted domain returns 400")
+    void emailWithoutDottedDomainReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"test1@abc\",\"password\":\"Password1!\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Invalid login request."));
+
+        verify(loginService, never()).login(any());
+    }
+
+    @Test
     @DisplayName("unsupported fields return 400")
     void unsupportedFieldsRejected() throws Exception {
         mockMvc.perform(post("/api/auth/login")

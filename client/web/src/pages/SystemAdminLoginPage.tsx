@@ -1,4 +1,4 @@
-import { FamilyCredentialLoginForm } from '../shared/ui/FamilyCredentialLoginForm'
+import { CredentialLoginForm } from '../shared/ui/CredentialLoginForm'
 
 /** System admin login — live email/password against POST /api/auth/login. */
 export function SystemAdminLoginPage() {
@@ -37,7 +37,7 @@ export function SystemAdminLoginPage() {
             Sign in with an administrator account to review anonymised trends and
             user access controls.
           </p>
-          <FamilyCredentialLoginForm
+          <CredentialLoginForm
             portal="SYSTEM"
             expectedRole="ROLE_SYSTEM_ADMIN"
             destination="/system"

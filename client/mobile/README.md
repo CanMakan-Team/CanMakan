@@ -77,4 +77,7 @@ Android device or emulator running API 26 or newer, and run the `app`
 configuration. Keep machine-specific SDK paths in an untracked
 `local.properties` file. If your backend is not on the default emulator host,
 add a `BASE_URL` entry such as `BASE_URL=http://192.168.1.50:8080/api/` in
-`client/mobile/local.properties` (or pass `-PBASE_URL=...` when building).
+`client/mobile/local.properties` (or pass `-PBASE_URL=...` when building). See
+`local.properties.example`. The backend listens on `0.0.0.0:8080` so emulator
+(`10.0.2.2`) and LAN devices can reach it. Native Retrofit does not use browser
+CORS; cleartext HTTP to local hosts is allowed via `network_security_config.xml`.

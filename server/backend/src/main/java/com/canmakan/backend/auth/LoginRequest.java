@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
@@ -18,6 +19,9 @@ import java.util.Locale;
 public record LoginRequest(
     @NotBlank(message = "Email is required.")
     @Email(message = "Email must be valid.")
+    @Pattern(
+        regexp = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$", // example@abc.com
+        message = "Email must be valid.")
     @Size(max = 255, message = "Email must not exceed 255 characters.")
     String email,
 

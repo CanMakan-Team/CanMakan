@@ -4,12 +4,12 @@ import type {
   FamilyProfileInput,
   Relationship,
   RestrictionCode,
-} from '../../shared/api/types'
+} from '../../../shared/api/types'
 import {
   ageGroupOptions,
   relationshipOptions,
   restrictionGroups,
-} from './profileOptions'
+} from '../lib/profileOptions'
 
 const emptyProfile: FamilyProfileInput = {
   profileName: '',

@@ -1,4 +1,4 @@
-package com.canmakan.backend.family.model;
+package com.canmakan.backend.family.dto;
 
 import java.util.List;
 
