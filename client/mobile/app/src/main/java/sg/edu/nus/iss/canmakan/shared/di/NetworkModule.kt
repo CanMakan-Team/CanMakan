@@ -31,7 +31,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    private const val DEFAULT_BASE_URL = "http://10.0.2.2:8080/api/"
+    private const val DEFAULT_BASE_URL = "http://13.213.219.46:8080/api/"
     private const val NO_RETRY_HEADER = "X-CanMakan-No-Retry"
 
     // The backend sends scan timestamps (e.g. Scan.scannedAt) as a fixed-shape ISO-8601

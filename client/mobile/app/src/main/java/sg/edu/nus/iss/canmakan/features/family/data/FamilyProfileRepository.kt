@@ -1,5 +1,7 @@
 package sg.edu.nus.iss.canmakan.features.family.data
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import retrofit2.Response
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
@@ -55,6 +57,24 @@ class FamilyProfileRepository @Inject constructor(
         val match = Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(raw)
         val extracted = match?.groupValues?.getOrNull(1).orEmpty()
         return extracted.ifBlank { "Could not create family circle." }
+    }
+
+    /**
+     * (UC6) View Family Allergy Summary Grid
+     */
+    suspend fun getFamilyRestrictionSummary(userId: Long): Result<FamilyRestrictionSumRes> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.getFamilyRestrictionSummary(userId)
+                if (response.isSuccessful && response.body() != null) {
+                    Result.success(response.body()!!)
+                } else {
+                    Result.failure(Exception("Failed to Fetch Family Restriction Summary, HTTP ${response.code()}"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
     }
 }
 

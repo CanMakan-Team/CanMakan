@@ -10,3 +10,21 @@ data class FamilyMeResponse(
     @SerializedName("selfProfileId") val selfProfileId: Long,
     @SerializedName("createdByUserId") val createdByUserId: Long,
 )
+
+/** (UC6) Domain + wire model for GET /api/families/me/restriction-summary. */
+data class FamilyRestrictionSumRes (
+    @SerializedName("familyMembers") val familyMembers: List<FamilyMeRestrictionSum>
+)
+
+data class FamilyMeRestrictionSum (
+    @SerializedName("userId") val userId: Long,
+    @SerializedName("name") val name: String,
+    @SerializedName("isActive") val isActive: Boolean,
+    @SerializedName("restrictions") val restrictions: List<FamilyMeRestrictionDetail>
+)
+
+data class FamilyMeRestrictionDetail (
+    @SerializedName("code") val code: String,
+    @SerializedName("displayName") val displayName: String,
+    @SerializedName("severity") val severity: String,
+)
