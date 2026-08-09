@@ -1,10 +1,12 @@
 import { ApiError } from '../shared/api/apiErrors'
+import { formatCode } from '../features/family/lib/profileOptions'
 import type {
   ActiveProfile,
   ExistingUserSearchResult,
   FamilyMember,
   FamilyProfileInput,
   ScanRecord,
+  FamilyRestrictionSumRes
 } from '../shared/api/types'
 import {
   existingUsers,
@@ -18,6 +20,9 @@ import {
  * UC8 create/`/me` are always live and are not mocked here.
  *
  * @author Amelia
+ * 
+ * Mock family restriction summary repository for unfinished surfaces when VITE_USE_MOCK_API=true.
+ * UC6 family restriction summary endpoints are always live and are not mocked here.
  */
 const stateKey = 'canmakan.mock.family'
 const delay = (milliseconds = 450) =>
@@ -131,5 +136,24 @@ export const mockFamilyRepository = {
   async getScanHistory(): Promise<ScanRecord[]> {
     await delay(550)
     return scanRecords
+  },
+
+  // UC6 Retrieve the current user's family members' restriction summary
+  async getRestrictionSummary(): Promise<FamilyRestrictionSumRes> {
+    await delay(550)
+    const state = readState()
+    return {
+      familyMembers: state.members.map((member) => ({
+        userId: member.memberId,
+        name: member.profileName,
+        isActive: true,
+        restrictions: [...member.commonRequirements, ...member.restrictions].map((code) => ({
+          code: code,
+          displayName: formatCode(code),
+          severity: 'STRICT_AVOID',
+        }),
+        ),
+      })),
+    }
   },
 }
