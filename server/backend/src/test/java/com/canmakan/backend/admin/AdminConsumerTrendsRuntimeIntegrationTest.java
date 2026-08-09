@@ -1,8 +1,11 @@
 package com.canmakan.backend.admin;
 
+import static com.canmakan.backend.shared.security.JwtTestTokenFactory.issueExpiredAccessToken;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.canmakan.backend.product.verdict.Finding;
+import com.canmakan.backend.shared.security.JwtProperties;
+import com.canmakan.backend.shared.security.JwtService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
@@ -18,6 +21,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -43,9 +48,12 @@ class AdminConsumerTrendsRuntimeIntegrationTest {
     private static final LocalDate TO = LocalDate.of(2000, 1, 3);
     private static final Instant START = Instant.parse("1999-12-31T16:00:00Z");
     private static final Instant END = Instant.parse("2000-01-03T16:00:00Z");
+    private static final String PASSWORD_HASH =
+            "$2a$10$8.UnVuG9HHgffUDAlk8qfOUVGkqRzgVymGe07xD0Y1b7q/Q9I95zW";
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final List<Long> insertedScanIds = new ArrayList<>();
+    private final List<Long> insertedUserIds = new ArrayList<>();
 
     @Value("${local.server.port}")
     private int port;
@@ -55,6 +63,12 @@ class AdminConsumerTrendsRuntimeIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private JwtProperties jwtProperties;
 
     @BeforeEach
     void verifyIsolatedDatabase() {
@@ -68,11 +82,87 @@ class AdminConsumerTrendsRuntimeIntegrationTest {
             jdbcTemplate.update("DELETE FROM scans WHERE id = ?", scanId);
         }
         insertedScanIds.clear();
+        for (Long userId : insertedUserIds) {
+            jdbcTemplate.update("DELETE FROM users WHERE id = ?", userId);
+        }
+        insertedUserIds.clear();
     }
 
     @Test
-    @DisplayName("real HTTP request returns database-derived aggregates")
-    void returnsDatabaseDerivedConsumerTrendsOverRealHttp() throws Exception {
+    @DisplayName("missing access token is rejected before the admin controller")
+    void missingAccessTokenReturnsUnauthorized() throws Exception {
+        assertSecurityResponse(get(ENDPOINT), 401, "Authentication required.");
+    }
+
+    @Test
+    @DisplayName("malformed access token is rejected before the admin controller")
+    void malformedAccessTokenReturnsUnauthorized() throws Exception {
+        assertSecurityResponse(
+                getWithAuthorization(ENDPOINT, "Bearer not-a-jwt"),
+                401,
+                "Authentication required."
+        );
+    }
+
+    @Test
+    @DisplayName("genuinely expired shared access token is rejected")
+    void expiredAccessTokenReturnsUnauthorized() throws Exception {
+        Long adminId = insertAccount("ADMIN", true);
+        String expiredToken = issueExpiredAccessToken(jwtProperties, adminId);
+
+        assertSecurityResponse(
+                get(ENDPOINT, expiredToken),
+                401,
+                "Authentication required."
+        );
+    }
+
+    @Test
+    @DisplayName("active USER is forbidden from the admin endpoint")
+    void activeUserReturnsForbidden() throws Exception {
+        Long userId = insertAccount("USER", true);
+
+        assertSecurityResponse(
+                get(ENDPOINT, jwtService.issueAccessToken(userId)),
+                403,
+                "Access denied."
+        );
+    }
+
+    @Test
+    @DisplayName("inactive account is rejected despite a valid access token")
+    void inactiveAccountReturnsUnauthorized() throws Exception {
+        Long adminId = insertAccount("ADMIN", false);
+
+        assertSecurityResponse(
+                get(ENDPOINT, jwtService.issueAccessToken(adminId)),
+                401,
+                "Authentication required."
+        );
+    }
+
+    @Test
+    @DisplayName("current database role controls access after token issuance")
+    void roleChangeToUserReturnsForbidden() throws Exception {
+        Long accountId = insertAccount("ADMIN", true);
+        String accessToken = jwtService.issueAccessToken(accountId);
+        String validQuery = ENDPOINT + "?from=2000-01-01&to=2000-01-03&limit=10";
+
+        assertThat(get(validQuery, accessToken).statusCode()).isEqualTo(200);
+
+        changeAccountRole(accountId, "USER");
+
+        assertSecurityResponse(
+                get(validQuery, accessToken),
+                403,
+                "Access denied."
+        );
+    }
+
+    @Test
+    @DisplayName("active ADMIN receives database-derived aggregates over real HTTP")
+    void activeAdminReturnsDatabaseDerivedConsumerTrendsOverRealHttp() throws Exception {
+        Long adminId = insertAccount("ADMIN", true);
         assertReportingRangeStartsEmpty();
         insertScan(
                 "WARNING",
@@ -94,7 +184,8 @@ class AdminConsumerTrendsRuntimeIntegrationTest {
         );
 
         HttpResponse<String> response = get(
-                ENDPOINT + "?from=2000-01-01&to=2000-01-03&limit=10"
+                ENDPOINT + "?from=2000-01-01&to=2000-01-03&limit=10",
+                jwtService.issueAccessToken(adminId)
         );
 
         assertThat(response.statusCode()).isEqualTo(200);
@@ -131,9 +222,13 @@ class AdminConsumerTrendsRuntimeIntegrationTest {
     }
 
     @Test
-    @DisplayName("real semantic validation returns the scoped 400 response")
-    void oneSidedDateReturnsBadRequestOverRealHttp() throws Exception {
-        HttpResponse<String> response = get(ENDPOINT + "?from=2000-01-01");
+    @DisplayName("active ADMIN reaches the scoped semantic validation handler")
+    void activeAdminWithOneSidedDateReturnsBadRequestOverRealHttp() throws Exception {
+        Long adminId = insertAccount("ADMIN", true);
+        HttpResponse<String> response = get(
+                ENDPOINT + "?from=2000-01-01",
+                jwtService.issueAccessToken(adminId)
+        );
 
         assertThat(response.statusCode()).isEqualTo(400);
         JsonNode json = objectMapper.readTree(response.body());
@@ -141,20 +236,91 @@ class AdminConsumerTrendsRuntimeIntegrationTest {
     }
 
     @Test
-    @DisplayName("real malformed parameter binding returns 400")
-    void malformedLimitReturnsBadRequestOverRealHttp() throws Exception {
-        HttpResponse<String> response = get(ENDPOINT + "?limit=abc");
+    @DisplayName("active ADMIN reaches malformed parameter binding")
+    void activeAdminWithMalformedLimitReturnsBadRequestOverRealHttp() throws Exception {
+        Long adminId = insertAccount("ADMIN", true);
+        HttpResponse<String> response = get(
+                ENDPOINT + "?limit=abc",
+                jwtService.issueAccessToken(adminId)
+        );
 
         assertThat(response.statusCode()).isEqualTo(400);
     }
 
     private HttpResponse<String> get(String pathAndQuery) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder()
+        return getWithAuthorization(pathAndQuery, null);
+    }
+
+    private HttpResponse<String> get(String pathAndQuery, String accessToken) throws Exception {
+        return getWithAuthorization(pathAndQuery, "Bearer " + accessToken);
+    }
+
+    private HttpResponse<String> getWithAuthorization(
+            String pathAndQuery,
+            String authorization
+    ) throws Exception {
+        HttpRequest.Builder request = HttpRequest.newBuilder()
                 .uri(URI.create("http://127.0.0.1:" + port + pathAndQuery))
                 .header("Accept", MediaType.APPLICATION_JSON_VALUE)
-                .GET()
-                .build();
-        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                .GET();
+        if (authorization != null) {
+            request.header(HttpHeaders.AUTHORIZATION, authorization);
+        }
+        return httpClient.send(request.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private void assertSecurityResponse(
+            HttpResponse<String> response,
+            int expectedStatus,
+            String expectedMessage
+    ) throws Exception {
+        assertThat(response.statusCode()).isEqualTo(expectedStatus);
+        assertThat(objectMapper.readTree(response.body()).path("message").asText())
+                .isEqualTo(expectedMessage);
+    }
+
+    private Long insertAccount(String roleName, boolean active) {
+        Long roleId = jdbcTemplate.queryForObject(
+                "SELECT id FROM roles WHERE name = ?",
+                Long.class,
+                roleName
+        );
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        int inserted = jdbcTemplate.update(connection -> {
+            PreparedStatement statement = connection.prepareStatement(
+                    """
+                    INSERT INTO users (role_id, email, password_hash, is_active)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    Statement.RETURN_GENERATED_KEYS
+            );
+            statement.setLong(1, roleId);
+            statement.setString(
+                    2,
+                    "uc7-security-" + UUID.randomUUID() + "@example.test"
+            );
+            statement.setString(3, PASSWORD_HASH);
+            statement.setBoolean(4, active);
+            return statement;
+        }, keyHolder);
+
+        assertThat(inserted).isOne();
+        Long userId = Objects.requireNonNull(keyHolder.getKey()).longValue();
+        insertedUserIds.add(userId);
+        return userId;
+    }
+
+    private void changeAccountRole(Long userId, String roleName) {
+        int updated = jdbcTemplate.update(
+                """
+                UPDATE users
+                SET role_id = (SELECT id FROM roles WHERE name = ?)
+                WHERE id = ?
+                """,
+                roleName,
+                userId
+        );
+        assertThat(updated).isOne();
     }
 
     private void assertReportingRangeStartsEmpty() {
