@@ -49,11 +49,11 @@ This repository uses feature-first package boundaries even though implementation
 |     Package      |       Status       |                                 Notes                            |
 |------------------|--------------------|------------------------------------------------------------------|
 | `dietaryprofile` |     Implemented    | Active API, service, repository, and entity mapping              |
-| `family`         | Partial (UC8)  | Create circle + `/families/me` live; D2 UNIQUE; temp `X-User-Id`. Auth → UC19; invite/manage/switch → UC9–UC12 |
+| `family`         | Partial (UC8)  | Create circle + `/families/me` live; D2 UNIQUE; JWT principal. Invite/manage/switch → UC9–UC12 |
 | `user`           |     Foundation     | User entity mapping used for profile linkage and ownership       |
 | `knowledgebase`  |     Foundation     | Domain models available; service APIs in progress                |
 | `product`        |     Foundation     | Initial model types available                                    |
-| `auth`           |    Partial | Register + pre-JWT login; JWT/SecurityFilterChain → UC19 |
+| `auth`           |    Partial | Register + JWT login/refresh/logout/me; family/scan require JWT |
 | `admin`          |    Planned/partial | Package scaffolded; implementation to expand                     |
 | `analytics`      |    Planned/partial | Package scaffolded; implementation to expand                     |
 | `integration`    |    Planned/partial | Package scaffolded; implementation to expand                     |

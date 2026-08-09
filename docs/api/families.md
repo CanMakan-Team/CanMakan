@@ -9,22 +9,20 @@
 | `GET /api/families/me` | Done |
 | Request validation (`@Valid` family name) | Done |
 | Web create empty-state (`FamilyMeGate`) | Done |
-| Real auth / HTTP 401 (AC8) | Open — UC19 |
-| Mobile resolve via `/me` (AC10) | Open — UC11 |
+| JWT principal on family routes | Done (UC19) |
+| Mobile resolve via `/me` (AC10) | Done (create-when-empty); active-profile persist → UC11 |
 
 ---
 
-## Identity (temporary)
+## Identity
 
-Until UC19 (Spring Security + JWT), create/`/me` take the caller as a request header:
+Family create/`/me`/restriction-summary require a Bearer access JWT. Controllers
+read the caller from `@AuthenticationPrincipal AuthUserDetails` and pass
+`userId` into `FamilyService`.
 
 ```http
-X-User-Id: <numeric users.id>
+Authorization: Bearer <access-token>
 ```
-
-This is **not** authentication. Controllers pass `userId` straight into the service.
-Under UC19, replace the header parameter with `@AuthenticationPrincipal` (or equivalent);
-`FamilyService` already takes `long userId` and can stay unchanged.
 
 ---
 
@@ -32,7 +30,7 @@ Under UC19, replace the header parameter with `@AuthenticationPrincipal` (or equ
 
 `POST /api/families`
 
-Headers: `X-User-Id`, `Content-Type: application/json`
+Headers: `Authorization`, `Content-Type: application/json`
 
 Request:
 
@@ -42,38 +40,13 @@ Request:
 }
 ```
 
-Rules:
+Success `201` returns the same shape as `GET /families/me`.
 
-- Name is trimmed; blank → `400`
-- Max length 100 → `400` if exceeded
-- Caller must not already have a `family_members` row (D2 UNIQUE) → `409` on second create
-- On success, creates in one transaction:
-  - `families` row (`created_by_user_id` = caller)
-  - `family_members` with `member_role = PRIMARY_ADMIN`
-  - SELF `dietary_profiles` row (`linked_user_id` = caller, `family_id` set, `is_primary = true`)
-  - `profile_name` reuses the name from registration when present; otherwise falls back to the email local-part (before `@`)
-
-Success: `201 Created`
-
-```json
-{
-  "familyId": 50,
-  "familyName": "Wong Family",
-  "memberRole": "PRIMARY_ADMIN",
-  "selfProfileId": 77,
-  "createdByUserId": 14
-}
-```
-
-Errors (`{"message":"..."}`):
-
-| Status | When |
+| Status | Meaning |
 | --- | --- |
-| 400 | Blank or invalid family name |
-| 401 | `X-User-Id` does not match an existing user |
-| 409 | Caller already belongs to a family |
-
-Web create UI: on **409**, reloads `/me` (treats as already created — race/double-submit).
+| 400 | Blank / invalid family name |
+| 401 | Missing/invalid JWT or unknown account |
+| 409 | Caller already belongs to a family (D2) |
 
 ---
 
@@ -81,18 +54,17 @@ Web create UI: on **409**, reloads `/me` (treats as already created — race/dou
 
 `GET /api/families/me`
 
-Headers: `X-User-Id`
+Headers: `Authorization`
 
-Success: `200 OK` — same body shape as create response.
+Success `200` body includes `familyId`, `familyName`, `memberRole`, `selfProfileId`, `createdByUserId`.
 
-| Status | When |
+| Status | Meaning |
 | --- | --- |
-| 404 | Caller has no family membership (web empty-state / create CTA) |
-
-This is the canonical replacement for hardcoded `familyId=1` clients (mobile wiring is UC11).
+| 401 | Missing/invalid JWT |
+| 404 | Authenticated user is not a family member |
 
 ---
 
-## Existing (unchanged)
+## Profiles by family id
 
-`GET /api/families/{familyId}/profiles` — list dietary profiles for a family id (seeded / mobile path). Still public until broader auth lands.
+`GET /api/families/{familyId}/profiles` — authenticated; prefer `/me`-scoped APIs for new work.

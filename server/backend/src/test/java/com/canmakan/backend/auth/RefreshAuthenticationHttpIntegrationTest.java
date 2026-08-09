@@ -17,6 +17,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.canmakan.backend.auth.model.RefreshToken;
+import com.canmakan.backend.auth.repository.RefreshTokenRepository;
 import com.canmakan.backend.shared.security.JwtService;
 import com.canmakan.backend.shared.security.JwtProperties;
 import com.canmakan.backend.user.AuthenticationAccountView;

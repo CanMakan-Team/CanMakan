@@ -2,13 +2,13 @@
 
 ## Family circle (UC8)
 
-**Status:** Partial — create + `/me` + D2 + web empty-state shipped; JWT auth → UC19; mobile `/me` → UC11.
+**Status:** Partial — create + `/me` + D2 + web/mobile empty-state; family/scan use JWT principal.
 
 See [`families.md`](families.md) for:
 
 - `POST /api/families` — create circle + PRIMARY_ADMIN + SELF profile
 - `GET /api/families/me` — current family context
-- Temporary `X-User-Id` header on the controller (not real authentication)
+- Bearer JWT / `@AuthenticationPrincipal` on family routes
 
 ## UC18 user registration
 
@@ -49,7 +49,7 @@ Errors use `{"message":"..."}`:
 Registration does not issue a JWT or create a family circle. UC8 create-circle
 reuses the SELF profile when the user later creates a household.
 
-## Pre-JWT login
+## Login (UC19 JWT)
 
 `POST /api/auth/login`
 
@@ -62,36 +62,42 @@ Request:
 }
 ```
 
-Success: `200 OK`
+Success: `200 OK` with refresh cookie and body:
 
 ```json
 {
-  "userId": 14,
-  "displayName": "Person Name",
-  "roles": ["ROLE_APP_USER", "ROLE_FAMILY_ADMIN"],
-  "prototype": false
+  "accessToken": "<jwt>",
+  "tokenType": "Bearer",
+  "expiresIn": 900,
+  "user": {
+    "userId": 14,
+    "email": "person@example.com",
+    "role": "USER"
+  }
 }
 ```
 
-Platform `ADMIN` maps to `["ROLE_SYSTEM_ADMIN"]`. Invalid or inactive accounts
-return `401` with `{"message":"Invalid email or password."}`.
+Invalid or inactive accounts return `401` with
+`{"message":"Invalid credentials or account unavailable."}`.
 
-### Role distinction (interim, pre-JWT)
+### Role distinction
 
 | Concept | Meaning |
 | --- | --- |
-| Platform `USER` | Normal registered app account |
-| Platform `ADMIN` | System staff |
-| Web `ROLE_FAMILY_ADMIN` | May use the family portal (assigned to all platform `USER` logins today) |
-| Web `ROLE_SYSTEM_ADMIN` | May use the system portal |
+| Platform `USER` / JWT `role: USER` | Normal registered app account |
+| Platform `ADMIN` / JWT `role: ADMIN` | System staff |
+| Web `ROLE_FAMILY_ADMIN` | Portal gate mapped from JWT `USER` on the web client |
+| Web `ROLE_SYSTEM_ADMIN` | Portal gate mapped from JWT `ADMIN` on the web client |
 | DB `PRIMARY_ADMIN` / `MEMBER` | Real family-circle role on `family_members` after join/create |
 
 Web clients reject the wrong portal (e.g. `ADMIN` on `/family-login`) with a client-side
 message and clear the session. A platform `USER` with no circle still enters `/family`
 and sees create-circle (`GET /api/families/me` → 404).
 
-Web clients store this as `canmakan.session` (plus `portal`) and send
-`X-User-Id` until UC19 JWT replaces it.
+Web clients store `canmakan.session` (including `accessToken` and portal roles) and
+send `Authorization: Bearer <accessToken>` on API calls.
+
+Allowed headers include `Content-Type` and `Authorization`.
 
 ## CORS (browser clients)
 
@@ -107,7 +113,7 @@ Override at deploy time (comma-separated) without rebuilding:
 - `CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS` — optional patterns; set empty to disable LAN wildcards in prod
 - `CANMAKAN_CORS_ALLOW_CREDENTIALS` / `CANMAKAN_CORS_MAX_AGE_SECONDS`
 
-Allowed headers include `Content-Type`, `Authorization`, and temporary `X-User-Id`.
+Allowed headers include `Content-Type` and `Authorization`.
 
 Native Android Retrofit (emulator `http://10.0.2.2:8080/api/` or device LAN IP)
 typically sends no `Origin`, so CORS does not apply; the API still must listen on

@@ -23,6 +23,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.canmakan.backend.auth.dto.AuthenticationResult;
+import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
+import com.canmakan.backend.auth.model.IssuedRefreshToken;
+import com.canmakan.backend.auth.model.RefreshToken;
+import com.canmakan.backend.auth.repository.RefreshTokenRepository;
+
 @SpringBootTest
 class RefreshTokenPersistenceIntegrationTest {
 
@@ -35,7 +41,7 @@ class RefreshTokenPersistenceIntegrationTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
-    private AuthenticationService authenticationService;
+    private AuthService authService;
 
     @Autowired
     private TransactionTemplate transactionTemplate;
@@ -88,7 +94,7 @@ class RefreshTokenPersistenceIntegrationTest {
                     if (!startTogether.await(10, TimeUnit.SECONDS)) {
                         throw new IllegalStateException("Concurrent refresh start timed out");
                     }
-                    return authenticationService.refresh(originalRawToken);
+                    return authService.refresh(originalRawToken);
                 }));
             }
             assertTrue(bothReady.await(10, TimeUnit.SECONDS));
@@ -142,7 +148,7 @@ class RefreshTokenPersistenceIntegrationTest {
                     if (!startTogether.await(10, TimeUnit.SECONDS)) {
                         throw new IllegalStateException("Concurrent logout start timed out");
                     }
-                    authenticationService.logout(rawToken);
+                    authService.logout(rawToken);
                     return null;
                 }));
             }

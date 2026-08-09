@@ -10,8 +10,8 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -20,6 +20,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableConfigurationProperties({JwtProperties.class, RefreshTokenProperties.class})
 public class SecurityConfig {
+
+    private static final int BCRYPT_STRENGTH = 10;
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(BCRYPT_STRENGTH);
+    }
 
     @Bean
     public AuthenticationProvider authenticationProvider(
@@ -43,11 +50,11 @@ public class SecurityConfig {
             RestAuthenticationEntryPoint authenticationEntryPoint,
             RestAccessDeniedHandler accessDeniedHandler) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)
-            .formLogin(AbstractHttpConfigurer::disable)
-            .httpBasic(AbstractHttpConfigurer::disable)
-            .logout(AbstractHttpConfigurer::disable)
-            .requestCache(AbstractHttpConfigurer::disable)
+            .csrf(csrf -> csrf.disable())
+            .formLogin(formLogin -> formLogin.disable())
+            .httpBasic(httpBasic -> httpBasic.disable())
+            .logout(logout -> logout.disable())
+            .requestCache(requestCache -> requestCache.disable())
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(exceptions -> exceptions
@@ -60,6 +67,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/families/**").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/scan/assess").authenticated()
                 .requestMatchers("/actuator/health").permitAll()
                 // Transitional: other UCs retain their existing access behavior.
                 .anyRequest().permitAll())

@@ -34,17 +34,11 @@ export async function apiRequest<T>(
   // - Accept: application/json
   // - Content-Type: application/json
   // - Authorization: Bearer <access token>
-  // - X-User-Id: <user id>
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
   if (options.body) headers.set('Content-Type', 'application/json')
   if (session?.accessToken) {
     headers.set('Authorization', `Bearer ${session.accessToken}`)
-  }
-
-  // Pre-JWT identity for UC8 family APIs; drop when UC19 JWT is the sole source.
-  if (session?.userId != null) {
-    headers.set('X-User-Id', String(session.userId))
   }
 
   try {

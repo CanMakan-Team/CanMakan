@@ -1,11 +1,19 @@
 package com.canmakan.backend.auth;
 
+import com.canmakan.backend.auth.dto.AuthResponse;
+import com.canmakan.backend.auth.dto.AuthenticationResult;
+import com.canmakan.backend.auth.dto.CurrentUserResponse;
+import com.canmakan.backend.auth.dto.LoginRequest;
+import com.canmakan.backend.auth.dto.RegistrationRequest;
+import com.canmakan.backend.auth.dto.RegistrationResponse;
+import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,21 +28,24 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final AuthenticationService authenticationService;
+    private final AuthService authService;
     private final RefreshCookieService refreshCookieService;
 
+    // User login
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        return authenticationResponse(authenticationService.login(request));
+        return authenticationResponse(authService.login(request));
     }
 
+    // User refresh token
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(HttpServletRequest request) {
         String rawRefreshToken = refreshCookieService.readRefreshToken(request)
             .orElseThrow(RefreshAuthenticationException::new);
-        return authenticationResponse(authenticationService.refresh(rawRefreshToken));
+        return authenticationResponse(authService.refresh(rawRefreshToken));
     }
 
+    // User logout
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             HttpServletRequest request,
@@ -43,12 +54,13 @@ public class AuthController {
             HttpHeaders.SET_COOKIE,
             refreshCookieService.clearRefreshCookie().toString()
         );
-        authenticationService.logout(
+        authService.logout(
             refreshCookieService.readRefreshToken(request).orElse(null)
         );
         return ResponseEntity.noContent().build();
     }
 
+    // Get current user details
     @GetMapping("/me")
     public CurrentUserResponse currentUser(
             @AuthenticationPrincipal AuthUserDetails userDetails) {
@@ -63,4 +75,13 @@ public class AuthController {
             )
             .body(result.response());
     }
+
+    // User registration
+    @PostMapping("/register")
+    public ResponseEntity<RegistrationResponse> register(
+            @Valid @RequestBody RegistrationRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(authService.register(request));
+    }
+
 }

@@ -37,9 +37,5 @@ sealed interface AuthResult<out T> {
 interface AuthRepository {
     suspend fun login(email: String, password: String): AuthResult<AuthenticatedSession>
 
-    suspend fun refresh(): AuthResult<AuthenticatedSession>
-
-    suspend fun logout(): AuthResult<Unit>
-
     suspend fun getCurrentUser(): AuthResult<AuthenticatedUser>
 }

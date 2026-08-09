@@ -96,53 +96,6 @@ class ServerAuthRepositoryTest {
     }
 
     @Test
-    fun refreshMapsValid200AndInvalidSession401() = runTest {
-        val successApi = FakeAuthApiService()
-        val session = successValue(ServerAuthRepository(successApi).refresh())
-        assertEquals("access-token", session.accessToken)
-
-        val unauthorizedApi = FakeAuthApiService(refreshResponse = errorResponse(401))
-        assertFailure(
-            ServerAuthRepository(unauthorizedApi).refresh(),
-            AuthFailureType.UNAUTHENTICATED,
-        )
-    }
-
-    @Test
-    fun refreshRejectsInvalidPayloadAndMapsServerAndNetworkFailures() = runTest {
-        val invalidApi = FakeAuthApiService(
-            refreshResponse = Response.success(validAuthResponse().copy(expiresIn = -1))
-        )
-        assertFailure(
-            ServerAuthRepository(invalidApi).refresh(),
-            AuthFailureType.INVALID_RESPONSE,
-        )
-
-        val serverApi = FakeAuthApiService(refreshResponse = errorResponse(503))
-        assertFailure(ServerAuthRepository(serverApi).refresh(), AuthFailureType.SERVER)
-
-        val networkApi = FakeAuthApiService(exception = IOException("offline"))
-        assertFailure(ServerAuthRepository(networkApi).refresh(), AuthFailureType.NETWORK)
-    }
-
-    @Test
-    fun logoutRequires204AndMapsServerAndNetworkFailures() = runTest {
-        assertEquals(Unit, successValue(ServerAuthRepository(FakeAuthApiService()).logout()))
-
-        val wrongSuccessApi = FakeAuthApiService(logoutResponse = Response.success(Unit))
-        assertFailure(
-            ServerAuthRepository(wrongSuccessApi).logout(),
-            AuthFailureType.INVALID_RESPONSE,
-        )
-
-        val serverApi = FakeAuthApiService(logoutResponse = errorResponse(500))
-        assertFailure(ServerAuthRepository(serverApi).logout(), AuthFailureType.SERVER)
-
-        val networkApi = FakeAuthApiService(exception = IOException("offline"))
-        assertFailure(ServerAuthRepository(networkApi).logout(), AuthFailureType.NETWORK)
-    }
-
-    @Test
     fun meMapsValidUserAndAuthenticationFailures() = runTest {
         val user = successValue(ServerAuthRepository(FakeAuthApiService()).getCurrentUser())
         assertEquals(12L, user.userId)
@@ -199,8 +152,6 @@ class ServerAuthRepositoryTest {
 
     private class FakeAuthApiService(
         private val loginResponse: Response<AuthResponse> = Response.success(validAuthResponse()),
-        private val refreshResponse: Response<AuthResponse> = Response.success(validAuthResponse()),
-        private val logoutResponse: Response<Unit> = Response.success(204, Unit),
         private val currentUserResponse: Response<AuthenticatedUserResponse> = Response.success(
             AuthenticatedUserResponse(12L, "person@example.com", AuthRole.USER)
         ),
@@ -212,16 +163,6 @@ class ServerAuthRepositoryTest {
             lastLoginRequest = request
             exception?.let { throw it }
             return loginResponse
-        }
-
-        override suspend fun refresh(): Response<AuthResponse> {
-            exception?.let { throw it }
-            return refreshResponse
-        }
-
-        override suspend fun logout(): Response<Unit> {
-            exception?.let { throw it }
-            return logoutResponse
         }
 
         override suspend fun getCurrentUser(): Response<AuthenticatedUserResponse> {

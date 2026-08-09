@@ -200,7 +200,8 @@ fun CanMakanNavGraph(
                 FamilyRestrictionSummaryScreen(
                     viewModel = viewModel,
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToEditMembers = { navController.navigate("family/members") }
+                    // Member-edit destination is web-primary; keep empty-state CTA local until UC9/UC12.
+                    onNavigateToEditMembers = { navController.popBackStack() }
                 )
             }
             composable(ROUTE_HISTORY) {

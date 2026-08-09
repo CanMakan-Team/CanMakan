@@ -22,9 +22,11 @@ User registration, authentication and session management.
 
 ## UC19 implementation status
 
-- The 7.2 data/network foundation models login, refresh, logout and `/me`.
+- The 7.2 Bearer-client surface models login and `/me` only. Refresh and logout
+  use the dedicated cookie-only `RefreshApiService` (not `AuthRepository`).
 - `AuthRepository` maps HTTP, network and invalid-response failures without
   exposing backend or credential details.
+- Drawer / family identity uses `AuthSessionStore` (no separate `CurrentUserStore`).
 - The 7.3 session foundation stores the access token and authenticated-user
   summary in Keystore-backed encrypted preferences with a synchronized memory
   snapshot for future request authentication.

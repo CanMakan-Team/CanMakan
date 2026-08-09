@@ -18,20 +18,21 @@ class AuthApiServiceContractTest {
 
     @Test
     fun endpointDefinitionsMatchTheFrozenBackendContract() {
+        // Bearer-client surface: login + /me only. Refresh/logout live on RefreshApiService.
         assertPost("login", "auth/login")
-        assertPost("refresh", "auth/refresh")
-        assertPost("logout", "auth/logout")
         assertEquals("auth/me", method("getCurrentUser").getAnnotation(GET::class.java).value)
 
         assertTrue(hasParameterAnnotation(method("login"), Body::class.java))
-        assertFalse(hasParameterAnnotation(method("refresh"), Body::class.java))
-        assertFalse(hasParameterAnnotation(method("logout"), Body::class.java))
         assertFalse(hasParameterAnnotation(method("getCurrentUser"), Body::class.java))
+
+        val methodNames = AuthApiService::class.java.declaredMethods.map { it.name }.toSet()
+        assertFalse(methodNames.contains("refresh"))
+        assertFalse(methodNames.contains("logout"))
     }
 
     @Test
     fun everyAuthEndpointDisablesTheSharedGeneralRetry() {
-        listOf("login", "refresh", "logout", "getCurrentUser").forEach { name ->
+        listOf("login", "getCurrentUser").forEach { name ->
             assertEquals(
                 listOf(NO_RETRY_HEADER),
                 method(name).getAnnotation(Headers::class.java).value.toList(),
@@ -42,7 +43,7 @@ class AuthApiServiceContractTest {
 
     @Test
     fun authEndpointsNeverDeclareXUserId() {
-        listOf("login", "refresh", "logout", "getCurrentUser").forEach { name ->
+        listOf("login", "getCurrentUser").forEach { name ->
             assertFalse(hasParameterAnnotation(method(name), Header::class.java), name)
             assertFalse(
                 method(name).getAnnotation(Headers::class.java).value

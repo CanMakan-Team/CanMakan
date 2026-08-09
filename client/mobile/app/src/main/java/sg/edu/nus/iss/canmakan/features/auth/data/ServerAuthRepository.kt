@@ -27,30 +27,6 @@ class ServerAuthRepository @Inject constructor(
         }
     }
 
-    override suspend fun refresh(): AuthResult<AuthenticatedSession> = safely {
-        val response = authApiService.refresh()
-        if (response.code() == HTTP_OK) {
-            AuthResponseValidator.validatedSession(response.body())
-                ?.let { AuthResult.Success(it) }
-                ?: AuthResult.Failure(AuthFailureType.INVALID_RESPONSE)
-        } else {
-            AuthResult.Failure(
-                mapHttpFailure(response.code(), AuthFailureType.UNAUTHENTICATED)
-            )
-        }
-    }
-
-    override suspend fun logout(): AuthResult<Unit> = safely {
-        val response = authApiService.logout()
-        if (response.code() == HTTP_NO_CONTENT) {
-            AuthResult.Success(Unit)
-        } else {
-            AuthResult.Failure(
-                mapHttpFailure(response.code(), AuthFailureType.UNAUTHENTICATED)
-            )
-        }
-    }
-
     override suspend fun getCurrentUser(): AuthResult<AuthenticatedUser> = safely {
         val response = authApiService.getCurrentUser()
         if (response.code() == HTTP_OK) {
@@ -90,7 +66,6 @@ class ServerAuthRepository @Inject constructor(
 
     private companion object {
         const val HTTP_OK = 200
-        const val HTTP_NO_CONTENT = 204
         const val HTTP_BAD_REQUEST = 400
         const val HTTP_UNAUTHORIZED = 401
         const val HTTP_FORBIDDEN = 403

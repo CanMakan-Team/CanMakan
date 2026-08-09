@@ -52,14 +52,6 @@ interface AuthApiService {
     suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
 
     @Headers("X-CanMakan-No-Retry: true")
-    @POST("auth/refresh")
-    suspend fun refresh(): Response<AuthResponse>
-
-    @Headers("X-CanMakan-No-Retry: true")
-    @POST("auth/logout")
-    suspend fun logout(): Response<Unit>
-
-    @Headers("X-CanMakan-No-Retry: true")
     @GET("auth/me")
     suspend fun getCurrentUser(): Response<AuthenticatedUserResponse>
 }

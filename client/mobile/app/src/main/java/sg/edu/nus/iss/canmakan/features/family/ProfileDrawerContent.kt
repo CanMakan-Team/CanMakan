@@ -255,30 +255,6 @@ fun ProfileDrawerContent(
             )
         }
 
-        /**
-         * DrawerNavRow(icon = Icons.Default.CropFree, label = "Scanner", onClick = onScannerClick)
-         *         Spacer(modifier = Modifier.height(4.dp))
-         *         DrawerNavRow(
-         *             icon = Icons.Default.AccessTime,
-         *             label = "History",
-         *             isSelected = true,
-         *             onClick = onHistoryClick,
-         *
-         *         )
-        */
-
-//        Spacer(modifier = Modifier.weight(1f))
-
-//        Row(
-//            verticalAlignment = Alignment.CenterVertically,
-//            modifier = Modifier
-//                .clickable { onSignOutClick() }
-//                .padding(vertical = 8.dp)
-//        ) {
-//            Icon(Icons.Default.ExitToApp, contentDescription = "Sign out", tint = AvoidRed)
-//            Spacer(modifier = Modifier.width(8.dp))
-//            Text("Sign Out", color = AvoidRed)
-//        }
         Spacer(modifier = Modifier.height(10.dp))
 
         HorizontalDivider(

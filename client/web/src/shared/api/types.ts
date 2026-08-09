@@ -48,12 +48,16 @@ export interface RegistrationResponse {
   active: boolean
 }
 
-/** POST /api/auth/login success body (pre-JWT). */
-export interface LoginResponse {
-  userId: number
-  displayName: string
-  roles: Role[]
-  prototype: boolean
+/** POST /api/auth/login success body (UC19 JWT). */
+export interface AuthLoginResponse {
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+  user: {
+    userId: number
+    email: string
+    role: 'USER' | 'ADMIN'
+  }
 }
 
 /** Current family context from GET /api/families/me (UC8). */

@@ -52,7 +52,8 @@ class ScannerViewModel @Inject constructor(
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     // Processes a barcode by sending it to the backend for validation and assessment.
-    fun processBarcode(barcode: String, profileId: Long, userId: Long? = profileId) {
+    // Caller identity is attached as Bearer JWT by the auth interceptor.
+    fun processBarcode(barcode: String, profileId: Long) {
         _processState.value = ScanProcessState.VALIDATING
         _verdictDetail.value = null
         _errorMessage.value = null
@@ -81,7 +82,6 @@ class ScannerViewModel @Inject constructor(
 
                 // 2. Send the barcode to the backend for assessment.
                 val assessment = apiService.assessBarcode(
-                    userId = userId,
                     request = AssessmentRequest(barcode = barcode, profileId = profileId)
                 )
 

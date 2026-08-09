@@ -171,6 +171,32 @@ class LoginViewModelTest {
     }
 
     @Test
+    fun unauthenticatedFailureUsesTheSameAccountEnumerationSafeMessage() {
+        assertFailureMessage(
+            AuthFailureType.UNAUTHENTICATED,
+            LoginViewModel.INVALID_CREDENTIALS_MESSAGE,
+        )
+    }
+
+    @Test
+    fun successfulLoginIgnoresFurtherEditsAndDuplicateLoginAttempts() {
+        enterCredentials()
+        viewModel.login()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, repository.loginCalls)
+
+        viewModel.updateEmail("other@example.com")
+        viewModel.updatePassword("DifferentPassword1!")
+        viewModel.login()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, repository.loginCalls)
+        assertEquals("person@example.com", viewModel.uiState.value.email)
+        assertEquals("", viewModel.uiState.value.password)
+        assertEquals(12L, viewModel.uiState.value.authenticatedUser?.userId)
+    }
+
+    @Test
     fun malformedRequestUsesSafeValidationMessage() {
         assertFailureMessage(
             AuthFailureType.MALFORMED_REQUEST,
@@ -317,14 +343,6 @@ class LoginViewModelTest {
             gate?.await()
             exception?.let { throw it }
             return result
-        }
-
-        override suspend fun refresh(): AuthResult<AuthenticatedSession> {
-            error("refresh is outside LoginViewModel scope")
-        }
-
-        override suspend fun logout(): AuthResult<Unit> {
-            error("logout is outside LoginViewModel scope")
         }
 
         override suspend fun getCurrentUser(): AuthResult<AuthenticatedUser> {

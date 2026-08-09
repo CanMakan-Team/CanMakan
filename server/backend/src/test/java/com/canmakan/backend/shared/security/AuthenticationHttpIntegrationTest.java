@@ -13,7 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.canmakan.backend.auth.RefreshTokenRepository;
+import com.canmakan.backend.auth.repository.RefreshTokenRepository;
 import com.canmakan.backend.user.AuthenticationAccountView;
 import com.canmakan.backend.user.UserAccountRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;

@@ -7,9 +7,9 @@ portals:
 - System Admin Portal
 
 The implementation is an evolutionary Sprint 1 / Sprint 2 client. **Auth and
-UC8 family create/`/me` always call the live Spring Boot API** (session
-`userId` → temporary `X-User-Id`). Other family/admin surfaces may still use
-browser mocks when `VITE_USE_MOCK_API=true`.
+UC8 family create/`/me` always call the live Spring Boot API** (UC19 JWT
+Bearer access token). Other family/admin surfaces may still use browser mocks
+when `VITE_USE_MOCK_API=true`.
 
 ## Selected Web features
 
@@ -138,6 +138,12 @@ npm install
 npm run dev
 ```
 
+```powershell
+npm test          # Vitest suites under src/test/
+npm run test:watch
+npm run verify    # typecheck + lint + tests
+```
+
 Quality commands:
 
 ```powershell
@@ -179,12 +185,13 @@ System Admin Portal:
 
 ## Implemented backend contracts (UC8 / UC18)
 
-Auth (live DB):
+Auth (live DB, UC19 JWT):
 
 - `POST /api/auth/register` — name, email, password → user + SELF profile
-- `POST /api/auth/login` — email, password → session fields (`userId`, roles); no JWT yet
+- `POST /api/auth/login` — email, password → `AuthResponse` (access JWT + user) + refresh cookie
+- `POST /api/auth/logout` — clears refresh cookie / session server-side
 
-Family (caller id via temporary `X-User-Id` until UC19):
+Family (caller id from Bearer JWT):
 
 ```text
 POST  /api/families
@@ -230,8 +237,8 @@ food-safety guarantees.
 
 ## Known limitations
 
-- Live register/login and UC8 create/`/me` use the database. There is still no
-  JWT; APIs use temporary `X-User-Id` from the session.
+- Live register/login and UC8 create/`/me` use the database with JWT Bearer
+  identity on family APIs.
 - Members/invite/history/admin pages may still be mock when
   `VITE_USE_MOCK_API=true` (default is `false`).
 - Backend `spring.sql.init.mode=always` reseeds and drops newly registered users

@@ -289,11 +289,6 @@ class AuthSessionRestorerTest {
             password: String,
         ): AuthResult<AuthenticatedSession> = error("not used by restoration")
 
-        override suspend fun refresh(): AuthResult<AuthenticatedSession> =
-            error("dedicated coordinator owns restoration refresh")
-
-        override suspend fun logout(): AuthResult<Unit> = error("logout is deferred")
-
         override suspend fun getCurrentUser(): AuthResult<AuthenticatedUser> {
             currentUserCalls++
             return resultProvider()

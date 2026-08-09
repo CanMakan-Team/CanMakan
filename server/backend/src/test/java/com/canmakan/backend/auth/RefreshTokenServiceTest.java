@@ -11,6 +11,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
+import com.canmakan.backend.auth.model.IssuedRefreshToken;
+import com.canmakan.backend.auth.model.RefreshToken;
+import com.canmakan.backend.auth.model.RefreshTokenRotation;
+import com.canmakan.backend.auth.repository.RefreshTokenRepository;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthUserDetailsService;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
