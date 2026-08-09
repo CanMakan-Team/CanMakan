@@ -19,6 +19,8 @@ DROP TABLE IF EXISTS plan_features;
 DROP TABLE IF EXISTS features;
 DROP TABLE IF EXISTS subscriptions;
 DROP TABLE IF EXISTS subscription_plans;
+DROP TABLE IF EXISTS recommendation_ai_logs;
+DROP TABLE IF EXISTS recommendation_logs;
 DROP TABLE IF EXISTS ai_execution_logs;
 DROP TABLE IF EXISTS ocr_scan_results;
 DROP TABLE IF EXISTS scans;
@@ -238,6 +240,8 @@ CREATE TABLE products (
     nutrition_grade VARCHAR(10) NULL,
     no_nutrition_data VARCHAR(10) NULL,
     completeness DECIMAL(5,2) NULL,
+    popularity_tags TEXT NULL,
+    unique_scans_n INT NULL,
 
     energy_kcal_100g DECIMAL(8,2) NULL,
     energy_kj_100g DECIMAL(8,2) NULL,
@@ -318,6 +322,61 @@ CREATE TABLE ai_execution_logs (
     CONSTRAINT fk_ai_logs_scan
         FOREIGN KEY (scan_id) REFERENCES scans(id)
         ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE recommendation_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    profile_id BIGINT NOT NULL,
+    scan_id BIGINT NULL,
+    source_barcode VARCHAR(50) NOT NULL,
+    recommended_barcode VARCHAR(50) NOT NULL,
+    recommended_name VARCHAR(255) NOT NULL,
+    recommended_brand VARCHAR(255) NULL,
+    discovery_tier VARCHAR(30) NOT NULL,
+    verification_tier VARCHAR(30) NOT NULL DEFAULT 'TIER_1_RULES',
+    rank_score DECIMAL(8,4) NULL,
+    match_reason VARCHAR(100) NULL,
+    data_quality VARCHAR(20) NOT NULL DEFAULT 'VERIFIED',
+    verdict_at_recommendation VARCHAR(20) NOT NULL DEFAULT 'SAFE',
+    shown_to_user TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_recommendation_logs_profile
+        FOREIGN KEY (profile_id) REFERENCES dietary_profiles(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_recommendation_logs_scan
+        FOREIGN KEY (scan_id) REFERENCES scans(id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT fk_recommendation_logs_source_product
+        FOREIGN KEY (source_barcode) REFERENCES products(barcode)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_recommendation_logs_recommended_product
+        FOREIGN KEY (recommended_barcode) REFERENCES products(barcode)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE recommendation_ai_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    scan_id BIGINT NOT NULL,
+    profile_id BIGINT NOT NULL,
+    source_barcode VARCHAR(50) NOT NULL,
+    execution_tier VARCHAR(30) NOT NULL,
+    model_id VARCHAR(50) NULL,
+    prompt_tokens INT NULL,
+    completion_tokens INT NULL,
+    latency_ms INT NULL,
+    llm_candidates_json JSON NULL,
+    candidates_accepted INT NULL,
+    candidates_rejected INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_recommendation_ai_logs_scan
+        FOREIGN KEY (scan_id) REFERENCES scans(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_recommendation_ai_logs_profile
+        FOREIGN KEY (profile_id) REFERENCES dietary_profiles(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_recommendation_ai_logs_source_product
+        FOREIGN KEY (source_barcode) REFERENCES products(barcode)
+        ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
@@ -453,6 +512,15 @@ CREATE INDEX idx_scans_profile_scanned_at ON scans (profile_id, scanned_at);
 
 CREATE INDEX idx_ai_execution_logs_scan_id ON ai_execution_logs (scan_id);
 CREATE INDEX idx_ai_execution_logs_execution_tier ON ai_execution_logs (execution_tier);
+
+CREATE INDEX idx_recommendation_logs_profile_id ON recommendation_logs (profile_id);
+CREATE INDEX idx_recommendation_logs_scan_id ON recommendation_logs (scan_id);
+CREATE INDEX idx_recommendation_logs_source_barcode ON recommendation_logs (source_barcode);
+CREATE INDEX idx_recommendation_logs_discovery_tier ON recommendation_logs (discovery_tier);
+CREATE INDEX idx_recommendation_logs_profile_created_at ON recommendation_logs (profile_id, created_at);
+
+CREATE INDEX idx_recommendation_ai_logs_scan_id ON recommendation_ai_logs (scan_id);
+CREATE INDEX idx_recommendation_ai_logs_profile_id ON recommendation_ai_logs (profile_id);
 
 CREATE INDEX idx_subscriptions_plan_id ON subscriptions (plan_id);
 CREATE INDEX idx_subscriptions_status ON subscriptions (status);
