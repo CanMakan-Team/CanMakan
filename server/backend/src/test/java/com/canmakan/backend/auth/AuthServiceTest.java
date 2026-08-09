@@ -25,6 +25,7 @@ import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
 import com.canmakan.backend.dietaryprofile.DietaryProfile;
 import com.canmakan.backend.dietaryprofile.DietaryProfileRepository;
+import com.canmakan.backend.family.FamilyService;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
 import com.canmakan.backend.shared.security.JwtService;
@@ -52,8 +53,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+/** UC18 -  19 test cases: AuthService
+ * 
+ * @author YangMaowei
+ * @author Amelia
+ * 
+*/
 @ExtendWith(MockitoExtension.class)
-@DisplayName("AuthService")
+@DisplayName("UC18 - 11 test cases: AuthService")
 class AuthServiceTest {
 
     private static final String PASSWORD_HASH = "$2a$10$test-password-hash";
@@ -63,6 +70,9 @@ class AuthServiceTest {
 
     @Mock
     private DietaryProfileRepository dietaryProfileRepository;
+
+    @Mock
+    private FamilyService familyService;
 
     @Mock
     private AuthenticationManager authenticationManager;
@@ -82,6 +92,7 @@ class AuthServiceTest {
         authService = new AuthService(
             userAccountRepository,
             dietaryProfileRepository,
+            familyService,
             passwordEncoder,
             authenticationManager,
             jwtService,
@@ -207,7 +218,8 @@ class AuthServiceTest {
             RegistrationRequest request = new RegistrationRequest(
                 "Person Name",
                 "  Person@Example.COM  ",
-                rawPassword
+                rawPassword,
+                null
             );
             when(userAccountRepository.existsByEmail("person@example.com")).thenReturn(false);
             when(userAccountRepository.findRoleIdByName("USER")).thenReturn(Optional.of(2L));
@@ -261,7 +273,8 @@ class AuthServiceTest {
             RegistrationRequest request = new RegistrationRequest(
                 "Person Name",
                 "person@example.com",
-                "Password1!"
+                "Password1!",
+                null
             );
             when(userAccountRepository.existsByEmail("person@example.com")).thenReturn(true);
 
@@ -277,7 +290,8 @@ class AuthServiceTest {
             RegistrationRequest request = new RegistrationRequest(
                 "Person Name",
                 "person@example.com",
-                "Password1!"
+                "Password1!",
+                null
             );
             when(userAccountRepository.existsByEmail("person@example.com")).thenReturn(false);
             when(userAccountRepository.findRoleIdByName("USER")).thenReturn(Optional.of(2L));
@@ -296,7 +310,8 @@ class AuthServiceTest {
             RegistrationRequest request = new RegistrationRequest(
                 "Person Name",
                 "person@example.com",
-                "Password1!"
+                "Password1!",
+                null
             );
             when(userAccountRepository.existsByEmail("person@example.com")).thenReturn(false);
             when(userAccountRepository.findRoleIdByName("USER")).thenReturn(Optional.of(2L));
@@ -312,7 +327,8 @@ class AuthServiceTest {
             RegistrationRequest request = new RegistrationRequest(
                 "Person Name",
                 "person@example.com",
-                "Password1!"
+                "Password1!",
+                null
             );
             when(userAccountRepository.existsByEmail("person@example.com")).thenReturn(false);
             when(userAccountRepository.findRoleIdByName("USER")).thenReturn(Optional.empty());
@@ -327,7 +343,8 @@ class AuthServiceTest {
             RegistrationRequest request = new RegistrationRequest(
                 "Person Name",
                 "person@example.com",
-                "Password1!"
+                "Password1!",
+                null
             );
             when(userAccountRepository.existsByEmail("person@example.com"))
                 .thenThrow(new DataAccessResourceFailureException("internal-host:3306 password=secret"));
