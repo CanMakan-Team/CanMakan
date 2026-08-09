@@ -1367,6 +1367,21 @@ input[readonly] {
   grid-template-columns: repeat(3, minmax(180px, 1fr));
 }
 
+.filter-bar--analytics {
+  grid-template-columns: minmax(180px, 320px);
+}
+
+.trend-result-meta {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.trend-result-meta time {
+  color: var(--ink);
+  font-weight: 700;
+}
+
 .responsive-table {
   width: 100%;
   overflow-x: auto;
@@ -1586,12 +1601,7 @@ caption {
   aspect-ratio: 1;
   place-items: center;
   border-radius: 50%;
-  background: conic-gradient(
-    #27875b 0 61%,
-    #d6a12b 61% 82%,
-    #b24b44 82% 93%,
-    #868a98 93% 100%
-  );
+  background: #e7eeea;
 }
 
 .donut-chart::before {
@@ -1658,6 +1668,15 @@ caption {
 
 .accessible-equivalent {
   margin-top: 1rem;
+}
+
+.status-badge--unsafe {
+  color: var(--avoid);
+  background: var(--avoid-bg);
+}
+
+.data-table--analytics {
+  min-width: 650px;
 }
 
 .role-list {
