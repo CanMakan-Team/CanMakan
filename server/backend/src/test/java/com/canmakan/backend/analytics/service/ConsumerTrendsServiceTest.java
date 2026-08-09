@@ -15,6 +15,7 @@ import com.canmakan.backend.analytics.dto.DailyTrendPoint;
 import com.canmakan.backend.analytics.dto.FlaggedIngredientTrend;
 import com.canmakan.backend.analytics.dto.TrendPeriod;
 import com.canmakan.backend.analytics.dto.TrendSummary;
+import com.canmakan.backend.analytics.exception.ConsumerTrendsValidationException;
 import com.canmakan.backend.analytics.repository.DailyScanTrendProjection;
 import com.canmakan.backend.analytics.repository.ScanAnalyticsRepository;
 import com.canmakan.backend.analytics.repository.ScanFindingProjection;
@@ -132,31 +133,31 @@ class ConsumerTrendsServiceTest {
     void rejectsInvalidRequestsBeforeQuerying() {
         assertAll(
                 () -> assertThrows(
-                        IllegalArgumentException.class,
+                        ConsumerTrendsValidationException.class,
                         () -> service.generateTrends(TODAY, null, 10)
                 ),
                 () -> assertThrows(
-                        IllegalArgumentException.class,
+                        ConsumerTrendsValidationException.class,
                         () -> service.generateTrends(null, TODAY, 10)
                 ),
                 () -> assertThrows(
-                        IllegalArgumentException.class,
+                        ConsumerTrendsValidationException.class,
                         () -> service.generateTrends(TODAY, TODAY.minusDays(1), 10)
                 ),
                 () -> assertThrows(
-                        IllegalArgumentException.class,
+                        ConsumerTrendsValidationException.class,
                         () -> service.generateTrends(TODAY.minusDays(90), TODAY, 10)
                 ),
                 () -> assertThrows(
-                        IllegalArgumentException.class,
+                        ConsumerTrendsValidationException.class,
                         () -> service.generateTrends(TODAY, TODAY.plusDays(1), 10)
                 ),
                 () -> assertThrows(
-                        IllegalArgumentException.class,
+                        ConsumerTrendsValidationException.class,
                         () -> service.generateTrends(TODAY, TODAY, 0)
                 ),
                 () -> assertThrows(
-                        IllegalArgumentException.class,
+                        ConsumerTrendsValidationException.class,
                         () -> service.generateTrends(TODAY, TODAY, 21)
                 )
         );

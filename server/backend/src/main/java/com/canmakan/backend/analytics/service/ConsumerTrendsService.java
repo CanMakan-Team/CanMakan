@@ -6,6 +6,7 @@ import com.canmakan.backend.analytics.dto.DailyTrendPoint;
 import com.canmakan.backend.analytics.dto.FlaggedIngredientTrend;
 import com.canmakan.backend.analytics.dto.TrendPeriod;
 import com.canmakan.backend.analytics.dto.TrendSummary;
+import com.canmakan.backend.analytics.exception.ConsumerTrendsValidationException;
 import com.canmakan.backend.analytics.repository.DailyScanTrendProjection;
 import com.canmakan.backend.analytics.repository.ScanAnalyticsRepository;
 import com.canmakan.backend.analytics.repository.ScanFindingProjection;
@@ -132,7 +133,9 @@ public class ConsumerTrendsService {
             LocalDate today
     ) {
         if ((from == null) != (to == null)) {
-            throw new IllegalArgumentException("from and to must be supplied together");
+            throw new ConsumerTrendsValidationException(
+                    "from and to must be supplied together"
+            );
         }
 
         LocalDate resolvedTo = to == null ? today : to;
@@ -141,20 +144,24 @@ public class ConsumerTrendsService {
                 : from;
 
         if (resolvedFrom.isAfter(resolvedTo)) {
-            throw new IllegalArgumentException("from must not be after to");
+            throw new ConsumerTrendsValidationException("from must not be after to");
         }
         if (resolvedTo.isAfter(today)) {
-            throw new IllegalArgumentException("future reporting dates are not allowed");
+            throw new ConsumerTrendsValidationException(
+                    "future reporting dates are not allowed"
+            );
         }
 
         long periodDays = ChronoUnit.DAYS.between(resolvedFrom, resolvedTo) + 1;
         if (periodDays > MAX_PERIOD_DAYS) {
-            throw new IllegalArgumentException("reporting period must not exceed 90 days");
+            throw new ConsumerTrendsValidationException(
+                    "reporting period must not exceed 90 days"
+            );
         }
 
         int resolvedLimit = limit == null ? DEFAULT_LIMIT : limit;
         if (resolvedLimit < 1 || resolvedLimit > MAX_LIMIT) {
-            throw new IllegalArgumentException("limit must be between 1 and 20");
+            throw new ConsumerTrendsValidationException("limit must be between 1 and 20");
         }
 
         return new ResolvedRequest(resolvedFrom, resolvedTo, (int) periodDays, resolvedLimit);
