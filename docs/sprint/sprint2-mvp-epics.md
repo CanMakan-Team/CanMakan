@@ -480,18 +480,18 @@ UC19 · Related: UC22
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Web Client (Family)  
 **Tech:** React; Spring Boot; RDS  
-**Current code state:** Partial — **UC8-S1–S4 shipped** for API + web; pre-JWT identity; mobile resolve open
+**Current code state:** Partial — **UC8-S1–S4 shipped** for API + web + mobile create-when-empty; pre-JWT identity
 
 - **Schema:** `UNIQUE(family_members.user_id)` via `uq_family_members_user_id` in `00_schema.sql` (D2 / one circle per user). Seeds remain one membership per user.
 - **Backend:** `POST /api/families` and `GET /api/families/me` via `FamilyService` / `FamilyController`. Create is transactional: `families` (`created_by_user_id`) + `PRIMARY_ADMIN` membership + SELF `dietary_profiles` (`linked_user_id`, `family_id`, `is_primary`). Package layout: `family/dto/`, `model/`, `repository/`, `exception/`. Contract: `docs/api/families.md`.
 - **Identity:** Controller takes temporary `X-User-Id` → `FamilyService(long userId)`. Not Spring Security auth. UC19 should swap to JWT / `@AuthenticationPrincipal` (**AC8** open). Unknown user for header → 401 today; missing JWT filter still open.
 - **Role model (interim):** DB `family_members.member_role = PRIMARY_ADMIN`; web session uses `ROLE_FAMILY_ADMIN` from register/login mapping. Full RBAC + seed `ADMIN`/`USER` vs `ROLE_*` alignment shared with UC13/UC19.
 - **Web:** Register (`/family-register`) / login → `/family` → `FamilyMeGate` loads `/families/me`; **404** → `CreateFamilyCirclePage` (name + loading/validation/error). `apiClient` sends `X-User-Id` from session. Feature packaged under `features/family/{api,components,pages,lib}`.
-- **Mobile:** No create-circle UI (web owns onboarding for MVP). Still hardcodes `familyId=1` in places — resolve via `/families/me` under **UC11** (AC10).
-- **Tests:** Backend create success, blank name 400, second create 409, unknown `X-User-Id` 401 (`FamilyControllerTest` / `FamilyServiceTest`).
+- **Mobile:** Resolves `/families/me` with persisted `X-User-Id`. When 404 and a session exists, drawer CTA → `CreateFamilyCircleScreen` (`POST /api/families`); create is hidden once the user already has a family. Member create/add entry points stay hidden until UC9/UC12.
+- **Tests:** Backend create success, blank name 400, second create 409, unknown `X-User-Id` 401 (`FamilyControllerTest` / `FamilyServiceTest`). Mobile repository covers `/me` 200/404 and create 201/409/400.
 - **Diagrams:** Class/sequence under `docs/architecture/` for create-circle still **open** (planned `domain-family.mmd`).
 - **Demo tip:** Seeded users 4–13 already have families — register a new account to hit empty-state create.
-- **Gaps:** Real unauthenticated 401 (UC19, AC8); mobile `/me` (UC11, AC10); invites/manage (UC9/UC12).
+- **Gaps:** Real unauthenticated 401 (UC19, AC8); invites/manage (UC9/UC12); server-persisted active profile (UC11).
 
 ### User story
 
@@ -501,7 +501,7 @@ As a registered app user, I want to create a family circle and become its Family
 
 **APIs:** `POST /api/families`; `GET /api/families/me`  
 Bootstraps SELF dietary profile for UC1.  
-**Out of scope:** Invites (UC9); accept (UC10); manage roster mutations (UC12); mobile create UI (optional if web owns onboarding).
+**Out of scope:** Invites (UC9); accept (UC10); manage roster mutations (UC12).
 
 ### Acceptance criteria
 
@@ -515,9 +515,9 @@ Bootstraps SELF dietary profile for UC1.
 | [x] | 6 | If one-family-per-user rule applies (D2), a second create returns HTTP 409. |
 | [x] | 7 | Blank or invalid family name returns HTTP 400. |
 | [ ] | 8 | Unauthenticated create returns HTTP 401. *(open — UC19 Security filter)* |
-| [x] | 9 | Web empty-state CTA allows create when `/families/me` is empty/404. |
-| [ ] | 10 | Clients that previously hardcoded `familyId=1` can resolve family via `/families/me` for this flow. *(web done; mobile → UC11)* |
-| [x] | 11 | Loading, validation, and error states are handled on the create UI. |
+| [x] | 9 | Web empty-state CTA allows create when `/families/me` is empty/404. *(mobile drawer CTA + create screen also shipped when session exists and `/me` is 404)* |
+| [x] | 10 | Clients that previously hardcoded `familyId=1` can resolve family via `/families/me` for this flow. *(web + mobile resolve `/me`; full active-profile persistence remains UC11)* |
+| [x] | 11 | Loading, validation, and error states are handled on the create UI. *(web + mobile)* |
 
 ### Jira child stories
 
@@ -525,8 +525,8 @@ Bootstraps SELF dietary profile for UC1.
 | --- | --- | --- |
 | **UC8-S1** | 6 | **Done** — UNIQUE membership |
 | **UC8-S2** | 1–5, 7–8 | **Done** except AC8 (401 → UC19) |
-| **UC8-S3** | 5, 10 | **Done** for API + web; mobile hardcode → UC11 |
-| **UC8-S4** | 9, 11 | **Done** — web create UX |
+| **UC8-S3** | 5, 10 | **Done** — API + web + mobile `/me` resolve |
+| **UC8-S4** | 9, 11 | **Done** — web + mobile create UX (mobile only when no family) |
 
 Full table: [backlog §5 family lifecycle](sprint2-jira-backlog.md#uc8--uc9--uc10--family-lifecycle).
 
@@ -1203,7 +1203,7 @@ Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 Canonical with [backlog §5b](sprint2-jira-backlog.md#5b-recommended-delivery-sequence):
 
 1. UC19-S1/S3/S5 (critical path — real JWT / 401)  
-2. **Shipped (pre-JWT):** UC18-S1/S2 (web); UC8-S1–S4 (API + web create); remaining UC8 = AC8→UC19, AC10→UC11  
+2. **Shipped (pre-JWT):** UC18-S1/S2 (web); UC8-S1–S4 (API + web/mobile create-when-empty); remaining UC8 = AC8→UC19; AC10 polish → UC11  
 3. UC11-S1…S3 (drop `familyId=1`) → UC2-S1…S4 → UC3-S1…S2 → UC4-S1  
 4. UC12-S1…S6 → UC9-S3; stretch UC1-S1/S3, UC6-S1/S2, UC9-S1/S2  
 5. UC9–UC10 invite loop → UC6-S3 if needed  

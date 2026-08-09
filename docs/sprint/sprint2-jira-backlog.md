@@ -244,7 +244,7 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 | UC5 | Core | **Not started** — Alternatives tab shell (“No alternatives available yet”); no recommendations API |
 | UC6 | Core | **Partial** — web `FamilyRestrictionSummaryPage` mock matrix; **mobile primary + summary API missing** |
 | UC7 | Core | **Partial** — admin `ConsumerTrendsPage` mock; `daily_consumer_trends` unused by Java |
-| UC8 | Core | **Partial (S1–S4 done)** — `POST /api/families`, `GET /me`, D2 UNIQUE, web `FamilyMeGate` / create page; package `family/dto|model|…`; temp `X-User-Id`. Open: AC8→UC19, AC10 mobile→UC11; architecture diagrams still open |
+| UC8 | Core | **Partial (S1–S4 done)** — `POST /api/families`, `GET /me`, D2 UNIQUE, web `FamilyMeGate` / create page; mobile `/me` + create-when-empty drawer CTA; temp `X-User-Id`. Open: AC8→UC19; architecture diagrams still open |
 | UC9 | Core | **Partial** — web mock immediate link + dependant modals; `family_invitations` unused; no PENDING invite APIs |
 | UC10 | Core | **Not started** |
 | UC11 | Core | **Partial** — mobile drawer switch via `ActiveProfileManager`; loads `GET /families/{id}/profiles` with **`familyId=1L`**; not server-persisted |
@@ -454,7 +454,7 @@ All currently unauthenticated. Missing: auth package, family `/me` CRUD, invitat
 
 | | |
 | --- | --- |
-| **Status** | **Partial** — UC8-S1–S4 done (API + web); AC8→UC19; AC10 mobile→UC11 |
+| **Status** | **Partial** — UC8-S1–S4 done (API + web + mobile create-when-empty); AC8→UC19; AC10 polish→UC11 |
 | **Stories** | UC8-S1…S4 |
 | **Dependencies** | UC19 (real 401); UC18 helps demo empty-state create |
 | **In** | Create circle; creator PRIMARY_ADMIN; bootstrap SELF profile; `GET /families/me`; web empty-state |
@@ -672,8 +672,8 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | --- | --- | --- | --- |
 | **UC8-S1** | UNIQUE membership (D2) — **Done** (`uq_family_members_user_id`) | UC8: 6 | P0 |
 | **UC8-S2** | POST `/api/families` + PRIMARY_ADMIN + SELF profile — **Done** (AC8 real 401 → UC19) | UC8: 1–5, 7–8 | P0 |
-| **UC8-S3** | GET `/api/families/me` — **Done** (API + web; mobile hardcode → UC11 AC10) | UC8: 5, 10 | P0 |
-| **UC8-S4** | Web create CTA + loading/validation/error — **Done** (`FamilyMeGate` / `CreateFamilyCirclePage`) | UC8: 9, 11 | P1 |
+| **UC8-S3** | GET `/api/families/me` — **Done** (API + web + mobile resolve) | UC8: 5, 10 | P0 |
+| **UC8-S4** | Create CTA + loading/validation/error — **Done** (web `FamilyMeGate` / `CreateFamilyCirclePage`; mobile drawer + `CreateFamilyCircleScreen` when no family) | UC8: 9, 11 | P1 |
 | **UC8 follow-on** | Class/sequence diagrams under `docs/architecture/` — **Open** | Design | P2 |
 | **UC9-S1** | Invitation migration / status constraints (M5) | UC9: (supports 2–4) | P0 |
 | **UC9-S2** | User search + create PENDING invitation | UC9: 1–7 | P0 |
@@ -759,7 +759,7 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 **Core MVP target:** UC1–UC13.  
 **Canonical sequence** (also used by mvp-epics build order).
 
-**Already shipped (pre-JWT):** UC18-S1/S2 (web register + login glue); UC8-S1–S4 (create + `/me` + web empty-state). Remaining on UC8: AC8 → UC19; AC10 mobile → UC11.
+**Already shipped (pre-JWT):** UC18-S1/S2 (web register + login glue); UC8-S1–S4 (create + `/me` + web/mobile empty-state create). Remaining on UC8: AC8 → UC19; AC10 polish → UC11.
 
 | Sprint | Focus | Stretch |
 | --- | --- | --- |

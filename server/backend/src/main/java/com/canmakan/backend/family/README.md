@@ -24,7 +24,7 @@ Manages family grouping, member profiles, and active profile selection.
 
 **Still open for UC8 ACs / follow-ons:**
 - AC8: real unauthenticated → HTTP 401 (UC19)
-- AC10 mobile: stop hardcoding `familyId=1`; call `/families/me` (UC11)
+- Mobile: resolves `/families/me` + no-family “set up on web” guidance (create UI remains web-only)
 - Package layout: `dto/`, `model/`, `repository/`, `exception/` under this package
 
 ## Layout
