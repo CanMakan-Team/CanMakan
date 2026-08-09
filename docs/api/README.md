@@ -1,13 +1,18 @@
 # API Documentation
 
-## Family circle (UC8)
+## Family circle (UC8 / UC9)
 
-**Status:** Partial — create + `/me` + D2 + web/mobile empty-state; family/scan use JWT principal.
+**Status:** Create + `/me` + invite/dependant (UC9) + restriction summary; JWT principal.
 
 See [`families.md`](families.md) for:
 
 - `POST /api/families` — create circle + PRIMARY_ADMIN + SELF profile
 - `GET /api/families/me` — current family context
+- `GET /api/families/me/members` — roster of linked members + dependants
+- `GET /api/families/me/user-search` — PRIMARY_ADMIN email search (incl. NOT_REGISTERED)
+- `POST /api/families/me/invitations` — PENDING invite with `inviteUrl` + `inviteCode`
+- `POST /api/families/me/invitations/claim` — join family from token while authenticated
+- `POST /api/families/me/profiles` — dependant profile (`linked_user_id` NULL)
 - Bearer JWT / `@AuthenticationPrincipal` on family routes
 
 ## UC18 user registration
@@ -20,13 +25,19 @@ Request:
 {
   "name": "Person Name",
   "email": "person@example.com",
-  "password": "a-password-of-at-least-8-characters"
+  "password": "a-password-of-at-least-8-characters",
+  "invitationToken": "optional-uc9-invite-token"
 }
 ```
 
+`invitationToken` is optional. When present (or when a single PENDING invite
+matches the email), registration auto-claims the invite: MEMBER membership,
+SELF profile attached to the family, invitation `ACCEPTED`.
+
 The backend normalizes email, hashes the password with BCrypt, assigns the
 existing `USER` role, creates an active standalone account, and creates a
-family-less SELF dietary profile (`family_id` NULL) named from `name`.
+family-less SELF dietary profile (`family_id` NULL) named from `name` (then
+attaches it if an invite is claimed).
 
 Success: `201 Created`
 

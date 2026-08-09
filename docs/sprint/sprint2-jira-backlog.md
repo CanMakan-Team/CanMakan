@@ -259,13 +259,13 @@ Missing: ownership authz on profile-scoped routes; invitations; family scans; re
 | UC3 | Core | **Partial** — rule engine + colour-coded verdict; Alternatives empty (UC5) |
 | UC4 | Core | **Partial** — mobile personal history live; family web history mock; history GET still public |
 | UC5 | Core | **Not started** — Alternatives shell; no recommendations API |
-| UC6 | Core | **Partial (S1/S2 mostly shipped)** — live `/me/restriction-summary` + mobile grid; web parity mock; AC4/AC8/AC12 polish |
+| UC6 | Core | **Partial (S1/S2 mostly shipped)** — live `/me/restriction-summary` includes members + dependants; mobile grid; web parity polish (S3) |
 | UC7 | Core | **Partial** — admin trends mock; `daily_consumer_trends` unused by Java |
-| UC8 | Core | **Partial (S1–S4 done)** — create + `/me` + JWT 401 + web/mobile empty-state; diagrams open |
-| UC9 | Core | **Partial** — web mock immediate link; no PENDING invite APIs; mobile invite/share not built |
-| UC10 | Core | **Not started** |
+| UC8 | Core | **Complete (MVP)** — create + `/me` + JWT 401 + web/mobile empty-state; diagrams follow-on open |
+| UC9 | Core | **Complete (MVP)** — live invite/dependant; web + mobile share/deep links; register/login claim; live `/me/members` list |
+| UC10 | Core | **Partial foundation** — UC9 claim path exists; inbox list/decline/Resend not started |
 | UC11 | Core | **Partial** — drawer switch + `/me`-resolved profiles; `DEFAULT_PROFILE_ID=1` fallback; not server-persisted |
-| UC12 | Core | **Partial** — web mock list/edit; mobile stubs; no remove/`is_active` |
+| UC12 | Core | **Partial** — live `GET /me/members` roster; manage CRUD / `is_active` open |
 | UC13 | Core | **Partial** — `UserAccessPage` mock; no admin controller |
 | UC14 | Enhanced | **Not started** |
 | UC15–UC16 | Enhanced | **Not started** |
@@ -476,11 +476,11 @@ Missing: ownership authz on profile-scoped routes; invitations; family scans; re
 
 | | |
 | --- | --- |
-| **Status** | **Partial** — UC8-S1–S4 done (API + web + mobile create-when-empty + JWT 401) |
+| **Status** | **Complete (MVP)** — UC8-S1–S4 done; architecture diagrams follow-on open |
 | **Stories** | UC8-S1…S4 |
 | **Dependencies** | UC19 (JWT shipped for family routes); UC18 helps demo empty-state create |
 | **In** | Create circle; creator PRIMARY_ADMIN; bootstrap SELF profile; `GET /families/me`; web + mobile empty-state create |
-| **Out** | Invites (UC9); accept (UC10); manage roster (UC12); architecture diagrams still open |
+| **Out** | Invites (UC9); accept inbox (UC10); manage roster (UC12); architecture diagrams still open |
 | **Shipped** | D2 UNIQUE; `POST /api/families`; `GET /me`; web `FamilyMeGate` / `CreateFamilyCirclePage`; mobile drawer + `CreateFamilyCircleScreen`; tests for 201/400/409/401; `family/dto` packaging |
 | **Caller identity** | Bearer JWT (`@AuthenticationPrincipal`). DB `PRIMARY_ADMIN` vs web portal `ROLE_FAMILY_ADMIN` — document mapping |
 
@@ -492,10 +492,13 @@ Missing: ownership authz on profile-scoped routes; invitations; family scans; re
 
 | | |
 | --- | --- |
+| **Status** | **Complete (MVP)** — S1–S4 shipped (deep links + login claim + live roster list) |
 | **Stories** | UC9-S1…S4 (migration; invite+share API; dependant API; mobile+web UI) |
 | **Dependencies** | UC19, UC8; UC1 for dependant restrictions |
-| **In** | PENDING invite with **shareable link/code**; email/user-search where useful; admin-managed dependant profile (API + web-primary UI) |
-| **Out** | Accept/decline (UC10); silent mock link; full roster manage (UC12) |
+| **In** | PENDING invite with **shareable link/code**; email/user-search; admin-managed dependant profile (API + web-primary UI; mobile optional); register/login auto-claim |
+| **Out** | Accept/decline inbox (UC10); silent mock link; full roster manage (UC12) |
+| **Shipped** | Schema `invited_by` + `invite_code`; Spring Data family repos; search/invite/claim/dependant APIs; `GET /me/members`; web invite + dependant + `/invite/:token`; mobile invite+share+deep links+login claim+dependant create |
+| **Residuals** | UC10 inbox; UC12 manage CRUD / `is_active` |
 
 ---
 
@@ -505,10 +508,12 @@ Missing: ownership authz on profile-scoped routes; invitations; family scans; re
 
 | | |
 | --- | --- |
+| **Status** | **Partial** — claim happy-path covered by UC9; inbox/list/decline/Resend open |
 | **Stories** | UC10-S1…S4 (list; accept; decline/guards; Resend) |
 | **Dependencies** | UC19, UC9 |
-| **In** | Accept → MEMBER + linked profile; decline → DECLINED; mobile inbox primary |
+| **In** | List pending invites; accept → MEMBER + linked profile; decline → DECLINED; mobile inbox primary |
 | **Out** | Creating invitations (UC9); web accept is optional parity only |
+| **Note** | `POST .../invitations/claim` + register `invitationToken` already join without an inbox |
 
 ---
 
@@ -700,12 +705,12 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | **UC8-S3** | GET `/api/families/me` — **Done** (API + web + mobile resolve) | UC8: 5, 10 | P0 |
 | **UC8-S4** | Create CTA + loading/validation/error — **Done** (web + mobile when no family) | UC8: 9, 11 | P1 |
 | **UC8 follow-on** | Class/sequence diagrams under `docs/architecture/` — **Open** | Design | P2 |
-| **UC9-S1** | Invitation migration / status constraints (M5); share token/code | UC9: (supports 2–4, 15) | P0 |
-| **UC9-S2** | User search + create PENDING invitation returning shareable code/link | UC9: 1–7, 15 | P0 |
-| **UC9-S3** | Create dependant dietary profile (API; web-primary UI) | UC9: 9–13 | P0 |
-| **UC9-S4** | Mobile invite+share + web invite (no silent link); UI states | UC9: 8, 14–16 | P1 |
+| **UC9-S1** | Invitation migration / status constraints (M5); share token/code + `InvitationStatus` — **Done** | UC9: (supports 2–4, 15) | P0 · done |
+| **UC9-S2** | User search + create PENDING invitation returning shareable code/link; register/login claim — **Done** | UC9: 1–7, 15 | P0 · done |
+| **UC9-S3** | Create dependant dietary profile (API; web-primary UI; mobile optional live) — **Done** | UC9: 9–13 | P0 · done |
+| **UC9-S4** | Mobile invite+share + deep links + web invite (no silent link); UI states — **Done** | UC9: 8, 14–16 | P1 · done |
 | **UC10-S1** | List pending invitations (mobile primary; web optional) | UC10: 1–2, 10, 12 | P0 |
-| **UC10-S2** | Accept invitation → MEMBER + linked profile | UC10: 3–4, 7–9 | P0 |
+| **UC10-S2** | Accept invitation → MEMBER + linked profile *(claim API already in UC9; inbox UX still open)* | UC10: 3–4, 7–9 | P0 |
 | **UC10-S3** | Decline + expired/invalid/mismatch guards | UC10: 5–8 | P0 |
 | **UC10-S4** | Resend invitation email (as designed) | UC10: 11 | P1 |
 
@@ -718,7 +723,7 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | **UC11-S3** | Persist across restart; drive assess; remove hardcodes | UC11: 4–5, 8 | P0 |
 | **UC11-S4** | Mobile switcher UX (web selector not required) | UC11: 9–10 | P1 |
 | **UC12-S1** | Migration `dietary_profiles.is_active` | UC12: 1 | P0 |
-| **UC12-S2** | View roster — members + profiles APIs + UI | UC12: 2–6 | P0 |
+| **UC12-S2** | View roster — live `GET /me/members` + UI — **Mostly done** (`GET /me/profiles` + role/active polish open) | UC12: 2–6 | P0 · mostly done |
 | **UC12-S3** | Update profile metadata | UC12: 7, 9, 19 | P0 |
 | **UC12-S4** | Update restrictions via UC1 rules (D3) | UC12: 8–9 | P0 |
 | **UC12-S5** | Remove member + last-admin / confirm / soft-remove | UC12: 10–14 | P0 |
@@ -784,14 +789,14 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 **Core MVP target:** UC1–UC13.  
 **Canonical sequence** (also used by mvp-epics build order).
 
-**Already shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT + clients); UC8-S1–S4 (incl. AC8); UC6-S1/S2 (summary API + mobile). Remaining auth: UC19-S3 close-out + AC3 polish.
+**Already shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT + clients); UC8-S1–S4 (incl. AC8); UC6-S1/S2 (summary API + mobile); **UC9-S1–S4** (invite/dependant/share + auto-claim + deep links + live roster list). Remaining auth: UC19-S3 close-out + AC3 polish.
 
 | Sprint | Focus | Stretch |
 | --- | --- | --- |
 | **Sprint 2** | UC19-S3 + UC1-S1; UC11-S1…S3; UC2 profile authz; UC3 polish; UC4-S1 authz | UC1-S3 |
-| **Sprint 3** | UC12-S1…S6; UC9-S3 | UC6-S3; UC9-S1/S2 |
+| **Sprint 3** | UC12 remaining manage CRUD / `is_active`; UC10-S1…S3 | UC6-S3; UC10-S4 Resend |
 
-**Remaining Core MVP (next):** UC4-S2/S3; UC5-S1/S2; UC7-S1/S2; UC9–UC10 invite loop; UC13-S1…S3.
+**Remaining Core MVP (next):** UC12 manage; UC10 inbox; UC4-S2/S3; UC5-S1/S2; UC7-S1/S2; UC13-S1…S3.
 
 **Seeded-family exception:** Scan work may still use Tan/Lim/Wong seeds until UC11 persists active profile. New users create a circle via UC8 after UC18 register + UC19 login.
 
@@ -804,12 +809,12 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 UC18 (shipped) ──► UC8 empty-state demo (after UC19 login)
 UC19 (mostly shipped) ──► UC8 AC8 done; protects families + assess
 UC19-S3 (open) ──► UC1/UC4 dietary+history authz
-UC8-S1…S4 (shipped) ──► UC9 ──► UC10
-                       └──► UC9-S3 (dependant)
+UC8-S1…S4 (shipped) ──► UC9 (mostly shipped) ──► UC10 inbox
+                       └──► UC9-S3 dependant (mostly shipped; web roster → UC12)
 UC8-S3 (/me) ──► UC11 ──► UC2 ──► UC3 ──► UC4
 UC6-S1/S2 (mostly shipped) ──► UC6-S3 web parity
 UC19 ──► UC1 ownership authz ──► UC6 / UC12
-UC8 + UC1 + UC11 ──► UC12
+UC8 + UC1 + UC11 ──► UC12 (closes UC9 AC12 web residual)
 UC3 ──► UC5 ──► UC17
 UC2/UC3 ──► UC14, UC24
 UC19 ──► UC7 ──► UC22

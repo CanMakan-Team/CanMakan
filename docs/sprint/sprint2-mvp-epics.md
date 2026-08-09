@@ -389,10 +389,10 @@ UC2, UC3 · Feeds: UC17
 **Tech:** Android (primary); React (optional parity); Spring Boot; RDS  
 **Current code state:** Mostly complete — **UC6-S1 API + UC6-S2 mobile grid shipped**; web parity still mock-oriented
 
-- **Backend:** live `GET /api/families/me/restriction-summary` (`FamilyController` / `FamilyService`) — JWT principal, membership-scoped, active members + restrictions. Also `GET /api/families/{familyId}/profiles` (legacy path; prefer `/me` for new work).
-- **Mobile (primary):** drawer → `FamilyRestrictionSummaryScreen` + `FamilyRestrictionSummaryViewModel`; calls the live summary API with Bearer from `AuthSessionStore`; loading / empty / error + session gate. Empty-state edit CTA is local (no `family/members` route yet — UC12).
-- **Web:** `FamilyRestrictionSummaryPage` at `/family/restrictions` still uses mock when `VITE_USE_MOCK_API=true`; live parity against the same summary API is remaining (UC6-S3).
-- **Gaps:** dependant profiles without `family_members` may be under-represented vs UC9/UC12; `dietary_profiles.is_active` not in schema yet (UC12 migration); overlap highlighting polish as designed.
+- **Backend:** live `GET /api/families/me/restriction-summary` (`FamilyController` / `FamilyService`) — JWT principal, membership-scoped; **active members plus dependant profiles** (`linked_user_id` NULL, `userId=0` / `profileId` set). Also `GET /api/families/{familyId}/profiles` (includes dependants; prefer `/me` for new work).
+- **Mobile (primary):** drawer → `FamilyRestrictionSummaryScreen` + `FamilyRestrictionSummaryViewModel`; calls the live summary API with Bearer from `AuthSessionStore`; loading / empty / error + session gate. Empty-state edit CTA is local (no full UC12 manage route yet).
+- **Web:** `FamilyRestrictionSummaryPage` at `/family/restrictions` can call the live summary API when mock is off; polish/parity remains UC6-S3.
+- **Gaps:** `dietary_profiles.is_active` not in schema yet (UC12 migration); overlap highlighting polish as designed.
 
 ### User story
 
@@ -512,7 +512,7 @@ UC19 · Related: UC22
 - **Tests:** Backend create success, blank name 400, second create 409, missing/invalid JWT 401 (`FamilyControllerTest` / `FamilyServiceTest`). Mobile repository + nav ViewModel cover `/me`, create, and session gates.
 - **Diagrams:** Class/sequence under `docs/architecture/` for create-circle still **open** (planned `domain-family.mmd`).
 - **Demo tip:** Seeded users 4–13 already have families — register a new account to hit empty-state create.
-- **Gaps:** Invites/manage (UC9/UC12); server-persisted active profile (UC11).
+- **Gaps:** Architecture diagrams still open; invites (UC9) largely shipped; full roster manage (UC12); server-persisted active profile (UC11).
 
 ### User story
 
@@ -561,13 +561,14 @@ UC19 (JWT shipped for family routes) · UC18 (register new users to demo empty-s
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Shared (Mobile + Web Family) — mobile preferred for share  
 **Tech:** Android; React; Spring Boot; RDS  
-**Current code state:** Partial (web mock immediate link; no invite APIs; mobile invite/share not built)
+**Current code state:** Mostly complete — **UC9-S1–S4 shipped** (incl. deep-link polish + mobile login claim + live roster list)
 
-- **Product:** Invite via **shareable link/code** on **both** clients; mobile uses native share. Dependant-create API in this epic; **dependant UI is web-primary** (full roster manage is UC12).
-- **Web:** `FamilyMembersPage` with `LinkExistingUserModal` and `CreateFamilyProfileModal`. Mock path searches users and **links immediately** as a member (no PENDING invitation). Must become PENDING invite + copy link/code.
-- **Mobile:** No invite+share flow yet; add-profile stubs are not the UC9 share path.
-- **Client contracts:** `familyService` expects user-search / invitations / profiles endpoints when mock is off — backend implementations are **missing**.
-- **Schema:** `family_invitations` table exists; no seed/API/entity usage found for PENDING → accept (UC10). Production must not keep silent mock membership.
+- **Product:** Invite via **shareable link/code** on **both** clients; mobile uses native share. Dependant-create API + web-primary dependant UI (mobile optional path also live). Unknown emails are valid invite targets. Join via register/login **auto-claim** (no UC10 inbox required for the happy path).
+- **Web:** `LinkExistingUserModal` creates PENDING invites (copy link/code; optional mailto). `CreateFamilyProfileModal` posts live dependant profiles. `/invite/:token` → register/login + claim. `FamilyMembersPage` lists via live `GET /api/families/me/members`. Silent `members/link` removed from live `familyApiService`.
+- **Mobile:** `AddProfileToFamilyScreen` + share (`canmakan://invite/{token}` + web URL); manifest VIEW intent-filters + `singleTop`; invite landing offers register **or** sign-in; login claims `POST .../invitations/claim`; already-authed deep links claim via `PendingInvitationStore`. `CreateNewProfileScreen` posts live dependant profiles. Drawer manage CTAs when `PRIMARY_ADMIN`.
+- **Backend:** Spring Data repos; invite/claim/dependant; `GET /api/families/me/members` roster (linked + dependants).
+- **Gaps (residual):** UC10 accept/decline **inbox** UI; Resend delivery; UC12 full roster CRUD / `is_active` / edit-remove.
+- **Out of this epic:** UC10 inbox; UC12 manage mutations.
 
 ### User story
 
@@ -577,31 +578,31 @@ As a Family Admin, I want to invite someone with a shareable link/code (and opti
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | PRIMARY_ADMIN can search an existing user by email (GET /api/families/me/user-search). |
-| [ ] | 2 | PRIMARY_ADMIN can create a PENDING invitation (POST /api/families/me/invitations). |
-| [ ] | 3 | Invitation is associated with the admin’s family circle. |
-| [ ] | 4 | Invitee is **not** added to Family_members until UC10 accept. |
-| [ ] | 5 | Already-linked user returns HTTP 409 on invite. |
-| [ ] | 6 | Non-admin (MEMBER) cannot invite (HTTP 403). |
-| [ ] | 7 | Unknown/unregistered email returns a documented not-found or equivalent error. |
-| [ ] | 8 | Production path does not use silent mock immediate membership link. |
-| [ ] | 9 | PRIMARY_ADMIN can create a dependant profile via POST /api/families/me/profiles with name and relationship. |
-| [ ] | 10 | Dependant profile is persisted with linked_user_id NULL. |
-| [ ] | 11 | Creating a dependant does **not** insert a Family_members row without a user_id. |
-| [ ] | 12 | Dependant appears in family profile/member views used by UC11/UC12/UC6. |
-| [ ] | 13 | Admin can set initial dietary rules for the dependant using UC1 restriction contracts / authz. |
-| [ ] | 14 | Loading, validation, and error states are handled for invite and dependant-create UIs. |
-| [ ] | 15 | Create-invitation response includes a **shareable invite code and/or deep-link** usable by invitees for UC10. |
-| [ ] | 16 | Mobile PRIMARY_ADMIN can invite and **share** the code/link (native share); web PRIMARY_ADMIN can invite and copy the code/link. |
+| [x] | 1 | PRIMARY_ADMIN can search an existing user by email (GET /api/families/me/user-search), including NOT_REGISTERED. |
+| [x] | 2 | PRIMARY_ADMIN can create a PENDING invitation (POST /api/families/me/invitations) for registered or unknown emails. |
+| [x] | 3 | Invitation is associated with the admin’s family circle. |
+| [x] | 4 | Invitee is **not** added to `family_members` at invite time; join happens on register/login claim (UC9 auto-claim; full UC10 inbox later). |
+| [x] | 5 | Already-linked user returns HTTP 409 on invite. |
+| [x] | 6 | Non-admin (MEMBER) cannot invite (HTTP 403). |
+| [x] | 7 | Invalid email → 400; unknown but valid email is a valid invite target (NOT_REGISTERED), not a hard 404 block. |
+| [x] | 8 | Production path does not use silent mock immediate membership link. |
+| [x] | 9 | PRIMARY_ADMIN can create a dependant profile via POST /api/families/me/profiles with name and relationship. |
+| [x] | 10 | Dependant profile is persisted with linked_user_id NULL. |
+| [x] | 11 | Creating a dependant does **not** insert a `family_members` row. |
+| [x] | 12 | Dependant appears in family profiles list + UC6 restriction summary (and is usable for switch/scan by profileId). Live web roster via `GET /me/members`. |
+| [x] | 13 | Admin can set initial dietary rules for the dependant using restriction codes on create. |
+| [x] | 14 | Loading, validation, and error states are handled for invite and dependant-create UIs. |
+| [x] | 15 | Create-invitation response includes shareable `inviteUrl` + `inviteCode`. |
+| [x] | 16 | Mobile PRIMARY_ADMIN can invite and **share** the code/link (native share + app deep link); web PRIMARY_ADMIN can invite and copy the code/link (optional mailto). OS intent-filters wired. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC9-S1** | supports 2–4, 15 | Invitation migration (M5) + share token/code — **open** |
-| **UC9-S2** | 1–7, 15 | Invite API + shareable payload — **open** |
-| **UC9-S3** | 9–13 | Dependant create (web-primary UI) — **open** |
-| **UC9-S4** | 8, 14–16 | Mobile invite+share + web invite; mock-off — **open** |
+| **UC9-S1** | supports 2–4, 15 | Invitation schema (`invited_by`, `invite_code`) + `InvitationStatus` — **done** |
+| **UC9-S2** | 1–7, 15 | Invite API + shareable payload + register/login claim — **done** |
+| **UC9-S3** | 9–13 | Dependant create (web-primary UI; mobile optional live) — **done** |
+| **UC9-S4** | 8, 14–16 | Mobile invite+share + deep links + web invite; mock-off — **done** |
 
 Full table: [backlog §5 family lifecycle](sprint2-jira-backlog.md#uc8--uc9--uc10--family-lifecycle).
 
@@ -615,8 +616,10 @@ UC19, UC8, UC1 · Related: UC10
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Mobile Client (primary) & Email; web optional  
 **Tech:** Android; Spring Boot; RDS; **Resend** *(optional React web parity)*  
-**Current code state:** Not started — schema `family_invitations` only; no list/accept/decline APIs, mobile inbox, or Resend integration
+**Current code state:** Partial foundation from UC9 — claim-on-register / claim-on-login / `POST .../invitations/claim` exist; **inbox list / decline / Resend not started**
 
+- **Already covered by UC9 (not UC10 product):** invitee can join without an inbox when they register with matching email/token or sign in on web with token and claim.
+- **Still open for UC10:** `GET` pending invitations for the invitee, accept/decline UX (mobile primary), expired/mismatch browsing, Resend email delivery.
 ### User story
 
 As an invited app user, I want to accept or decline a family invitation on mobile so I choose whether to join that household.
@@ -709,12 +712,12 @@ UC19; UC8-S3 (/families/me) or seeded membership for early delivery · Critical 
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Web Client (Family) primary; mobile optional/limited  
 **Tech:** React; Spring Boot; RDS *(optional Android limited surface)*  
-**Current code state:** Partial (web mock roster/edit; no manage APIs; no `dietary_profiles.is_active`)
+**Current code state:** Partial — **live roster list done** (`GET /me/members`); manage CRUD / `is_active` still open
 
-- **Web (primary):** `FamilyMembersPage`, `EditFamilyProfileModal`, `ProfileForm` — list/edit against mock when `VITE_USE_MOCK_API=true`; live members/profiles CRUD endpoints **missing** (default mock is off → broken live).
-- **Mobile (optional/limited):** stubs (`CreateNewProfileScreen` / `AddProfileToFamilyScreen`); manage entry points stay hidden (`showManageFamilyActions = false`).
+- **Web (primary):** `FamilyMembersPage` lists via live `GET /api/families/me/members` (mock branch when `VITE_USE_MOCK_API=true`). Edit/remove/activate APIs still missing. UC9 invite + dependant **create** modals are live.
+- **Mobile (optional/limited):** UC9 invite + dependant create live for PRIMARY_ADMIN. Full UC12 roster edit/remove/activate stays web-primary / open.
 - **Schema:** `dietary_profiles` has **no** `is_active` column (do not overload `users.is_active`). `family_members.is_active` exists separately.
-- **Missing:** live members/profiles CRUD, remove-member, soft-remove vs scan FK, activate/deactivate, PRIMARY_ADMIN authz.
+- **Missing:** profile update/delete, remove-member, soft-remove vs scan FK, activate/deactivate, `GET /me/profiles` alias.
 
 ### User stories
 
@@ -728,11 +731,11 @@ UC19; UC8-S3 (/families/me) or seeded membership for early delivery · Critical 
 | Done | # | Criterion |
 | --- | --- | --- |
 | [ ] | 1 | Migration adds `dietary_profiles.is_active` (default active); does **not** overload `users.is_active`. |
-| [ ] | 2 | PRIMARY_ADMIN can list members via `GET /api/families/me/members`. |
+| [x] | 2 | PRIMARY_ADMIN can list members via `GET /api/families/me/members`. *(any family member may list; PRIMARY_ADMIN manage mutations still open)* |
 | [ ] | 3 | PRIMARY_ADMIN can list profiles via `GET /api/families/me/profiles`. |
-| [ ] | 4 | Roster shows name, relationship, role, and profile active status as designed. |
-| [ ] | 5 | List is family-scoped only (no other family’s members). |
-| [ ] | 6 | Dependant profiles without login appear in the profile/member management views. |
+| [~] | 4 | Roster shows name, relationship, role, and profile active status as designed. *(name/relationship/source/restrictions live; role/active status incomplete)* |
+| [x] | 5 | List is family-scoped only (no other family’s members). |
+| [x] | 6 | Dependant profiles without login appear in the profile/member management views. |
 | [ ] | 7 | PRIMARY_ADMIN can update allowed profile metadata via `PUT /api/families/me/profiles/{profileId}`. |
 | [ ] | 8 | PRIMARY_ADMIN can update dependant (and self, as allowed) restrictions via UC1 PUT rules; unauthorized adult edits follow D3 (default deny). |
 | [ ] | 9 | Profile/restriction updates persist and are visible on reload / subsequent scans for that profile. |
@@ -753,7 +756,7 @@ UC19; UC8-S3 (/families/me) or seeded membership for early delivery · Critical 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
 | **UC12-S1** | 1 | `is_active` migration — **open** |
-| **UC12-S2** | 2–6 | View roster — **open** (mock UI only) |
+| **UC12-S2** | 2–6 | View roster — **mostly done** (live `GET /me/members`; AC3 `/me/profiles` + role/active polish open) |
 | **UC12-S3** | 7, 9, 19 | Update metadata — **open** |
 | **UC12-S4** | 8–9 | Update restrictions (UC1/D3) — **open** |
 | **UC12-S5** | 10–14 | Remove member — **open** |
@@ -1235,11 +1238,12 @@ Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
 Canonical with [backlog §5b](sprint2-jira-backlog.md#5b-recommended-delivery-sequence):
 
-1. **Shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT login/refresh/logout + clients); UC8-S1–S4 (incl. AC8 401); UC6-S1/S2 (summary API + mobile grid)  
+1. **Shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT login/refresh/logout + clients); UC8-S1–S4 (incl. AC8 401); UC6-S1/S2 (summary API + mobile grid); **UC9-S1–S4** (invite/dependant/share + auto-claim + deep links + live roster list)  
 2. **Finish auth hard-edges:** UC19-S3 (protect remaining business routes) + UC19 AC3 (suspended → 403); UC1-S1 ownership authz  
 3. UC11-S1…S3 (server active-profile; drop `DEFAULT_PROFILE_ID=1` fallback) → UC2 remaining authz (profile ownership / inactive) → UC3 polish → UC4-S1 authz  
-4. UC12-S1…S6 → UC9-S3; stretch UC1-S3, UC9-S1/S2, UC6-S3 web parity  
-5. UC9–UC10 invite loop  
+4. UC12 remaining (manage CRUD / `is_active`; closes remaining AC4 polish) → UC6-S3 web parity  
+5. UC10 inbox (list/decline/Resend) — claim happy-path already covered by UC9  
+6. Remaining Core: UC4-S2/S3, UC5, UC7, UC13 
 6. UC4-S2/S3 → UC5-S1/S2 → UC7-S1/S2 → UC13-S1…S3  
 7. Enhanced: UC14-S1/S2, UC15–UC17  
 8. Nice-to-Have: UC20-S1/S2 … UC24-S1/S2  
