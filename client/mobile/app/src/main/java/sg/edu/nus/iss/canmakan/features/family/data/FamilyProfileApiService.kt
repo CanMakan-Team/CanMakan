@@ -23,4 +23,12 @@ interface FamilyProfileApiService {
     suspend fun getProfilesByFamilyId(
         @Path("familyId") familyId: Long
     ): List<FamilyProfileResponse>
+
+    /**
+     * (UC6) View Family Allergy Summary Grid
+     */
+    @GET("families/me/restriction-summary")
+    suspend fun getFamilyRestrictionSummary(
+        @Header("X-User-Id") userId: Long,
+    ): Response<FamilyRestrictionSumRes>
 }
