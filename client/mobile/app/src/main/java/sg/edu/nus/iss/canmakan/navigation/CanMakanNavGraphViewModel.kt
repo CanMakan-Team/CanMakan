@@ -64,8 +64,8 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val _createFamilyError = MutableStateFlow<String?>(null)
     val createFamilyError: StateFlow<String?> = _createFamilyError.asStateFlow()
 
-    /** Manage-member actions stay off until UC9/UC12 APIs exist. */
-    val showManageFamilyActions: Boolean = false
+    private val _showManageFamilyActions = MutableStateFlow(false)
+    val showManageFamilyActions: StateFlow<Boolean> = _showManageFamilyActions.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -123,6 +123,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
         if (authSessionStore.authenticatedUser.value == null) {
             _hasFamily.value = false
             _familyName.value = null
+            _showManageFamilyActions.value = false
             _profiles.value = listOf(personalPlaceholder(profileId))
             return
         }
@@ -132,12 +133,14 @@ class CanMakanNavGraphViewModel @Inject constructor(
             if (me == null) {
                 _hasFamily.value = false
                 _familyName.value = null
+                _showManageFamilyActions.value = false
                 _profiles.value = listOf(personalPlaceholder(profileId))
                 return
             }
 
             _hasFamily.value = true
             _familyName.value = me.familyName
+            _showManageFamilyActions.value = me.memberRole == "PRIMARY_ADMIN"
             val loadedProfiles = familyProfileRepository.getProfilesForFamily(me.familyId)
             _profiles.value = loadedProfiles
 
@@ -152,6 +155,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
             _error.value = "Unable to connect to the server. Please check your network and try again."
             _hasFamily.value = false
             _familyName.value = null
+            _showManageFamilyActions.value = false
             _profiles.value = listOf(personalPlaceholder(profileId))
         }
     }

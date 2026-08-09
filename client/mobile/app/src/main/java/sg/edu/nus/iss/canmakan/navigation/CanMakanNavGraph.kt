@@ -75,6 +75,7 @@ fun CanMakanNavGraph(
     val activeRestrictions by navGraphViewModel.activeRestrictions.collectAsStateWithLifecycle()
     val profiles by navGraphViewModel.profiles.collectAsStateWithLifecycle()
     val hasFamily by navGraphViewModel.hasFamily.collectAsStateWithLifecycle()
+    val showManageFamilyActions by navGraphViewModel.showManageFamilyActions.collectAsStateWithLifecycle()
     val hasUserSession by navGraphViewModel.hasUserSession.collectAsStateWithLifecycle()
     val isLoading by navGraphViewModel.isLoading.collectAsStateWithLifecycle()
     val error by navGraphViewModel.error.collectAsStateWithLifecycle()
@@ -125,7 +126,7 @@ fun CanMakanNavGraph(
                         hasUserSession -> CanMakanNavGraphViewModel.NO_FAMILY_MESSAGE
                         else -> CanMakanNavGraphViewModel.NO_SESSION_FAMILY_MESSAGE
                     },
-                    showManageFamilyActions = navGraphViewModel.showManageFamilyActions,
+                    showManageFamilyActions = showManageFamilyActions,
                     onProfileSelected = { selected ->
                         navGraphViewModel.switchProfile(selected.id)
                         closeDrawer()
@@ -289,7 +290,7 @@ fun CanMakanNavGraph(
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },
                     onCancelClick = { navController.popBackStack() },
-                    onAddProfileClick = { _, _ -> 
+                    onInviteCreated = {
                         navController.popBackStack()
                         navGraphViewModel.refreshRestrictions()
                     }

@@ -73,6 +73,26 @@ class FamilyProfileRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    suspend fun searchUserByEmail(email: String): UserSearchResponse {
+        val response = apiService.searchUserByEmail(email.trim().lowercase())
+        if (!response.isSuccessful) {
+            throw HttpException(response)
+        }
+        return response.body()
+            ?: throw IllegalStateException("Empty body for GET /families/me/user-search")
+    }
+
+    suspend fun createInvitation(email: String): InvitationResponse {
+        val response = apiService.createInvitation(
+            CreateInvitationRequestBody(email = email.trim().lowercase()),
+        )
+        if (!response.isSuccessful) {
+            throw CreateFamilyException(messageFromError(response), response.code())
+        }
+        return response.body()
+            ?: throw IllegalStateException("Empty body for POST /families/me/invitations")
+    }
 }
 
 class CreateFamilyException(

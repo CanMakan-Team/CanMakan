@@ -34,6 +34,7 @@ data class RegistrationUiState(
     val email: String = "",
     val password: String = "",
     val confirmPassword: String = "",
+    val invitationToken: String? = null,
     val nameError: String? = null,
     val emailError: String? = null,
     val passwordError: String? = null,
@@ -69,6 +70,12 @@ class RegistrationViewModel @Inject constructor(
 
     init {
         loadDietaryOptions()
+    }
+
+    fun setInvitationToken(token: String?) {
+        _uiState.value = _uiState.value.copy(
+            invitationToken = token?.trim()?.takeIf { it.isNotEmpty() },
+        )
     }
 
     fun updateName(name: String) {
@@ -210,6 +217,7 @@ class RegistrationViewModel @Inject constructor(
                 name = state.name.trim(),
                 email = state.email.trim().lowercase(Locale.ROOT),
                 password = state.password,
+                invitationToken = state.invitationToken,
             )) {
                 is RegistrationResult.Success -> handleAccountCreated(result.account)
                 is RegistrationResult.Failure -> {
