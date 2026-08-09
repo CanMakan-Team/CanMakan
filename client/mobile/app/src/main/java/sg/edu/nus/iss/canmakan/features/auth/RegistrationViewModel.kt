@@ -9,12 +9,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import sg.edu.nus.iss.canmakan.features.auth.data.CurrentUserSession
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationFailureType
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationRepository
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResponse
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResult
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 
 enum class RegistrationStep {
     ACCOUNT_INFORMATION,
@@ -60,6 +62,8 @@ data class RegistrationUiState(
 class RegistrationViewModel @Inject constructor(
     private val registrationRepository: RegistrationRepository,
     private val dietaryRestrictionRepository: DietaryRestrictionRepository,
+    private val currentUserSession: CurrentUserSession,
+    private val activeProfileManager: ActiveProfileManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RegistrationUiState())
@@ -230,6 +234,7 @@ class RegistrationViewModel @Inject constructor(
     }
 
     private suspend fun handleAccountCreated(account: RegistrationResponse) {
+        persistSession(account)
         val state = _uiState.value
         if (state.selectedRestrictionIds.isEmpty()) {
             _uiState.value = state.copy(
@@ -273,6 +278,11 @@ class RegistrationViewModel @Inject constructor(
                 profileSetupMessage = PROFILE_SETUP_DEFERRED_MESSAGE,
             )
         }
+    }
+
+    private fun persistSession(account: RegistrationResponse) {
+        currentUserSession.save(userId = account.userId, selfProfileId = account.profileId)
+        activeProfileManager.switchProfile(account.profileId)
     }
 
     private fun loadDietaryOptions() {

@@ -38,7 +38,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.checkerframework.checker.units.qual.s
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.DrawerBackground
@@ -51,14 +50,19 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 fun ProfileDrawerContent(
     profiles: List<DietaryProfile>,
     activeProfile: DietaryProfile,
+    hasFamily: Boolean,
+    hasUserSession: Boolean,
+    noFamilyMessage: String?,
+    showManageFamilyActions: Boolean,
     onProfileSelected: (DietaryProfile) -> Unit,
     onEditDietaryClick: () -> Unit,
     onScannerClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onSignOutClick: () -> Unit,
     onCloseClick: () -> Unit,
+    onCreateFamilyCircleClick: () -> Unit,
     onCreateNewClick: () -> Unit,
-    onAddProfileClick: () -> Unit
+    onAddProfileClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -104,6 +108,26 @@ fun ProfileDrawerContent(
             Text("Edit dietary restrictions", color = DrawerTextMuted)
         }
 
+        if (!hasFamily) {
+            Spacer(modifier = Modifier.height(12.dp))
+            if (!noFamilyMessage.isNullOrBlank()) {
+                Text(
+                    text = noFamilyMessage,
+                    color = DrawerTextMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            if (hasUserSession) {
+                OutlinedButton(
+                    onClick = onCreateFamilyCircleClick,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Create family circle", color = DrawerTextMuted)
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(10.dp))
 
         HorizontalDivider(
@@ -117,8 +141,7 @@ fun ProfileDrawerContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         profiles.forEach { profile ->
-            if (activeProfile == null) return
-            val isActive = profile.profileName == activeProfile.profileName
+            val isActive = profile.id == activeProfile.id
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -190,18 +213,23 @@ fun ProfileDrawerContent(
             color = Color.DarkGray
         )
 
-//        Spacer(modifier = Modifier.height(10.dp))
-//        Text("MANAGE FAMILY", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
-//        Spacer(modifier = Modifier.height(8.dp))
-//
-//        DrawerNavRow(icon = Icons.Default.PersonAdd, label = "Create New Family Member", onClick = onCreateNewClick)
-//        Spacer(modifier = Modifier.height(4.dp))
-//        DrawerNavRow(
-//            icon = Icons.Default.Group,
-//            label = "Add Profile to Family",
-//            isSelected = false,
-//            onClick = onAddProfileClick
-//        )
+        // Member create/link is UC9/UC12 — keep hidden until those APIs exist and the user has a family.
+        if (showManageFamilyActions && hasFamily) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text("MANAGE FAMILY", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(8.dp))
+            DrawerNavRow(
+                icon = Icons.Default.PersonAdd,
+                label = "Create New Family Member",
+                onClick = onCreateNewClick,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            DrawerNavRow(
+                icon = Icons.Default.Group,
+                label = "Add Profile to Family",
+                onClick = onAddProfileClick,
+            )
+        }
 
         Spacer(modifier = Modifier.weight(1f))
 
