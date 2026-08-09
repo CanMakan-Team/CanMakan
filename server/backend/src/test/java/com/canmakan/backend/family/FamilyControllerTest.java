@@ -35,8 +35,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
-/** UC8: FamilyController HTTP contract tests */
-@DisplayName("UC8: FamilyController HTTP contract tests")
+/** UC8: FamilyController HTTP contract tests 
+ * 
+ * @author Amelia
+*/
+@DisplayName("UC8 - 11 test cases: FamilyController HTTP contract")
 class FamilyControllerTest {
 
     private MockMvc mockMvc;
@@ -143,6 +146,59 @@ class FamilyControllerTest {
         mockMvc.perform(get("/api/families/me"))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.message").value("You are not a member of a family circle."));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/me/user-search returns 200")
+    void userSearchOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.searchUserByEmail(10L, "new@example.com"))
+            .thenReturn(new com.canmakan.backend.family.dto.UserSearchResponse(
+                null, null, "n***w@example.com", "NOT_REGISTERED", "NOT_LINKED"));
+
+        mockMvc.perform(get("/api/families/me/user-search").param("email", "new@example.com"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.accountStatus").value("NOT_REGISTERED"));
+    }
+
+    @Test
+    @DisplayName("POST /api/families/me/invitations returns 201")
+    void createInvitationOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.createInvitation(
+                eq(10L), any(com.canmakan.backend.family.dto.CreateInvitationRequest.class)))
+            .thenReturn(new com.canmakan.backend.family.dto.InvitationResponse(
+                1L,
+                "new@example.com",
+                "token",
+                "ABCD1234",
+                "http://localhost:5173/invite/token",
+                com.canmakan.backend.family.model.InvitationStatus.PENDING,
+                java.time.Instant.parse("2026-01-01T00:00:00Z"),
+                false));
+
+        mockMvc.perform(post("/api/families/me/invitations")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"new@example.com\"}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.inviteCode").value("ABCD1234"))
+            .andExpect(jsonPath("$.inviteUrl").value("http://localhost:5173/invite/token"));
+    }
+
+    @Test
+    @DisplayName("POST /api/families/me/profiles returns 201")
+    void createDependantOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.createDependantProfile(
+                eq(10L), any(com.canmakan.backend.family.dto.CreateDependantProfileRequest.class)))
+            .thenReturn(new com.canmakan.backend.family.dto.DependantProfileResponse(
+                55L, "Child", "CHILD", 1L));
+
+        mockMvc.perform(post("/api/families/me/profiles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"profileName\":\"Child\",\"relationship\":\"CHILD\"}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.profileId").value(55));
     }
 
     private static void authenticateAs(long userId) {
