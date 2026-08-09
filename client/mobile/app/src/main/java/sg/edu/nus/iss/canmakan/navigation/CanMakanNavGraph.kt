@@ -31,6 +31,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import sg.edu.nus.iss.canmakan.features.auth.ui.RegistrationRoute
@@ -44,6 +45,8 @@ import sg.edu.nus.iss.canmakan.features.product.verdict.ProductDetailScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.AddProfileToFamilyScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.CreateFamilyCircleScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.CreateNewProfileScreen
+import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryScreen
+import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryViewModel
 
 private const val ROUTE_SCANNER = "scanner"
 const val ROUTE_REGISTRATION = "registration"
@@ -93,6 +96,8 @@ fun CanMakanNavGraph(
     val pendingVerdict by navGraphViewModel.pendingVerdict.collectAsStateWithLifecycle()
     val isCreatingFamily by navGraphViewModel.isCreatingFamily.collectAsStateWithLifecycle()
     val createFamilyError by navGraphViewModel.createFamilyError.collectAsStateWithLifecycle()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
     val activeProfile = profiles.firstOrNull { it.id == currentProfileId }
         ?: profiles.firstOrNull()
@@ -125,6 +130,7 @@ fun CanMakanNavGraph(
         drawerContent = {
             ModalDrawerSheet {
                 ProfileDrawerContent(
+                    currentRoute = currentRoute,
                     profiles = profiles,
                     activeProfile = activeProfile,
                     hasFamily = hasFamily,
@@ -146,6 +152,10 @@ fun CanMakanNavGraph(
                     onScannerClick = {
                         closeDrawer()
                         navController.navigate(ROUTE_SCANNER)
+                    },
+                    onFamilyAllergySummaryClick = {
+                        closeDrawer()
+                        navController.navigate("family/restrictions")
                     },
                     onHistoryClick = {
                         closeDrawer()
@@ -194,6 +204,18 @@ fun CanMakanNavGraph(
                         navGraphViewModel.setPendingVerdict(detail)
                         navController.navigate(ROUTE_PRODUCT_DETAIL)
                     }
+                )
+            }
+            /**
+             * (UC6) Navigate to the Family Allergy Matrix Screen
+             */
+            composable("family/restrictions") {
+                val viewModel: FamilyRestrictionSummaryViewModel = hiltViewModel()
+
+                FamilyRestrictionSummaryScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToEditMembers = { navController.navigate("family/members") }
                 )
             }
             composable(ROUTE_HISTORY) {
