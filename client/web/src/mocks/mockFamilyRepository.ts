@@ -3,8 +3,10 @@ import { formatCode } from '../features/family/lib/profileOptions'
 import type {
   ActiveProfile,
   ExistingUserSearchResult,
+  FamilyMe,
   FamilyMember,
   FamilyProfileInput,
+  InvitationResponse,
   ScanRecord,
   FamilyRestrictionSumRes
 } from '../shared/api/types'
@@ -17,40 +19,50 @@ import {
 
 /**
  * Mock family repository for unfinished surfaces when VITE_USE_MOCK_API=true.
- * UC8 create/`/me` are always live and are not mocked here.
  *
  * @author Amelia
- * 
- * Mock family restriction summary repository for unfinished surfaces when VITE_USE_MOCK_API=true.
- * UC6 family restriction summary endpoints are always live and are not mocked here.
+ * @author YangMaowei
+ * @author Khai
  */
 const stateKey = 'canmakan.mock.family'
 const delay = (milliseconds = 450) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds))
 
+// Read the state
 function readState(): MockFamilyState {
   const stored = localStorage.getItem(stateKey)
   return stored ? (JSON.parse(stored) as MockFamilyState) : structuredClone(initialFamilyState)
 }
 
+// Write the state
 function writeState(state: MockFamilyState) {
   localStorage.setItem(stateKey, JSON.stringify(state))
   window.dispatchEvent(new Event('canmakan:family-data-changed'))
 }
 
+// Define the mock family repository
 export const mockFamilyRepository = {
   async getMembers(): Promise<FamilyMember[]> {
     await delay()
     return readState().members
   },
 
-  async searchExistingUser(email: string): Promise<ExistingUserSearchResult | null> {
+  async searchExistingUser(email: string): Promise<ExistingUserSearchResult> {
     await delay(650)
     if (email.toLowerCase() === 'error@demo.test') {
       throw new ApiError('Controlled demo error: user search is unavailable.')
     }
-    const match = existingUsers[email.trim().toLowerCase()]
-    if (!match) return null
+    const normalized = email.trim().toLowerCase()
+    const match = existingUsers[normalized]
+    if (!match) {
+      return {
+        userId: null,
+        displayName: null,
+        maskedEmail: normalized.replace(/^(.{1}).*(@.*)$/, '$1***$2'),
+        accountStatus: 'NOT_REGISTERED',
+        familyLinkStatus: 'NOT_LINKED',
+      }
+    }
     const isNowLinked = readState().members.some(
       (member) => member.memberId === match.userId,
     )
@@ -60,10 +72,44 @@ export const mockFamilyRepository = {
     }
   },
 
+  // Create an invitation
+  async createInvitation(email: string): Promise<InvitationResponse> {
+    await delay(650)
+    const normalized = email.trim().toLowerCase()
+    const token = `mock-token-${Date.now()}`
+    const code = `MOCK${String(Date.now()).slice(-4)}`
+    return {
+      invitationId: Date.now(),
+      invitedEmail: normalized,
+      invitationToken: token,
+      inviteCode: code,
+      inviteUrl: `${window.location.origin}/invite/${token}`,
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      inviteeRegistered: Boolean(existingUsers[normalized]),
+    }
+  },
+
+  // Claim an invitation
+  async claimInvitation(_invitationToken: string): Promise<FamilyMe> {
+    await delay(400)
+    return {
+      familyId: 1,
+      familyName: 'Mock Family',
+      memberRole: 'MEMBER',
+      selfProfileId: 1,
+      createdByUserId: 1,
+    }
+  },
+
+  // Link an existing user
   async linkExistingUser(userId: number): Promise<FamilyMember> {
     await delay(650)
     const match = Object.values(existingUsers).find((user) => user.userId === userId)
     if (!match || match.familyLinkStatus !== 'NOT_LINKED') {
+      throw new ApiError('This user cannot be linked in the current state.')
+    }
+    if (match.userId == null || !match.displayName) {
       throw new ApiError('This user cannot be linked in the current state.')
     }
     const state = readState()
@@ -85,6 +131,7 @@ export const mockFamilyRepository = {
     return member
   },
 
+  // Create a dependant profile
   async createProfile(input: FamilyProfileInput): Promise<FamilyMember> {
     await delay(650)
     const state = readState()
@@ -98,6 +145,7 @@ export const mockFamilyRepository = {
     return member
   },
 
+  // Update a dependant profile
   async updateProfile(
     memberId: number,
     input: FamilyProfileInput,
@@ -114,11 +162,13 @@ export const mockFamilyRepository = {
     return state.members[index]
   },
 
+  // Get the active profile
   async getActiveProfile(): Promise<ActiveProfile> {
     await delay(250)
     return readState().activeProfile
   },
 
+  // Set the active profile
   async setActiveProfile(memberId: number): Promise<ActiveProfile> {
     await delay(500)
     const state = readState()
@@ -133,6 +183,7 @@ export const mockFamilyRepository = {
     return state.activeProfile
   },
 
+  // Get the scan history
   async getScanHistory(): Promise<ScanRecord[]> {
     await delay(550)
     return scanRecords
