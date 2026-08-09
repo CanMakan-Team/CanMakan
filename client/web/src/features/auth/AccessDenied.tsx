@@ -1,6 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useSession } from './useSession'
 
+/** Access denied page
+ * 
+ * @author Amelia
+ */
+
 export function AccessDenied() {
   const { session } = useSession()
   const returnPath =

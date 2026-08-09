@@ -15,12 +15,14 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import sg.edu.nus.iss.canmakan.features.auth.data.CurrentUserSession
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationFailureType
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationRepository
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResponse
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResult
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @DisplayName("UC18: Android registration ViewModel")
@@ -29,6 +31,8 @@ class RegistrationViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var registrationRepository: FakeRegistrationRepository
     private lateinit var dietaryRepository: FakeDietaryRestrictionRepository
+    private lateinit var currentUserSession: FakeCurrentUserSession
+    private lateinit var activeProfileManager: ActiveProfileManager
     private lateinit var viewModel: RegistrationViewModel
 
     @BeforeEach
@@ -36,7 +40,14 @@ class RegistrationViewModelTest {
         Dispatchers.setMain(testDispatcher)
         registrationRepository = FakeRegistrationRepository()
         dietaryRepository = FakeDietaryRestrictionRepository()
-        viewModel = RegistrationViewModel(registrationRepository, dietaryRepository)
+        currentUserSession = FakeCurrentUserSession()
+        activeProfileManager = ActiveProfileManager()
+        viewModel = RegistrationViewModel(
+            registrationRepository,
+            dietaryRepository,
+            currentUserSession,
+            activeProfileManager,
+        )
         testDispatcher.scheduler.advanceUntilIdle()
     }
 
@@ -93,6 +104,58 @@ class RegistrationViewModelTest {
     }
 
     @Test
+    @DisplayName("UC18 M2d: name longer than 100 characters remains on account information")
+    fun longNameStaysOnAccountStep() {
+        viewModel.updateName("A".repeat(101))
+        viewModel.updateEmail("person@example.com")
+        viewModel.updatePassword("Password1!")
+        viewModel.updateConfirmPassword("Password1!")
+        viewModel.continueToDietaryProfile()
+
+        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals(
+            "Name must be between 3 and 100 characters.",
+            viewModel.uiState.value.nameError,
+        )
+        assertEquals(0, registrationRepository.callCount)
+    }
+
+    @Test
+    @DisplayName("UC18 M2e: password over 72 UTF-8 bytes remains on account information")
+    fun passwordOverBcryptLimitStaysOnAccountStep() {
+        val tooLongPassword = "é".repeat(37) // 37 * 2 bytes = 74 UTF-8 bytes
+        viewModel.updateName("Person Name")
+        viewModel.updateEmail("person@example.com")
+        viewModel.updatePassword(tooLongPassword)
+        viewModel.updateConfirmPassword(tooLongPassword)
+        viewModel.continueToDietaryProfile()
+
+        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals(
+            "Password must not exceed 72 UTF-8 bytes.",
+            viewModel.uiState.value.passwordError,
+        )
+        assertEquals(0, registrationRepository.callCount)
+    }
+
+    @Test
+    @DisplayName("UC18 M2f: weak password without special character remains on account information")
+    fun weakPasswordStaysOnAccountStep() {
+        viewModel.updateName("Person Name")
+        viewModel.updateEmail("person@example.com")
+        viewModel.updatePassword("Password1")
+        viewModel.updateConfirmPassword("Password1")
+        viewModel.continueToDietaryProfile()
+
+        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals(
+            "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.",
+            viewModel.uiState.value.passwordError,
+        )
+        assertEquals(0, registrationRepository.callCount)
+    }
+
+    @Test
     @DisplayName("UC18 M3: password mismatch remains on account information")
     fun mismatchedPasswordStaysOnAccountStep() {
         viewModel.updateEmail("person@example.com")
@@ -134,6 +197,9 @@ class RegistrationViewModelTest {
         assertEquals("", state.password)
         assertEquals("", state.confirmPassword)
         assertEquals(0, dietaryRepository.saveCalls)
+        assertEquals(14L, currentUserSession.userId)
+        assertEquals(77L, currentUserSession.selfProfileId)
+        assertEquals(77L, activeProfileManager.currentProfileId.value)
     }
 
     @Test
@@ -341,6 +407,23 @@ class RegistrationViewModelTest {
             lastPassword = password
             gate?.await()
             return result
+        }
+    }
+
+    private class FakeCurrentUserSession : CurrentUserSession {
+        override var userId: Long? = null
+            private set
+        override var selfProfileId: Long? = null
+            private set
+
+        override fun save(userId: Long, selfProfileId: Long) {
+            this.userId = userId
+            this.selfProfileId = selfProfileId
+        }
+
+        override fun clear() {
+            userId = null
+            selfProfileId = null
         }
     }
 

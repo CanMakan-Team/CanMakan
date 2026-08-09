@@ -1,3 +1,7 @@
+/** Api error - maps backend error messages to frontend error messages
+ * 
+ * @author Amelia
+ */
 export class ApiError extends Error {
   constructor(
     message: string,

@@ -1,5 +1,6 @@
-import { PrototypeLoginForm } from '../shared/ui/PrototypeLoginForm'
+import { CredentialLoginForm } from '../shared/ui/CredentialLoginForm'
 
+/** Family portal login — live email/password against POST /api/auth/login. */
 export function FamilyLoginPage() {
   return (
     <main className="login-page login-page--family">
@@ -25,18 +26,14 @@ export function FamilyLoginPage() {
         <section className="login-card" aria-labelledby="family-login-title">
           <p className="eyebrow">Family Portal</p>
           <h2 id="family-login-title">Family Admin sign in</h2>
-          <p>
-            Enter the Sprint 1 prototype as the authorised administrator for
-            your household.
-          </p>
-          <PrototypeLoginForm
+          <p>Sign in with the email and password for your CanMakan account.</p>
+          <CredentialLoginForm
             portal="FAMILY"
             expectedRole="ROLE_FAMILY_ADMIN"
             destination="/family"
-            email="family.admin@demo.canmakan"
             buttonLabel="Enter Family Portal"
             buttonClassName="button--primary"
-            fieldId="family-demo-email"
+            registerPath="/family-register"
           />
         </section>
       </div>

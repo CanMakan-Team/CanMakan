@@ -1,0 +1,105 @@
+name: Deploy Backend to AWS EC2
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: true
+jobs:
+  # 1. PATH DETECTION
+  detect-backend-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'server/backend/**'
+
+  # 2. COMPILE & DEPLOY
+  deploy-backend:
+    needs: detect-backend-changes
+    if: needs.detect-backend-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # 2.1 DEFINE THE REQUIRED JAVA PACKAGE
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      # 2.2 BUILD THE .JAR PACKAGE
+      - name: Build and Package JAR
+        working-directory: server/backend
+        run: mvn -B clean package -DskipTests
+
+      # 2.3 PREPARE REMOTE DEPLOY DIRECTORY
+      - name: Ensure remote deploy directory exists
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: mkdir -p /home/ubuntu/app/deploy-temp
+
+      # 2.4 COPY .JAR PACKAGE TO EC2 VIA SCP
+      - name: Copy JAR to EC2 via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "server/backend/target/*.jar"
+          target: "/home/ubuntu/app/deploy-temp"
+          strip_components: 3
+
+      # 2.5 START REMOTE SSH CLI
+      - name: Execute Remote SSH Startup Commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Ensure runtime destination directory exists
+            mkdir -p /home/ubuntu/app
+
+            # Stop the existing Java process running on port 8080 cleanly
+            PID=$(lsof -t -i:8080 || true)
+            if [ -n "$PID" ]; then
+              echo "Stopping active process on port 8080 (PID: $PID)..."
+              kill -15 $PID || true
+              sleep 3
+            fi
+
+            # Move new artifact into place
+            JAR_PATH="$(ls -t /home/ubuntu/app/deploy-temp/*.jar 2>/dev/null | grep -v '\.original$' | head -n 1)"
+            if [ -z "$JAR_PATH" ]; then echo "ERROR: No deployable JAR found in /home/ubuntu/app/deploy-temp"; exit 1; fi
+            mv "$JAR_PATH" /home/ubuntu/app/canmakan-backend.jar
+            # Force the non-interactive SSH session to load and export the environment variables
+            set -a
+            source /etc/environment
+            set +a
+            
+            # Launch app in background, routing logs to output.log while maintaining environment vars
+            echo "Starting CanMakan Spring Boot Backend Application..."
+            nohup java -jar /home/ubuntu/app/canmakan-backend.jar > /home/ubuntu/app/output.log 2>&1 &
+
+            # Brief check to verify background process initialisation
+            sleep 3
+            if ps aux | grep -v grep | grep canmakan-backend.jar > /dev/null; then
+              echo "Deployment Successful! Backend application is active."
+            else
+              echo "ERROR: Application crashed on startup. Check /home/ubuntu/app/output.log for trace data."
+              exit 1
+            fi

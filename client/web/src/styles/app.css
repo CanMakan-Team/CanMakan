@@ -371,6 +371,26 @@ p {
   text-align: center;
 }
 
+.login-card__footer {
+  margin: 1rem 0 0;
+  color: #526961;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.login-card__footer a {
+  color: var(--teal-700);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.login-card__demo-secondary {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
 .notice-card {
   text-align: center;
 }
@@ -404,6 +424,52 @@ select:focus {
 input[readonly] {
   color: #526961;
   background: #f2f5f3;
+}
+
+.password-field {
+  position: relative;
+  display: grid;
+}
+
+.password-field input {
+  padding-right: 2.75rem;
+}
+
+.password-field__toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.5rem;
+  color: #526961;
+  background: transparent;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.password-field__toggle:hover:not(:disabled) {
+  color: var(--teal-700);
+  background: #eef4f0;
+}
+
+.password-field__toggle:focus-visible {
+  outline: 2px solid var(--teal-700);
+  outline-offset: 1px;
+}
+
+.password-field__toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.password-field__icon {
+  display: block;
 }
 
 .portal-shell {
@@ -1162,15 +1228,18 @@ input[readonly] {
   min-width: 260px;
 }
 
-.field-hint,
-.field-error {
+.field-hint {
   color: var(--muted);
   font-size: 0.72rem;
   line-height: 1.35;
 }
 
 .field-error {
-  color: var(--avoid);
+  margin: 0;
+  color: #c62828;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .restriction-picker {
@@ -1235,8 +1304,10 @@ input[readonly] {
 }
 
 .form-message--error {
-  color: #873d38;
-  background: var(--avoid-bg);
+  color: #b71c1c;
+  background: #ffebee;
+  border: 1px solid #ef9a9a;
+  font-weight: 600;
 }
 
 .search-form {
@@ -1883,4 +1954,24 @@ caption {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* UC8 create family circle */
+.stack-form {
+  display: grid;
+  gap: 1rem;
+  max-width: 28rem;
+}
+
+.stack-form .field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.stack-form .field input {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--line, #d0d5dd);
+  border-radius: 0.5rem;
+  font: inherit;
 }

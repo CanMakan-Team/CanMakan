@@ -25,11 +25,14 @@ class RegistrationControllerTest {
     private MockMvc mockMvc;
     private RegistrationService registrationService;
 
+    private LoginService loginService;
+
     @BeforeEach
     void setUp() {
         registrationService = mock(RegistrationService.class);
+        loginService = mock(LoginService.class);
         mockMvc = MockMvcBuilders
-            .standaloneSetup(new RegistrationController(registrationService))
+            .standaloneSetup(new RegistrationController(registrationService, loginService))
             .setControllerAdvice(new RegistrationExceptionHandler())
             .build();
     }
@@ -70,7 +73,25 @@ class RegistrationControllerTest {
     void invalidEmailReturnsBadRequest() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"not-an-email\",\"password\":\"Password1!\"}"))
+                .content("{\"name\":\"Person Name\",\"email\":\"not-an-email\",\"password\":\"Password1!\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Invalid registration request."));
+
+        verify(registrationService, never()).register(any());
+    }
+
+    @Test
+    @DisplayName("UC18 HTTP2b: email without dotted domain returns 400")
+    void emailWithoutDottedDomainReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "name": "Person Name",
+                      "email": "test1@abc",
+                      "password": "Password1!"
+                    }
+                    """))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("Invalid registration request."));
 
@@ -131,6 +152,24 @@ class RegistrationControllerTest {
                 .content("{\"name\":\"Person Name\",\"email\":\"person@example.com\",\"password\":\""
                     + oversizedPassword + "\"}"))
             .andExpect(status().isBadRequest());
+
+        verify(registrationService, never()).register(any());
+    }
+
+    @Test
+    @DisplayName("UC18 HTTP5b: weak password without special character returns 400")
+    void weakPasswordReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "name": "Person Name",
+                      "email": "person@example.com",
+                      "password": "Password1"
+                    }
+                    """))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Invalid registration request."));
 
         verify(registrationService, never()).register(any());
     }

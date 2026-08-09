@@ -80,10 +80,17 @@ class DietaryRestrictionViewModel @Inject constructor(
     fun selectReligiousRestriction(restrictionId: Long) {
         val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
 
-        val religiousIds = _uiState.value.religiousRestrictions.map {it.id}
+        // 1. Check if the user is clicking the currently selected restriction
+        val isAlreadySelected = currentSelections.containsKey(restrictionId)
+
+        // 2. Remove all religious restrictions (enforces the max 1 rule)
+        val religiousIds = _uiState.value.religiousRestrictions.map { it.id }
         religiousIds.forEach {id -> currentSelections.remove(id)}
 
-        currentSelections[restrictionId] = "STRICT_AVOID"
+        // 3. Only add the restriction if it wasn't already selected
+        if (!isAlreadySelected) {
+            currentSelections[restrictionId] = "STRICT_AVOID"
+        }
 
         _uiState.value = _uiState.value.copy(selectedRestrictions = currentSelections)
     }

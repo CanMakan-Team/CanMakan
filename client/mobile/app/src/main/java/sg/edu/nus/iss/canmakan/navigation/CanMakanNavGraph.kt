@@ -31,6 +31,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui.DietaryRestrictionSheet
@@ -40,12 +41,16 @@ import sg.edu.nus.iss.canmakan.features.product.history.ui.HistoryScreen
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.features.product.scan.ScannerScreen
 import sg.edu.nus.iss.canmakan.features.product.verdict.ProductDetailScreen
-import sg.edu.nus.iss.canmakan.features.family.ui.CreateNewProfileScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.AddProfileToFamilyScreen
+import sg.edu.nus.iss.canmakan.features.family.ui.CreateFamilyCircleScreen
+import sg.edu.nus.iss.canmakan.features.family.ui.CreateNewProfileScreen
+import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryScreen
+import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryViewModel
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
 private const val ROUTE_PRODUCT_DETAIL = "product_detail"
+private const val ROUTE_CREATE_FAMILY = "create_family"
 private const val ROUTE_CREATE_NEW = "create_new"
 private const val ROUTE_ADD_PROFILE = "add_profile"
 
@@ -69,9 +74,15 @@ fun CanMakanNavGraph(
     val currentProfileId by navGraphViewModel.currentProfileId.collectAsStateWithLifecycle()
     val activeRestrictions by navGraphViewModel.activeRestrictions.collectAsStateWithLifecycle()
     val profiles by navGraphViewModel.profiles.collectAsStateWithLifecycle()
+    val hasFamily by navGraphViewModel.hasFamily.collectAsStateWithLifecycle()
+    val hasUserSession by navGraphViewModel.hasUserSession.collectAsStateWithLifecycle()
     val isLoading by navGraphViewModel.isLoading.collectAsStateWithLifecycle()
     val error by navGraphViewModel.error.collectAsStateWithLifecycle()
     val pendingVerdict by navGraphViewModel.pendingVerdict.collectAsStateWithLifecycle()
+    val isCreatingFamily by navGraphViewModel.isCreatingFamily.collectAsStateWithLifecycle()
+    val createFamilyError by navGraphViewModel.createFamilyError.collectAsStateWithLifecycle()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
     val activeProfile = profiles.firstOrNull { it.id == currentProfileId }
         ?: profiles.firstOrNull()
@@ -104,8 +115,17 @@ fun CanMakanNavGraph(
         drawerContent = {
             ModalDrawerSheet {
                 ProfileDrawerContent(
+                    currentRoute = currentRoute,
                     profiles = profiles,
                     activeProfile = activeProfile,
+                    hasFamily = hasFamily,
+                    hasUserSession = hasUserSession,
+                    noFamilyMessage = when {
+                        hasFamily -> null
+                        hasUserSession -> CanMakanNavGraphViewModel.NO_FAMILY_MESSAGE
+                        else -> CanMakanNavGraphViewModel.NO_SESSION_FAMILY_MESSAGE
+                    },
+                    showManageFamilyActions = navGraphViewModel.showManageFamilyActions,
                     onProfileSelected = { selected ->
                         navGraphViewModel.switchProfile(selected.id)
                         closeDrawer()
@@ -118,6 +138,10 @@ fun CanMakanNavGraph(
                         closeDrawer()
                         navController.navigate(ROUTE_SCANNER)
                     },
+                    onFamilyAllergySummaryClick = {
+                        closeDrawer()
+                        navController.navigate("family/restrictions")
+                    },
                     onHistoryClick = {
                         closeDrawer()
                         navController.navigate(ROUTE_HISTORY)
@@ -127,6 +151,11 @@ fun CanMakanNavGraph(
                         onSignOut()
                     },
                     onCloseClick = { closeDrawer() },
+                    onCreateFamilyCircleClick = {
+                        closeDrawer()
+                        navGraphViewModel.clearCreateFamilyError()
+                        navController.navigate(ROUTE_CREATE_FAMILY)
+                    },
                     onCreateNewClick = {
                         closeDrawer()
                         navController.navigate(ROUTE_CREATE_NEW)
@@ -134,7 +163,7 @@ fun CanMakanNavGraph(
                     onAddProfileClick = {
                         closeDrawer()
                         navController.navigate(ROUTE_ADD_PROFILE)
-                    }
+                    },
                 )
             }
         }
@@ -160,6 +189,18 @@ fun CanMakanNavGraph(
                         navGraphViewModel.setPendingVerdict(detail)
                         navController.navigate(ROUTE_PRODUCT_DETAIL)
                     }
+                )
+            }
+            /**
+             * (UC6) Navigate to the Family Allergy Matrix Screen
+             */
+            composable("family/restrictions") {
+                val viewModel: FamilyRestrictionSummaryViewModel = hiltViewModel()
+
+                FamilyRestrictionSummaryScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToEditMembers = { navController.navigate("family/members") }
                 )
             }
             composable(ROUTE_HISTORY) {
@@ -200,6 +241,28 @@ fun CanMakanNavGraph(
                         onBackClick = { navController.popBackStack() },
                         onScanClick = { navController.navigate(ROUTE_SCANNER) },
                         onHistoryClick = { navController.navigate(ROUTE_HISTORY) }
+                    )
+                }
+            }
+            composable(ROUTE_CREATE_FAMILY) {
+                if (hasFamily) {
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack()
+                    }
+                } else {
+                    CreateFamilyCircleScreen(
+                        activeProfile = activeProfile,
+                        isSubmitting = isCreatingFamily,
+                        errorMessage = createFamilyError,
+                        onMenuClick = { openDrawer() },
+                        onScanClick = { navController.navigate(ROUTE_SCANNER) },
+                        onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                        onBackClick = { navController.popBackStack() },
+                        onCreateClick = { name ->
+                            navGraphViewModel.createFamilyCircle(name) {
+                                navController.popBackStack()
+                            }
+                        },
                     )
                 }
             }

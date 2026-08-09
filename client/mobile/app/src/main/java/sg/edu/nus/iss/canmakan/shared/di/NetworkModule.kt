@@ -51,6 +51,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
+    private const val DEFAULT_BASE_URL = "http://13.213.219.46:8080/api/"
     private const val NO_RETRY_HEADER = "X-CanMakan-No-Retry"
     private const val AUTH_REFRESH_NETWORK = "AuthRefreshNetwork"
     private val HTTP_CLIENT_ERROR_RANGE = 400..499

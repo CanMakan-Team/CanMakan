@@ -13,6 +13,12 @@ import {
   type MockFamilyState,
 } from './mockData'
 
+/**
+ * Mock family repository for unfinished surfaces when VITE_USE_MOCK_API=true.
+ * UC8 create/`/me` are always live and are not mocked here.
+ *
+ * @author Amelia
+ */
 const stateKey = 'canmakan.mock.family'
 const delay = (milliseconds = 450) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds))

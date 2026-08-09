@@ -518,7 +518,18 @@ private fun LabeledTextField(
             },
             singleLine = true,
             isError = isError,
-            supportingText = supportingText?.let { { Text(it) } },
+            supportingText = supportingText?.let {
+                {
+                    Text(
+                        text = it,
+                        color = if (isError) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
+            },
         )
     }
 }

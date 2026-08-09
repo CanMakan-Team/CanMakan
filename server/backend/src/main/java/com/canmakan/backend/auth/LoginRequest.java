@@ -5,18 +5,28 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
-/** Credentials accepted by the UC19 login endpoint. */
+/** Request body for email/password login (pre-JWT). 
+ * Validates the request body for the login endpoint
+ * 
+ * @author Amelia
+ * @author YangMaowei
+*/
 public record LoginRequest(
     @NotBlank(message = "Email is required.")
     @Email(message = "Email must be valid.")
+    @Pattern(
+        regexp = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$", // example@abc.com
+        message = "Email must be valid.")
     @Size(max = 255, message = "Email must not exceed 255 characters.")
     String email,
 
     @NotBlank(message = "Password is required.")
+    @Size(min = 1, message = "Password is required.")
     String password
 ) {
 
@@ -42,4 +52,5 @@ public record LoginRequest(
     public String toString() {
         return "LoginRequest[email=" + email + ", password=<redacted>]";
     }
+
 }

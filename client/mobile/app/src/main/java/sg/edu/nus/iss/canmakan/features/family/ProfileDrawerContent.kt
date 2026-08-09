@@ -22,12 +22,14 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,7 +40,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.checkerframework.checker.units.qual.s
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.DrawerBackground
@@ -49,16 +50,23 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 // profiles to switch between, quick navigation links, and sign out.
 @Composable
 fun ProfileDrawerContent(
+    currentRoute: String?,
     profiles: List<DietaryProfile>,
     activeProfile: DietaryProfile,
+    hasFamily: Boolean,
+    hasUserSession: Boolean,
+    noFamilyMessage: String?,
+    showManageFamilyActions: Boolean,
     onProfileSelected: (DietaryProfile) -> Unit,
     onEditDietaryClick: () -> Unit,
     onScannerClick: () -> Unit,
+    onFamilyAllergySummaryClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onSignOutClick: () -> Unit,
     onCloseClick: () -> Unit,
+    onCreateFamilyCircleClick: () -> Unit,
     onCreateNewClick: () -> Unit,
-    onAddProfileClick: () -> Unit
+    onAddProfileClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -104,6 +112,26 @@ fun ProfileDrawerContent(
             Text("Edit dietary restrictions", color = DrawerTextMuted)
         }
 
+        if (!hasFamily) {
+            Spacer(modifier = Modifier.height(12.dp))
+            if (!noFamilyMessage.isNullOrBlank()) {
+                Text(
+                    text = noFamilyMessage,
+                    color = DrawerTextMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            if (hasUserSession) {
+                OutlinedButton(
+                    onClick = onCreateFamilyCircleClick,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Create family circle", color = DrawerTextMuted)
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(10.dp))
 
         HorizontalDivider(
@@ -117,8 +145,7 @@ fun ProfileDrawerContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         profiles.forEach { profile ->
-            if (activeProfile == null) return
-            val isActive = profile.profileName == activeProfile.profileName
+            val isActive = profile.id == activeProfile.id
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -160,15 +187,85 @@ fun ProfileDrawerContent(
         Text("NAVIGATE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
         Spacer(modifier = Modifier.height(8.dp))
 
-        DrawerNavRow(icon = Icons.Default.CropFree, label = "Scanner", onClick = onScannerClick)
-        Spacer(modifier = Modifier.height(4.dp))
-        DrawerNavRow(
-            icon = Icons.Default.AccessTime,
-            label = "History",
-            isSelected = true,
-            onClick = onHistoryClick,
-
+        val isScannerSelected = currentRoute == "scanner"
+        NavigationDrawerItem(
+            label = {
+                Text(
+                    text = "Scanner",
+                    // Switch to a dark color when selected, otherwise remain White
+                    color = if (isScannerSelected) Color.DarkGray else Color.White,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Normal
+                )
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.CropFree,
+                    contentDescription = "Scanner",
+                    // You can also apply the same conditional logic to the Icon tint if desired
+                    tint = if (isScannerSelected) Color.DarkGray else Color.White
+                )
+            },
+            selected = isScannerSelected,
+            onClick = onScannerClick
         )
+
+        val isHistorySelected = currentRoute == "history"
+        NavigationDrawerItem(
+            label = {
+                Text(
+                    text = "History",
+                    color = if (isHistorySelected) Color.DarkGray else Color.White,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Normal
+                )
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.AccessTime,
+                    contentDescription = "History",
+                    tint = if (isHistorySelected) Color.DarkGray else Color.White
+                )
+            },
+            selected = isHistorySelected,
+            onClick = onHistoryClick
+        )
+
+        // (UC6) Only show Family Summary if the user belongs to a family
+        if (hasFamily) {
+            val isFamilySelected = currentRoute?.startsWith("family/restrictions") == true
+            NavigationDrawerItem(
+                label = {
+                    Text(
+                        text = "Family Allergies",
+                        color = if (isFamilySelected) Color.DarkGray else Color.White,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Normal
+                    )
+                },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.People,
+                        contentDescription = "Family Allergies",
+                        tint = if (isFamilySelected) Color.DarkGray else Color.White
+                    )
+                },
+                selected = isFamilySelected,
+                onClick = onFamilyAllergySummaryClick
+            )
+        }
+
+        /**
+         * DrawerNavRow(icon = Icons.Default.CropFree, label = "Scanner", onClick = onScannerClick)
+         *         Spacer(modifier = Modifier.height(4.dp))
+         *         DrawerNavRow(
+         *             icon = Icons.Default.AccessTime,
+         *             label = "History",
+         *             isSelected = true,
+         *             onClick = onHistoryClick,
+         *
+         *         )
+        */
 
 //        Spacer(modifier = Modifier.weight(1f))
 
@@ -190,18 +287,23 @@ fun ProfileDrawerContent(
             color = Color.DarkGray
         )
 
-//        Spacer(modifier = Modifier.height(10.dp))
-//        Text("MANAGE FAMILY", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
-//        Spacer(modifier = Modifier.height(8.dp))
-//
-//        DrawerNavRow(icon = Icons.Default.PersonAdd, label = "Create New Family Member", onClick = onCreateNewClick)
-//        Spacer(modifier = Modifier.height(4.dp))
-//        DrawerNavRow(
-//            icon = Icons.Default.Group,
-//            label = "Add Profile to Family",
-//            isSelected = false,
-//            onClick = onAddProfileClick
-//        )
+        // Member create/link is UC9/UC12 — keep hidden until those APIs exist and the user has a family.
+        if (showManageFamilyActions && hasFamily) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text("MANAGE FAMILY", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(8.dp))
+            DrawerNavRow(
+                icon = Icons.Default.PersonAdd,
+                label = "Create New Family Member",
+                onClick = onCreateNewClick,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            DrawerNavRow(
+                icon = Icons.Default.Group,
+                label = "Add Profile to Family",
+                onClick = onAddProfileClick,
+            )
+        }
 
         Spacer(modifier = Modifier.weight(1f))
 

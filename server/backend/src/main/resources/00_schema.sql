@@ -99,8 +99,10 @@ CREATE TABLE families (
 
 CREATE TABLE family_members (
     family_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL UNIQUE,
+    user_id BIGINT NOT NULL,
     member_role VARCHAR(30) NOT NULL DEFAULT 'MEMBER',
+    -- UC6: Allow Family Members to be Deactivated without Removing them from the Family Circle
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (family_id, user_id),
     -- D2 / UC8-S1: one family membership per user (MVP)

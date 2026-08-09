@@ -1,5 +1,19 @@
 # Family circle APIs (UC8)
 
+## Progress
+
+| Area | Status |
+| --- | --- |
+| Schema D2 `UNIQUE(family_members.user_id)` | Done |
+| `POST /api/families` (PRIMARY_ADMIN + SELF profile) | Done |
+| `GET /api/families/me` | Done |
+| Request validation (`@Valid` family name) | Done |
+| Web create empty-state (`FamilyMeGate`) | Done |
+| Real auth / HTTP 401 (AC8) | Open — UC19 |
+| Mobile resolve via `/me` (AC10) | Open — UC11 |
+
+---
+
 ## Identity (temporary)
 
 Until UC19 (Spring Security + JWT), create/`/me` take the caller as a request header:
@@ -37,7 +51,7 @@ Rules:
   - `families` row (`created_by_user_id` = caller)
   - `family_members` with `member_role = PRIMARY_ADMIN`
   - SELF `dietary_profiles` row (`linked_user_id` = caller, `family_id` set, `is_primary = true`)
-  - `profile_name` defaults to the email local-part (before `@`)
+  - `profile_name` reuses the name from registration when present; otherwise falls back to the email local-part (before `@`)
 
 Success: `201 Created`
 
@@ -56,7 +70,10 @@ Errors (`{"message":"..."}`):
 | Status | When |
 | --- | --- |
 | 400 | Blank or invalid family name |
+| 401 | `X-User-Id` does not match an existing user |
 | 409 | Caller already belongs to a family |
+
+Web create UI: on **409**, reloads `/me` (treats as already created — race/double-submit).
 
 ---
 

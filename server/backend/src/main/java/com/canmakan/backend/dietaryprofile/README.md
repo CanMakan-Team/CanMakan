@@ -23,3 +23,8 @@ Manages a person’s dietary profile independently of family relationships.
 
 ## Note
 Family membership and “active profile” switching live in the `family` package.
+
+**UC8:** creating a family circle bootstraps a SELF `dietary_profiles` row
+(`linked_user_id` = creator, `family_id` set, `is_primary = true`) inside the
+same transaction as `POST /api/families`. Restriction catalog GET/PUT remains
+this package’s responsibility (UC1).
