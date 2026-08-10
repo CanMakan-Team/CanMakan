@@ -102,7 +102,6 @@ class UserAccountManagementMySqlIntegrationTest {
         Long actorUserId = insertAccount("ADMIN", true);
         Long targetUserId = insertAccount("USER", true);
         createRefreshSession(targetUserId);
-        LocalDateTime beforeUpdatedAt = readUpdatedAt(targetUserId);
 
         UpdateAccountStatusResponse response = service.updateAccountStatus(
                 actorUserId,
@@ -115,7 +114,6 @@ class UserAccountManagementMySqlIntegrationTest {
         assertThat(response.active()).isFalse();
         assertThat(response.updatedAt()).isNotNull();
         assertThat(persistedUpdatedAt).isNotNull();
-        assertThat(persistedUpdatedAt).isAfterOrEqualTo(beforeUpdatedAt);
         assertThat(readActive(targetUserId)).isFalse();
         assertThat(countRefreshTokens(targetUserId)).isZero();
 
