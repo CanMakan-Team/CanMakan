@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
@@ -77,8 +79,17 @@ fun ProfileDrawerContent(
             .fillMaxHeight()
             .width(280.dp)
             .background(DrawerBackground)
-            .padding(20.dp)
     ) {
+        // Scrollable region: everything except the pinned sign-out/settings footer.
+        // A plain Column with weight(1f) here (rather than wrapping the whole drawer
+        // in verticalScroll) keeps the footer fixed at the bottom regardless of how
+        // much content is above it.
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp)
+        ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -308,13 +319,16 @@ fun ProfileDrawerContent(
                 onClick = onAddProfileClick,
             )
         }
+        }
 
-        Spacer(modifier = Modifier.weight(1f))
-
+        // Pinned footer, kept outside the scrollable Column above so it stays
+        // visible at the bottom of the drawer regardless of scroll position.
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
             ) {
 
             Row(verticalAlignment = Alignment.CenterVertically,

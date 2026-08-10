@@ -30,7 +30,9 @@ class DietaryRestrictionViewModel @Inject constructor(
             
             // Then react to profile changes
             activeProfileManager.currentProfileId.collect { profileId ->
-                loadDietaryRestrictionsForProfile(profileId)
+                if (profileId != ActiveProfileManager.UNSET_PROFILE_ID) {
+                    loadDietaryRestrictionsForProfile(profileId)
+                }
             }
         }
     }
