@@ -1,7 +1,7 @@
 package com.canmakan.backend.knowledgebase.mcp.server;
 
-import com.canmakan.backend.dietaryprofile.DietaryProfileRepository;
-import com.canmakan.backend.dietaryprofile.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
 import com.canmakan.backend.knowledgebase.mcp.contract.AllergenRelationshipResult;
 import com.canmakan.backend.knowledgebase.mcp.contract.CrossContaminationResult;
 import com.canmakan.backend.knowledgebase.mcp.contract.DietaryRuleResult;
@@ -46,9 +46,10 @@ class DietaryKnowledgeToolsTest {
 
     /** Mock repositories for testing. */
     private final IngredientEntityRepository ingredientEntityRepository = mock(IngredientEntityRepository.class);
-    private final DietaryProfileRepository dietaryProfileRepository = mock(DietaryProfileRepository.class);
+    private final DietaryRestrictionRepository dietaryRestrictionRepository =
+            mock(DietaryRestrictionRepository.class);
     private final DietaryKnowledgeRepository repository =
-            new DietaryKnowledgeRepository(ingredientEntityRepository, dietaryProfileRepository);
+            new DietaryKnowledgeRepository(ingredientEntityRepository, dietaryRestrictionRepository);
     private final IngredientAliasTool ingredientAliasTool = new IngredientAliasTool(repository);
     private final ENumberTool eNumberTool = new ENumberTool(repository);
     private final AllergenRelationshipLookupFallback realFallback = new AllergenRelationshipLookupFallback(
@@ -92,8 +93,8 @@ class DietaryKnowledgeToolsTest {
                 .toList();
         });
 
-        // Mirrors DietaryProfileRepository.findRestrictionByCode (case-insensitive)
-        when(dietaryProfileRepository.findRestrictionByCode(anyString())).thenAnswer(invocation -> {
+        // Mirrors DietaryRestrictionRepository.findByCodeIgnoreCase (case-insensitive)
+        when(dietaryRestrictionRepository.findByCodeIgnoreCase(anyString())).thenAnswer(invocation -> {
             String code = invocation.getArgument(0);
             if (code == null || code.isBlank()) {
                 return Optional.empty();

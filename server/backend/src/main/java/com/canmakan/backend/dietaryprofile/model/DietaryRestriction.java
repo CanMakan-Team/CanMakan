@@ -1,4 +1,4 @@
-package com.canmakan.backend.dietaryprofile;
+package com.canmakan.backend.dietaryprofile.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -42,7 +42,6 @@ public class DietaryRestriction {
     @Column(name = "description")
     private String description;
 
-    // Hash set to ensure unique profile
     @OneToMany(mappedBy = "dietaryRestriction")
     private Set<ProfileRestriction> profileRestrictions = new HashSet<>();
 }

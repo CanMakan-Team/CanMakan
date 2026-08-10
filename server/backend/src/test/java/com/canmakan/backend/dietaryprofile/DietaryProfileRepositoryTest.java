@@ -3,6 +3,15 @@ package com.canmakan.backend.dietaryprofile;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
+import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
+import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.model.ProfileRestriction;
+import com.canmakan.backend.dietaryprofile.model.ProfileRestrictionId;
+import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
+import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
+import com.canmakan.backend.dietaryprofile.repository.ProfileRestrictionRepository;
+import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.util.List;
@@ -18,7 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
  * Repository-layer test for the "Edit Dietary Restrictions" feature (the profile
  * drawer's Edit Dietary Restrictions button, and toggling options in
  * DietaryRestrictionSheet), which is served by DietaryProfileController /
- * DietaryProfileService on top of {@link DietaryProfileRepository}.
+ * DietaryProfileService on top of {@link DietaryProfileRepository},
+ * {@link DietaryRestrictionRepository}, and {@link ProfileRestrictionRepository}.
  *
  * <p>Fixtures are the seeded rows from {@code 05_household_dietary_data.sql}
  * rather than synthetic data, so these tests exercise the repository against
@@ -39,7 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @SpringBootTest
 @Transactional
-@DisplayName("Edit Dietary Restrictions: DietaryProfileRepository")
+@DisplayName("Edit Dietary Restrictions: dietary profile repositories")
 class DietaryProfileRepositoryTest {
 
     // Reference data seeded by 05_household_dietary_data.sql.
@@ -63,12 +73,18 @@ class DietaryProfileRepositoryTest {
     private DietaryProfileRepository dietaryProfileRepository;
 
     @Autowired
+    private DietaryRestrictionRepository dietaryRestrictionRepository;
+
+    @Autowired
+    private ProfileRestrictionRepository profileRestrictionRepository;
+
+    @Autowired
     private DietaryProfileService dietaryProfileService;
 
     @Test
     @DisplayName("findAllRestrictions returns the full seeded catalog ordered by display name")
     void findAllRestrictionsReturnsSeededCatalogOrderedByDisplayName() {
-        List<DietaryRestriction> all = dietaryProfileRepository.findAllRestrictions();
+        List<DietaryRestriction> all = dietaryRestrictionRepository.findAllOrderedByDisplayName();
 
         assertThat(all).hasSize((int) RESTRICTION_COUNT);
         // "Crustacean & Shellfish Allergy" (4) < "Egg Allergy" (7) < "Fish Allergy" (5)
@@ -83,7 +99,7 @@ class DietaryProfileRepositoryTest {
     @Test
     @DisplayName("findRestrictionById returns the seeded Halal restriction")
     void findRestrictionByIdReturnsSeededMatch() {
-        Optional<DietaryRestriction> found = dietaryProfileRepository.findRestrictionById(RESTRICTION_HALAL);
+        Optional<DietaryRestriction> found = dietaryRestrictionRepository.findById(RESTRICTION_HALAL);
 
         assertThat(found).isPresent();
         assertThat(found.get().getCode()).isEqualTo("HALAL");
@@ -94,7 +110,7 @@ class DietaryProfileRepositoryTest {
     @Test
     @DisplayName("findRestrictionById returns empty for an id outside the seeded catalog")
     void findRestrictionByIdReturnsEmptyWhenMissing() {
-        Optional<DietaryRestriction> found = dietaryProfileRepository.findRestrictionById(NONEXISTENT_ID);
+        Optional<DietaryRestriction> found = dietaryRestrictionRepository.findById(NONEXISTENT_ID);
 
         assertThat(found).isEmpty();
     }
@@ -103,7 +119,7 @@ class DietaryProfileRepositoryTest {
     @DisplayName("findProfileRestrictionsByProfileId returns Sarah Tan's seeded Gluten and Low Sugar selections")
     void findProfileRestrictionsByProfileIdReturnsSarahTansSelections() {
         List<ProfileRestriction> found =
-            dietaryProfileRepository.findProfileRestrictionsByProfileId(PROFILE_SARAH_TAN);
+            profileRestrictionRepository.findByDietaryProfileId(PROFILE_SARAH_TAN);
 
         assertThat(found)
             .extracting(pr -> pr.getDietaryRestriction().getDisplayName(), ProfileRestriction::getSeverityLevel)
@@ -117,7 +133,7 @@ class DietaryProfileRepositoryTest {
     @DisplayName("findProfileRestrictionsByProfileId returns Michael Tan's seeded Low Fat and Low Sodium selections")
     void findProfileRestrictionsByProfileIdReturnsMichaelTansSelections() {
         List<ProfileRestriction> found =
-            dietaryProfileRepository.findProfileRestrictionsByProfileId(PROFILE_MICHAEL_TAN);
+            profileRestrictionRepository.findByDietaryProfileId(PROFILE_MICHAEL_TAN);
 
         assertThat(found)
             .extracting(pr -> pr.getDietaryRestriction().getDisplayName(), ProfileRestriction::getSeverityLevel)
@@ -131,7 +147,7 @@ class DietaryProfileRepositoryTest {
     @DisplayName("findProfileRestrictionsByProfileId returns an empty list for a profile id that does not exist")
     void findProfileRestrictionsByProfileIdReturnsEmptyListWhenProfileMissing() {
         List<ProfileRestriction> found =
-            dietaryProfileRepository.findProfileRestrictionsByProfileId(NONEXISTENT_ID);
+            profileRestrictionRepository.findByDietaryProfileId(NONEXISTENT_ID);
 
         assertThat(found).isEmpty();
     }
@@ -141,7 +157,7 @@ class DietaryProfileRepositoryTest {
     void togglingOnNewRestrictionAddsItAlongsideExistingSelections() {
         // Daniel Lim (profile 6) is seeded with Shellfish + Halal, both STRICT_AVOID.
         DietaryProfile profile = dietaryProfileRepository.findById(PROFILE_DANIEL_LIM).orElseThrow();
-        DietaryRestriction vegetarian = dietaryProfileRepository.findRestrictionById(RESTRICTION_VEGETARIAN)
+        DietaryRestriction vegetarian = dietaryRestrictionRepository.findById(RESTRICTION_VEGETARIAN)
             .orElseThrow();
 
         ProfileRestriction newSelection = new ProfileRestriction();
@@ -155,7 +171,7 @@ class DietaryProfileRepositoryTest {
         entityManager.clear();
 
         List<ProfileRestriction> found =
-            dietaryProfileRepository.findProfileRestrictionsByProfileId(PROFILE_DANIEL_LIM);
+            profileRestrictionRepository.findByDietaryProfileId(PROFILE_DANIEL_LIM);
         assertThat(found)
             .extracting(pr -> pr.getDietaryRestriction().getCode())
             .containsExactlyInAnyOrder("SHELLFISH", "HALAL", "VEGETARIAN");
@@ -177,7 +193,7 @@ class DietaryProfileRepositoryTest {
         entityManager.clear();
 
         List<ProfileRestriction> remaining =
-            dietaryProfileRepository.findProfileRestrictionsByProfileId(PROFILE_DANIEL_LIM);
+            profileRestrictionRepository.findByDietaryProfileId(PROFILE_DANIEL_LIM);
         assertThat(remaining)
             .extracting(pr -> pr.getDietaryRestriction().getCode())
             .containsExactly("SHELLFISH");
@@ -204,7 +220,7 @@ class DietaryProfileRepositoryTest {
         entityManager.clear();
 
         List<ProfileRestriction> found =
-            dietaryProfileRepository.findProfileRestrictionsByProfileId(PROFILE_SARAH_TAN);
+            profileRestrictionRepository.findByDietaryProfileId(PROFILE_SARAH_TAN);
         assertThat(found).hasSize(2);
         assertThat(found)
             .extracting(pr -> pr.getDietaryRestriction().getId(), ProfileRestriction::getSeverityLevel)

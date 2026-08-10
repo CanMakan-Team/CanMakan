@@ -2,7 +2,7 @@ package com.canmakan.backend.product.assessment;
 
 import com.canmakan.backend.ai.llm.LlmAssessmentResult;
 import com.canmakan.backend.ai.log.AiExecutionLogService;
-import com.canmakan.backend.dietaryprofile.RestrictionRuleLoader;
+import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
 import com.canmakan.backend.product.scan.Scan;
 import com.canmakan.backend.product.scan.ScanService;
 import com.canmakan.backend.product.verdict.DietaryRuleEngine;
