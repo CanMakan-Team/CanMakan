@@ -77,6 +77,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/families/**").authenticated()
                 .requestMatchers("/api/invitations/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/scan/assess").authenticated()
+                .requestMatchers("/api/profiles/**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/restrictions").authenticated()
                 .requestMatchers("/actuator/health").permitAll()
                 // Transitional: other UCs retain their existing access behavior.
                 .anyRequest().permitAll())

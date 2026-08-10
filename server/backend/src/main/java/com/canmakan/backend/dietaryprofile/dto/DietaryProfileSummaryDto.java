@@ -6,10 +6,12 @@ package com.canmakan.backend.dietaryprofile.dto;
  * @author Amelia Wong
  */
 public record DietaryProfileSummaryDto(
-        Long id,
-        String profileName,
-        Long familyId,
-        String relationship,
-        String initials,
-        Boolean isPrimary) {
+        Long id, // id of the profile
+        String profileName, // name of the profile
+        Long familyId, // id of the family
+        String relationship, // SON, DAUGHTER, FATHER, MOTHER, etc.
+        String initials, // initials of the profile name
+        Boolean isPrimary, // true if profile is the primary profile for the family
+        Boolean active // true if profile is active
+) {
 }
