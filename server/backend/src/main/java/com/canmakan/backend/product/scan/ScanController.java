@@ -5,24 +5,31 @@ import com.canmakan.backend.product.assessment.AssessmentOrchestrator;
 import com.canmakan.backend.product.assessment.AssessmentRequest;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthUserChecker;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Product barcode scan APIs.
+ * Product barcode scan APIs: validate, assess, and profile scan history.
  *
  * <p>{@code POST /api/scan/validate} is the is-food check (OFF + EAN-Search).
  * {@code POST /api/scan/assess} runs the tiered assessment for a dietary profile.
+ * {@code GET /api/scan/profiles/{profileId}/history} returns saved scans for a profile.
  *
  * @author Khai
  * @author Amelia
+ * @author XieHuayuan
  */
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/scan")
@@ -30,6 +37,7 @@ public class ScanController {
 
     private final BarcodeValidationClient validationClient;
     private final AssessmentOrchestrator orchestrator;
+    private final ScanHistoryService scanHistoryService;
 
     /**
      * Assess a barcode against a dietary profile, persist, and return the verdict.
@@ -64,4 +72,13 @@ public class ScanController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Scan history for a dietary profile, most recent first (UC4 personal history).
+     */
+    @GetMapping("/history/{profileId}")
+    public List<ScanHistoryResponse> getScanHistoryForProfile(@PathVariable Long profileId) {
+        List<ScanHistoryResponse> response = scanHistoryService.getScanHistoryForProfile(profileId);
+        log.info("GET /scan/profiles/{}/history → 200 count={}", profileId, response.size());
+        return response;
+    }
 }

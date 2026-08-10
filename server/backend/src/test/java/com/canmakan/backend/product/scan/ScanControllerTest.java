@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -43,12 +44,15 @@ class ScanControllerTest {
     private MockMvc mockMvc;
     private BarcodeValidationClient validationClient;
     private AssessmentOrchestrator orchestrator;
+    private ScanHistoryService scanHistoryService;
 
     @BeforeEach
     void setUp() {
         validationClient = mock(BarcodeValidationClient.class);
         orchestrator = mock(AssessmentOrchestrator.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new ScanController(validationClient, orchestrator))
+        scanHistoryService = mock(ScanHistoryService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(
+                new ScanController(validationClient, orchestrator, scanHistoryService))
             .setControllerAdvice(new GlobalExceptionHandler())
             .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
             .build();
@@ -134,6 +138,29 @@ class ScanControllerTest {
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.message")
                 .value("Profile does not belong to your family circle."));
+    }
+
+    @Test
+    @DisplayName("UC4: GET /api/scan/history/{id}/ returns history rows")
+    void historyReturnsRows() throws Exception {
+        when(scanHistoryService.getScanHistoryForProfile(1L)).thenReturn(List.of(
+            new ScanHistoryResponse(
+                10L,
+                1L,
+                "3017620422003",
+                new ScanHistoryResponse.ProductDto("Nutella", "Ferrero", "3017620422003"),
+                "2026-07-28T18:42:00",
+                "SAFE",
+                new ScanHistoryResponse.FindingsDto(List.of(), List.of()),
+                "ok")
+        ));
+
+        mockMvc.perform(get("/api/scan/history/1/"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].id").value(10))
+            .andExpect(jsonPath("$[0].verdict").value("SAFE"));
+
+        verify(scanHistoryService).getScanHistoryForProfile(1L);
     }
 
     private static void authenticateAs(long userId) {

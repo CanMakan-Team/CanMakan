@@ -13,9 +13,9 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Read side of "view scan verdicts": composes each saved {@link Scan} together
@@ -133,20 +133,25 @@ public class ScanHistoryService {
     private ScanHistoryResponse.FindingsDto toFindingsDto(String findingsJson) {
         List<Finding> findings = parseFindings(findingsJson);
 
-        List<String> matchedRules = findings.stream()
-            .map(Finding::restrictionCode)
-            .filter(Objects::nonNull)
-            .distinct()
-            .toList();
-
-        // Ingredient names from findings are the best available allergen signal
-        // until Finding gains an explicit allergen discriminator.
-        List<String> allergensFound = findings.stream()
-            .map(Finding::ingredientName)
-            .filter(Objects::nonNull)
-            .filter(name -> !name.isBlank())
-            .distinct()
-            .toList();
+        List<String> matchedRules = new ArrayList<>();
+        List<String> allergensFound = new ArrayList<>();
+        for (Finding finding : findings) {
+            if (finding == null) {
+                continue;
+            }
+            String restrictionCode = finding.restrictionCode();
+            if (restrictionCode != null && !matchedRules.contains(restrictionCode)) {
+                matchedRules.add(restrictionCode);
+            }
+            // Ingredient names from findings are the best available allergen signal
+            // until Finding gains an explicit allergen discriminator.
+            String ingredientName = finding.ingredientName();
+            if (ingredientName != null
+                    && !ingredientName.isBlank()
+                    && !allergensFound.contains(ingredientName)) {
+                allergensFound.add(ingredientName);
+            }
+        }
 
         return new ScanHistoryResponse.FindingsDto(matchedRules, allergensFound);
     }
