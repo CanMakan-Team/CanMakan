@@ -567,8 +567,8 @@ UC19 (JWT shipped for family routes) · UC18 (register new users to demo empty-s
 - **Web:** `LinkExistingUserModal` creates PENDING invites (copy link/code; optional mailto). `CreateFamilyProfileModal` posts live dependant profiles. `/invite/:token` → register/login + claim. `FamilyMembersPage` lists via live `GET /api/families/me/members`. Silent `members/link` removed from live `familyApiService`.
 - **Mobile:** `AddProfileToFamilyScreen` + share (`canmakan://invite/{token}` + web URL); manifest VIEW intent-filters + `singleTop`; invite landing offers register **or** sign-in; login claims `POST .../invitations/claim`; already-authed deep links claim via `PendingInvitationStore`. `CreateNewProfileScreen` posts live dependant profiles. Drawer manage CTAs when `PRIMARY_ADMIN`.
 - **Backend:** Spring Data repos; invite/claim/dependant; `GET /api/families/me/members` roster (linked + dependants).
-- **Gaps (residual):** UC10 accept/decline **inbox** UI; Resend delivery; UC12 full roster CRUD / `is_active` / edit-remove.
-- **Out of this epic:** UC10 inbox; UC12 manage mutations.
+- **Gaps (residual):** UC12 full roster CRUD / `is_active` / edit-remove; web UC10 inbox (optional).
+- **Out of this epic:** UC12 manage mutations.
 
 ### User story
 
@@ -581,7 +581,7 @@ As a Family Admin, I want to invite someone with a shareable link/code (and opti
 | [x] | 1 | PRIMARY_ADMIN can search an existing user by email (GET /api/families/me/user-search), including NOT_REGISTERED. |
 | [x] | 2 | PRIMARY_ADMIN can create a PENDING invitation (POST /api/families/me/invitations) for registered or unknown emails. |
 | [x] | 3 | Invitation is associated with the admin’s family circle. |
-| [x] | 4 | Invitee is **not** added to `family_members` at invite time; join happens on register/login claim (UC9 auto-claim; full UC10 inbox later). |
+| [x] | 4 | Invitee is **not** added to `family_members` at invite time; join happens on register/login claim (UC9 auto-claim) or UC10 inbox accept. |
 | [x] | 5 | Already-linked user returns HTTP 409 on invite. |
 | [x] | 6 | Non-admin (MEMBER) cannot invite (HTTP 403). |
 | [x] | 7 | Invalid email → 400; unknown but valid email is a valid invite target (NOT_REGISTERED), not a hard 404 block. |
@@ -616,10 +616,14 @@ UC19, UC8, UC1 · Related: UC10
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Mobile Client (primary) & Email; web optional  
 **Tech:** Android; Spring Boot; RDS; **Resend** *(optional React web parity)*  
-**Current code state:** Partial foundation from UC9 — claim-on-register / claim-on-login / `POST .../invitations/claim` exist; **inbox list / decline / Resend not started**
+**Current code state:** Complete (MVP ACs) — **UC10-S1–S4 shipped** (inbox list/accept/decline + Resend optional; web inbox still optional residual)
 
-- **Already covered by UC9 (not UC10 product):** invitee can join without an inbox when they register with matching email/token or sign in on web with token and claim.
-- **Still open for UC10:** `GET` pending invitations for the invitee, accept/decline UX (mobile primary), expired/mismatch browsing, Resend email delivery.
+- **Backend:** `GET /api/invitations/me`, `POST /api/invitations/{token}/accept|decline`; claim path aligned (403 mismatch, 410 expired, 409 final/already-in-family). Optional Resend email on invite create when configured.
+- **Mobile:** Drawer **Family Invitations** → `InvitationsScreen` (loading/empty/error; Accept/Decline). UC9 deep-link claim remains.
+- **Web:** `/invite/:token` claim path remains; full inbox UI still optional.
+- **Workflow:** Invite → join diagram and path table in [`docs/api/families.md`](../api/families.md#invite--join-workflow-uc9--uc10).
+- **Out of this epic:** Creating invitations (UC9); web inbox parity.
+
 ### User story
 
 As an invited app user, I want to accept or decline a family invitation on mobile so I choose whether to join that household.
@@ -632,27 +636,27 @@ As an invited app user, I want to accept or decline a family invitation on mobil
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | Authenticated invitee can list pending invitations for their account/email (GET /api/invitations/me). |
-| [ ] | 2 | Each pending invitation displays family information needed to decide. |
-| [ ] | 3 | Accepting a valid PENDING invitation adds the user as MEMBER and links/creates their dietary profile in that family. |
-| [ ] | 4 | Accept marks the invitation ACCEPTED. |
-| [ ] | 5 | Declining marks the invitation DECLINED and leaves the user outside the family. |
-| [ ] | 6 | Expired invitations cannot be accepted (HTTP 410 or equivalent). |
-| [ ] | 7 | Expired/used/already-final invitations cannot be accepted again (idempotent or error as documented). |
-| [ ] | 8 | Email mismatch between token and authenticated user returns HTTP 403. |
-| [ ] | 9 | If one-family rule applies, accept while already in another family returns HTTP 409. |
-| [ ] | 10 | Primary client is mobile; accept/decline UX works on mobile. Web parity is optional. |
-| [ ] | 11 | Invitation email delivery via Resend works as designed for the invite flow (when email is enabled). |
-| [ ] | 12 | Loading, empty, and error states are handled on the invitations UI. |
+| [x] | 1 | Authenticated invitee can list pending invitations for their account/email (GET /api/invitations/me). |
+| [x] | 2 | Each pending invitation displays family information needed to decide. |
+| [x] | 3 | Accepting a valid PENDING invitation adds the user as MEMBER and links/creates their dietary profile in that family. |
+| [x] | 4 | Accept marks the invitation ACCEPTED. |
+| [x] | 5 | Declining marks the invitation DECLINED and leaves the user outside the family. |
+| [x] | 6 | Expired invitations cannot be accepted (HTTP 410 or equivalent). |
+| [x] | 7 | Expired/used/already-final invitations cannot be accepted again (idempotent or error as documented). |
+| [x] | 8 | Email mismatch between token and authenticated user returns HTTP 403. |
+| [x] | 9 | If one-family rule applies, accept while already in another family returns HTTP 409. |
+| [x] | 10 | Primary client is mobile; accept/decline UX works on mobile. Web parity is optional. |
+| [x] | 11 | Invitation email delivery via Resend works as designed for the invite flow (when email is enabled). |
+| [x] | 12 | Loading, empty, and error states are handled on the invitations UI. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC10-S1** | 1–2, 10, 12 | List pending (mobile primary; web optional) — **open** |
-| **UC10-S2** | 3–4, 7–9 | Accept → MEMBER + profile — **open** |
-| **UC10-S3** | 5–8 | Decline + expired/invalid guards — **open** |
-| **UC10-S4** | 11 | Resend email — **open** |
+| **UC10-S1** | 1–2, 10, 12 | List pending (mobile primary; web optional) — **done** |
+| **UC10-S2** | 3–4, 7–9 | Accept → MEMBER + profile — **done** |
+| **UC10-S3** | 5–8 | Decline + expired/invalid guards — **done** |
+| **UC10-S4** | 11 | Resend email — **done** (optional config) |
 
 Full table: [backlog §5 family lifecycle](sprint2-jira-backlog.md#uc8--uc9--uc10--family-lifecycle).
 
@@ -1238,15 +1242,13 @@ Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
 Canonical with [backlog §5b](sprint2-jira-backlog.md#5b-recommended-delivery-sequence):
 
-1. **Shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT login/refresh/logout + clients); UC8-S1–S4 (incl. AC8 401); UC6-S1/S2 (summary API + mobile grid); **UC9-S1–S4** (invite/dependant/share + auto-claim + deep links + live roster list)  
+1. **Shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT login/refresh/logout + clients); UC8-S1–S4 (incl. AC8 401); UC6-S1/S2 (summary API + mobile grid); **UC9-S1–S4** (invite/dependant/share + auto-claim + deep links + live roster list); **UC10-S1–S4** (inbox accept/decline + Resend optional)  
 2. **Finish auth hard-edges:** UC19-S3 (protect remaining business routes) + UC19 AC3 (suspended → 403); UC1-S1 ownership authz  
 3. UC11-S1…S3 (server active-profile; drop `DEFAULT_PROFILE_ID=1` fallback) → UC2 remaining authz (profile ownership / inactive) → UC3 polish → UC4-S1 authz  
 4. UC12 remaining (manage CRUD / `is_active`; closes remaining AC4 polish) → UC6-S3 web parity  
-5. UC10 inbox (list/decline/Resend) — claim happy-path already covered by UC9  
-6. Remaining Core: UC4-S2/S3, UC5, UC7, UC13 
-6. UC4-S2/S3 → UC5-S1/S2 → UC7-S1/S2 → UC13-S1…S3  
-7. Enhanced: UC14-S1/S2, UC15–UC17  
-8. Nice-to-Have: UC20-S1/S2 … UC24-S1/S2  
+5. Remaining Core: UC4-S2/S3 → UC5-S1/S2 → UC7-S1/S2 → UC13-S1…S3  
+6. Enhanced: UC14-S1/S2, UC15–UC17  
+7. Nice-to-Have: UC20-S1/S2 … UC24-S1/S2  
 
 Seeded families still useful for scan work until UC11 persists active profile server-side.
 
