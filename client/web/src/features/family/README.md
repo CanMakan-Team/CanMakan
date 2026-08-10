@@ -58,9 +58,9 @@ family/
 
 | Piece | Notes |
 | --- | --- |
-| `FamilyMembersPage` | Roster with role + inactive badge; edit / deactivate / remove |
+| `FamilyMembersPage` | Roster with role + inactive badge; manage actions for PRIMARY_ADMIN only |
 | `EditFamilyProfileModal` | Live `PUT /me/profiles/{id}`; D3 restricts restriction edits to self + dependants |
-| `familyApiService` | `updateProfile`, `setProfileActive`, `removeMember`, `removeDependantProfile`, `getProfiles` |
+| `familyApiService` | `updateProfile`, `setProfileActive`, `removeMember`, `removeDependantProfile`, `getProfiles`, `getScanHistory` |
 | Soft-remove | Linked → `DELETE /me/members/{userId}`; dependant → `DELETE /me/profiles/{id}` |
 | Activate | `PATCH /me/profiles/{id}` `{active}` — never toggles `users.is_active` |
 
