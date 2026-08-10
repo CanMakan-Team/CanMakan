@@ -251,9 +251,9 @@ CORS allows `DELETE` and `PATCH`.
 
 ### Family scan history
 
-`GET /api/families/me/scans` — authenticated family member; returns recent scans for all
-profiles currently in the caller’s family (web dashboard / history). Verdict `UNSAFE` is
-mapped to `AVOID` for the web portal.
+`GET /api/families/me/scans` — **PRIMARY_ADMIN only**; returns recent scans for all
+profiles currently in the caller’s family (web dashboard / history). Non-admin members
+receive **403**. Verdicts on the wire are `SAFE` | `WARNING` | `UNSAFE` only.
 
 ---
 

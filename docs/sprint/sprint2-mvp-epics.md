@@ -271,12 +271,12 @@ UC2 · Related: UC5, UC4
 
 **Owner:** Kwok Heng · **Package:** Core MVP · **Architecture:** Shared Client  
 **Tech:** Android + React + Spring Boot + RDS  
-**Current code state:** Partial — mobile personal history live (no authz); family web list API missing  
+**Current code state:** Complete for Core MVP ACs — personal history authz; family scans PRIMARY_ADMIN; wire verdicts `SAFE` | `WARNING` | `UNSAFE`  
 **Coordination:** Family list API (UC4-S2) owned by Kwok Heng; Family Portal page shell/nav coordinates with Amelia.
 
-- **Mobile (personal):** `HistoryScreen` + `ServerScanHistoryRepository` against live `GET /api/scan/profiles/{profileId}/history` (`ScanController`). Newest-first list; tap opens verdict detail. History GET is transitional `permitAll` with **no ownership authz**.
+- **Mobile (personal):** `HistoryScreen` + `ServerScanHistoryRepository` against live `GET /api/scan/history/{profileId}` (`ScanController`). Newest-first list; tap opens verdict detail. Requires JWT; profile ownership / family membership enforced (403 when unauthorized).
 - **Persist:** Successful assess records product, verdict, timestamp, profile, JWT `user_id`.
-- **Web (family):** `FamilyScanHistoryPage` expects `GET /api/families/me/scans` — **endpoint missing**; usable only when `VITE_USE_MOCK_API=true` (default is **false**). Page is list/detail (no trend chart). Web verdict types still include non-wire labels (`AVOID` / `INCOMPLETE`).
+- **Web (family):** `FamilyScanHistoryPage` + dashboard via live `GET /api/families/me/scans` (PRIMARY_ADMIN). List/detail with filters (no trend chart). Wire verdicts `SAFE` | `WARNING` | `UNSAFE`.
 - **Out of this UC:** charts/trends (UC14); CSV export (UC22).
 
 ### User stories
@@ -291,7 +291,7 @@ List/detail only. **Trend charts are UC14**, not UC4.
 
 ### Context
 
-**APIs:** `GET /api/scan/profiles/{id}/history`; `GET /api/families/me/scans` (admin).  
+**APIs:** `GET /api/scan/history/{id}`; `GET /api/families/me/scans` (PRIMARY_ADMIN).  
 **Clients:** HistoryScreen; FamilyScanHistoryPage (no chart).  
 **Out of scope:** Daily/weekly time-series charts (UC14); anonymised platform trends (UC7).
 
@@ -300,28 +300,28 @@ List/detail only. **Trend charts are UC14**, not UC4.
 | Done | # | Criterion |
 | --- | --- | --- |
 | [x] | 1 | Each successful assess persists product, verdict, timestamp, and profile used for the scan. |
-| [ ] | 2 | Mobile lists the authenticated user’s personal scan history for an authorized profile via `GET /api/scan/profiles/{profileId}/history`. *(list works; auth/authz still open)* |
+| [x] | 2 | Mobile lists the authenticated user’s personal scan history for an authorized profile via `GET /api/scan/history/{profileId}`. |
 | [x] | 3 | Selecting a mobile history row reopens the stored assessment / verdict detail. |
-| [ ] | 4 | Mobile history requires authentication and denies unauthorized `profileId` with 403. |
-| [ ] | 5 | Family Admin can load household scans via `GET /api/families/me/scans`. |
-| [ ] | 6 | Family history rows show at least product, profile, verdict, and time. |
-| [ ] | 7 | Family history supports filters that narrow the list (e.g. profile, verdict, date range as implemented). |
-| [ ] | 8 | Selecting a family history row opens assessment detail for that scan. |
-| [x] | 9 | Family history page remains a list/detail view and does **not** render a daily/weekly trend chart. *(page shell exists; live data missing)* |
-| [ ] | 10 | Non–Family Admin callers receive 403 on the family-wide scans API (per permission matrix). |
-| [ ] | 11 | Family history returns only scans for the authenticated admin’s family (no cross-family leakage). |
-| [ ] | 12 | Empty history shows an empty state on mobile and web (no fabricated demo rows when mock is off). |
-| [x] | 13 | Loading and error states are handled on both clients. *(mobile yes; web mock path yes)* |
-| [ ] | 14 | Web wire verdict values align with backend `SAFE` \| `WARNING` \| `UNSAFE` (UI label mapping allowed). |
+| [x] | 4 | Mobile history requires authentication and denies unauthorized `profileId` with 403. |
+| [x] | 5 | Family Admin can load household scans via `GET /api/families/me/scans`. |
+| [x] | 6 | Family history rows show at least product, profile, verdict, and time. |
+| [x] | 7 | Family history supports filters that narrow the list (e.g. profile, verdict, date range as implemented). |
+| [x] | 8 | Selecting a family history row opens assessment detail for that scan. |
+| [x] | 9 | Family history page remains a list/detail view and does **not** render a daily/weekly trend chart. |
+| [x] | 10 | Non–Family Admin callers receive 403 on the family-wide scans API (per permission matrix). |
+| [x] | 11 | Family history returns only scans for the authenticated admin’s family (no cross-family leakage). |
+| [x] | 12 | Empty history shows an empty state on mobile and web (no fabricated demo rows when mock is off). |
+| [x] | 13 | Loading and error states are handled on both clients. |
+| [x] | 14 | Web wire verdict values align with backend SAFE / WARNING / UNSAFE (UI label mapping allowed). |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC4-S1** | 1–4, 12–13 | Personal history — **partial** (persist + list/detail; authz/empty open) |
-| **UC4-S2** | 5–6, 10–11 | Family list API — **open** |
-| **UC4-S3** | 7–9, 12–13 | Family history web page — **partial** (shell; live API open) |
-| **UC4-S4** | 14 | Verdict wire alignment — **open** |
+| **UC4-S1** | 1–4, 12–13 | Personal history — **done** |
+| **UC4-S2** | 5–6, 10–11 | Family list API — **done** |
+| **UC4-S3** | 7–9, 12–13 | Family history web page — **done** |
+| **UC4-S4** | 14 | Verdict wire alignment — **done** |
 
 Full table: [backlog §5 scan path](sprint2-jira-backlog.md#uc2--uc3--uc4--uc5--scan-path).
 
@@ -1030,7 +1030,7 @@ UC19 (login after register) · Unblocks demo of UC8 empty-state create
 | [x] | 1 | Valid email/password login returns access (and refresh if designed) tokens via `POST /api/auth/login`. |
 | [x] | 2 | Invalid credentials return HTTP 401. |
 | [ ] | 3 | Suspended account (`users.is_active=0`) cannot obtain tokens (HTTP 403). *(inactive currently fails closed as generic 401)* |
-| [ ] | 4 | Protected business APIs require a valid JWT after UC19-S3 (unauthenticated → 401). *(families + assess done; restrictions/history/validate still public)* |
+| [ ] | 4 | Protected business APIs require a valid JWT after UC19-S3 (unauthenticated → 401). *(families + assess + scan history done; validate still public)* |
 | [x] | 5 | JWT carries agreed platform authorities (UC19-S2 role mapping). *(live: `USER` / `ADMIN`)* |
 | [x] | 6 | Family Admin capability is **not** granted solely by a platform FAMILY_ADMIN JWT claim (membership remains source of truth). |
 | [x] | 7 | Refresh token flow works as designed (`POST /api/auth/refresh`). *(backend + mobile; web auto-refresh still thin)* |

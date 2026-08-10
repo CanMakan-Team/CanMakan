@@ -234,9 +234,9 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 | GET | `/api/restrictions` | Transitional public |
 | GET/PUT | `/api/profiles/{profileId}/restrictions` | Transitional public |
 | POST | `/api/scan/validate` | Transitional public |
-| GET | `/api/scan/profiles/{profileId}/history` | Transitional public |
+| GET | `/api/scan/history/{profileId}` | Authenticated + profile ownership |
 
-Missing: ownership authz on profile-scoped routes; family scans; recommendations; admin list/PATCH APIs; UC12 roster manage.
+Missing: ownership authz on some dietary routes; recommendations; admin list/PATCH APIs.
 
 ### Required migrations
 
@@ -257,7 +257,7 @@ Missing: ownership authz on profile-scoped routes; family scans; recommendations
 | UC1 | Core | **Partial** — live `GET/PUT` restrictions + mobile sheet; still public + no ownership authz; SELF via UC8 |
 | UC2 | Core | **Partial** — ML Kit → validate/assess; assess JWT + profile ownership / inactive checks; validate still open |
 | UC3 | Core | **Partial** — rule engine + colour-coded verdict; Alternatives empty (UC5) |
-| UC4 | Core | **Partial** — mobile personal history live; family web history mock; history GET still public |
+| UC4 | Core | **Complete** — personal history JWT+authz; family `/me/scans` PRIMARY_ADMIN; wire `SAFE`/`WARNING`/`UNSAFE` |
 | UC5 | Core | **Not started** — Alternatives shell; no recommendations API |
 | UC6 | Core | **Partial (S1/S2 mostly shipped)** — live `/me/restriction-summary` includes members + dependants; mobile grid; web parity polish (S3) |
 | UC7 | Core | **Partial** — admin trends mock; `daily_consumer_trends` unused by Java |
@@ -743,10 +743,10 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | **UC3-S2** | Engine-owned verdict; incomplete data / may-contain → Warning | UC3: 6–9 | P0 |
 | **UC3-S3** | Wire `UNSAFE` + UI Avoid mapping | UC3: 2 | P1 |
 | **UC3-S4** | Verdict loading/error states after navigation | UC3: 10 | P1 |
-| **UC4-S1** | Personal history API authz + mobile list/detail | UC4: 1–4, 12–13 | P0 |
-| **UC4-S2** | Family scans list API (PRIMARY_ADMIN, family-scoped) | UC4: 5–6, 10–11 | P0 |
-| **UC4-S3** | Family history web page — filters + row detail (no chart) | UC4: 7–9, 12–13 | P0 |
-| **UC4-S4** | Web verdict wire alignment (`UNSAFE` / Avoid label) | UC4: 14 | P1 |
+| **UC4-S1** | Personal history API authz + mobile list/detail | UC4: 1–4, 12–13 | P0 · **done** |
+| **UC4-S2** | Family scans list API (PRIMARY_ADMIN, family-scoped) | UC4: 5–6, 10–11 | P0 · **done** |
+| **UC4-S3** | Family history web page — filters + row detail (no chart) | UC4: 7–9, 12–13 | P0 · **done** |
+| **UC4-S4** | Web verdict wire alignment (`SAFE` / `WARNING` / `UNSAFE`) | UC4: 14 | P1 · **done** |
 | **UC5-S1** | Recommendations API (authorized profile; exclude current) | UC5: 1, 4–5, 7 | P0 |
 | **UC5-S2** | Alternatives tab — show Warning/Unsafe; hide Safe; empty state | UC5: 2–3, 6, 8 | P0 |
 | **UC5-S3** | Do not build recommendation-history screen here (UC17 boundary) | UC5: 9 | P2 |
@@ -796,7 +796,7 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | **Sprint 2** | UC19-S3 + UC1-S1; UC11-S1…S3; UC2 profile authz; UC3 polish; UC4-S1 authz | UC1-S3 |
 | **Sprint 3** | UC12 manage shipped | UC6-S3 |
 
-**Remaining Core MVP (next):** UC4-S2/S3; UC5-S1/S2; UC7-S1/S2; UC13-S1…S3.
+**Remaining Core MVP (next):** UC5-S1/S2; UC7-S1/S2; UC13-S1…S3.
 
 **Seeded-family exception:** Scan work may still use Tan/Lim/Wong seeds for demo data. New users create a circle via UC8 after UC18 register + UC19 login; active profile persists via UC11.
 
@@ -887,7 +887,7 @@ UC3 ──► UC20
 
 - `GET /api/restrictions`
 - `GET|PUT /api/profiles/{profileId}/restrictions`
-- `GET /api/scan/profiles/{profileId}/history`
+- `GET /api/scan/history/{profileId}`
 - `GET /api/profiles/{profileId}/recommendations`
 - `GET /api/profiles/{profileId}/recommendation-history` — UC17
 - `POST /api/scan/validate|assess`
