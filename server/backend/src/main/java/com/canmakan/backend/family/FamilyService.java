@@ -20,6 +20,7 @@ import com.canmakan.backend.family.dto.FamilyMeRestrictionSum;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
 import com.canmakan.backend.family.dto.InvitationResponse;
 import com.canmakan.backend.family.dto.PendingInvitationResponse;
+import com.canmakan.backend.family.dto.UpdateProfileRequest;
 import com.canmakan.backend.family.dto.UserSearchResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
@@ -28,6 +29,7 @@ import com.canmakan.backend.family.exception.InactiveProfileException;
 import com.canmakan.backend.family.exception.InvitationConflictException;
 import com.canmakan.backend.family.exception.InvitationExpiredException;
 import com.canmakan.backend.family.exception.InvitationNotFoundException;
+import com.canmakan.backend.family.exception.LastPrimaryAdminException;
 import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.family.model.FamilyInvitation;
 import com.canmakan.backend.family.model.FamilyMember;
@@ -192,8 +194,7 @@ public class FamilyService {
     /**
      * Lists linked members and dependant profiles for the caller's family.
      * Registered rows use {@code memberId = userId}; dependants use {@code memberId = profileId}.
-     * Restriction codes with category RELIGIOUS go to commonRequirements; all others to restrictions.
-     * ageGroup is always UNSPECIFIED until UC12 persists it.
+     * Prefer {@code profileId} for UC12 manage APIs.
      */
     @Transactional(readOnly = true)
     public List<FamilyMemberRosterDto> listFamilyMembers(long currentUserId) {
@@ -205,13 +206,18 @@ public class FamilyService {
         for (FamilyMember member : familyMemberRepository.findActiveMembersByFamilyId(familyId)) {
             Optional<DietaryProfile> dietaryProfileOpt =
                 dietaryProfileRepository.findByLinkedUser_Id(member.getUserId());
-            String name = dietaryProfileOpt
-                .map(profile -> profile.getProfileName())
-                .orElse("Unknown Member");
-            String relationship = dietaryProfileOpt
-                .map(profile -> profile.getRelationship())
-                .filter(value -> value != null && !value.isBlank())
-                .orElse("OTHER");
+            if (dietaryProfileOpt.isEmpty()) {
+                continue;
+            }
+            DietaryProfile dietaryProfile = dietaryProfileOpt.get();
+            String name = dietaryProfile.getProfileName() == null
+                || dietaryProfile.getProfileName().isBlank()
+                ? "Unknown Member"
+                : dietaryProfile.getProfileName();
+            String relationship = dietaryProfile.getRelationship() == null
+                || dietaryProfile.getRelationship().isBlank()
+                ? "OTHER"
+                : dietaryProfile.getRelationship();
             RestrictionCodeSplit codes = splitRestrictionCodes(dietaryProfileOpt);
             String masked = userAccountRepository.findById(member.getUserId())
                 .map(account -> account.getEmail())
@@ -219,18 +225,22 @@ public class FamilyService {
                 .orElse(null);
             rows.add(new FamilyMemberRosterDto(
                 member.getUserId(),
+                dietaryProfile.getId(),
+                member.getUserId(),
                 name,
                 relationship,
                 FamilyMemberRosterDto.AGE_GROUP_UNSPECIFIED,
                 codes.commonRequirements(),
                 codes.restrictions(),
                 FamilyMemberRosterDto.SOURCE_REGISTERED,
-                masked
+                masked,
+                member.getMemberRole(),
+                dietaryProfile.isActive()
             ));
         }
 
         for (DietaryProfile dependant :
-                dietaryProfileRepository.findDependantProfilesByFamilyId(familyId)) {
+                dietaryProfileRepository.findAllDependantProfilesByFamilyId(familyId)) {
             String relationship = dependant.getRelationship() == null
                 || dependant.getRelationship().isBlank()
                 ? "DEPENDANT"
@@ -238,17 +248,219 @@ public class FamilyService {
             RestrictionCodeSplit codes = splitRestrictionCodes(Optional.of(dependant));
             rows.add(new FamilyMemberRosterDto(
                 dependant.getId(),
+                dependant.getId(),
+                null,
                 dependant.getProfileName(),
                 relationship,
                 FamilyMemberRosterDto.AGE_GROUP_UNSPECIFIED,
                 codes.commonRequirements(),
                 codes.restrictions(),
                 FamilyMemberRosterDto.SOURCE_DEPENDANT,
-                null
+                null,
+                null,
+                dependant.isActive()
             ));
         }
 
         return rows;
+    }
+
+    /**
+     * Lists all family profiles including inactive (UC12 manage).
+     */
+    @Transactional(readOnly = true)
+    public List<DietaryProfileSummaryDto> listMyFamilyProfiles(long userId) {
+        FamilyMember membership = requireMembership(userId);
+        return dietaryProfileService.getAllProfilesByFamilyId(membership.getFamilyId());
+    }
+
+    /**
+     * Updates profile name/relationship for a profile in the caller's family (PRIMARY_ADMIN).
+     */
+    @Transactional
+    public FamilyMemberRosterDto updateProfileMetadata(
+            long adminUserId, long profileId, UpdateProfileRequest request) {
+        requirePrimaryAdmin(adminUserId);
+        DietaryProfile profile = requireProfileInCallerFamily(adminUserId, profileId);
+        profile.setProfileName(request.profileName().trim());
+        profile.setRelationship(request.relationship().trim().toUpperCase(Locale.ROOT));
+        dietaryProfileRepository.saveAndFlush(profile);
+
+        // Restriction lists are optional; when present, D3 ownership applies.
+        if (request.commonRequirements() != null || request.restrictions() != null) {
+            assertMayEditRestrictions(adminUserId, profileId);
+            Map<Long, String> selections = resolveRestrictionSelections(
+                request.commonRequirements(), request.restrictions());
+            dietaryProfileService.saveDietaryRestrictionSelections(profileId, selections);
+            profile = dietaryProfileRepository.findById(profileId)
+                .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
+        }
+        return toRosterRow(profile);
+    }
+
+    /**
+     * Toggles dietary_profiles.is_active (never users.is_active).
+     */
+    @Transactional
+    public DietaryProfileSummaryDto setProfileActive(
+            long adminUserId, long profileId, boolean active) {
+        requirePrimaryAdmin(adminUserId);
+        DietaryProfile profile = requireProfileInCallerFamily(adminUserId, profileId);
+        profile.setActive(active);
+        dietaryProfileRepository.saveAndFlush(profile);
+        if (!active) {
+            clearActiveProfilePreferencePointingAt(profileId);
+        }
+        return new DietaryProfileSummaryDto(
+            profile.getId(),
+            profile.getProfileName(),
+            profile.getFamily() == null ? null : profile.getFamily().getId(),
+            profile.getRelationship(),
+            initialsOf(profile.getProfileName()),
+            profile.isPrimary(),
+            profile.isActive()
+        );
+    }
+
+    /**
+     * Soft-removes a linked member: deactivates membership + profile (AC10–14).
+     */
+    @Transactional
+    public void removeFamilyMember(long adminUserId, long targetUserId) {
+        FamilyMember adminMembership = requirePrimaryAdmin(adminUserId);
+        Long familyId = adminMembership.getFamilyId();
+
+        FamilyMember target = familyMemberRepository.findMembershipByUserId(targetUserId)
+            .orElseThrow(() -> new FamilyNotFoundException("Family member was not found."));
+        if (!familyId.equals(target.getFamilyId()) || !Boolean.TRUE.equals(target.getIsActive())) {
+            throw new FamilyNotFoundException("Family member was not found.");
+        }
+
+        if (FamilyMember.ROLE_PRIMARY_ADMIN.equals(target.getMemberRole())
+                && familyMemberRepository.countActivePrimaryAdmins(familyId) <= 1) {
+            throw new LastPrimaryAdminException(
+                "Cannot remove the last primary admin without an allowed transfer.");
+        }
+
+        target.setIsActive(false);
+        familyMemberRepository.saveAndFlush(target);
+
+        dietaryProfileRepository.findByLinkedUser_Id(targetUserId).ifPresent(profile -> {
+            profile.setActive(false);
+            dietaryProfileRepository.saveAndFlush(profile);
+            clearActiveProfilePreferencePointingAt(profile.getId());
+        });
+    }
+
+    /**
+     * Soft-removes a dependant profile: deactivate and detach from family (keeps scans).
+     */
+    @Transactional
+    public void removeDependantProfile(long adminUserId, long profileId) {
+        requirePrimaryAdmin(adminUserId);
+        DietaryProfile profile = requireProfileInCallerFamily(adminUserId, profileId);
+        if (profile.getLinkedUser() != null) {
+            throw new FamilyForbiddenException(
+                "Linked members must be removed via DELETE /members/{userId}.");
+        }
+        profile.setActive(false);
+        profile.setFamily(null);
+        dietaryProfileRepository.saveAndFlush(profile);
+        clearActiveProfilePreferencePointingAt(profileId);
+    }
+
+    /**
+     * D3: actor may edit restrictions for self-linked profile or unlinked dependants
+     * in their family (PRIMARY_ADMIN for dependants).
+     */
+    @Transactional(readOnly = true)
+    public void assertMayEditRestrictions(long actorUserId, long profileId) {
+        DietaryProfile profile = dietaryProfileRepository.findById(profileId)
+            .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
+
+        if (profile.getLinkedUser() != null
+                && profile.getLinkedUser().getId() != null
+                && profile.getLinkedUser().getId() == actorUserId) {
+            return;
+        }
+
+        if (profile.getLinkedUser() == null && profile.getFamily() != null) {
+            FamilyMember membership = requirePrimaryAdmin(actorUserId);
+            if (membership.getFamilyId().equals(profile.getFamily().getId())) {
+                return;
+            }
+        }
+
+        throw new FamilyForbiddenException(
+            "You cannot edit restrictions for another adult's linked profile.");
+    }
+
+    private FamilyMemberRosterDto toRosterRow(DietaryProfile profile) {
+        RestrictionCodeSplit codes = splitRestrictionCodes(Optional.of(profile));
+        if (profile.getLinkedUser() != null && profile.getLinkedUser().getId() != null) {
+            Long linkedUserId = profile.getLinkedUser().getId();
+            String role = familyMemberRepository.findMembershipByUserId(linkedUserId)
+                .map(FamilyMember::getMemberRole)
+                .orElse(FamilyMember.ROLE_MEMBER);
+            String masked = userAccountRepository.findById(linkedUserId)
+                .map(account -> account.getEmail())
+                .map(FamilyService::maskEmail)
+                .orElse(null);
+            return new FamilyMemberRosterDto(
+                linkedUserId,
+                profile.getId(),
+                linkedUserId,
+                profile.getProfileName(),
+                profile.getRelationship(),
+                FamilyMemberRosterDto.AGE_GROUP_UNSPECIFIED,
+                codes.commonRequirements(),
+                codes.restrictions(),
+                FamilyMemberRosterDto.SOURCE_REGISTERED,
+                masked,
+                role,
+                profile.isActive()
+            );
+        }
+        return new FamilyMemberRosterDto(
+            profile.getId(),
+            profile.getId(),
+            null,
+            profile.getProfileName(),
+            profile.getRelationship(),
+            FamilyMemberRosterDto.AGE_GROUP_UNSPECIFIED,
+            codes.commonRequirements(),
+            codes.restrictions(),
+            FamilyMemberRosterDto.SOURCE_DEPENDANT,
+            null,
+            null,
+            profile.isActive()
+        );
+    }
+
+    private DietaryProfile requireProfileInCallerFamily(long userId, long profileId) {
+        FamilyMember membership = requireMembership(userId);
+        DietaryProfile profile = dietaryProfileRepository.findById(profileId)
+            .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
+        if (profile.getFamily() == null
+                || !membership.getFamilyId().equals(profile.getFamily().getId())) {
+            throw new FamilyForbiddenException("Profile does not belong to your family circle.");
+        }
+        return profile;
+    }
+
+    private void clearActiveProfilePreferencePointingAt(long profileId) {
+        for (UserPreference pref :
+                userPreferenceRepository.findByActiveProfileId(profileId)) {
+            pref.setActiveProfileId(null);
+            userPreferenceRepository.saveAndFlush(pref);
+        }
+    }
+
+    private static String initialsOf(String profileName) {
+        if (profileName == null || profileName.isBlank()) {
+            return "";
+        }
+        return profileName.substring(0, Math.min(2, profileName.length())).toUpperCase(Locale.ROOT);
     }
 
     // Get the family me response

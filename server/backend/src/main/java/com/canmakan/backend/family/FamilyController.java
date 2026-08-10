@@ -12,6 +12,8 @@ import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
 import com.canmakan.backend.family.dto.InvitationResponse;
 import com.canmakan.backend.family.dto.SetActiveProfileRequest;
+import com.canmakan.backend.family.dto.SetProfileActiveRequest;
+import com.canmakan.backend.family.dto.UpdateProfileRequest;
 import com.canmakan.backend.family.dto.UserSearchResponse;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.shared.security.AuthUserDetails;
@@ -24,7 +26,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -119,6 +123,64 @@ public class FamilyController {
         List<FamilyMemberRosterDto> members = familyService.listFamilyMembers(userId);
         log.info("GET /families/me/members → 200 count={}", members.size());
         return members;
+    }
+
+    // GET /api/families/me/profiles -> all profiles including inactive (UC12)
+    @GetMapping("/me/profiles")
+    public List<DietaryProfileSummaryDto> listMyProfiles(
+            @AuthenticationPrincipal AuthUserDetails userDetails) {
+        long userId = requireUserId(userDetails);
+        List<DietaryProfileSummaryDto> profiles = familyService.listMyFamilyProfiles(userId);
+        log.info("GET /families/me/profiles → 200 count={}", profiles.size());
+        return profiles;
+    }
+
+    // PUT /api/families/me/profiles/{profileId} -> update metadata (UC12)
+    @PutMapping("/me/profiles/{profileId}")
+    public FamilyMemberRosterDto updateProfile(
+            @AuthenticationPrincipal AuthUserDetails userDetails,
+            @PathVariable long profileId,
+            @Valid @RequestBody UpdateProfileRequest request) {
+        long userId = requireUserId(userDetails);
+        FamilyMemberRosterDto updated =
+            familyService.updateProfileMetadata(userId, profileId, request);
+        log.info("PUT /families/me/profiles/{} → 200", profileId);
+        return updated;
+    }
+
+    // PATCH /api/families/me/profiles/{profileId} -> activate/deactivate (UC12)
+    @PatchMapping("/me/profiles/{profileId}")
+    public DietaryProfileSummaryDto setProfileActive(
+            @AuthenticationPrincipal AuthUserDetails userDetails,
+            @PathVariable long profileId,
+            @Valid @RequestBody SetProfileActiveRequest request) {
+        long userId = requireUserId(userDetails);
+        DietaryProfileSummaryDto updated =
+            familyService.setProfileActive(userId, profileId, request.active());
+        log.info("PATCH /families/me/profiles/{} → 200 active={}", profileId, request.active());
+        return updated;
+    }
+
+    // DELETE /api/families/me/members/{userId} -> soft-remove linked member (UC12)
+    @DeleteMapping("/me/members/{targetUserId}")
+    public ResponseEntity<Void> removeMember(
+            @AuthenticationPrincipal AuthUserDetails userDetails,
+            @PathVariable long targetUserId) {
+        long userId = requireUserId(userDetails);
+        familyService.removeFamilyMember(userId, targetUserId);
+        log.info("DELETE /families/me/members/{} → 204", targetUserId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // DELETE /api/families/me/profiles/{profileId} -> soft-remove dependant (UC12)
+    @DeleteMapping("/me/profiles/{profileId}")
+    public ResponseEntity<Void> removeDependantProfile(
+            @AuthenticationPrincipal AuthUserDetails userDetails,
+            @PathVariable long profileId) {
+        long userId = requireUserId(userDetails);
+        familyService.removeDependantProfile(userId, profileId);
+        log.info("DELETE /families/me/profiles/{} → 204", profileId);
+        return ResponseEntity.noContent().build();
     }
 
     // GET /api/families/me/user-search -> search for a user by email
