@@ -14,7 +14,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
         with:
@@ -28,7 +28,7 @@ jobs:
     if: needs.detect-backend-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # 2.1 DEFINE THE REQUIRED JAVA PACKAGE
       - name: Set up Java 21
