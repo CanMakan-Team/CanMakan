@@ -30,11 +30,11 @@ DROP TABLE IF EXISTS ingredient_restrictions;
 DROP TABLE IF EXISTS ingredients;
 DROP TABLE IF EXISTS profile_restrictions;
 DROP TABLE IF EXISTS dietary_restrictions;
+DROP TABLE IF EXISTS user_preferences;
 DROP TABLE IF EXISTS dietary_profiles;
 DROP TABLE IF EXISTS family_invitations;
 DROP TABLE IF EXISTS family_members;
 DROP TABLE IF EXISTS families;
-DROP TABLE IF EXISTS user_preferences;
 DROP TABLE IF EXISTS refresh_tokens;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS roles;
@@ -72,20 +72,6 @@ CREATE TABLE refresh_tokens (
     CONSTRAINT fk_refresh_tokens_users
         FOREIGN KEY (user_id) REFERENCES users(id)
         ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE user_preferences (
-    user_id BIGINT PRIMARY KEY,
-    theme VARCHAR(20) DEFAULT 'LIGHT',
-    notifications_enabled TINYINT(1) DEFAULT 1,
-    `language` VARCHAR(10) DEFAULT 'en',
-    active_profile_id BIGINT NULL,
-    CONSTRAINT fk_user_preferences_users
-        FOREIGN KEY (user_id) REFERENCES users(id)
-        ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT fk_user_preferences_active_profile
-        FOREIGN KEY (active_profile_id) REFERENCES dietary_profiles(id)
-        ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
@@ -157,6 +143,21 @@ CREATE TABLE dietary_profiles (
     CONSTRAINT fk_dietary_profiles_user
         FOREIGN KEY (linked_user_id) REFERENCES users(id)
         ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- After dietary_profiles: active_profile_id FK (UC11) needs that table to exist first.
+CREATE TABLE user_preferences (
+    user_id BIGINT PRIMARY KEY,
+    theme VARCHAR(20) DEFAULT 'LIGHT',
+    notifications_enabled TINYINT(1) DEFAULT 1,
+    `language` VARCHAR(10) DEFAULT 'en',
+    active_profile_id BIGINT NULL,
+    CONSTRAINT fk_user_preferences_users
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_user_preferences_active_profile
+        FOREIGN KEY (active_profile_id) REFERENCES dietary_profiles(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE dietary_restrictions (
