@@ -52,7 +52,19 @@ family/
 
 **Create-circle tip:** seeded users 4–13 already have families; register a new account to see empty-state create.
 
-**Remaining elsewhere:** JWT (UC19); members/invites/history still mock when `VITE_USE_MOCK_API=true`.
+## UC12 manage family circle
+
+**Status:** Live when mock is off (`VITE_USE_MOCK_API=false`).
+
+| Piece | Notes |
+| --- | --- |
+| `FamilyMembersPage` | Roster with role + inactive badge; edit / deactivate / remove |
+| `EditFamilyProfileModal` | Live `PUT /me/profiles/{id}`; D3 restricts restriction edits to self + dependants |
+| `familyApiService` | `updateProfile`, `setProfileActive`, `removeMember`, `removeDependantProfile`, `getProfiles` |
+| Soft-remove | Linked → `DELETE /me/members/{userId}`; dependant → `DELETE /me/profiles/{id}` |
+| Activate | `PATCH /me/profiles/{id}` `{active}` — never toggles `users.is_active` |
+
+Contract: `docs/api/families.md`
 
 ## Notes
 - Aligns with backend `family` package

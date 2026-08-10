@@ -1083,6 +1083,18 @@ input[readonly] {
   font-size: 0.76rem;
 }
 
+.profile-card--inactive {
+  opacity: 0.72;
+  background: #f7f8f7;
+}
+
+.profile-card__actions {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.9rem;
+}
+
 .source-label {
   color: var(--teal-700);
   font-size: 0.66rem;

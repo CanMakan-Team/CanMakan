@@ -8,6 +8,15 @@ import type {
   UserAccessSummary,
 } from '../shared/api/types'
 
+/**
+ * Mock data for the family state
+ * With mock on you get: real JWT + real /me, but fake members/scans/admin
+ * With mock off you get: real JWT + real /me, real members/scans/admin
+ * 
+ * @author Amelia
+ * @author YangMaowei
+ */
+
 export interface MockFamilyState {
   members: FamilyMember[]
   activeProfile: ActiveProfile
@@ -17,6 +26,8 @@ export const initialFamilyState: MockFamilyState = {
   members: [
     {
       memberId: 101,
+      profileId: 101,
+      linkedUserId: 101,
       profileName: 'Alicia',
       relationship: 'SELF',
       ageGroup: 'ADULT',
@@ -24,9 +35,13 @@ export const initialFamilyState: MockFamilyState = {
       restrictions: ['SHELLFISH_ALLERGY'],
       source: 'REGISTERED_USER',
       maskedEmail: 'a***@example.com',
+      memberRole: 'PRIMARY_ADMIN',
+      profileActive: true,
     },
     {
       memberId: 102,
+      profileId: 102,
+      linkedUserId: 102,
       profileName: 'Marcus',
       relationship: 'SPOUSE',
       ageGroup: 'ADULT',
@@ -34,21 +49,26 @@ export const initialFamilyState: MockFamilyState = {
       restrictions: ['LOW_SUGAR'],
       source: 'REGISTERED_USER',
       maskedEmail: 'm***@example.com',
+      memberRole: 'MEMBER',
+      profileActive: true,
     },
     {
       memberId: 103,
+      profileId: 103,
+      linkedUserId: null,
       profileName: 'Noah',
       relationship: 'CHILD',
       ageGroup: 'CHILD',
       commonRequirements: ['HALAL'],
       restrictions: ['PEANUT_ALLERGY', 'DAIRY_FREE'],
       source: 'DEPENDANT_PROFILE',
+      memberRole: null,
+      profileActive: true,
     },
   ],
   activeProfile: {
-    memberId: 101,
+    profileId: 101,
     profileName: 'Alicia',
-    activatedAt: '2026-07-29T08:30:00+08:00',
   },
 }
 
