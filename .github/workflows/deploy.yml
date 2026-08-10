@@ -54,7 +54,7 @@ jobs:
 
       # 2.4 COPY .JAR PACKAGE TO EC2 VIA SCP
       - name: Copy JAR to EC2 via SCP
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
