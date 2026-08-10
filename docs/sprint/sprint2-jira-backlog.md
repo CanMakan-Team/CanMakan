@@ -263,7 +263,7 @@ Missing: ownership authz on profile-scoped routes; invitations; family scans; re
 | UC7 | Core | **Partial** — admin trends mock; `daily_consumer_trends` unused by Java |
 | UC8 | Core | **Complete (MVP)** — create + `/me` + JWT 401 + web/mobile empty-state; diagrams follow-on open |
 | UC9 | Core | **Complete (MVP)** — live invite/dependant; web + mobile share/deep links; register/login claim; live `/me/members` list |
-| UC10 | Core | **Partial foundation** — UC9 claim path exists; inbox list/decline/Resend not started |
+| UC10 | Core | **Complete (MVP)** — inbox list/accept/decline + Resend optional; web inbox optional residual |
 | UC11 | Core | **Partial** — drawer switch + `/me`-resolved profiles; `DEFAULT_PROFILE_ID=1` fallback; not server-persisted |
 | UC12 | Core | **Partial** — live `GET /me/members` roster; manage CRUD / `is_active` open |
 | UC13 | Core | **Partial** — `UserAccessPage` mock; no admin controller |
@@ -496,9 +496,9 @@ Missing: ownership authz on profile-scoped routes; invitations; family scans; re
 | **Stories** | UC9-S1…S4 (migration; invite+share API; dependant API; mobile+web UI) |
 | **Dependencies** | UC19, UC8; UC1 for dependant restrictions |
 | **In** | PENDING invite with **shareable link/code**; email/user-search; admin-managed dependant profile (API + web-primary UI; mobile optional); register/login auto-claim |
-| **Out** | Accept/decline inbox (UC10); silent mock link; full roster manage (UC12) |
+| **Out** | Silent mock link; full roster manage (UC12) |
 | **Shipped** | Schema `invited_by` + `invite_code`; Spring Data family repos; search/invite/claim/dependant APIs; `GET /me/members`; web invite + dependant + `/invite/:token`; mobile invite+share+deep links+login claim+dependant create |
-| **Residuals** | UC10 inbox; UC12 manage CRUD / `is_active` |
+| **Residuals** | UC12 manage CRUD / `is_active` |
 
 ---
 
@@ -508,12 +508,12 @@ Missing: ownership authz on profile-scoped routes; invitations; family scans; re
 
 | | |
 | --- | --- |
-| **Status** | **Partial** — claim happy-path covered by UC9; inbox/list/decline/Resend open |
+| **Status** | **Complete (MVP)** — list/accept/decline + Resend optional; web inbox optional residual |
 | **Stories** | UC10-S1…S4 (list; accept; decline/guards; Resend) |
 | **Dependencies** | UC19, UC9 |
 | **In** | List pending invites; accept → MEMBER + linked profile; decline → DECLINED; mobile inbox primary |
 | **Out** | Creating invitations (UC9); web accept is optional parity only |
-| **Note** | `POST .../invitations/claim` + register `invitationToken` already join without an inbox |
+| **Note** | `POST .../invitations/claim` + register `invitationToken` still join without an inbox |
 
 ---
 
@@ -709,10 +709,10 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | **UC9-S2** | User search + create PENDING invitation returning shareable code/link; register/login claim — **Done** | UC9: 1–7, 15 | P0 · done |
 | **UC9-S3** | Create dependant dietary profile (API; web-primary UI; mobile optional live) — **Done** | UC9: 9–13 | P0 · done |
 | **UC9-S4** | Mobile invite+share + deep links + web invite (no silent link); UI states — **Done** | UC9: 8, 14–16 | P1 · done |
-| **UC10-S1** | List pending invitations (mobile primary; web optional) | UC10: 1–2, 10, 12 | P0 |
-| **UC10-S2** | Accept invitation → MEMBER + linked profile *(claim API already in UC9; inbox UX still open)* | UC10: 3–4, 7–9 | P0 |
-| **UC10-S3** | Decline + expired/invalid/mismatch guards | UC10: 5–8 | P0 |
-| **UC10-S4** | Resend invitation email (as designed) | UC10: 11 | P1 |
+| **UC10-S1** | List pending invitations (mobile primary; web optional) | UC10: 1–2, 10, 12 | P0 · done |
+| **UC10-S2** | Accept invitation → MEMBER + linked profile | UC10: 3–4, 7–9 | P0 · done |
+| **UC10-S3** | Decline + expired/invalid/mismatch guards | UC10: 5–8 | P0 · done |
+| **UC10-S4** | Resend invitation email (as designed) | UC10: 11 | P1 · done |
 
 ### UC11 / UC12 — Switch & manage
 
@@ -789,14 +789,14 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 **Core MVP target:** UC1–UC13.  
 **Canonical sequence** (also used by mvp-epics build order).
 
-**Already shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT + clients); UC8-S1–S4 (incl. AC8); UC6-S1/S2 (summary API + mobile); **UC9-S1–S4** (invite/dependant/share + auto-claim + deep links + live roster list). Remaining auth: UC19-S3 close-out + AC3 polish.
+**Already shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT + clients); UC8-S1–S4 (incl. AC8); UC6-S1/S2 (summary API + mobile); **UC9-S1–S4** (invite/dependant/share + auto-claim + deep links + live roster list); **UC10-S1–S4** (inbox + Resend optional). Remaining auth: UC19-S3 close-out + AC3 polish.
 
 | Sprint | Focus | Stretch |
 | --- | --- | --- |
 | **Sprint 2** | UC19-S3 + UC1-S1; UC11-S1…S3; UC2 profile authz; UC3 polish; UC4-S1 authz | UC1-S3 |
-| **Sprint 3** | UC12 remaining manage CRUD / `is_active`; UC10-S1…S3 | UC6-S3; UC10-S4 Resend |
+| **Sprint 3** | UC12 remaining manage CRUD / `is_active` | UC6-S3 |
 
-**Remaining Core MVP (next):** UC12 manage; UC10 inbox; UC4-S2/S3; UC5-S1/S2; UC7-S1/S2; UC13-S1…S3.
+**Remaining Core MVP (next):** UC12 manage; UC4-S2/S3; UC5-S1/S2; UC7-S1/S2; UC13-S1…S3.
 
 **Seeded-family exception:** Scan work may still use Tan/Lim/Wong seeds until UC11 persists active profile. New users create a circle via UC8 after UC18 register + UC19 login.
 
@@ -809,8 +809,8 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 UC18 (shipped) ──► UC8 empty-state demo (after UC19 login)
 UC19 (mostly shipped) ──► UC8 AC8 done; protects families + assess
 UC19-S3 (open) ──► UC1/UC4 dietary+history authz
-UC8-S1…S4 (shipped) ──► UC9 (mostly shipped) ──► UC10 inbox
-                       └──► UC9-S3 dependant (mostly shipped; web roster → UC12)
+UC8-S1…S4 (shipped) ──► UC9 (shipped) ──► UC10 (shipped; web inbox optional)
+                       └──► UC9-S3 dependant (shipped; web roster manage → UC12)
 UC8-S3 (/me) ──► UC11 ──► UC2 ──► UC3 ──► UC4
 UC6-S1/S2 (mostly shipped) ──► UC6-S3 web parity
 UC19 ──► UC1 ownership authz ──► UC6 / UC12

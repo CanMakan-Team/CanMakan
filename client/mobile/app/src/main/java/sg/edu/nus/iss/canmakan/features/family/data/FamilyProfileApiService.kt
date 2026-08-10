@@ -35,6 +35,18 @@ data class ClaimInvitationRequestBody(
     @SerializedName("invitationToken") val invitationToken: String,
 )
 
+data class PendingInvitationResponse(
+    @SerializedName("invitationId") val invitationId: Long,
+    @SerializedName("familyId") val familyId: Long,
+    @SerializedName("familyName") val familyName: String,
+    @SerializedName("invitedByDisplayName") val invitedByDisplayName: String,
+    @SerializedName("invitationToken") val invitationToken: String,
+    @SerializedName("inviteCode") val inviteCode: String,
+    @SerializedName("status") val status: String,
+    @SerializedName("expiresAt") val expiresAt: String?,
+    @SerializedName("expired") val expired: Boolean,
+)
+
 data class CreateDependantProfileRequestBody(
     @SerializedName("profileName") val profileName: String,
     @SerializedName("relationship") val relationship: String,
@@ -80,6 +92,19 @@ interface FamilyProfileApiService {
     suspend fun claimInvitation(
         @Body request: ClaimInvitationRequestBody,
     ): Response<FamilyMeResponse>
+
+    @GET("invitations/me")
+    suspend fun listMyInvitations(): Response<List<PendingInvitationResponse>>
+
+    @POST("invitations/{token}/accept")
+    suspend fun acceptInvitation(
+        @Path("token") token: String,
+    ): Response<FamilyMeResponse>
+
+    @POST("invitations/{token}/decline")
+    suspend fun declineInvitation(
+        @Path("token") token: String,
+    ): Response<Unit>
 
     @POST("families/me/profiles")
     suspend fun createDependantProfile(

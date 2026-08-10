@@ -105,6 +105,30 @@ class FamilyProfileRepository @Inject constructor(
             ?: throw IllegalStateException("Empty body for POST /families/me/invitations/claim")
     }
 
+    suspend fun listMyInvitations(): List<PendingInvitationResponse> {
+        val response = apiService.listMyInvitations()
+        if (!response.isSuccessful) {
+            throw CreateFamilyException(messageFromError(response), response.code())
+        }
+        return response.body().orEmpty()
+    }
+
+    suspend fun acceptInvitation(invitationToken: String): FamilyMeResponse {
+        val response = apiService.acceptInvitation(invitationToken.trim())
+        if (!response.isSuccessful) {
+            throw CreateFamilyException(messageFromError(response), response.code())
+        }
+        return response.body()
+            ?: throw IllegalStateException("Empty body for POST /invitations/{token}/accept")
+    }
+
+    suspend fun declineInvitation(invitationToken: String) {
+        val response = apiService.declineInvitation(invitationToken.trim())
+        if (!response.isSuccessful) {
+            throw CreateFamilyException(messageFromError(response), response.code())
+        }
+    }
+
     suspend fun createDependantProfile(
         profileName: String,
         relationship: String,
