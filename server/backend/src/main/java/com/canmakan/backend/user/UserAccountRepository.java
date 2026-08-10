@@ -1,5 +1,6 @@
 package com.canmakan.backend.user;
 
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -51,6 +52,39 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
     Optional<AuthenticationAccountView> findAuthenticationAccountById(
         @Param("userId") Long userId
     );
+
+    @Query(value = """
+        select u.id as userId,
+               u.email as email,
+               r.name as role,
+               u.is_active as active,
+               u.updated_at as updatedAt
+        from users u
+        join roles r on r.id = u.role_id
+        where (:query is null or lower(u.email) like concat('%', lower(:query), '%'))
+          and (:role is null or r.name = :role)
+          and (:active is null or u.is_active = :active)
+        order by u.id asc
+        """, nativeQuery = true)
+    List<AdminUserSummaryView> findAdminUserSummaries(
+        @Param("query") String query,
+        @Param("role") String role,
+        @Param("active") Boolean active
+    );
+
+    @Query(value = "select u.* from users u where u.id = :userId for update", nativeQuery = true)
+    Optional<UserAccount> findByIdForUpdate(@Param("userId") Long userId);
+
+    @Query(value = """
+        select u.*
+        from users u
+        join roles r on r.id = u.role_id
+        where r.name = 'ADMIN'
+        order by u.id asc
+        for update
+        """, nativeQuery = true)
+    List<UserAccount> findAllAdminsForUpdate();
+
     // Find the role name by ID
     @Query(value = "select name from roles where id = :roleId", nativeQuery = true)
     Optional<String> findRoleNameById(@Param("roleId") Long roleId);

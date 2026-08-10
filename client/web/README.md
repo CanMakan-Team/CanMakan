@@ -8,7 +8,7 @@ portals:
 
 The implementation is an evolutionary Sprint 1 / Sprint 2 client. **Auth and
 UC8 family create/`/me` always call the live Spring Boot API** (UC19 JWT
-Bearer access token). Other family/admin surfaces may still use browser mocks
+Bearer access token). Other family and analytics surfaces may still use browser mocks
 when `VITE_USE_MOCK_API=true`.
 
 ## Selected Web features
@@ -24,7 +24,7 @@ The primary information architecture implements the latest selected scope:
 | 9 | Create New Family Member Profile for a non-login dependant |
 | 10 | Switch the active family assessment profile |
 | 11 | Update an existing family dietary profile |
-| 12 | User Accounts & Access with mock confirmations and audit entries |
+| 13 | User Accounts & Access with live status-only Suspend/Reactivate controls |
 
 Earlier Figma concepts such as assessment review queues, product data issues,
 ingredient aliases, logs, system health, AI reasoning review and application
@@ -102,16 +102,15 @@ UI and application wiring under `src/shared/ui` and `src/app/router`.
 Mock repositories:
 
 - simulate network latency;
-- store mutable family and access data in `localStorage`;
+- store mutable family data in `localStorage`;
 - persist the active profile for the browser session;
 - add linked users to the family list;
 - create and update dependant profiles;
 - immediately refresh dashboard/member/restriction views after mutations;
-- update user roles/statuses and record mock audit entries;
 - return anonymised Consumer Trends through `adminService`;
 - provide a controlled user-search error.
 
-Clear the `canmakan.mock.family`, `canmakan.mock.admin` and `canmakan.session`
+Clear the `canmakan.mock.family` and `canmakan.session`
 local-storage keys to reset the prototype.
 
 ## Environment
@@ -178,8 +177,8 @@ System Admin Portal:
 1. Sign out and open `/system-admin-login`.
 2. Confirm there is no Family Admin navigation.
 3. Open **Consumer Trends** and inspect the anonymised charts and table values.
-4. Open **User Accounts & Access**, filter by role and manage an account.
-5. Confirm the access change and inspect the mock audit record.
+4. Open **User Accounts & Access**, filter by email, role or status, then suspend or reactivate an account with a reason.
+5. Confirm the status feedback and refreshed filtered account list.
 6. Open **Family Portal — Test Access**, confirm the session remains
    `ROLE_SYSTEM_ADMIN`, then return to the System portal.
 
@@ -196,6 +195,13 @@ Family (caller id from Bearer JWT):
 ```text
 POST  /api/families
 GET   /api/families/me
+```
+
+System Admin account management (caller id from Bearer JWT):
+
+```text
+GET   /api/admin/users?query={query}&role={USER|ADMIN}&active={true|false}
+PATCH /api/admin/users/{userId}/status
 ```
 
 Web: `FamilyMeGate` + `CreateFamilyCirclePage` when `/me` is 404. Details:
@@ -217,8 +223,6 @@ PUT   /api/families/me/active-profile
 GET   /api/families/me/restriction-summary
 GET   /api/families/me/scans
 GET   /api/admin/consumer-trends
-GET   /api/admin/users
-PATCH /api/admin/users/{userId}/access
 ```
 
 ## Safety and architecture boundaries
@@ -239,7 +243,7 @@ food-safety guarantees.
 
 - Live register/login and UC8 create/`/me` use the database with JWT Bearer
   identity on family APIs.
-- Members/invite/history/admin pages may still be mock when
+- Members/invite/history and analytics pages may still be mock when
   `VITE_USE_MOCK_API=true` (default is `false`).
 - Backend `spring.sql.init.mode=always` reseeds and drops newly registered users
   on restart.
