@@ -144,31 +144,43 @@ Any family member may list. Returns linked users and dependant profiles:
 [
   {
     "memberId": 10,
+    "profileId": 77,
+    "linkedUserId": 10,
     "profileName": "Admin",
     "relationship": "SELF",
     "ageGroup": "UNSPECIFIED",
     "commonRequirements": ["HALAL"],
     "restrictions": ["PEANUT_ALLERGY"],
     "source": "REGISTERED_USER",
-    "maskedEmail": "a***n@example.com"
+    "maskedEmail": "a***n@example.com",
+    "memberRole": "PRIMARY_ADMIN",
+    "profileActive": true
   },
   {
     "memberId": 2,
+    "profileId": 2,
+    "linkedUserId": null,
     "profileName": "Toddler",
     "relationship": "CHILD",
     "ageGroup": "UNSPECIFIED",
     "commonRequirements": [],
     "restrictions": [],
     "source": "DEPENDANT_PROFILE",
-    "maskedEmail": null
+    "maskedEmail": null,
+    "memberRole": null,
+    "profileActive": true
   }
 ]
 ```
 
 | Field | Notes |
 | --- | --- |
-| `memberId` | `userId` for `REGISTERED_USER`; dietary `profileId` for `DEPENDANT_PROFILE` |
-| `ageGroup` | Always `UNSPECIFIED` until UC12 persists age on profiles |
+| `memberId` | `userId` for `REGISTERED_USER`; dietary `profileId` for `DEPENDANT_PROFILE` (compat) |
+| `profileId` | Dietary profile id — use for UC12 manage APIs |
+| `linkedUserId` | Present for registered members; null for dependants |
+| `memberRole` | `PRIMARY_ADMIN` / `MEMBER` / null for dependants |
+| `profileActive` | `dietary_profiles.is_active` |
+| `ageGroup` | Always `UNSPECIFIED` until age is persisted on profiles |
 | `commonRequirements` | Restriction codes whose catalog category is `RELIGIOUS` |
 | `restrictions` | All other catalog categories (allergens, diets, etc.) |
 | `maskedEmail` | Present for linked users only |
@@ -177,6 +189,65 @@ Any family member may list. Returns linked users and dependant profiles:
 | --- | --- |
 | 401 | Missing/invalid JWT |
 | 404 | Authenticated user is not a family member |
+
+---
+
+## Manage profiles (UC12)
+
+### List profiles (including inactive)
+
+`GET /api/families/me/profiles` — authenticated family member; returns all profiles in the
+caller’s family (active and inactive). Differs from `GET /families/{id}/profiles`, which
+omits inactive rows for the switcher.
+
+### Update metadata
+
+`PUT /api/families/me/profiles/{profileId}`
+
+PRIMARY_ADMIN only.
+
+```json
+{
+  "profileName": "Child",
+  "relationship": "CHILD",
+  "commonRequirements": ["HALAL"],
+  "restrictions": ["PEANUT_ALLERGY"]
+}
+```
+
+`commonRequirements` / `restrictions` are optional catalog **codes**. Omit both to leave
+selections unchanged. When included, D3 applies: caller may edit only **self** linked profile
+or **unlinked dependants** (another adult’s linked profile → **403**).
+
+Returns a roster row. **403** if not admin / wrong family / D3 deny; **404** if profile missing.
+
+### Activate / deactivate
+
+`PATCH /api/families/me/profiles/{profileId}`
+
+PRIMARY_ADMIN only. Toggles `dietary_profiles.is_active` only (never `users.is_active`).
+
+```json
+{ "active": false }
+```
+
+Inactive profiles cannot be selected (UC11) or assessed (UC2) — HTTP **409**.
+
+### Soft-remove linked member
+
+`DELETE /api/families/me/members/{userId}`
+
+PRIMARY_ADMIN only. Deactivates membership + linked profile; does not hard-delete rows
+(preserves scan history). **409** if removing the last PRIMARY_ADMIN. **204** on success.
+
+### Soft-remove dependant profile
+
+`DELETE /api/families/me/profiles/{profileId}`
+
+PRIMARY_ADMIN only. Deactivates and detaches the dependant (`family_id` null); keeps the
+profile row for scan FK. Linked members must use `DELETE /members/{userId}` instead.
+
+CORS allows `DELETE`.
 
 ---
 

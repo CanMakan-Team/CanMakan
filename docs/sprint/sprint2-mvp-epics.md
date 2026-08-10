@@ -97,7 +97,7 @@ flowchart TB
 **Tech:** Android Kotlin; Spring Boot REST; AWS RDS MySQL  
 **Current code state:** Partial — live catalog/PUT + mobile editor; JWT + ownership authz still open; severity fixed `STRICT_AVOID`
 
-- **Backend:** `DietaryProfileController` — live `GET /api/restrictions` and `GET|PUT /api/profiles/{profileId}/restrictions`; catalog + `profile_restrictions` seeded. No ownership/authz (any caller can read/write any `profileId`). Spring Security exists (UC19), but these dietary routes remain **transitional `permitAll`** — not yet JWT-required.
+- **Backend:** `DietaryProfileController` — live `GET /api/restrictions` and `GET|PUT /api/profiles/{profileId}/restrictions`; JWT required; GET uses family-scan authz; PUT uses D3 (`assertMayEditRestrictions`: self + unlinked dependants).
 - **Mobile:** `DietaryRestrictionSheet` + ViewModel wired from the drawer; loads/saves against the live API for the active profile. Severity is fixed to `STRICT_AVOID` in the VM (no PREFERENCE / INTOLERANCE picker). Loading/error paths exist.
 - **Missing:** unknown-code → consistent HTTP 400 mapping; JWT + ownership authz on restriction endpoints (UC1-S1 / remaining UC19-S3). SELF bootstrap after registration is via **UC8** create-circle (register leaves `family_id` NULL until then).
 
@@ -122,8 +122,8 @@ Profile create after registration must respect `dietary_profiles.family_id NOT N
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | Authenticated user can load the restriction catalog via `GET /api/restrictions`. *(catalog loads; JWT auth still open)* |
-| [ ] | 2 | Authenticated user can load existing restrictions for an authorized profile via `GET /api/profiles/{profileId}/restrictions`. *(GET works; authz still open)* |
+| [x] | 1 | Authenticated user can load the restriction catalog via `GET /api/restrictions`. |
+| [x] | 2 | Authenticated user can load existing restrictions for an authorized profile via `GET /api/profiles/{profileId}/restrictions`. |
 | [x] | 3 | User can add one or more catalog restrictions to their authorized profile. |
 | [ ] | 4 | User can change severity for an existing profile restriction. *(mobile hard-codes `STRICT_AVOID`)* |
 | [x] | 5 | User can remove a restriction from their authorized profile. |
@@ -415,7 +415,7 @@ As a family account holder, I want a grid of family members and their allergies/
 | [x] | 3 | **Primary client (mobile)** presents a matrix/grid of members (or profiles) against restrictions. |
 | [ ] | 4 | Overlapping restrictions across members are visually highlighted as designed. |
 | [x] | 5 | Only the authenticated user’s family data is returned (no cross-family leakage; `/me` scoping). |
-| [ ] | 6 | Inactive profiles are omitted or clearly marked per product choice documented with UC12. |
+| [x] | 6 | Inactive profiles are omitted or clearly marked per product choice documented with UC12. |
 | [x] | 7 | Empty family / no restrictions shows an empty state with guidance (e.g. link toward UC12 members). |
 | [ ] | 8 | Edit actions navigate to UC12 (or UC1 for self) and do not mutate restrictions inside this UC. *(empty CTA currently pops back; full UC12 manage not wired)* |
 | [x] | 9 | Loading and error states are handled. |
@@ -716,12 +716,11 @@ UC19; UC8-S3 (/families/me) or seeded membership for early delivery · Critical 
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Web Client (Family) primary; mobile optional/limited  
 **Tech:** React; Spring Boot; RDS *(optional Android limited surface)*  
-**Current code state:** Partial — **live roster list done** (`GET /me/members`); manage CRUD / `is_active` still open
+**Current code state:** **Done (web + backend)** — roster, metadata PUT, D3 restrictions, soft-remove DELETE, PATCH active; mobile stays UC9 invite/dependant only.
 
-- **Web (primary):** `FamilyMembersPage` lists via live `GET /api/families/me/members` (mock branch when `VITE_USE_MOCK_API=true`). Edit/remove/activate APIs still missing. UC9 invite + dependant **create** modals are live.
-- **Mobile (optional/limited):** UC9 invite + dependant create live for PRIMARY_ADMIN. Full UC12 roster edit/remove/activate stays web-primary / open.
-- **Schema:** `dietary_profiles` has **no** `is_active` column (do not overload `users.is_active`). `family_members.is_active` exists separately.
-- **Missing:** profile update/delete, remove-member, soft-remove vs scan FK, activate/deactivate, `GET /me/profiles` alias.
+- **Web (primary):** `FamilyMembersPage` live manage when mock is off (`GET /me/members`, PUT/PATCH/DELETE profiles/members). Inactive badge + confirm on deactivate/remove. Edit modal applies D3 (restrictions for self + dependants only).
+- **Mobile (optional/limited):** UC9 invite + dependant create live for PRIMARY_ADMIN. Full UC12 roster edit/remove/activate stays web-primary.
+- **Schema:** `dietary_profiles.is_active` shipped (distinct from `users.is_active`). `family_members.is_active` used for soft-remove of linked members.
 
 ### User stories
 
@@ -734,38 +733,38 @@ UC19; UC8-S3 (/families/me) or seeded membership for early delivery · Critical 
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | Migration adds `dietary_profiles.is_active` (default active); does **not** overload `users.is_active`. |
-| [x] | 2 | PRIMARY_ADMIN can list members via `GET /api/families/me/members`. *(any family member may list; PRIMARY_ADMIN manage mutations still open)* |
-| [ ] | 3 | PRIMARY_ADMIN can list profiles via `GET /api/families/me/profiles`. |
-| [~] | 4 | Roster shows name, relationship, role, and profile active status as designed. *(name/relationship/source/restrictions live; role/active status incomplete)* |
+| [x] | 1 | Migration adds `dietary_profiles.is_active` (default active); does **not** overload `users.is_active`. |
+| [x] | 2 | PRIMARY_ADMIN can list members via `GET /api/families/me/members`. *(any family member may list)* |
+| [x] | 3 | PRIMARY_ADMIN can list profiles via `GET /api/families/me/profiles`. |
+| [x] | 4 | Roster shows name, relationship, role, and profile active status as designed. |
 | [x] | 5 | List is family-scoped only (no other family’s members). |
 | [x] | 6 | Dependant profiles without login appear in the profile/member management views. |
-| [ ] | 7 | PRIMARY_ADMIN can update allowed profile metadata via `PUT /api/families/me/profiles/{profileId}`. |
-| [ ] | 8 | PRIMARY_ADMIN can update dependant (and self, as allowed) restrictions via UC1 PUT rules; unauthorized adult edits follow D3 (default deny). |
-| [ ] | 9 | Profile/restriction updates persist and are visible on reload / subsequent scans for that profile. |
-| [ ] | 10 | PRIMARY_ADMIN can remove a non-admin member after confirmation (`DELETE /api/families/me/members/{userId}`). |
-| [ ] | 11 | Removed member no longer appears in the family list and loses access to that family circle. |
-| [ ] | 12 | Non-admin users cannot remove members (HTTP 403). |
-| [ ] | 13 | Sole/last PRIMARY_ADMIN cannot be removed without an allowed transfer process (HTTP 409). |
-| [ ] | 14 | Soft-remove preserves scan history when `scans.profile_id` FK would block hard delete. |
-| [ ] | 15 | PRIMARY_ADMIN can activate/deactivate a profile via `PATCH .../profiles/{profileId}` with `{active}`. |
-| [ ] | 16 | Inactive profiles are visibly identified in the admin UI. |
-| [ ] | 17 | Inactive profiles cannot be selected in UC11 and cannot be assessed (409). |
-| [ ] | 18 | Reactivating a profile makes it selectable again. |
-| [ ] | 19 | Loading, confirm, validation, and error states are handled for list/edit/remove/toggle. |
-| [ ] | 20 | Production path works with mock API disabled. |
+| [x] | 7 | PRIMARY_ADMIN can update allowed profile metadata via `PUT /api/families/me/profiles/{profileId}`. |
+| [x] | 8 | PRIMARY_ADMIN can update dependant (and self, as allowed) restrictions via UC1 PUT rules; unauthorized adult edits follow D3 (default deny). |
+| [x] | 9 | Profile/restriction updates persist and are visible on reload / subsequent scans for that profile. |
+| [x] | 10 | PRIMARY_ADMIN can remove a non-admin member after confirmation (`DELETE /api/families/me/members/{userId}`). |
+| [x] | 11 | Removed member no longer appears in the family list and loses access to that family circle. |
+| [x] | 12 | Non-admin users cannot remove members (HTTP 403). |
+| [x] | 13 | Sole/last PRIMARY_ADMIN cannot be removed without an allowed transfer process (HTTP 409). |
+| [x] | 14 | Soft-remove preserves scan history when `scans.profile_id` FK would block hard delete. |
+| [x] | 15 | PRIMARY_ADMIN can activate/deactivate a profile via `PATCH .../profiles/{profileId}` with `{active}`. |
+| [x] | 16 | Inactive profiles are visibly identified in the admin UI. |
+| [x] | 17 | Inactive profiles cannot be selected in UC11 and cannot be assessed (409). |
+| [x] | 18 | Reactivating a profile makes it selectable again. |
+| [x] | 19 | Loading, confirm, validation, and error states are handled for list/edit/remove/toggle. |
+| [x] | 20 | Production path works with mock API disabled. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC12-S1** | 1 | `is_active` migration — **open** |
-| **UC12-S2** | 2–6 | View roster — **mostly done** (live `GET /me/members`; AC3 `/me/profiles` + role/active polish open) |
-| **UC12-S3** | 7, 9, 19 | Update metadata — **open** |
-| **UC12-S4** | 8–9 | Update restrictions (UC1/D3) — **open** |
-| **UC12-S5** | 10–14 | Remove member — **open** |
-| **UC12-S6** | 15–18 | Activate/deactivate — **open** |
-| **UC12-S7** | 19–20 | Mock-off + polish — **open** |
+| **UC12-S1** | 1 | `is_active` migration — **done** |
+| **UC12-S2** | 2–6 | View roster + `/me/profiles` + role/active — **done** |
+| **UC12-S3** | 7, 9, 19 | Update metadata — **done** |
+| **UC12-S4** | 8–9 | Update restrictions (UC1/D3) — **done** |
+| **UC12-S5** | 10–14 | Remove member — **done** |
+| **UC12-S6** | 15–18 | Activate/deactivate — **done** |
+| **UC12-S7** | 19–20 | Mock-off + polish — **done** |
 
 Full table: [backlog §5](sprint2-jira-backlog.md#uc11--uc12--switch--manage).
 

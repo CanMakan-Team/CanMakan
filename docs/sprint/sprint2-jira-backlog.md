@@ -216,7 +216,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 
 **Nice-to-Have (UC20–UC24)** covers product reporting, AI admin logs, trend export, subscriptions, and OCR scan.
 
-**Current repo gaps (post-UC19 integration):** dietary restrictions / history / validate still transitional `permitAll`; assess profile ownership authz done (UC2); history/restrictions ownership still open; web mock still used for unfinished family/admin surfaces; restriction/verdict code mismatches; UC12 manage CRUD / admin PATCH for `is_active` still open.
+**Current repo gaps (post-UC19 integration):** dietary history / validate still transitional on some routes; web mock still used when `VITE_USE_MOCK_API=true`; restriction/verdict code mismatches; UC12 manage CRUD shipped (web + backend).
 
 ---
 
@@ -265,7 +265,7 @@ Missing: ownership authz on profile-scoped routes; family scans; recommendations
 | UC9 | Core | **Complete (MVP)** — live invite/dependant; web + mobile share/deep links; register/login claim; live `/me/members` list |
 | UC10 | Core | **Complete (MVP)** — inbox list/accept/decline + Resend optional; web inbox optional residual |
 | UC11 | Core | **Complete (MVP)** — server GET/PUT active-profile; mobile persists; inactive omitted from list |
-| UC12 | Core | **Partial** — live `GET /me/members` roster; manage CRUD / `is_active` open |
+| UC12 | Core | **Done** — web + backend manage (roster, PUT metadata, D3 restrictions, soft-remove, PATCH active) |
 | UC13 | Core | **Partial** — `UserAccessPage` mock; no admin controller |
 | UC14 | Enhanced | **Not started** |
 | UC15–UC16 | Enhanced | **Not started** |
@@ -722,13 +722,13 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | **UC11-S2** | GET/PUT active-profile API + authz (family / inactive) | UC11: 1–3, 6–7 | P0 |
 | **UC11-S3** | Persist across restart; drive assess; remove hardcodes | UC11: 4–5, 8 | P0 |
 | **UC11-S4** | Mobile switcher UX (web selector not required) | UC11: 9–10 | P1 |
-| **UC12-S1** | Migration `dietary_profiles.is_active` | UC12: 1 | P0 |
-| **UC12-S2** | View roster — live `GET /me/members` + UI — **Mostly done** (`GET /me/profiles` + role/active polish open) | UC12: 2–6 | P0 · mostly done |
-| **UC12-S3** | Update profile metadata | UC12: 7, 9, 19 | P0 |
-| **UC12-S4** | Update restrictions via UC1 rules (D3) | UC12: 8–9 | P0 |
-| **UC12-S5** | Remove member + last-admin / confirm / soft-remove | UC12: 10–14 | P0 |
-| **UC12-S6** | Activate/deactivate profile + switcher/assess effects | UC12: 15–18 | P0 |
-| **UC12-S7** | Production path mock-off + UI states polish | UC12: 19–20 | P1 |
+| **UC12-S1** | Migration `dietary_profiles.is_active` | UC12: 1 | P0 · **done** |
+| **UC12-S2** | View roster — live `GET /me/members` + `GET /me/profiles` + role/active | UC12: 2–6 | P0 · **done** |
+| **UC12-S3** | Update profile metadata | UC12: 7, 9, 19 | P0 · **done** |
+| **UC12-S4** | Update restrictions via UC1 rules (D3) | UC12: 8–9 | P0 · **done** |
+| **UC12-S5** | Remove member + last-admin / confirm / soft-remove | UC12: 10–14 | P0 · **done** |
+| **UC12-S6** | Activate/deactivate profile + switcher/assess effects | UC12: 15–18 | P0 · **done** |
+| **UC12-S7** | Production path mock-off + UI states polish | UC12: 19–20 | P1 · **done** |
 
 ### UC2 / UC3 / UC4 / UC5 — Scan path
 
@@ -794,9 +794,9 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | Sprint | Focus | Stretch |
 | --- | --- | --- |
 | **Sprint 2** | UC19-S3 + UC1-S1; UC11-S1…S3; UC2 profile authz; UC3 polish; UC4-S1 authz | UC1-S3 |
-| **Sprint 3** | UC12 remaining manage CRUD / `is_active` | UC6-S3 |
+| **Sprint 3** | UC12 manage shipped | UC6-S3 |
 
-**Remaining Core MVP (next):** UC12 manage; UC4-S2/S3; UC5-S1/S2; UC7-S1/S2; UC13-S1…S3.
+**Remaining Core MVP (next):** UC4-S2/S3; UC5-S1/S2; UC7-S1/S2; UC13-S1…S3.
 
 **Seeded-family exception:** Scan work may still use Tan/Lim/Wong seeds for demo data. New users create a circle via UC8 after UC18 register + UC19 login; active profile persists via UC11.
 
