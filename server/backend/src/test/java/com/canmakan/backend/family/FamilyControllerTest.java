@@ -394,7 +394,7 @@ class FamilyControllerTest {
                 "Good Day",
                 10L,
                 "Admin",
-                "AVOID",
+                "UNSAFE",
                 "",
                 "",
                 "",
@@ -408,7 +408,21 @@ class FamilyControllerTest {
         mockMvc.perform(get("/api/families/me/scans"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].scanId").value(501))
-            .andExpect(jsonPath("$[0].verdict").value("AVOID"));
+            .andExpect(jsonPath("$[0].verdict").value("UNSAFE"));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/me/scans returns 403 when service denies non-admin")
+    void listScansForbiddenForNonAdmin() throws Exception {
+        authenticateAs(11L);
+        when(familyService.listFamilyScans(11L))
+            .thenThrow(new FamilyForbiddenException(
+                FamilyAuthorizationService.PRIMARY_ADMIN_REQUIRED));
+
+        mockMvc.perform(get("/api/families/me/scans"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.message")
+                .value(FamilyAuthorizationService.PRIMARY_ADMIN_REQUIRED));
     }
 
     private static void authenticateAs(long userId) {

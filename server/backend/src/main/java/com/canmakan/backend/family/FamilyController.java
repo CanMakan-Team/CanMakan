@@ -116,7 +116,7 @@ public class FamilyController {
         return ResponseEntity.ok(summary);
     }
 
-    // GET /api/families/me/scans -> family-scoped scan history
+    // GET /api/families/me/scans -> family-scoped scan history (PRIMARY_ADMIN)
     @GetMapping("/me/scans")
     public List<FamilyScanHistoryDto> listScans(
             @AuthenticationPrincipal AuthUserDetails userDetails) {

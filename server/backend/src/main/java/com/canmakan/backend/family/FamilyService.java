@@ -490,10 +490,11 @@ public class FamilyService {
 
     /**
      * Lists recent scans for all profiles in the caller's family (web history/dashboard).
+     * PRIMARY_ADMIN only (UC4 AC10).
      */
     @Transactional(readOnly = true)
     public List<FamilyScanHistoryDto> listFamilyScans(long userId) {
-        FamilyMember membership = familyAuthorization.requireMembership(userId);
+        FamilyMember membership = familyAuthorization.requirePrimaryAdmin(userId);
         Long familyId = membership.getFamilyId();
         List<DietaryProfile> profiles =
             dietaryProfileRepository.findAllProfilesByFamilyId(familyId);
@@ -546,15 +547,24 @@ public class FamilyService {
         );
     }
 
+    /**
+     * Scan verdicts on the wire are {@code SAFE} | {@code WARNING} | {@code UNSAFE} only.
+     */
     private static String mapWebVerdict(String verdict) {
         if (verdict == null || verdict.isBlank()) {
-            return "INCOMPLETE";
+            return "WARNING";
         }
         String normalized = verdict.trim().toUpperCase(Locale.ROOT);
-        if ("UNSAFE".equals(normalized)) {
-            return "AVOID";
+        if ("SAFE".equals(normalized)
+                || "WARNING".equals(normalized)
+                || "UNSAFE".equals(normalized)) {
+            return normalized;
         }
-        return normalized;
+        // Legacy web label from older mocks / clients.
+        if ("AVOID".equals(normalized)) {
+            return "UNSAFE";
+        }
+        return "WARNING";
     }
 
     private static String formatScanAt(LocalDateTime scannedAt) {

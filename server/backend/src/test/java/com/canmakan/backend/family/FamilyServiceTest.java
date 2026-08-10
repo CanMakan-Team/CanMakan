@@ -16,6 +16,8 @@ import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
 import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
 import com.canmakan.backend.family.FamilyAuthorizationService;
+import com.canmakan.backend.product.model.ScanProduct;
+import com.canmakan.backend.product.scan.Scan;
 import com.canmakan.backend.product.scan.ScanRepository;
 import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
@@ -23,6 +25,7 @@ import com.canmakan.backend.family.dto.CreateFamilyRequest;
 import com.canmakan.backend.family.dto.CreateInvitationRequest;
 import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
+import com.canmakan.backend.family.dto.FamilyScanHistoryDto;
 import com.canmakan.backend.family.dto.InvitationResponse;
 import com.canmakan.backend.family.dto.UserSearchResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
@@ -905,6 +908,48 @@ class FamilyServiceTest {
             FamilyForbiddenException.class,
             () -> familyService.assertMayEditRestrictions(10L, 99L)
         );
+    }
+
+    @Test
+    @DisplayName("UC4: listFamilyScans returns UNSAFE wire verdict for PRIMARY_ADMIN")
+    void listFamilyScansForPrimaryAdmin() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(5L, "Admin", family, true);
+        when(dietaryProfileRepository.findAllProfilesByFamilyId(1L)).thenReturn(List.of(profile));
+
+        ScanProduct product = new ScanProduct();
+        product.setProductName("Crunchy Peanut Bar");
+        product.setBrand("Good Day");
+        Scan scan = new Scan();
+        scan.setId(501L);
+        scan.setProfileId(5L);
+        scan.setVerdict("UNSAFE");
+        scan.setProduct(product);
+        scan.setAiExplanation("Peanut matched");
+        when(scanRepository.findByProfileIdInWithProductOrderByScannedAtDesc(any()))
+            .thenReturn(List.of(scan));
+
+        List<FamilyScanHistoryDto> rows = familyService.listFamilyScans(10L);
+
+        assertEquals(1, rows.size());
+        assertEquals("UNSAFE", rows.get(0).verdict());
+        assertEquals("Crunchy Peanut Bar", rows.get(0).product());
+        assertEquals("Admin", rows.get(0).evaluatedProfile());
+    }
+
+    @Test
+    @DisplayName("UC4: listFamilyScans rejects non-PRIMARY_ADMIN with 403 semantics")
+    void listFamilyScansRejectsNonAdmin() {
+        stubMembership(11L, 1L);
+
+        FamilyForbiddenException ex = assertThrows(
+            FamilyForbiddenException.class,
+            () -> familyService.listFamilyScans(11L)
+        );
+        assertEquals(FamilyAuthorizationService.PRIMARY_ADMIN_REQUIRED, ex.getMessage());
+        verify(scanRepository, never()).findByProfileIdInWithProductOrderByScannedAtDesc(any());
     }
 
     private static DietaryProfile activeProfile(
