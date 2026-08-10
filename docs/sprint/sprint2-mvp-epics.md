@@ -670,10 +670,10 @@ UC19, UC9
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Mobile Client  
 **Tech:** Android; Spring Boot; RDS  
-**Current code state:** Partial (local switch; `/me`-resolved family; not server-persisted)
+**Current code state:** Done (server-persisted active profile; mobile GET on load + PUT on switch)
 
-- **Mobile (required):** `ActiveProfileManager` + drawer (`ProfileDrawerContent`) lets the user pick a profile for scan/history/restrictions in-session. Default profile id falls back to `1L` until a family `/me` load switches to `selfProfileId`. Selection is **not** server-persisted (`active_profile_id` migration not applied).
-- **Profiles load:** Nav graph resolves membership via `GET /api/families/me`, then loads `GET /api/families/{familyId}/profiles` for that family id (no longer hardcoded `familyId=1` for membership). Unauthenticated → personal placeholder only.
+- **Mobile (required):** `ActiveProfileManager` + drawer (`ProfileDrawerContent`) lets the user pick a profile for scan/history/restrictions. On startup/login, nav graph loads `GET /api/families/me/active-profile` after `/me` + profiles; drawer selection calls `PUT /api/families/me/active-profile`. No `DEFAULT_PROFILE_ID=1L` fallback (`UNSET_PROFILE_ID=0` until resolved).
+- **Profiles load:** Nav graph resolves membership via `GET /api/families/me`, then loads `GET /api/families/{familyId}/profiles` (inactive profiles omitted server-side). Users without a family get a single profile from GET active-profile.
 - **Web:** Not required for MVP switch (ownership: mobile only). Any existing web selector must not become a divergent source of truth if kept for demos.
 
 ### User story
@@ -685,13 +685,13 @@ As an app user in a family circle, I want to select which eligible family profil
 | Done | # | Criterion |
 | --- | --- | --- |
 | [x] | 1 | Authenticated member can list eligible in-family profiles for switching. *(via `/me` then `GET /families/{id}/profiles`; path authz still coarse)* |
-| [ ] | 2 | GET /api/families/me/active-profile returns the current active profile (or documented default). |
-| [ ] | 3 | PUT /api/families/me/active-profile sets the active profile for the caller. |
-| [ ] | 4 | Selection persists across app restart (server-backed, not memory-only). |
+| [x] | 2 | GET /api/families/me/active-profile returns the current active profile (or documented default). |
+| [x] | 3 | PUT /api/families/me/active-profile sets the active profile for the caller. |
+| [x] | 4 | Selection persists across app restart (server-backed, not memory-only). |
 | [x] | 5 | Subsequent UC2 assess uses the selected profileId. *(in-session `ActiveProfileManager`)* |
-| [ ] | 6 | Profiles outside the user’s family cannot be selected (HTTP 403). |
-| [ ] | 7 | Inactive profiles (is_active=0) cannot be selected once UC12 activation exists. |
-| [ ] | 8 | Client path no longer hardcodes familyId=1L or DEFAULT_PROFILE_ID=1L for switch/scan context. *(membership resolve via `/me` done; DEFAULT_PROFILE_ID=1L fallback remains)* |
+| [x] | 6 | Profiles outside the user’s family cannot be selected (HTTP 403). |
+| [x] | 7 | Inactive profiles (is_active=0) cannot be selected once UC12 activation exists. |
+| [x] | 8 | Client path no longer hardcodes familyId=1L or DEFAULT_PROFILE_ID=1L for switch/scan context. |
 | [x] | 9 | Loading and error states are handled on the **mobile** switcher UI. |
 | [x] | 10 | Web profile switcher is **out of MVP scope**; if a demo selector remains, it must not override server active-profile for scanning. |
 
@@ -699,10 +699,10 @@ As an app user in a family circle, I want to select which eligible family profil
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC11-S1** | supports 2–4 | `active_profile_id` migration — **open** |
-| **UC11-S2** | 1–3, 6–7 | GET/PUT active-profile + authz — **partial** (list only) |
-| **UC11-S3** | 4–5, 8 | Persist + drive assess + remove hardcodes — **partial** (AC5 done) |
-| **UC11-S4** | 9–10 | Mobile switcher UX (web not required) — **mostly done** |
+| **UC11-S1** | supports 2–4 | `active_profile_id` migration — **done** |
+| **UC11-S2** | 1–3, 6–7 | GET/PUT active-profile + authz — **done** |
+| **UC11-S3** | 4–5, 8 | Persist + drive assess + remove hardcodes — **done** |
+| **UC11-S4** | 9–10 | Mobile switcher UX (web not required) — **done** |
 
 Full table: [backlog §5](sprint2-jira-backlog.md#uc11--uc12--switch--manage).
 
