@@ -2,7 +2,7 @@ package com.canmakan.backend.dietaryprofile;
 
 import com.canmakan.backend.dietaryprofile.dto.DietaryRestrictionDto;
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
-import com.canmakan.backend.family.FamilyService;
+import com.canmakan.backend.family.FamilyAuthorizationService;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthUserChecker;
 import java.util.LinkedHashMap;
@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class DietaryProfileController {
 
     private final DietaryProfileService dietaryProfileService;
-    private final FamilyService familyService;
+    private final FamilyAuthorizationService familyAuthorization;
 
     @GetMapping("/restrictions")
     public List<DietaryRestrictionDto> getAllDietaryRestrictions() {
@@ -45,7 +45,7 @@ public class DietaryProfileController {
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @PathVariable Long profileId) {
         long userId = AuthUserChecker.requireUserId(userDetails);
-        familyService.assertProfileAuthorizedForScan(userId, profileId);
+        familyAuthorization.assertProfileAuthorizedForScan(userId, profileId);
         Map<Long, String> resp = dietaryProfileService.getDietaryRestrictionsForProfile(profileId);
         log.info("GET /profiles/{}/restrictions → 200", profileId);
         return resp;
@@ -57,7 +57,7 @@ public class DietaryProfileController {
             @PathVariable Long profileId,
             @RequestBody Map<String, String> selections) {
         long userId = AuthUserChecker.requireUserId(userDetails);
-        familyService.assertMayEditRestrictions(userId, profileId);
+        familyAuthorization.assertMayEditRestrictions(userId, profileId);
 
         Map<Long, String> normalizedSelections = new LinkedHashMap<>();
         if (selections != null) {
