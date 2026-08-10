@@ -15,8 +15,8 @@ Family membership context and active profile switching on mobile.
 ## Responsibilities (current)
 - Resolve the caller's family via `GET /api/families/me` (Bearer JWT via auth interceptor)
 - Create a family circle via `POST /api/families` when authenticated and no membership (UC8)
-- Load household profiles for switcher (`GET /api/families/{familyId}/profiles`)
-- Switch active dietary profile for scan / history (UC11 — server persist still open)
+- Load household profiles for switcher (`GET /api/families/{familyId}/profiles`; inactive omitted)
+- Switch active dietary profile for scan / history (UC11 — `GET`/`PUT /api/families/me/active-profile`)
 
 ## Create family circle (UC8)
 
@@ -54,6 +54,14 @@ Full API contract and HTTP guards: `docs/api/families.md` (Invite → join workf
 
 Dependant profile create is live on mobile for PRIMARY_ADMIN; dependants appear in the
 mobile profile switcher and UC6 summary once created.
+
+## Switch profile (UC11)
+
+On login/startup, `CanMakanNavGraphViewModel` loads `GET /api/families/me/active-profile`
+after `/me` and family profiles. Drawer profile selection calls
+`PUT /api/families/me/active-profile`; failed PUT (403 outside family, 409 inactive)
+shows an inline error without changing the current selection. `ActiveProfileManager`
+uses `UNSET_PROFILE_ID = 0` until the server (or registration `profileId`) resolves.
 
 ## Manage members (UC12)
 

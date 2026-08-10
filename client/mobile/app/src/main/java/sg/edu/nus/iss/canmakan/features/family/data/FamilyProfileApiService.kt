@@ -5,6 +5,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -61,6 +62,18 @@ data class DependantProfileResponse(
     @SerializedName("familyId") val familyId: Long,
 )
 
+data class ActiveProfileResponse(
+    @SerializedName("profileId") val profileId: Long,
+    @SerializedName("profileName") val profileName: String,
+    @SerializedName("relationship") val relationship: String?,
+    @SerializedName("familyId") val familyId: Long?,
+    @SerializedName("isPrimary") val isPrimary: Boolean?,
+)
+
+data class SetActiveProfileRequestBody(
+    @SerializedName("profileId") val profileId: Long,
+)
+
 interface FamilyProfileApiService {
     @GET("families/me")
     suspend fun getMyFamily(): Response<FamilyMeResponse>
@@ -74,6 +87,14 @@ interface FamilyProfileApiService {
     suspend fun getProfilesByFamilyId(
         @Path("familyId") familyId: Long
     ): List<FamilyProfileResponse>
+
+    @GET("families/me/active-profile")
+    suspend fun getActiveProfile(): Response<ActiveProfileResponse>
+
+    @PUT("families/me/active-profile")
+    suspend fun setActiveProfile(
+        @Body request: SetActiveProfileRequestBody,
+    ): Response<ActiveProfileResponse>
 
     @GET("families/me/restriction-summary")
     suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes>

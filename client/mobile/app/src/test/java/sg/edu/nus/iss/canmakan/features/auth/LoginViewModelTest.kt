@@ -24,6 +24,7 @@ import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedSession
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionPersistence
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
+import sg.edu.nus.iss.canmakan.features.family.data.ActiveProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.ClaimInvitationRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.CreateDependantProfileRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyRequestBody
@@ -36,6 +37,8 @@ import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyRestrictionSumRes
 import sg.edu.nus.iss.canmakan.features.family.data.InvitationResponse
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
+import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
+import sg.edu.nus.iss.canmakan.features.family.data.SetActiveProfileRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.UserSearchResponse
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -400,6 +403,14 @@ class LoginViewModelTest {
         override suspend fun getProfilesByFamilyId(familyId: Long): List<FamilyProfileResponse> =
             emptyList()
 
+        override suspend fun getActiveProfile(): Response<ActiveProfileResponse> =
+            Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun setActiveProfile(
+            request: SetActiveProfileRequestBody,
+        ): Response<ActiveProfileResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
         override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> =
             Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
 
@@ -414,6 +425,15 @@ class LoginViewModelTest {
         override suspend fun claimInvitation(
             request: ClaimInvitationRequestBody,
         ): Response<FamilyMeResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun listMyInvitations(): Response<List<PendingInvitationResponse>> =
+            Response.success(emptyList())
+
+        override suspend fun acceptInvitation(token: String): Response<FamilyMeResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun declineInvitation(token: String): Response<Unit> =
             Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
 
         override suspend fun createDependantProfile(
