@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
     id("kotlin-parcelize")
+    id("com.google.gms.google-services")
 }
 
 val localProperties = Properties()
@@ -184,4 +185,8 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.timber)
+
+    // 10. FireBase SDK
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
 }
