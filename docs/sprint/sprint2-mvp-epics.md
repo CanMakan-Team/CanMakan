@@ -161,11 +161,11 @@ UC19, UC8 · Related: UC11, UC12
 
 **Owner:** Khai · **Package:** Core MVP · **Architecture:** Scanning & Verdicts / Mobile Client  
 **Tech:** Android; ML Kit Barcode; Spring Boot; Open Food Facts  
-**Current code state:** Partial — camera → validate → assess JWT path shipped; profile ownership / inactive checks open
+**Current code state:** Partial — camera → validate → assess JWT path shipped; profile ownership / inactive checks on assess done
 
 - **Mobile:** `ScannerScreen` + ML Kit `BarcodeAnalyzer` → `ScannerViewModel` calls validate then assess and navigates to the verdict screen. Loading / non-food / network failure states exist. No web scan UI (by design).
-- **Backend:** `ScanController` — live `POST /api/scan/validate` (still `permitAll`) and `POST /api/scan/assess` (JWT). `AssessmentOrchestrator` loads OFF product data, runs `DietaryRuleEngine`, optionally LLM evidence, and records a scan.
-- **Identity:** Assess uses `@AuthenticationPrincipal` for `scans.user_id` (no `X-User-Id`). Gaps: no family/ownership check on `profileId`; inactive-profile 409 not wired; validate response is category/message (not rich product identity).
+- **Backend:** `ScanController` — live `POST /api/scan/validate` (still `permitAll`) and `POST /api/scan/assess` (JWT). `AssessmentOrchestrator` authorizes `profileId` via `FamilyService.assertProfileAuthorizedForScan`, loads OFF product data, runs `DietaryRuleEngine`, optionally LLM evidence, and records a scan.
+- **Identity:** Assess uses `@AuthenticationPrincipal` for `scans.user_id` (no `X-User-Id`). Profile ownership / inactive 409 enforced on assess. Validate still `permitAll`; validate response is category/message (not rich product identity).
 
 ### User story
 
@@ -185,10 +185,10 @@ As an app user, I want to scan a product's barcode so that CanMakan can fetch th
 | [x] | 1 | Mobile camera captures a packaged-food barcode via ML Kit Barcode Scanning. |
 | [x] | 2 | Client calls `POST /api/scan/validate` with the decoded barcode. |
 | [ ] | 3 | On successful validate, backend returns product identity details needed to proceed to assess. *(validate returns category/message; rich identity comes on assess)* |
-| [x] | 4 | Client calls `POST /api/scan/assess` with the active authorized `profileId`. *(active profile local; ownership authz still open)* |
+| [x] | 4 | Client calls `POST /api/scan/assess` with the active authorized `profileId`. *(server validates family/inactive ownership before assess)* |
 | [x] | 5 | Assess requires authentication; `scans.user_id` is taken from the JWT (spoofable `X-User-Id` is not trusted as identity). |
-| [ ] | 6 | Assess rejects a `profileId` outside the caller’s family with HTTP 403. |
-| [ ] | 7 | Assess rejects an inactive profile (`dietary_profiles.is_active=0`) with HTTP 409 (or documented equivalent). |
+| [x] | 6 | Assess rejects a `profileId` outside the caller’s family with HTTP 403. |
+| [x] | 7 | Assess rejects an inactive profile (`dietary_profiles.is_active=0`) with HTTP 409 (or documented equivalent). |
 | [x] | 8 | Unknown / not-found products show a clear failure state on mobile. |
 | [ ] | 9 | Unknown / not-found products are never displayed or persisted as Safe. *(validate blocks many cases; assess edge cases remain)* |
 | [x] | 10 | Non-food or unsupported barcode outcomes show a clear failure or guidance state (no false Safe). |
@@ -200,7 +200,7 @@ As an app user, I want to scan a product's barcode so that CanMakan can fetch th
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC2-S1** | 5–7 | JWT userId **done**; family ownership + inactive **open** |
+| **UC2-S1** | 5–7 | JWT userId **done**; family ownership + inactive **done** |
 | **UC2-S2** | 1–3 | Camera + validate — **mostly done** (AC3 product-identity polish) |
 | **UC2-S3** | 4, 12 | Assess → UC3 — **done** |
 | **UC2-S4** | 8–11 | Failure states — **mostly done** (AC9 harden) |
@@ -567,8 +567,8 @@ UC19 (JWT shipped for family routes) · UC18 (register new users to demo empty-s
 - **Web:** `LinkExistingUserModal` creates PENDING invites (copy link/code; optional mailto). `CreateFamilyProfileModal` posts live dependant profiles. `/invite/:token` → register/login + claim. `FamilyMembersPage` lists via live `GET /api/families/me/members`. Silent `members/link` removed from live `familyApiService`.
 - **Mobile:** `AddProfileToFamilyScreen` + share (`canmakan://invite/{token}` + web URL); manifest VIEW intent-filters + `singleTop`; invite landing offers register **or** sign-in; login claims `POST .../invitations/claim`; already-authed deep links claim via `PendingInvitationStore`. `CreateNewProfileScreen` posts live dependant profiles. Drawer manage CTAs when `PRIMARY_ADMIN`.
 - **Backend:** Spring Data repos; invite/claim/dependant; `GET /api/families/me/members` roster (linked + dependants).
-- **Gaps (residual):** UC10 accept/decline **inbox** UI; Resend delivery; UC12 full roster CRUD / `is_active` / edit-remove.
-- **Out of this epic:** UC10 inbox; UC12 manage mutations.
+- **Gaps (residual):** UC12 full roster CRUD / `is_active` / edit-remove; web UC10 inbox (optional).
+- **Out of this epic:** UC12 manage mutations.
 
 ### User story
 
@@ -581,7 +581,7 @@ As a Family Admin, I want to invite someone with a shareable link/code (and opti
 | [x] | 1 | PRIMARY_ADMIN can search an existing user by email (GET /api/families/me/user-search), including NOT_REGISTERED. |
 | [x] | 2 | PRIMARY_ADMIN can create a PENDING invitation (POST /api/families/me/invitations) for registered or unknown emails. |
 | [x] | 3 | Invitation is associated with the admin’s family circle. |
-| [x] | 4 | Invitee is **not** added to `family_members` at invite time; join happens on register/login claim (UC9 auto-claim; full UC10 inbox later). |
+| [x] | 4 | Invitee is **not** added to `family_members` at invite time; join happens on register/login claim (UC9 auto-claim) or UC10 inbox accept. |
 | [x] | 5 | Already-linked user returns HTTP 409 on invite. |
 | [x] | 6 | Non-admin (MEMBER) cannot invite (HTTP 403). |
 | [x] | 7 | Invalid email → 400; unknown but valid email is a valid invite target (NOT_REGISTERED), not a hard 404 block. |
@@ -616,10 +616,14 @@ UC19, UC8, UC1 · Related: UC10
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Mobile Client (primary) & Email; web optional  
 **Tech:** Android; Spring Boot; RDS; **Resend** *(optional React web parity)*  
-**Current code state:** Partial foundation from UC9 — claim-on-register / claim-on-login / `POST .../invitations/claim` exist; **inbox list / decline / Resend not started**
+**Current code state:** Complete (MVP ACs) — **UC10-S1–S4 shipped** (inbox list/accept/decline + Resend optional; web inbox still optional residual)
 
-- **Already covered by UC9 (not UC10 product):** invitee can join without an inbox when they register with matching email/token or sign in on web with token and claim.
-- **Still open for UC10:** `GET` pending invitations for the invitee, accept/decline UX (mobile primary), expired/mismatch browsing, Resend email delivery.
+- **Backend:** `GET /api/invitations/me`, `POST /api/invitations/{token}/accept|decline`; claim path aligned (403 mismatch, 410 expired, 409 final/already-in-family). Optional Resend email on invite create when configured.
+- **Mobile:** Drawer **Family Invitations** → `InvitationsScreen` (loading/empty/error; Accept/Decline). UC9 deep-link claim remains.
+- **Web:** `/invite/:token` claim path remains; full inbox UI still optional.
+- **Workflow:** Invite → join diagram and path table in [`docs/api/families.md`](../api/families.md#invite--join-workflow-uc9--uc10).
+- **Out of this epic:** Creating invitations (UC9); web inbox parity.
+
 ### User story
 
 As an invited app user, I want to accept or decline a family invitation on mobile so I choose whether to join that household.
@@ -632,27 +636,27 @@ As an invited app user, I want to accept or decline a family invitation on mobil
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | Authenticated invitee can list pending invitations for their account/email (GET /api/invitations/me). |
-| [ ] | 2 | Each pending invitation displays family information needed to decide. |
-| [ ] | 3 | Accepting a valid PENDING invitation adds the user as MEMBER and links/creates their dietary profile in that family. |
-| [ ] | 4 | Accept marks the invitation ACCEPTED. |
-| [ ] | 5 | Declining marks the invitation DECLINED and leaves the user outside the family. |
-| [ ] | 6 | Expired invitations cannot be accepted (HTTP 410 or equivalent). |
-| [ ] | 7 | Expired/used/already-final invitations cannot be accepted again (idempotent or error as documented). |
-| [ ] | 8 | Email mismatch between token and authenticated user returns HTTP 403. |
-| [ ] | 9 | If one-family rule applies, accept while already in another family returns HTTP 409. |
-| [ ] | 10 | Primary client is mobile; accept/decline UX works on mobile. Web parity is optional. |
-| [ ] | 11 | Invitation email delivery via Resend works as designed for the invite flow (when email is enabled). |
-| [ ] | 12 | Loading, empty, and error states are handled on the invitations UI. |
+| [x] | 1 | Authenticated invitee can list pending invitations for their account/email (GET /api/invitations/me). |
+| [x] | 2 | Each pending invitation displays family information needed to decide. |
+| [x] | 3 | Accepting a valid PENDING invitation adds the user as MEMBER and links/creates their dietary profile in that family. |
+| [x] | 4 | Accept marks the invitation ACCEPTED. |
+| [x] | 5 | Declining marks the invitation DECLINED and leaves the user outside the family. |
+| [x] | 6 | Expired invitations cannot be accepted (HTTP 410 or equivalent). |
+| [x] | 7 | Expired/used/already-final invitations cannot be accepted again (idempotent or error as documented). |
+| [x] | 8 | Email mismatch between token and authenticated user returns HTTP 403. |
+| [x] | 9 | If one-family rule applies, accept while already in another family returns HTTP 409. |
+| [x] | 10 | Primary client is mobile; accept/decline UX works on mobile. Web parity is optional. |
+| [x] | 11 | Invitation email delivery via Resend works as designed for the invite flow (when email is enabled). |
+| [x] | 12 | Loading, empty, and error states are handled on the invitations UI. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC10-S1** | 1–2, 10, 12 | List pending (mobile primary; web optional) — **open** |
-| **UC10-S2** | 3–4, 7–9 | Accept → MEMBER + profile — **open** |
-| **UC10-S3** | 5–8 | Decline + expired/invalid guards — **open** |
-| **UC10-S4** | 11 | Resend email — **open** |
+| **UC10-S1** | 1–2, 10, 12 | List pending (mobile primary; web optional) — **done** |
+| **UC10-S2** | 3–4, 7–9 | Accept → MEMBER + profile — **done** |
+| **UC10-S3** | 5–8 | Decline + expired/invalid guards — **done** |
+| **UC10-S4** | 11 | Resend email — **done** (optional config) |
 
 Full table: [backlog §5 family lifecycle](sprint2-jira-backlog.md#uc8--uc9--uc10--family-lifecycle).
 
@@ -666,10 +670,10 @@ UC19, UC9
 
 **Owner:** Amelia · **Package:** Core MVP · **Architecture:** Mobile Client  
 **Tech:** Android; Spring Boot; RDS  
-**Current code state:** Partial (local switch; `/me`-resolved family; not server-persisted)
+**Current code state:** Done (server-persisted active profile; mobile GET on load + PUT on switch)
 
-- **Mobile (required):** `ActiveProfileManager` + drawer (`ProfileDrawerContent`) lets the user pick a profile for scan/history/restrictions in-session. Default profile id falls back to `1L` until a family `/me` load switches to `selfProfileId`. Selection is **not** server-persisted (`active_profile_id` migration not applied).
-- **Profiles load:** Nav graph resolves membership via `GET /api/families/me`, then loads `GET /api/families/{familyId}/profiles` for that family id (no longer hardcoded `familyId=1` for membership). Unauthenticated → personal placeholder only.
+- **Mobile (required):** `ActiveProfileManager` + drawer (`ProfileDrawerContent`) lets the user pick a profile for scan/history/restrictions. On startup/login, nav graph loads `GET /api/families/me/active-profile` after `/me` + profiles; drawer selection calls `PUT /api/families/me/active-profile`. No `DEFAULT_PROFILE_ID=1L` fallback (`UNSET_PROFILE_ID=0` until resolved).
+- **Profiles load:** Nav graph resolves membership via `GET /api/families/me`, then loads `GET /api/families/{familyId}/profiles` (inactive profiles omitted server-side). Users without a family get a single profile from GET active-profile.
 - **Web:** Not required for MVP switch (ownership: mobile only). Any existing web selector must not become a divergent source of truth if kept for demos.
 
 ### User story
@@ -680,14 +684,14 @@ As an app user in a family circle, I want to select which eligible family profil
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [x] | 1 | Authenticated member can list eligible in-family profiles for switching. *(via `/me` then `GET /families/{id}/profiles`; path authz still coarse)* |
-| [ ] | 2 | GET /api/families/me/active-profile returns the current active profile (or documented default). |
-| [ ] | 3 | PUT /api/families/me/active-profile sets the active profile for the caller. |
-| [ ] | 4 | Selection persists across app restart (server-backed, not memory-only). |
+| [x] | 1 | Authenticated member can list eligible in-family profiles for switching. *(via `/me` then `GET /families/{id}/profiles`; membership enforced on list)* |
+| [x] | 2 | GET /api/families/me/active-profile returns the current active profile (or documented default). |
+| [x] | 3 | PUT /api/families/me/active-profile sets the active profile for the caller. |
+| [x] | 4 | Selection persists across app restart (server-backed, not memory-only). |
 | [x] | 5 | Subsequent UC2 assess uses the selected profileId. *(in-session `ActiveProfileManager`)* |
-| [ ] | 6 | Profiles outside the user’s family cannot be selected (HTTP 403). |
-| [ ] | 7 | Inactive profiles (is_active=0) cannot be selected once UC12 activation exists. |
-| [ ] | 8 | Client path no longer hardcodes familyId=1L or DEFAULT_PROFILE_ID=1L for switch/scan context. *(membership resolve via `/me` done; DEFAULT_PROFILE_ID=1L fallback remains)* |
+| [x] | 6 | Profiles outside the user’s family cannot be selected (HTTP 403). |
+| [x] | 7 | Inactive profiles (is_active=0) cannot be selected once UC12 activation exists. |
+| [x] | 8 | Client path no longer hardcodes familyId=1L or DEFAULT_PROFILE_ID=1L for switch/scan context. |
 | [x] | 9 | Loading and error states are handled on the **mobile** switcher UI. |
 | [x] | 10 | Web profile switcher is **out of MVP scope**; if a demo selector remains, it must not override server active-profile for scanning. |
 
@@ -695,10 +699,10 @@ As an app user in a family circle, I want to select which eligible family profil
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC11-S1** | supports 2–4 | `active_profile_id` migration — **open** |
-| **UC11-S2** | 1–3, 6–7 | GET/PUT active-profile + authz — **partial** (list only) |
-| **UC11-S3** | 4–5, 8 | Persist + drive assess + remove hardcodes — **partial** (AC5 done) |
-| **UC11-S4** | 9–10 | Mobile switcher UX (web not required) — **mostly done** |
+| **UC11-S1** | supports 2–4 | `active_profile_id` migration — **done** |
+| **UC11-S2** | 1–3, 6–7 | GET/PUT active-profile + authz — **done** |
+| **UC11-S3** | 4–5, 8 | Persist + drive assess + remove hardcodes — **done** |
+| **UC11-S4** | 9–10 | Mobile switcher UX (web not required) — **done** |
 
 Full table: [backlog §5](sprint2-jira-backlog.md#uc11--uc12--switch--manage).
 
@@ -1238,15 +1242,13 @@ Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
 Canonical with [backlog §5b](sprint2-jira-backlog.md#5b-recommended-delivery-sequence):
 
-1. **Shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT login/refresh/logout + clients); UC8-S1–S4 (incl. AC8 401); UC6-S1/S2 (summary API + mobile grid); **UC9-S1–S4** (invite/dependant/share + auto-claim + deep links + live roster list)  
+1. **Shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT login/refresh/logout + clients); UC8-S1–S4 (incl. AC8 401); UC6-S1/S2 (summary API + mobile grid); **UC9-S1–S4** (invite/dependant/share + auto-claim + deep links + live roster list); **UC10-S1–S4** (inbox accept/decline + Resend optional)  
 2. **Finish auth hard-edges:** UC19-S3 (protect remaining business routes) + UC19 AC3 (suspended → 403); UC1-S1 ownership authz  
-3. UC11-S1…S3 (server active-profile; drop `DEFAULT_PROFILE_ID=1` fallback) → UC2 remaining authz (profile ownership / inactive) → UC3 polish → UC4-S1 authz  
+3. UC11-S1…S3 (server active-profile; drop `DEFAULT_PROFILE_ID=1` fallback) → UC2 assess profile authz **done** → UC3 polish → UC4-S1 authz  
 4. UC12 remaining (manage CRUD / `is_active`; closes remaining AC4 polish) → UC6-S3 web parity  
-5. UC10 inbox (list/decline/Resend) — claim happy-path already covered by UC9  
-6. Remaining Core: UC4-S2/S3, UC5, UC7, UC13 
-6. UC4-S2/S3 → UC5-S1/S2 → UC7-S1/S2 → UC13-S1…S3  
-7. Enhanced: UC14-S1/S2, UC15–UC17  
-8. Nice-to-Have: UC20-S1/S2 … UC24-S1/S2  
+5. Remaining Core: UC4-S2/S3 → UC5-S1/S2 → UC7-S1/S2 → UC13-S1…S3  
+6. Enhanced: UC14-S1/S2, UC15–UC17  
+7. Nice-to-Have: UC20-S1/S2 … UC24-S1/S2  
 
 Seeded families still useful for scan work until UC11 persists active profile server-side.
 

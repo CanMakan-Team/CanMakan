@@ -1,7 +1,7 @@
 package com.canmakan.backend.knowledgebase.repository;
 
-import com.canmakan.backend.dietaryprofile.DietaryProfileRepository;
-import com.canmakan.backend.dietaryprofile.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
 import com.canmakan.backend.knowledgebase.model.DietaryRule;
 import com.canmakan.backend.knowledgebase.model.ENumber;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
  *
  * Loads ingredient aliases and allergen parent/root hierarchies from
  * {@link IngredientEntityRepository}, resolves dietary rules via
- * {@link DietaryProfileRepository}, and analyses label text / Open Food Facts
+ * {@link DietaryRestrictionRepository}, and analyses label text / Open Food Facts
  * {@code traces_tags} for cross-contamination signals. Seeded once at startup
  * via {@link #initialize()}.
  *
@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
 public class DietaryKnowledgeRepository {
 
     private final IngredientEntityRepository ingredientEntityRepository;
-    private final DietaryProfileRepository dietaryProfileRepository;
+    private final DietaryRestrictionRepository dietaryRestrictionRepository;
     private final Map<String, Ingredient> ingredientAliases = new LinkedHashMap<>();
     private final Map<String, Ingredient> allergenRelationships = new LinkedHashMap<>();
     private final List<String> crossContaminationKeywords = new ArrayList<>();
@@ -94,11 +94,11 @@ public class DietaryKnowledgeRepository {
 
     // Find the dietary rule by normalized code
     public Optional<DietaryRule> findDietaryRule(String code) {
-        if (dietaryProfileRepository == null || code == null || code.isBlank()) {
+        if (dietaryRestrictionRepository == null || code == null || code.isBlank()) {
             return Optional.empty();
         }
 
-        return dietaryProfileRepository.findRestrictionByCode(code.trim())
+        return dietaryRestrictionRepository.findByCodeIgnoreCase(code.trim())
             .map(this::toDietaryRule);
     }
 

@@ -1,5 +1,7 @@
 package com.canmakan.backend.product.recommendation;
 
-public class RecommendationRequest {
-
-}
+public record RecommendationRequest(
+	    Long profileId,
+	    String sourceBarcode,
+	    Long scanId
+	) {}

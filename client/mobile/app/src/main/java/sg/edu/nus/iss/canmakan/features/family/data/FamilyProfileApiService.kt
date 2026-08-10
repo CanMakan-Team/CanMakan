@@ -5,6 +5,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -35,6 +36,18 @@ data class ClaimInvitationRequestBody(
     @SerializedName("invitationToken") val invitationToken: String,
 )
 
+data class PendingInvitationResponse(
+    @SerializedName("invitationId") val invitationId: Long,
+    @SerializedName("familyId") val familyId: Long,
+    @SerializedName("familyName") val familyName: String,
+    @SerializedName("invitedByDisplayName") val invitedByDisplayName: String,
+    @SerializedName("invitationToken") val invitationToken: String,
+    @SerializedName("inviteCode") val inviteCode: String,
+    @SerializedName("status") val status: String,
+    @SerializedName("expiresAt") val expiresAt: String?,
+    @SerializedName("expired") val expired: Boolean,
+)
+
 data class CreateDependantProfileRequestBody(
     @SerializedName("profileName") val profileName: String,
     @SerializedName("relationship") val relationship: String,
@@ -47,6 +60,18 @@ data class DependantProfileResponse(
     @SerializedName("profileName") val profileName: String,
     @SerializedName("relationship") val relationship: String,
     @SerializedName("familyId") val familyId: Long,
+)
+
+data class ActiveProfileResponse(
+    @SerializedName("profileId") val profileId: Long,
+    @SerializedName("profileName") val profileName: String,
+    @SerializedName("relationship") val relationship: String?,
+    @SerializedName("familyId") val familyId: Long?,
+    @SerializedName("isPrimary") val isPrimary: Boolean?,
+)
+
+data class SetActiveProfileRequestBody(
+    @SerializedName("profileId") val profileId: Long,
 )
 
 interface FamilyProfileApiService {
@@ -62,6 +87,14 @@ interface FamilyProfileApiService {
     suspend fun getProfilesByFamilyId(
         @Path("familyId") familyId: Long
     ): List<FamilyProfileResponse>
+
+    @GET("families/me/active-profile")
+    suspend fun getActiveProfile(): Response<ActiveProfileResponse>
+
+    @PUT("families/me/active-profile")
+    suspend fun setActiveProfile(
+        @Body request: SetActiveProfileRequestBody,
+    ): Response<ActiveProfileResponse>
 
     @GET("families/me/restriction-summary")
     suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes>
@@ -80,6 +113,19 @@ interface FamilyProfileApiService {
     suspend fun claimInvitation(
         @Body request: ClaimInvitationRequestBody,
     ): Response<FamilyMeResponse>
+
+    @GET("invitations/me")
+    suspend fun listMyInvitations(): Response<List<PendingInvitationResponse>>
+
+    @POST("invitations/{token}/accept")
+    suspend fun acceptInvitation(
+        @Path("token") token: String,
+    ): Response<FamilyMeResponse>
+
+    @POST("invitations/{token}/decline")
+    suspend fun declineInvitation(
+        @Path("token") token: String,
+    ): Response<Unit>
 
     @POST("families/me/profiles")
     suspend fun createDependantProfile(

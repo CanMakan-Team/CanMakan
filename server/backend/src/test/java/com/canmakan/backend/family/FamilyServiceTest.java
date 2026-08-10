@@ -10,10 +10,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.canmakan.backend.dietaryprofile.DietaryProfile;
-import com.canmakan.backend.dietaryprofile.DietaryProfileRepository;
-import com.canmakan.backend.dietaryprofile.DietaryProfileService;
-import com.canmakan.backend.dietaryprofile.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
+import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
+import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
+import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
+import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
 import com.canmakan.backend.family.dto.CreateInvitationRequest;
@@ -24,14 +26,18 @@ import com.canmakan.backend.family.dto.UserSearchResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.family.exception.FamilyNotFoundException;
+import com.canmakan.backend.family.exception.InactiveProfileException;
 import com.canmakan.backend.family.exception.InvitationConflictException;
+import com.canmakan.backend.family.exception.InvitationExpiredException;
 import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.family.model.FamilyInvitation;
 import com.canmakan.backend.family.model.FamilyMember;
 import com.canmakan.backend.family.model.InvitationStatus;
+import com.canmakan.backend.family.model.UserPreference;
 import com.canmakan.backend.family.repository.FamilyInvitationRepository;
 import com.canmakan.backend.family.repository.FamilyMemberRepository;
 import com.canmakan.backend.family.repository.FamilyRepository;
+import com.canmakan.backend.family.repository.UserPreferenceRepository;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.user.UserAccount;
 import com.canmakan.backend.user.UserAccountRepository;
@@ -66,7 +72,11 @@ class FamilyServiceTest {
     @Mock
     private FamilyInvitationRepository familyInvitationRepository;
     @Mock
+    private UserPreferenceRepository userPreferenceRepository;
+    @Mock
     private DietaryProfileRepository dietaryProfileRepository;
+    @Mock
+    private DietaryRestrictionRepository dietaryRestrictionRepository;
     @Mock
     private DietaryProfileService dietaryProfileService;
 
@@ -77,14 +87,18 @@ class FamilyServiceTest {
         InviteProperties inviteProperties = new InviteProperties();
         inviteProperties.setPublicBaseUrl("http://localhost:5173");
         inviteProperties.setExpiryDays(7);
+        InvitationEmailService invitationEmailService = org.mockito.Mockito.mock(InvitationEmailService.class);
         familyService = new FamilyService(
             userAccountRepository,
             familyRepository,
             familyMemberRepository,
             familyInvitationRepository,
+            userPreferenceRepository,
             dietaryProfileRepository,
+            dietaryRestrictionRepository,
             dietaryProfileService,
-            inviteProperties
+            inviteProperties,
+            invitationEmailService
         );
     }
 
@@ -295,6 +309,10 @@ class FamilyServiceTest {
             invitation.setId(88L);
             return invitation;
         });
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
 
         InvitationResponse response = familyService.createInvitation(
             10L, new CreateInvitationRequest("new@example.com"));
@@ -394,7 +412,7 @@ class FamilyServiceTest {
         DietaryRestriction peanut = new DietaryRestriction();
         peanut.setId(3L);
         peanut.setCode("PEANUT");
-        when(dietaryProfileRepository.findRestrictionByCode("PEANUT")).thenReturn(Optional.of(peanut));
+        when(dietaryRestrictionRepository.findByCodeIgnoreCase("PEANUT")).thenReturn(Optional.of(peanut));
 
         var response = familyService.createDependantProfile(
             10L,
@@ -485,6 +503,315 @@ class FamilyServiceTest {
     void listFamilyMembersNotInFamily() {
         when(familyMemberRepository.findMembershipByUserId(99L)).thenReturn(Optional.empty());
         assertThrows(FamilyNotFoundException.class, () -> familyService.listFamilyMembers(99L));
+    }
+
+    @Test
+    @DisplayName("accept invitation joins as MEMBER")
+    void acceptInvitationHappyPath() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyMemberRepository.existsByIdUserId(30L)).thenReturn(false);
+
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        family.setCreatedByUserId(10L);
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(familyMemberRepository.saveAndFlush(any(FamilyMember.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(dietaryProfileRepository.findByLinkedUser_Id(30L)).thenReturn(Optional.empty());
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class))).thenAnswer(invocation -> {
+            DietaryProfile profile = invocation.getArgument(0);
+            profile.setId(99L);
+            return profile;
+        });
+
+        FamilyMeResponse response = familyService.acceptInvitation(30L, "tok");
+
+        assertEquals(1L, response.familyId());
+        assertEquals(FamilyMember.ROLE_MEMBER, response.memberRole());
+        assertEquals(InvitationStatus.ACCEPTED, invitation.getStatus());
+    }
+
+    @Test
+    @DisplayName("accept expired invitation throws InvitationExpiredException")
+    void acceptExpired() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        invitation.setExpiresAt(Instant.now().minus(1, ChronoUnit.DAYS));
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertThrows(InvitationExpiredException.class,
+            () -> familyService.acceptInvitation(30L, "tok"));
+        assertEquals(InvitationStatus.EXPIRED, invitation.getStatus());
+    }
+
+    @Test
+    @DisplayName("accept with email mismatch throws FamilyForbiddenException")
+    void acceptEmailMismatch() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("other@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+
+        assertThrows(FamilyForbiddenException.class,
+            () -> familyService.acceptInvitation(30L, "tok"));
+    }
+
+    @Test
+    @DisplayName("accept while already in family throws AlreadyInFamilyException")
+    void acceptAlreadyInFamily() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyMemberRepository.existsByIdUserId(30L)).thenReturn(true);
+
+        assertThrows(AlreadyInFamilyException.class,
+            () -> familyService.acceptInvitation(30L, "tok"));
+    }
+
+    @Test
+    @DisplayName("accept already-final invitation throws InvitationConflictException")
+    void acceptAlreadyFinal() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        invitation.setStatus(InvitationStatus.ACCEPTED);
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+
+        assertThrows(InvitationConflictException.class,
+            () -> familyService.acceptInvitation(30L, "tok"));
+    }
+
+    @Test
+    @DisplayName("decline marks invitation DECLINED")
+    void declineInvitation() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        familyService.declineInvitation(30L, "tok");
+
+        assertEquals(InvitationStatus.DECLINED, invitation.getStatus());
+        verify(familyMemberRepository, never()).saveAndFlush(any(FamilyMember.class));
+    }
+
+    @Test
+    @DisplayName("list pending invitations includes family display fields")
+    void listPendingInvitations() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        invitation.setId(5L);
+        invitation.setInvitedByUserId(10L);
+        when(familyInvitationRepository.findPendingByEmail("invitee@example.com"))
+            .thenReturn(List.of(invitation));
+
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+
+        UserAccount admin = new UserAccount();
+        admin.setId(10L);
+        admin.setEmail("admin@example.com");
+        when(userAccountRepository.findById(10L)).thenReturn(Optional.of(admin));
+
+        List<com.canmakan.backend.family.dto.PendingInvitationResponse> rows =
+            familyService.listMyPendingInvitations(30L);
+
+        assertEquals(1, rows.size());
+        assertEquals("Host Family", rows.get(0).familyName());
+        assertEquals("admin@example.com", rows.get(0).invitedByDisplayName());
+        assertFalse(rows.get(0).expired());
+    }
+
+    @Test
+    @DisplayName("getActiveProfile defaults to self profile for family member")
+    void getActiveProfileDefaultsToSelf() {
+        stubMembership(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(userPreferenceRepository.findById(10L)).thenReturn(Optional.empty());
+
+        DietaryProfile self = activeProfile(77L, "Admin", family, true);
+        UserAccount user = new UserAccount();
+        user.setId(10L);
+        self.setLinkedUser(user);
+        when(dietaryProfileRepository.findByLinkedUser_Id(10L)).thenReturn(Optional.of(self));
+        when(dietaryProfileRepository.findById(77L)).thenReturn(Optional.of(self));
+
+        ActiveProfileResponse response = familyService.getActiveProfile(10L);
+
+        assertEquals(77L, response.profileId());
+        assertEquals("Admin", response.profileName());
+    }
+
+    @Test
+    @DisplayName("setActiveProfile persists preference for in-family profile")
+    void setActiveProfilePersists() {
+        stubMembership(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+
+        DietaryProfile dependant = activeProfile(88L, "Child", family, true);
+        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(dependant));
+        when(userPreferenceRepository.findById(10L)).thenReturn(Optional.empty());
+        when(userPreferenceRepository.saveAndFlush(any(UserPreference.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ActiveProfileResponse response = familyService.setActiveProfile(10L, 88L);
+
+        assertEquals(88L, response.profileId());
+        verify(userPreferenceRepository).saveAndFlush(any(UserPreference.class));
+    }
+
+    @Test
+    @DisplayName("setActiveProfile rejects profile outside family")
+    void setActiveProfileForbiddenOutsideFamily() {
+        stubMembership(10L, 1L);
+        Family otherFamily = new Family();
+        otherFamily.setId(99L);
+        DietaryProfile outsider = activeProfile(55L, "Other", otherFamily, true);
+        when(dietaryProfileRepository.findById(55L)).thenReturn(Optional.of(outsider));
+
+        assertThrows(
+            FamilyForbiddenException.class,
+            () -> familyService.setActiveProfile(10L, 55L)
+        );
+    }
+
+    @Test
+    @DisplayName("setActiveProfile rejects inactive profile")
+    void setActiveProfileInactive() {
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile inactive = activeProfile(88L, "Child", family, false);
+        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(inactive));
+
+        assertThrows(
+            InactiveProfileException.class,
+            () -> familyService.setActiveProfile(10L, 88L)
+        );
+    }
+
+    @Test
+    @DisplayName("getProfilesForFamilyMember returns profiles for caller family")
+    void getProfilesForFamilyMemberOk() {
+        stubMembership(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(77L, "Admin", family, true);
+        when(dietaryProfileService.getProfilesByFamilyId(1L)).thenReturn(List.of(
+            new com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto(
+                profile.getId(),
+                profile.getProfileName(),
+                1L,
+                profile.getRelationship(),
+                "AD",
+                profile.isPrimary())
+        ));
+
+        List<com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto> rows =
+            familyService.getProfilesForFamilyMember(10L, 1L);
+
+        assertEquals(1, rows.size());
+        assertEquals(77L, rows.get(0).id());
+    }
+
+    @Test
+    @DisplayName("getProfilesForFamilyMember rejects another family id")
+    void getProfilesForFamilyMemberForbidden() {
+        stubMembership(10L, 1L);
+
+        assertThrows(
+            FamilyForbiddenException.class,
+            () -> familyService.getProfilesForFamilyMember(10L, 99L)
+        );
+    }
+
+    @Test
+    @DisplayName("assertProfileAuthorizedForScan rejects profile outside family")
+    void assertProfileAuthorizedForScanForbidden() {
+        stubMembership(10L, 1L);
+        Family otherFamily = new Family();
+        otherFamily.setId(99L);
+        DietaryProfile outsider = activeProfile(55L, "Other", otherFamily, true);
+        when(dietaryProfileRepository.findById(55L)).thenReturn(Optional.of(outsider));
+
+        assertThrows(
+            FamilyForbiddenException.class,
+            () -> familyService.assertProfileAuthorizedForScan(10L, 55L)
+        );
+    }
+
+    private static DietaryProfile activeProfile(
+            Long id, String name, Family family, boolean active) {
+        DietaryProfile profile = new DietaryProfile();
+        profile.setId(id);
+        profile.setProfileName(name);
+        profile.setFamily(family);
+        profile.setRelationship("SELF");
+        profile.setPrimary(true);
+        profile.setActive(active);
+        return profile;
+    }
+
+    private void stubMembership(long userId, long familyId) {
+        FamilyMember membership = new FamilyMember(
+            new FamilyMember.FamilyMemberId(familyId, userId),
+            FamilyMember.ROLE_MEMBER,
+            true,
+            null
+        );
+        when(familyMemberRepository.findMembershipByUserId(userId))
+            .thenReturn(Optional.of(membership));
+    }
+
+    private static FamilyInvitation pendingInvitation(String token, String email) {
+        FamilyInvitation invitation = new FamilyInvitation();
+        invitation.setId(5L);
+        invitation.setFamilyId(1L);
+        invitation.setInvitedByUserId(10L);
+        invitation.setInvitedEmail(email);
+        invitation.setStatus(InvitationStatus.PENDING);
+        invitation.setExpiresAt(Instant.now().plus(2, ChronoUnit.DAYS));
+        invitation.setInvitationToken(token);
+        invitation.setInviteCode("ABCD1234");
+        return invitation;
     }
 
     private void stubPrimaryAdmin(long userId, long familyId) {

@@ -20,11 +20,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,6 +59,7 @@ fun ProfileDrawerContent(
     hasUserSession: Boolean,
     noFamilyMessage: String?,
     showManageFamilyActions: Boolean,
+    isSwitchingProfile: Boolean = false,
     onProfileSelected: (DietaryProfile) -> Unit,
     onEditDietaryClick: () -> Unit,
     onScannerClick: () -> Unit,
@@ -67,6 +70,7 @@ fun ProfileDrawerContent(
     onCreateFamilyCircleClick: () -> Unit,
     onCreateNewClick: () -> Unit,
     onAddProfileClick: () -> Unit,
+    onInvitationsClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -141,7 +145,20 @@ fun ProfileDrawerContent(
         )
 
         Spacer(modifier = Modifier.height(10.dp))
-        Text("SWITCH PROFILE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("SWITCH PROFILE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+            if (isSwitchingProfile) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = PrimaryGreen,
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(8.dp))
 
         profiles.forEach { profile ->
@@ -152,7 +169,7 @@ fun ProfileDrawerContent(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
                     .background(if (isActive) PrimaryGreen.copy(alpha = 0.25f) else Color.Transparent)
-                    .clickable { onProfileSelected(profile) }
+                    .clickable(enabled = !isSwitchingProfile) { onProfileSelected(profile) }
                     .padding(10.dp)
             ) {
                 InitialsAvatar(initials = profile.initials, background = avatarColorFor(profile))
@@ -262,6 +279,17 @@ fun ProfileDrawerContent(
             thickness = 1.dp,
             color = Color.DarkGray
         )
+
+        if (hasUserSession) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text("INVITATIONS", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(8.dp))
+            DrawerNavRow(
+                icon = Icons.Default.Email,
+                label = "Family Invitations",
+                onClick = onInvitationsClick,
+            )
+        }
 
         // Member create/link is UC9/UC12 — keep hidden until those APIs exist and the user has a family.
         if (showManageFamilyActions && hasFamily) {

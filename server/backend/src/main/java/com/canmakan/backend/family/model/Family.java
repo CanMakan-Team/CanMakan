@@ -1,6 +1,6 @@
 package com.canmakan.backend.family.model;
 
-import com.canmakan.backend.dietaryprofile.DietaryProfile;
+import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
 import com.canmakan.backend.shared.AuditableEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;

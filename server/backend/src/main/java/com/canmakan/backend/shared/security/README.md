@@ -18,7 +18,7 @@ Implements authentication and authorization infrastructure used by the whole app
   account status and role before populating the security context.
 
 The current stateless filter chain protects `/api/auth/me`, `/api/families/**`,
-and `POST /api/scan/assess`, restricts `/api/admin/**` to `ADMIN`, and keeps
+`/api/invitations/**`, and `POST /api/scan/assess`, restricts `/api/admin/**` to `ADMIN`, and keeps
 registration, login, refresh, logout, and health public at the bearer-authorization
 layer. The refresh endpoint authenticates an opaque, hashed-at-rest, one-time
 refresh session from an HttpOnly, SameSite=Strict cookie. Remaining business

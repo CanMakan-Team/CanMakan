@@ -1,10 +1,13 @@
 package com.canmakan.backend.family;
 
-import com.canmakan.backend.dietaryprofile.DietaryProfile;
-import com.canmakan.backend.dietaryprofile.DietaryProfileRepository;
-import com.canmakan.backend.dietaryprofile.DietaryProfileService;
-import com.canmakan.backend.dietaryprofile.DietaryRestriction;
-import com.canmakan.backend.dietaryprofile.ProfileRestriction;
+import com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto;
+import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
+import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.model.ProfileRestriction;
+import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
+import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
+import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
+import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.ClaimInvitationRequest;
 import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
@@ -16,18 +19,24 @@ import com.canmakan.backend.family.dto.FamilyMeRestrictionDetail;
 import com.canmakan.backend.family.dto.FamilyMeRestrictionSum;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
 import com.canmakan.backend.family.dto.InvitationResponse;
+import com.canmakan.backend.family.dto.PendingInvitationResponse;
 import com.canmakan.backend.family.dto.UserSearchResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.family.exception.FamilyNotFoundException;
+import com.canmakan.backend.family.exception.InactiveProfileException;
 import com.canmakan.backend.family.exception.InvitationConflictException;
+import com.canmakan.backend.family.exception.InvitationExpiredException;
+import com.canmakan.backend.family.exception.InvitationNotFoundException;
 import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.family.model.FamilyInvitation;
 import com.canmakan.backend.family.model.FamilyMember;
 import com.canmakan.backend.family.model.InvitationStatus;
+import com.canmakan.backend.family.model.UserPreference;
 import com.canmakan.backend.family.repository.FamilyInvitationRepository;
 import com.canmakan.backend.family.repository.FamilyMemberRepository;
 import com.canmakan.backend.family.repository.FamilyRepository;
+import com.canmakan.backend.family.repository.UserPreferenceRepository;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.user.UserAccount;
 import com.canmakan.backend.user.UserAccountRepository;
@@ -49,9 +58,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Family circle create/me, UC9 invite/dependant flows, and UC6 restriction summary.
+ * Family circle create/me, UC9 invite/dependant, UC10 accept/decline inbox, and UC6 summary.
  * Caller id is supplied by the controller from the JWT principal.
- * 
+ *
  * @author Amelia
  * @author Khai
  */
@@ -72,9 +81,12 @@ public class FamilyService {
     private final FamilyRepository familyRepository;
     private final FamilyMemberRepository familyMemberRepository;
     private final FamilyInvitationRepository familyInvitationRepository;
+    private final UserPreferenceRepository userPreferenceRepository;
     private final DietaryProfileRepository dietaryProfileRepository;
+    private final DietaryRestrictionRepository dietaryRestrictionRepository;
     private final DietaryProfileService dietaryProfileService;
     private final InviteProperties inviteProperties;
+    private final InvitationEmailService invitationEmailService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     // Create a family circle
@@ -147,9 +159,12 @@ public class FamilyService {
         for (FamilyMember member : familyMemberRepository.findActiveMembersByFamilyId(familyId)) {
             Optional<DietaryProfile> dietaryProfileOpt =
                 dietaryProfileRepository.findByLinkedUser_Id(member.getUserId());
-            String name = dietaryProfileOpt.map(DietaryProfile::getProfileName)
+            String name = dietaryProfileOpt
+                .map(profile -> profile.getProfileName())
                 .orElse("Unknown Member");
-            Long profileId = dietaryProfileOpt.map(DietaryProfile::getId).orElse(null);
+            Long profileId = dietaryProfileOpt
+                .map(profile -> profile.getId())
+                .orElse(null);
             List<FamilyMeRestrictionDetail> restrictionDetails = mapRestrictions(dietaryProfileOpt);
             rows.add(new FamilyMeRestrictionSum(
                 member.getUserId(),
@@ -190,14 +205,16 @@ public class FamilyService {
         for (FamilyMember member : familyMemberRepository.findActiveMembersByFamilyId(familyId)) {
             Optional<DietaryProfile> dietaryProfileOpt =
                 dietaryProfileRepository.findByLinkedUser_Id(member.getUserId());
-            String name = dietaryProfileOpt.map(DietaryProfile::getProfileName)
+            String name = dietaryProfileOpt
+                .map(profile -> profile.getProfileName())
                 .orElse("Unknown Member");
-            String relationship = dietaryProfileOpt.map(DietaryProfile::getRelationship)
+            String relationship = dietaryProfileOpt
+                .map(profile -> profile.getRelationship())
                 .filter(value -> value != null && !value.isBlank())
                 .orElse("OTHER");
             RestrictionCodeSplit codes = splitRestrictionCodes(dietaryProfileOpt);
             String masked = userAccountRepository.findById(member.getUserId())
-                .map(UserAccount::getEmail)
+                .map(account -> account.getEmail())
                 .map(FamilyService::maskEmail)
                 .orElse(null);
             rows.add(new FamilyMemberRosterDto(
@@ -246,7 +263,7 @@ public class FamilyService {
 
         // Find the self profile by user id
         Long selfProfileId = dietaryProfileRepository.findByLinkedUser_Id(userId)
-            .map(DietaryProfile::getId)
+            .map(profile -> profile.getId())
             .orElse(null);
 
         // Return the family me response
@@ -256,6 +273,146 @@ public class FamilyService {
             membership.getMemberRole(),
             selfProfileId,
             family.getCreatedByUserId()
+        );
+    }
+
+    /**
+     * Lists active dietary profiles for a family the caller belongs to.
+     */
+    @Transactional(readOnly = true)
+    public List<DietaryProfileSummaryDto> getProfilesForFamilyMember(long userId, long familyId) {
+        FamilyMember membership = requireMembership(userId);
+        if (!membership.getFamilyId().equals(familyId)) {
+            throw new FamilyForbiddenException(
+                "Profile list is not available for this family.");
+        }
+        return dietaryProfileService.getProfilesByFamilyId(familyId);
+    }
+
+    /**
+     * Ensures the caller may assess or switch to the given profile.
+     */
+    @Transactional(readOnly = true)
+    public void assertProfileAuthorizedForScan(long userId, long profileId) {
+        assertProfileSelectable(userId, profileId);
+    }
+
+    /**
+     * Returns the caller's active scan profile, using stored preference or documented default.
+     */
+    @Transactional
+    public ActiveProfileResponse getActiveProfile(long userId) {
+        Long effectiveProfileId = resolveEffectiveActiveProfileId(userId);
+        DietaryProfile profile = dietaryProfileRepository.findById(effectiveProfileId)
+            .orElseThrow(() -> new FamilyNotFoundException("Active profile was not found."));
+        return toActiveProfileResponse(profile);
+    }
+
+    /**
+     * Persists the caller's active scan profile after family/inactive validation.
+     */
+    @Transactional
+    public ActiveProfileResponse setActiveProfile(long userId, long profileId) {
+        DietaryProfile profile = assertProfileSelectable(userId, profileId);
+        UserPreference preference = userPreferenceRepository.findById(userId)
+            .orElseGet(() -> {
+                UserPreference created = new UserPreference();
+                created.setUserId(userId);
+                return created;
+            });
+        preference.setActiveProfileId(profile.getId());
+        userPreferenceRepository.saveAndFlush(preference);
+        return toActiveProfileResponse(profile);
+    }
+
+    private Long resolveEffectiveActiveProfileId(long userId) {
+        Optional<UserPreference> preferenceOpt = userPreferenceRepository.findById(userId);
+        if (preferenceOpt.isPresent() && preferenceOpt.get().getActiveProfileId() != null) {
+            Long storedId = preferenceOpt.get().getActiveProfileId();
+            try {
+                assertProfileSelectable(userId, storedId);
+                return storedId;
+            } catch (FamilyForbiddenException | InactiveProfileException ex) {
+                clearStoredActiveProfile(userId);
+            }
+        }
+        return resolveDefaultActiveProfileId(userId);
+    }
+
+    private Long resolveDefaultActiveProfileId(long userId) {
+        Optional<FamilyMember> membershipOpt =
+            familyMemberRepository.findMembershipByUserId(userId);
+        DietaryProfile selfProfile = dietaryProfileRepository.findByLinkedUser_Id(userId)
+            .orElseThrow(() -> new FamilyNotFoundException(
+                "No dietary profile exists for the authenticated user."));
+        if (membershipOpt.isPresent()) {
+            Family family = familyRepository.findById(membershipOpt.get().getFamilyId())
+                .orElseThrow(() -> new FamilyNotFoundException(NOT_IN_FAMILY_MESSAGE));
+            if (selfProfile.getFamily() != null
+                    && family.getId().equals(selfProfile.getFamily().getId())
+                    && selfProfile.isActive()) {
+                return selfProfile.getId();
+            }
+            List<DietaryProfile> activeProfiles =
+                dietaryProfileRepository.findProfilesByFamilyId(family.getId());
+            if (activeProfiles.isEmpty()) {
+                throw new FamilyNotFoundException("No active profiles exist for this family.");
+            }
+            return activeProfiles.get(0).getId();
+        }
+        if (selfProfile.getFamily() != null) {
+            throw new FamilyForbiddenException(
+                "Profile is not available outside your family context.");
+        }
+        if (!selfProfile.isActive()) {
+            throw new InactiveProfileException("Profile is inactive and cannot be selected.");
+        }
+        return selfProfile.getId();
+    }
+
+    private DietaryProfile assertProfileSelectable(long userId, long profileId) {
+        DietaryProfile profile = dietaryProfileRepository.findById(profileId)
+            .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
+        if (!profile.isActive()) {
+            throw new InactiveProfileException("Profile is inactive and cannot be selected.");
+        }
+
+        Optional<FamilyMember> membershipOpt =
+            familyMemberRepository.findMembershipByUserId(userId);
+        if (membershipOpt.isPresent()) {
+            Long familyId = membershipOpt.get().getFamilyId();
+            if (profile.getFamily() == null || !familyId.equals(profile.getFamily().getId())) {
+                throw new FamilyForbiddenException(
+                    "Profile does not belong to your family circle.");
+            }
+            return profile;
+        }
+
+        if (profile.getLinkedUser() == null
+                || profile.getLinkedUser().getId() == null
+                || profile.getLinkedUser().getId() != userId
+                || profile.getFamily() != null) {
+            throw new FamilyForbiddenException(
+                "Profile does not belong to the authenticated user.");
+        }
+        return profile;
+    }
+
+    private void clearStoredActiveProfile(long userId) {
+        userPreferenceRepository.findById(userId).ifPresent(preference -> {
+            preference.setActiveProfileId(null);
+            userPreferenceRepository.saveAndFlush(preference);
+        });
+    }
+
+    private ActiveProfileResponse toActiveProfileResponse(DietaryProfile profile) {
+        Long familyId = profile.getFamily() == null ? null : profile.getFamily().getId();
+        return new ActiveProfileResponse(
+            profile.getId(),
+            profile.getProfileName(),
+            profile.getRelationship(),
+            familyId,
+            profile.isPrimary()
         );
     }
 
@@ -297,7 +454,7 @@ public class FamilyService {
 
         // Find the display name
         String displayName = dietaryProfileRepository.findByLinkedUser_Id(account.getId())
-            .map(DietaryProfile::getProfileName)
+            .map(profile -> profile.getProfileName())
             .orElseGet(() -> profileNameFromUser(account));
 
         // Find the account status
@@ -377,49 +534,125 @@ public class FamilyService {
         // Save the invitation
         FamilyInvitation saved = familyInvitationRepository.saveAndFlush(invitation);
 
-        // Return the invitation response
-        return toInvitationResponse(saved, invitee.isPresent());
+        InvitationResponse response = toInvitationResponse(saved, invitee.isPresent());
+        Family family = familyRepository.findById(adminMembership.getFamilyId()).orElse(null);
+        String familyName = family == null ? "a family circle" : family.getFamilyName();
+        invitationEmailService.sendInvitationEmail(familyName, response);
+        return response;
     }
 
-    // Claim an invitation
+    // Claim an invitation (UC9 deep-link / login path — same rules as accept)
     @Transactional
     public FamilyMeResponse claimInvitation(long userId, ClaimInvitationRequest request) {
-        // Find the user by id
+        return acceptInvitation(userId, request.invitationToken());
+    }
+
+    /**
+     * Accept a PENDING invitation by token (UC10 inbox + UC9 claim).
+     */
+    @Transactional
+    public FamilyMeResponse acceptInvitation(long userId, String invitationToken) {
         UserAccount user = userAccountRepository.findById(userId)
             .orElseThrow(() -> new AuthenticatedUserNotFoundException(
                 "Authenticated user was not found."));
+        if (invitationToken == null || invitationToken.isBlank()) {
+            throw new IllegalArgumentException("Invitation token is required.");
+        }
+        FamilyInvitation invitation = resolveClaimableInvitation(
+            normalizeEmail(user.getEmail()), invitationToken.strip());
+        return applyInvitationClaim(user, invitation);
+    }
 
-        // Claim the invitation
-        return claimInvitationForUser(user, request.invitationToken());
+    /**
+     * Decline a PENDING invitation. Expired PENDING invites may still be declined.
+     */
+    @Transactional
+    public void declineInvitation(long userId, String invitationToken) {
+        UserAccount user = userAccountRepository.findById(userId)
+            .orElseThrow(() -> new AuthenticatedUserNotFoundException(
+                "Authenticated user was not found."));
+        if (invitationToken == null || invitationToken.isBlank()) {
+            throw new IllegalArgumentException("Invitation token is required.");
+        }
+        FamilyInvitation invitation = familyInvitationRepository
+            .findByInvitationToken(invitationToken.strip())
+            .orElseThrow(() -> new InvitationNotFoundException("Invitation was not found."));
+
+        ensureEmailMatches(invitation, normalizeEmail(user.getEmail()));
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
+            throw new InvitationConflictException("Invitation is no longer pending.");
+        }
+
+        invitation.setStatus(InvitationStatus.DECLINED);
+        familyInvitationRepository.saveAndFlush(invitation);
+    }
+
+    /**
+     * List PENDING invitations for the authenticated user's email (UC10 inbox).
+     */
+    @Transactional(readOnly = true)
+    public List<PendingInvitationResponse> listMyPendingInvitations(long userId) {
+        UserAccount user = userAccountRepository.findById(userId)
+            .orElseThrow(() -> new AuthenticatedUserNotFoundException(
+                "Authenticated user was not found."));
+        String email = normalizeEmail(user.getEmail());
+        List<FamilyInvitation> pending = familyInvitationRepository.findPendingByEmail(email);
+
+        List<PendingInvitationResponse> results = new ArrayList<>();
+        for (FamilyInvitation invitation : pending) {
+            Family family = familyRepository.findById(invitation.getFamilyId()).orElse(null);
+            String familyName = family == null ? "Family" : family.getFamilyName();
+            String invitedBy = userAccountRepository.findById(invitation.getInvitedByUserId())
+                .map(account -> account.getEmail())
+                .orElse("Family admin");
+            results.add(new PendingInvitationResponse(
+                invitation.getId(),
+                invitation.getFamilyId(),
+                familyName,
+                invitedBy,
+                invitation.getInvitationToken(),
+                invitation.getInviteCode(),
+                invitation.getStatus(),
+                invitation.getExpiresAt(),
+                isExpired(invitation)
+            ));
+        }
+        return results;
     }
 
     /**
      * Auto-claim after registration when a matching PENDING invite exists.
      * Token is preferred; otherwise exactly one valid PENDING invite for the email is claimed.
+     * Invalid/expired/mismatched tokens are ignored so registration still succeeds.
      */
     @Transactional
     public void claimInvitationAfterRegistration(
             long userId, String email, String optionalInvitationToken) {
-        
-        // Find the user by id
+
         UserAccount user = userAccountRepository.findById(userId)
             .orElseThrow(() -> new AuthenticatedUserNotFoundException(
                 "Authenticated user was not found."));
 
-        // Normalize the email
         String normalizedEmail = normalizeEmail(email);
+        FamilyInvitation invitation;
+        try {
+            invitation = resolveClaimableInvitation(normalizedEmail, optionalInvitationToken);
+        } catch (InvitationNotFoundException
+            | InvitationExpiredException
+            | FamilyForbiddenException
+            | InvitationConflictException ignored) {
+            return;
+        }
 
-        // Resolve the claimable invitation
-        FamilyInvitation invitation = resolveClaimableInvitation(
-            normalizedEmail, optionalInvitationToken);
-
-        // If no valid invitation was found, return
         if (invitation == null) {
             return;
         }
 
-        // Apply the invitation claim
-        applyInvitationClaim(user, invitation);
+        try {
+            applyInvitationClaim(user, invitation);
+        } catch (AlreadyInFamilyException ignored) {
+            // Registration completed; membership conflict is ignored for auto-claim.
+        }
     }
 
     // Create a dependant profile
@@ -460,22 +693,19 @@ public class FamilyService {
         );
     }
 
-    private FamilyMeResponse claimInvitationForUser(UserAccount user, String invitationToken) {
-        FamilyInvitation invitation = resolveClaimableInvitation(user.getEmail(), invitationToken);
-        if (invitation == null) {
-            throw new InvitationConflictException("No valid pending invitation was found.");
-        }
-        return applyInvitationClaim(user, invitation);
-    }
-
+    /**
+     * Resolve a claimable invitation.
+     * With a token: load and validate (throws on missing / expired / mismatch / final).
+     * Without a token: return the single valid PENDING invite for the email, or null.
+     */
     private FamilyInvitation resolveClaimableInvitation(
             String normalizedEmail, String optionalToken) {
         if (optionalToken != null && !optionalToken.isBlank()) {
             FamilyInvitation byToken = familyInvitationRepository
                 .findByInvitationToken(optionalToken.strip())
-                .orElseThrow(() -> new InvitationConflictException(
+                .orElseThrow(() -> new InvitationNotFoundException(
                     "Invitation was not found."));
-            ensureClaimable(byToken, normalizedEmail);
+            ensureAcceptable(byToken, normalizedEmail);
             return byToken;
         }
 
@@ -496,24 +726,35 @@ public class FamilyService {
 
     // --- Helper methods ---
 
-    // Ensure the invitation is claimable
-    // - The invitation must be pending and unexpired
-    // - The invitation email must match the authenticated user
-    private void ensureClaimable(FamilyInvitation invitation, String normalizedEmail) {
-        if (!isPendingAndUnexpired(invitation)) {
+    /**
+     * Invitation must be PENDING, unexpired, and addressed to the authenticated email.
+     */
+    private void ensureAcceptable(FamilyInvitation invitation, String normalizedEmail) {
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
             throw new InvitationConflictException("Invitation is no longer valid.");
         }
+        if (isExpired(invitation)) {
+            invitation.setStatus(InvitationStatus.EXPIRED);
+            familyInvitationRepository.saveAndFlush(invitation);
+            throw new InvitationExpiredException("Invitation has expired.");
+        }
+        ensureEmailMatches(invitation, normalizedEmail);
+    }
+
+    private void ensureEmailMatches(FamilyInvitation invitation, String normalizedEmail) {
         if (!invitation.getInvitedEmail().equalsIgnoreCase(normalizedEmail)) {
-            throw new InvitationConflictException(
+            throw new FamilyForbiddenException(
                 "Invitation email does not match the authenticated user.");
         }
     }
 
-    // Check if the invitation is pending and unexpired
     private boolean isPendingAndUnexpired(FamilyInvitation invitation) {
-        return invitation.getStatus() == InvitationStatus.PENDING
-            && invitation.getExpiresAt() != null
-            && invitation.getExpiresAt().isAfter(Instant.now());
+        return invitation.getStatus() == InvitationStatus.PENDING && !isExpired(invitation);
+    }
+
+    private boolean isExpired(FamilyInvitation invitation) {
+        return invitation.getExpiresAt() == null
+            || !invitation.getExpiresAt().isAfter(Instant.now());
     }
 
     // Apply the invitation claim
@@ -615,7 +856,7 @@ public class FamilyService {
 
         Map<Long, String> selections = new HashMap<>();
         for (String code : codes) {
-            DietaryRestriction restriction = dietaryProfileRepository.findRestrictionByCode(code)
+            DietaryRestriction restriction = dietaryRestrictionRepository.findByCodeIgnoreCase(code)
                 .orElseThrow(() -> new IllegalArgumentException(
                     "Unknown dietary restriction code: " + code));
             selections.put(restriction.getId(), DEFAULT_SEVERITY);

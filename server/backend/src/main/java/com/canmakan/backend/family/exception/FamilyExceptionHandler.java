@@ -9,13 +9,20 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.canmakan.backend.family.FamilyController;
+import com.canmakan.backend.family.InvitationController;
 
 /**
- * Error translation for family create / me / invite / dependant endpoints.
- * 
+ * Error translation for family- and invitation-specific failures
+ * ({@link FamilyController}, {@link InvitationController}).
+ *
+ * <p>Shared family authz exceptions ({@code FamilyForbiddenException},
+ * {@code InactiveProfileException}, {@code FamilyNotFoundException}) are handled
+ * by {@link com.canmakan.backend.shared.exception.GlobalExceptionHandler}
+ * so scan and other callers get the same HTTP mapping.
+ *
  * @author Amelia
  */
-@RestControllerAdvice(assignableTypes = FamilyController.class)
+@RestControllerAdvice(assignableTypes = {FamilyController.class, InvitationController.class})
 public class FamilyExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -53,15 +60,15 @@ public class FamilyExceptionHandler {
         return Map.of("message", ex.getMessage());
     }
 
-    @ExceptionHandler(FamilyForbiddenException.class)
-    @ResponseStatus(HttpStatus.FORBIDDEN)
-    public Map<String, String> handleForbidden(FamilyForbiddenException ex) {
+    @ExceptionHandler(InvitationExpiredException.class)
+    @ResponseStatus(HttpStatus.GONE)
+    public Map<String, String> handleInvitationExpired(InvitationExpiredException ex) {
         return Map.of("message", ex.getMessage());
     }
 
-    @ExceptionHandler(FamilyNotFoundException.class)
+    @ExceptionHandler(InvitationNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public Map<String, String> handleNotFound(FamilyNotFoundException ex) {
+    public Map<String, String> handleInvitationNotFound(InvitationNotFoundException ex) {
         return Map.of("message", ex.getMessage());
     }
 }
