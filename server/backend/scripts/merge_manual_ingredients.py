@@ -9,7 +9,7 @@ Usage:
   python merge_manual_ingredients.py
 
   python merge_manual_ingredients.py \\
-    --csv "C:/Users/ChaiLee/OneDrive - National University of Singapore/AD/add-product.csv" \\
+    --csv "C:/Users/.../add-product.csv" \\
     --products-sql "../src/main/resources/01_products.sql"
 """
 
