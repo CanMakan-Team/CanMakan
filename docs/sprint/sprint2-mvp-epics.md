@@ -274,7 +274,7 @@ UC2 · Related: UC5, UC4
 **Current code state:** Partial — mobile personal history live (no authz); family web list API missing  
 **Coordination:** Family list API (UC4-S2) owned by Kwok Heng; Family Portal page shell/nav coordinates with Amelia.
 
-- **Mobile (personal):** `HistoryScreen` + `ServerScanHistoryRepository` against live `GET /api/profiles/{profileId}/history` (`ScanHistoryController`). Newest-first list; tap opens verdict detail. History GET is transitional `permitAll` with **no ownership authz**.
+- **Mobile (personal):** `HistoryScreen` + `ServerScanHistoryRepository` against live `GET /api/scan/profiles/{profileId}/history` (`ScanController`). Newest-first list; tap opens verdict detail. History GET is transitional `permitAll` with **no ownership authz**.
 - **Persist:** Successful assess records product, verdict, timestamp, profile, JWT `user_id`.
 - **Web (family):** `FamilyScanHistoryPage` expects `GET /api/families/me/scans` — **endpoint missing**; usable only when `VITE_USE_MOCK_API=true` (default is **false**). Page is list/detail (no trend chart). Web verdict types still include non-wire labels (`AVOID` / `INCOMPLETE`).
 - **Out of this UC:** charts/trends (UC14); CSV export (UC22).
@@ -291,7 +291,7 @@ List/detail only. **Trend charts are UC14**, not UC4.
 
 ### Context
 
-**APIs:** `GET /api/profiles/{id}/history`; `GET /api/families/me/scans` (admin).  
+**APIs:** `GET /api/scan/profiles/{id}/history`; `GET /api/families/me/scans` (admin).  
 **Clients:** HistoryScreen; FamilyScanHistoryPage (no chart).  
 **Out of scope:** Daily/weekly time-series charts (UC14); anonymised platform trends (UC7).
 
@@ -300,7 +300,7 @@ List/detail only. **Trend charts are UC14**, not UC4.
 | Done | # | Criterion |
 | --- | --- | --- |
 | [x] | 1 | Each successful assess persists product, verdict, timestamp, and profile used for the scan. |
-| [ ] | 2 | Mobile lists the authenticated user’s personal scan history for an authorized profile via `GET /api/profiles/{profileId}/history`. *(list works; auth/authz still open)* |
+| [ ] | 2 | Mobile lists the authenticated user’s personal scan history for an authorized profile via `GET /api/scan/profiles/{profileId}/history`. *(list works; auth/authz still open)* |
 | [x] | 3 | Selecting a mobile history row reopens the stored assessment / verdict detail. |
 | [ ] | 4 | Mobile history requires authentication and denies unauthorized `profileId` with 403. |
 | [ ] | 5 | Family Admin can load household scans via `GET /api/families/me/scans`. |
@@ -512,7 +512,7 @@ UC19 · Related: UC22
 - **Tests:** Backend create success, blank name 400, second create 409, missing/invalid JWT 401 (`FamilyControllerTest` / `FamilyServiceTest`). Mobile repository + nav ViewModel cover `/me`, create, and session gates.
 - **Diagrams:** Class/sequence under `docs/architecture/` for create-circle still **open** (planned `domain-family.mmd`).
 - **Demo tip:** Seeded users 4–13 already have families — register a new account to hit empty-state create.
-- **Gaps:** Architecture diagrams still open; invites (UC9) largely shipped; full roster manage (UC12); server-persisted active profile (UC11).
+- **Gaps:** Architecture diagrams still open (`domain-family.mmd`). UC9–UC12 shipped on their intended clients.
 
 ### User story
 
@@ -567,7 +567,7 @@ UC19 (JWT shipped for family routes) · UC18 (register new users to demo empty-s
 - **Web:** `LinkExistingUserModal` creates PENDING invites (copy link/code; optional mailto). `CreateFamilyProfileModal` posts live dependant profiles. `/invite/:token` → register/login + claim. `FamilyMembersPage` lists via live `GET /api/families/me/members`. Silent `members/link` removed from live `familyApiService`.
 - **Mobile:** `AddProfileToFamilyScreen` + share (`canmakan://invite/{token}` + web URL); manifest VIEW intent-filters + `singleTop`; invite landing offers register **or** sign-in; login claims `POST .../invitations/claim`; already-authed deep links claim via `PendingInvitationStore`. `CreateNewProfileScreen` posts live dependant profiles. Drawer manage CTAs when `PRIMARY_ADMIN`.
 - **Backend:** Spring Data repos; invite/claim/dependant; `GET /api/families/me/members` roster (linked + dependants).
-- **Gaps (residual):** UC12 full roster CRUD / `is_active` / edit-remove; web UC10 inbox (optional).
+- **Gaps (residual):** Web UC10 inbox (optional by design).
 - **Out of this epic:** UC12 manage mutations.
 
 ### User story

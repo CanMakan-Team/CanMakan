@@ -234,7 +234,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 | GET | `/api/restrictions` | Transitional public |
 | GET/PUT | `/api/profiles/{profileId}/restrictions` | Transitional public |
 | POST | `/api/scan/validate` | Transitional public |
-| GET | `/api/profiles/{profileId}/history` | Transitional public |
+| GET | `/api/scan/profiles/{profileId}/history` | Transitional public |
 
 Missing: ownership authz on profile-scoped routes; family scans; recommendations; admin list/PATCH APIs; UC12 roster manage.
 
@@ -498,7 +498,7 @@ Missing: ownership authz on profile-scoped routes; family scans; recommendations
 | **In** | PENDING invite with **shareable link/code**; email/user-search; admin-managed dependant profile (API + web-primary UI; mobile optional); register/login auto-claim |
 | **Out** | Silent mock link; full roster manage (UC12) |
 | **Shipped** | Schema `invited_by` + `invite_code`; Spring Data family repos; search/invite/claim/dependant APIs; `GET /me/members`; web invite + dependant + `/invite/:token`; mobile invite+share+deep links+login claim+dependant create |
-| **Residuals** | UC12 manage CRUD / `is_active` |
+| **Residuals** | Web UC10 inbox optional |
 
 ---
 
@@ -887,7 +887,7 @@ UC3 ──► UC20
 
 - `GET /api/restrictions`
 - `GET|PUT /api/profiles/{profileId}/restrictions`
-- `GET /api/profiles/{profileId}/history`
+- `GET /api/scan/profiles/{profileId}/history`
 - `GET /api/profiles/{profileId}/recommendations`
 - `GET /api/profiles/{profileId}/recommendation-history` — UC17
 - `POST /api/scan/validate|assess`
