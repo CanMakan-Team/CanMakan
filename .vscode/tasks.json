@@ -49,6 +49,26 @@
             "problemMatcher": []
         },
         {
+            "label": "Run Backend (mac, local profile)",
+            "type": "shell",
+            "command": "./mvnw",
+            "options": {
+                "cwd": "${workspaceFolder}/server/backend"
+            },
+            "args": [
+                "spring-boot:run",
+                "-Dspring-boot.run.profiles=local"
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": [],
+            "detail": "Runs the backend on macOS/zsh via the Maven wrapper with the local Spring profile active (reads application-local.properties for JWT_SIGNING_SECRET)."
+        },
+        {
             "label": "Run Full Stack",
             "type": "shell",
             "command": "${workspaceFolder}/.vscode/run-full-stack.ps1",
