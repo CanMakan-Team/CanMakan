@@ -3,8 +3,8 @@ package com.canmakan.backend.product.scan;
 import com.canmakan.backend.integration.BarcodeValidationClient;
 import com.canmakan.backend.product.assessment.AssessmentOrchestrator;
 import com.canmakan.backend.product.assessment.AssessmentRequest;
-import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.shared.security.AuthUserDetails;
+import com.canmakan.backend.shared.security.AuthUserChecker;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -50,7 +50,7 @@ public class ScanController {
                     "Profile ID is required"
             ));
         }
-        Long userId = requireUserId(userDetails);
+        Long userId = AuthUserChecker.requireUserId(userDetails);
         return ResponseEntity.ok(orchestrator.assess(userId, request));
     }
 
@@ -62,13 +62,6 @@ public class ScanController {
     public ResponseEntity<ValidationResponse> validateBarcode(@RequestBody ScanRequest request) {
         ValidationResponse response = validationClient.validateProduct(request.barcode());
         return ResponseEntity.ok(response);
-    }
-
-    private static long requireUserId(AuthUserDetails userDetails) {
-        if (userDetails == null || userDetails.getUserId() == null) {
-            throw new AuthenticatedUserNotFoundException("Authenticated user was not found.");
-        }
-        return userDetails.getUserId();
     }
 
 }

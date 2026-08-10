@@ -2,7 +2,6 @@ package com.canmakan.backend.family.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import java.util.List;
 
 /** Request body to claim a pending invitation while authenticated. 
  * 

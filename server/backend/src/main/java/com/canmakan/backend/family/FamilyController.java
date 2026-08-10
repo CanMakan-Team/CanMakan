@@ -15,8 +15,8 @@ import com.canmakan.backend.family.dto.SetActiveProfileRequest;
 import com.canmakan.backend.family.dto.SetProfileActiveRequest;
 import com.canmakan.backend.family.dto.UpdateProfileRequest;
 import com.canmakan.backend.family.dto.UserSearchResponse;
-import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.shared.security.AuthUserDetails;
+import com.canmakan.backend.shared.security.AuthUserChecker;
 
 import jakarta.validation.Valid;
 import java.util.List;
@@ -57,7 +57,7 @@ public class FamilyController {
     public ResponseEntity<FamilyMeResponse> createFamily(
         @AuthenticationPrincipal AuthUserDetails userDetails,
         @Valid @RequestBody CreateFamilyRequest request) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         FamilyMeResponse created = familyService.createFamily(userId, request);
         log.info("POST /families → 201 familyId={}", created.familyId());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
@@ -66,7 +66,7 @@ public class FamilyController {
     // GET /api/families/me -> get the family for the authenticated user
     @GetMapping("/me")
     public FamilyMeResponse getMyFamily(@AuthenticationPrincipal AuthUserDetails userDetails) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         FamilyMeResponse me = familyService.getMyFamily(userId);
         log.info("GET /families/me → 200 familyId={}", me.familyId());
         return me;
@@ -77,7 +77,7 @@ public class FamilyController {
     public List<DietaryProfileSummaryDto> getProfilesByFamilyId(
         @AuthenticationPrincipal AuthUserDetails userDetails,
         @PathVariable Long familyId) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         List<DietaryProfileSummaryDto> resp =
             familyService.getProfilesForFamilyMember(userId, familyId);
         log.info("GET /families/{}/profiles → 200", familyId);
@@ -88,7 +88,7 @@ public class FamilyController {
     @GetMapping("/me/active-profile")
     public ActiveProfileResponse getActiveProfile(
             @AuthenticationPrincipal AuthUserDetails userDetails) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         ActiveProfileResponse active = familyService.getActiveProfile(userId);
         log.info("GET /families/me/active-profile → 200 profileId={}", active.profileId());
         return active;
@@ -99,7 +99,7 @@ public class FamilyController {
     public ActiveProfileResponse setActiveProfile(
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @Valid @RequestBody SetActiveProfileRequest request) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         ActiveProfileResponse active = familyService.setActiveProfile(userId, request.profileId());
         log.info("PUT /families/me/active-profile → 200 profileId={}", active.profileId());
         return active;
@@ -110,7 +110,7 @@ public class FamilyController {
     public ResponseEntity<FamilyRestrictionSumRes> getRestrictionSummary(
             @AuthenticationPrincipal AuthUserDetails userDetails
     ) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         FamilyRestrictionSumRes summary = familyService.getFamilyRestrictionSummary(userId);
         return ResponseEntity.ok(summary);
     }
@@ -119,7 +119,7 @@ public class FamilyController {
     @GetMapping("/me/members")
     public List<FamilyMemberRosterDto> listMembers(
             @AuthenticationPrincipal AuthUserDetails userDetails) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         List<FamilyMemberRosterDto> members = familyService.listFamilyMembers(userId);
         log.info("GET /families/me/members → 200 count={}", members.size());
         return members;
@@ -129,7 +129,7 @@ public class FamilyController {
     @GetMapping("/me/profiles")
     public List<DietaryProfileSummaryDto> listMyProfiles(
             @AuthenticationPrincipal AuthUserDetails userDetails) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         List<DietaryProfileSummaryDto> profiles = familyService.listMyFamilyProfiles(userId);
         log.info("GET /families/me/profiles → 200 count={}", profiles.size());
         return profiles;
@@ -141,7 +141,7 @@ public class FamilyController {
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @PathVariable long profileId,
             @Valid @RequestBody UpdateProfileRequest request) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         FamilyMemberRosterDto updated =
             familyService.updateProfileMetadata(userId, profileId, request);
         log.info("PUT /families/me/profiles/{} → 200", profileId);
@@ -154,7 +154,7 @@ public class FamilyController {
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @PathVariable long profileId,
             @Valid @RequestBody SetProfileActiveRequest request) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         DietaryProfileSummaryDto updated =
             familyService.setProfileActive(userId, profileId, request.active());
         log.info("PATCH /families/me/profiles/{} → 200 active={}", profileId, request.active());
@@ -166,7 +166,7 @@ public class FamilyController {
     public ResponseEntity<Void> removeMember(
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @PathVariable long targetUserId) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         familyService.removeFamilyMember(userId, targetUserId);
         log.info("DELETE /families/me/members/{} → 204", targetUserId);
         return ResponseEntity.noContent().build();
@@ -177,7 +177,7 @@ public class FamilyController {
     public ResponseEntity<Void> removeDependantProfile(
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @PathVariable long profileId) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         familyService.removeDependantProfile(userId, profileId);
         log.info("DELETE /families/me/profiles/{} → 204", profileId);
         return ResponseEntity.noContent().build();
@@ -188,7 +188,7 @@ public class FamilyController {
     public UserSearchResponse searchUser(
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @RequestParam("email") String email) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         String normalized = email == null ? "" : email.strip().toLowerCase(Locale.ROOT);
         if (normalized.isBlank() || !normalized.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
             throw new IllegalArgumentException("Email must be valid.");
@@ -203,7 +203,7 @@ public class FamilyController {
     public ResponseEntity<InvitationResponse> createInvitation(
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @Valid @RequestBody CreateInvitationRequest request) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         InvitationResponse created = familyService.createInvitation(userId, request);
         log.info("POST /families/me/invitations → 201 invitationId={}", created.invitationId());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
@@ -214,7 +214,7 @@ public class FamilyController {
     public FamilyMeResponse claimInvitation(
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @Valid @RequestBody ClaimInvitationRequest request) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         FamilyMeResponse claimed = familyService.claimInvitation(userId, request);
         log.info("POST /families/me/invitations/claim → 200 familyId={}", claimed.familyId());
         return claimed;
@@ -225,19 +225,9 @@ public class FamilyController {
     public ResponseEntity<DependantProfileResponse> createDependantProfile(
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @Valid @RequestBody CreateDependantProfileRequest request) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         DependantProfileResponse created = familyService.createDependantProfile(userId, request);
         log.info("POST /families/me/profiles → 201 profileId={}", created.profileId());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
-    }
-
-    // --- Helper methods ---
-
-    // Require the user id from the authenticated user
-    private static long requireUserId(AuthUserDetails userDetails) {
-        if (userDetails == null || userDetails.getUserId() == null) {
-            throw new AuthenticatedUserNotFoundException("Authenticated user was not found.");
-        }
-        return userDetails.getUserId();
     }
 }

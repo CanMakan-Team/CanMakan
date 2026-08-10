@@ -3,8 +3,8 @@ package com.canmakan.backend.dietaryprofile;
 import com.canmakan.backend.dietaryprofile.dto.DietaryRestrictionDto;
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
 import com.canmakan.backend.family.FamilyService;
-import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.shared.security.AuthUserDetails;
+import com.canmakan.backend.shared.security.AuthUserChecker;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +44,7 @@ public class DietaryProfileController {
     public Map<Long, String> getDietaryRestrictionsForProfile(
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @PathVariable Long profileId) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         familyService.assertProfileAuthorizedForScan(userId, profileId);
         Map<Long, String> resp = dietaryProfileService.getDietaryRestrictionsForProfile(profileId);
         log.info("GET /profiles/{}/restrictions → 200", profileId);
@@ -56,7 +56,7 @@ public class DietaryProfileController {
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @PathVariable Long profileId,
             @RequestBody Map<String, String> selections) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         familyService.assertMayEditRestrictions(userId, profileId);
 
         Map<Long, String> normalizedSelections = new LinkedHashMap<>();
@@ -69,12 +69,5 @@ public class DietaryProfileController {
         dietaryProfileService.saveDietaryRestrictionSelections(profileId, normalizedSelections);
         log.info("PUT /profiles/{}/restrictions → 204", profileId);
         return ResponseEntity.noContent().build();
-    }
-
-    private static long requireUserId(AuthUserDetails userDetails) {
-        if (userDetails == null || userDetails.getUserId() == null) {
-            throw new AuthenticatedUserNotFoundException("Authenticated user was not found.");
-        }
-        return userDetails.getUserId();
     }
 }

@@ -2,8 +2,8 @@ package com.canmakan.backend.family;
 
 import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.dto.PendingInvitationResponse;
-import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.shared.security.AuthUserDetails;
+import com.canmakan.backend.shared.security.AuthUserChecker;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +33,7 @@ public class InvitationController {
     @GetMapping("/me")
     public List<PendingInvitationResponse> listMyInvitations(
             @AuthenticationPrincipal AuthUserDetails userDetails) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         List<PendingInvitationResponse> invitations = familyService.listMyPendingInvitations(userId);
         log.info("GET /invitations/me → 200 count={}", invitations.size());
         return invitations;
@@ -44,7 +44,7 @@ public class InvitationController {
     public FamilyMeResponse acceptInvitation(
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @PathVariable("token") String token) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         FamilyMeResponse joined = familyService.acceptInvitation(userId, token);
         log.info("POST /invitations/{}/accept → 200 familyId={}", token, joined.familyId());
         return joined;
@@ -55,17 +55,9 @@ public class InvitationController {
     public ResponseEntity<Void> declineInvitation(
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @PathVariable("token") String token) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         familyService.declineInvitation(userId, token);
         log.info("POST /invitations/{}/decline → 204", token);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-    }
-
-    // Helper method to require user ID
-    private static long requireUserId(AuthUserDetails userDetails) {
-        if (userDetails == null || userDetails.getUserId() == null) {
-            throw new AuthenticatedUserNotFoundException("Authenticated user was not found.");
-        }
-        return userDetails.getUserId();
     }
 }

@@ -221,7 +221,7 @@ public class FamilyService {
             RestrictionCodeSplit codes = splitRestrictionCodes(dietaryProfileOpt);
             String masked = userAccountRepository.findById(member.getUserId())
                 .map(account -> account.getEmail())
-                .map(FamilyService::maskEmail)
+                .map(email -> maskEmail(email))
                 .orElse(null);
             rows.add(new FamilyMemberRosterDto(
                 member.getUserId(),
@@ -400,11 +400,11 @@ public class FamilyService {
         if (profile.getLinkedUser() != null && profile.getLinkedUser().getId() != null) {
             Long linkedUserId = profile.getLinkedUser().getId();
             String role = familyMemberRepository.findMembershipByUserId(linkedUserId)
-                .map(FamilyMember::getMemberRole)
+                .map(member -> member.getMemberRole())
                 .orElse(FamilyMember.ROLE_MEMBER);
             String masked = userAccountRepository.findById(linkedUserId)
                 .map(account -> account.getEmail())
-                .map(FamilyService::maskEmail)
+                .map(email -> maskEmail(email))
                 .orElse(null);
             return new FamilyMemberRosterDto(
                 linkedUserId,
