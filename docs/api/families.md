@@ -182,8 +182,10 @@ Any family member may list. Returns linked users and dependant profiles:
 
 ## Profiles by family id
 
-`GET /api/families/{familyId}/profiles` — authenticated; returns all dietary
-profiles for the family, including dependants (`linked_user_id` null).
+`GET /api/families/{familyId}/profiles` — authenticated; returns active dietary
+profiles for the family when `{familyId}` matches the caller's membership.
+Returns **403** when the caller is not a member of that family.
+Inactive profiles are omitted from the list.
 
 ---
 

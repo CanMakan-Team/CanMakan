@@ -216,7 +216,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 
 **Nice-to-Have (UC20–UC24)** covers product reporting, AI admin logs, trend export, subscriptions, and OCR scan.
 
-**Current repo gaps (post-UC19 integration):** dietary restrictions / history / validate still transitional `permitAll`; no profile ownership authz on assess/history/restrictions; web mock still used for unfinished family/admin surfaces; restriction/verdict code mismatches; UC12 manage CRUD / admin PATCH for `is_active` still open.
+**Current repo gaps (post-UC19 integration):** dietary restrictions / history / validate still transitional `permitAll`; assess profile ownership authz done (UC2); history/restrictions ownership still open; web mock still used for unfinished family/admin surfaces; restriction/verdict code mismatches; UC12 manage CRUD / admin PATCH for `is_active` still open.
 
 ---
 
@@ -255,7 +255,7 @@ Missing: ownership authz on profile-scoped routes; family scans; recommendations
 | UC | Package | Status (detail) |
 | --- | --- | --- |
 | UC1 | Core | **Partial** — live `GET/PUT` restrictions + mobile sheet; still public + no ownership authz; SELF via UC8 |
-| UC2 | Core | **Partial** — ML Kit → validate/assess; assess JWT principal; no profile ownership / inactive checks |
+| UC2 | Core | **Partial** — ML Kit → validate/assess; assess JWT + profile ownership / inactive checks; validate still open |
 | UC3 | Core | **Partial** — rule engine + colour-coded verdict; Alternatives empty (UC5) |
 | UC4 | Core | **Partial** — mobile personal history live; family web history mock; history GET still public |
 | UC5 | Core | **Not started** — Alternatives shell; no recommendations API |
@@ -734,7 +734,7 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 
 | Story | Summary | AC # | Priority |
 | --- | --- | --- | --- |
-| **UC2-S1** | Authorize assess by family + active/inactive rules; JWT userId — **Partial** (JWT done; ownership/inactive open) | UC2: 5–7 | P0 |
+| **UC2-S1** | Authorize assess by family + active/inactive rules; JWT userId — **Done** | UC2: 5–7 | P0 |
 | **UC2-S2** | Camera + ML Kit barcode → `POST /scan/validate` | UC2: 1–3 | P0 |
 | **UC2-S3** | Assess call + navigate to verdict (UC3) | UC2: 4, 12 | P0 |
 | **UC2-S4** | Failure states — unknown / non-food / network (never false Safe) | UC2: 8–11 | P0 |
