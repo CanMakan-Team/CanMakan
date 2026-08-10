@@ -8,5 +8,5 @@ Scan history (UC4 personal list).
 - Optional local caching (Room)
 
 ## API
-Live: `GET /api/scan/profiles/{profileId}/history` via `ScanHistoryApiService`
-(backed by backend `ScanController` + `ScanHistoryService`).
+Live: `GET /api/scan/history/{profileId}` via `ScanHistoryApiService`
+(backed by backend `ScanController` + `ScanHistoryService`; JWT + profile authz required).

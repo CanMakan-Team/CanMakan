@@ -169,7 +169,7 @@ private fun verdictPresentation(verdict: ScanVerdict): Pair<ImageVector, String>
     return when (verdict) {
         ScanVerdict.SAFE -> Icons.Default.Check to "SAFE"
         ScanVerdict.WARNING -> Icons.Default.Warning to "WARNING"
-        ScanVerdict.UNSAFE -> Icons.Default.Close to "AVOID"
+        ScanVerdict.UNSAFE -> Icons.Default.Close to "UNSAFE"
     }
 }
 
