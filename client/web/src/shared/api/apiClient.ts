@@ -43,10 +43,17 @@ export async function apiRequest<T>(
 
   try {
     // Make the request
+
+    // (UC55) Bypass the Ngrok free-tier HTML warning page to prevent CORS interceptions.
+    // Define the Content-Type to ensure the backend correctly parses the JSON body.
     const response = await fetch(`${apiBaseUrl}${path}`, {
       ...options,
-      headers,
-    })
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+        'Content-Type': 'application/json',
+        ...options.headers 
+      }
+    });
 
     // If the response is 401, handle the credential challenge
     // 1. If the path is not a credential challenge, remove the session and dispatch an unauthorised event
