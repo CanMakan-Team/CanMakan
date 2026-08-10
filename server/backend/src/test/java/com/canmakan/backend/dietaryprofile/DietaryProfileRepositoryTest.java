@@ -92,7 +92,7 @@ class DietaryProfileRepositoryTest {
         // Intolerance" (2) < "Low Fat" (12) < "Low Sodium" (14) < "Low Sugar" (11)
         // < "Low Trans Fat" (13) < "Peanut Allergy" (3) < "Soy Allergy" (6)
         // < "Vegan" (10) < "Vegetarian Diet" (9)
-        assertThat(all).extracting(DietaryRestriction::getId)
+        assertThat(all.stream().map(restriction -> restriction.getId()).toList())
             .containsExactly(4L, 7L, 5L, 1L, 8L, 15L, 2L, 12L, 14L, 11L, 13L, 3L, 6L, 10L, 9L);
     }
 
@@ -122,7 +122,9 @@ class DietaryProfileRepositoryTest {
             profileRestrictionRepository.findByDietaryProfileId(PROFILE_SARAH_TAN);
 
         assertThat(found)
-            .extracting(pr -> pr.getDietaryRestriction().getDisplayName(), ProfileRestriction::getSeverityLevel)
+            .extracting(
+                pr -> pr.getDietaryRestriction().getDisplayName(),
+                pr -> pr.getSeverityLevel())
             .containsExactlyInAnyOrder(
                 tuple("Gluten Free", "STRICT_AVOID"),
                 tuple("Low Sugar", "PREFERENCE")
@@ -136,7 +138,9 @@ class DietaryProfileRepositoryTest {
             profileRestrictionRepository.findByDietaryProfileId(PROFILE_MICHAEL_TAN);
 
         assertThat(found)
-            .extracting(pr -> pr.getDietaryRestriction().getDisplayName(), ProfileRestriction::getSeverityLevel)
+            .extracting(
+                pr -> pr.getDietaryRestriction().getDisplayName(),
+                pr -> pr.getSeverityLevel())
             .containsExactlyInAnyOrder(
                 tuple("Low Fat", "PREFERENCE"),
                 tuple("Low Sodium", "PREFERENCE")
@@ -223,7 +227,9 @@ class DietaryProfileRepositoryTest {
             profileRestrictionRepository.findByDietaryProfileId(PROFILE_SARAH_TAN);
         assertThat(found).hasSize(2);
         assertThat(found)
-            .extracting(pr -> pr.getDietaryRestriction().getId(), ProfileRestriction::getSeverityLevel)
+            .extracting(
+                pr -> pr.getDietaryRestriction().getId(),
+                pr -> pr.getSeverityLevel())
             .containsExactlyInAnyOrder(
                 tuple(RESTRICTION_GLUTEN, "INTOLERANCE"),
                 tuple(RESTRICTION_LOW_SUGAR, "PREFERENCE")
