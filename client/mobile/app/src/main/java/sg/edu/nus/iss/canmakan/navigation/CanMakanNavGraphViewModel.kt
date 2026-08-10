@@ -244,12 +244,19 @@ class CanMakanNavGraphViewModel @Inject constructor(
     }
 
     private fun profileFromActiveResponse(active: ActiveProfileResponse): DietaryProfile {
-        val initials = active.profileName
-            .trim()
-            .firstOrNull()
-            ?.uppercaseChar()
-            ?.toString()
-            .orEmpty()
+        // Mirrors DietaryProfileService#getProfilesByFamilyId on the backend, which
+        // derives initials from the first two characters of the profile name. The
+        // active-profile endpoint doesn't return initials itself, so this fallback
+        // has to compute them the same way the backend does for family members —
+        // otherwise a profile shows single-letter initials here but two-letter
+        // initials everywhere else, depending on which endpoint it came from.
+        val trimmedName = active.profileName.trim()
+        val words = trimmedName.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        val initials = if (words.size >= 2) {
+            (words.first().take(1) + words.last().take(1)).uppercase()
+        } else {
+            trimmedName.take(minOf(2, trimmedName.length)).uppercase()
+        }
         return DietaryProfile(
             id = active.profileId,
             familyId = active.familyId ?: 0L,
