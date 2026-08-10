@@ -85,6 +85,16 @@ public class DietaryRuleEngine {
 
         // Resolve unknown ingredients via the knowledge boundary.
         // Catalog hits with no root allergen are known-safe (not UNRESOLVED).
+        // Resolve unknown ingredients in a single batch call so the resolver can share
+        // expensive lookups instead of one round trip per item.
+        List<String> namesToResolve = new ArrayList<>();
+        for (Ingredient ing : product.ingredients()) {
+            if (ing.rootAllergen() == null || ing.rootAllergen().isBlank()) {
+                namesToResolve.add(ing.ingredientName());
+            }
+        }
+        Map<String, IngredientResolution> resolutions = resolver.resolveAll(namesToResolve);
+
         List<String> unresolvedNames = new ArrayList<>();
         List<Ingredient> resolved = new ArrayList<>();
         for (Ingredient ing : product.ingredients()) {
@@ -93,7 +103,8 @@ public class DietaryRuleEngine {
                 continue;
             }
 
-            IngredientResolution resolution = resolver.resolve(ing.ingredientName());
+            IngredientResolution resolution =
+                    resolutions.getOrDefault(ing.ingredientName(), IngredientResolution.unknown());
             switch (resolution.kind()) {
                 case RESOLVED -> {
                     String name = resolution.canonicalName() != null && !resolution.canonicalName().isBlank()

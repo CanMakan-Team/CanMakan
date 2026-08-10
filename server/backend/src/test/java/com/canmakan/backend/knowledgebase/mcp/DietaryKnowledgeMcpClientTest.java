@@ -18,6 +18,7 @@ import com.canmakan.backend.knowledgebase.mcp.server.IngredientAliasTool;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.product.verdict.IngredientResolution;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -204,5 +205,25 @@ class DietaryKnowledgeMcpClientTest {
         when(eNumberTool.lookup("E471")).thenReturn(eNumber);
 
         assertSame(eNumber, client.lookupENumber("E471"));
+    }
+
+    @Test
+    void resolveAllBatchesTheAllergenLookupAndKeepsPerNameOutcomes() {
+        when(ingredientAliasTool.lookup("whey"))
+                .thenReturn(new IngredientAliasResult("whey", "Whey", null, false, true));
+        when(ingredientAliasTool.lookup("mystery"))
+                .thenReturn(new IngredientAliasResult("mystery", "mystery", null, false, false));
+        when(allergenRelationshipTool.lookup(List.of("Whey", "mystery")))
+                .thenReturn(new AllergenRelationshipResult(
+                        List.of(new Ingredient("Whey", "Milk", "DAIRY", false)),
+                        List.of("mystery"), "", List.of()));
+
+        Map<String, IngredientResolution> resolutions =
+                client.resolveAll(List.of("whey", "mystery"));
+
+        assertEquals(IngredientResolution.Kind.RESOLVED, resolutions.get("whey").kind());
+        assertEquals("DAIRY", resolutions.get("whey").rootAllergen());
+        // The batched Whey match must not leak onto the unrelated, unresolved label.
+        assertEquals(IngredientResolution.Kind.UNKNOWN, resolutions.get("mystery").kind());
     }
 }

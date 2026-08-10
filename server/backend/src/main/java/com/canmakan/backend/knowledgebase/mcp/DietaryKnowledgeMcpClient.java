@@ -16,8 +16,11 @@ import com.canmakan.backend.product.verdict.IngredientResolver;
 
 import lombok.RequiredArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import java.util.regex.Matcher;
@@ -54,19 +57,82 @@ public class DietaryKnowledgeMcpClient implements IngredientResolver {
         if (ingredientName == null || ingredientName.isBlank()) {
             return IngredientResolution.unknown();
         }
+        return resolveWith(ingredientName, lookupAlias(ingredientName), null);
+    }
 
-        IngredientAliasResult alias = lookupAlias(ingredientName);
+    /**
+     * Batched resolution: run the alias lookups, issue a <b>single</b> allergen-relationship
+     * lookup for every label that still needs the hierarchy, then decide each label against
+     * that shared result. Per-label outcomes match {@link #resolve(String)}.
+     */
+    @Override
+    public Map<String, IngredientResolution> resolveAll(List<String> ingredientNames) {
+        Map<String, IngredientResolution> resolutions = new LinkedHashMap<>();
+        if (ingredientNames == null || ingredientNames.isEmpty()) {
+            return resolutions;
+        }
+
+        // Phase 1: alias lookup per label; collect the hierarchy queries that still need it.
+        Map<String, IngredientAliasResult> aliasByName = new LinkedHashMap<>();
+        List<String> hierarchyQueries = new ArrayList<>();
+        for (String name : ingredientNames) {
+            if (name == null || name.isBlank() || aliasByName.containsKey(name)) {
+                continue;
+            }
+            IngredientAliasResult alias = lookupAlias(name);
+            aliasByName.put(name, alias);
+            if (alias != null && alias.matched() && hasRoot(alias.rootAllergen())) {
+                continue;   // fast path: no hierarchy lookup needed
+            }
+            hierarchyQueries.add(hierarchyQueryFor(alias, name));
+        }
+
+        // Phase 2: one shared allergen-relationship lookup for every label that needs it.
+        AllergenRelationshipResult batchedHierarchy = hierarchyQueries.isEmpty()
+                ? null
+                : allergenRelationshipTool.lookup(hierarchyQueries);
+
+        // Phase 3: resolve each label against its alias and the shared hierarchy result.
+        for (String name : ingredientNames) {
+            if (name == null || name.isBlank() || resolutions.containsKey(name)) {
+                continue;
+            }
+            resolutions.put(name, resolveWith(name, aliasByName.get(name), batchedHierarchy));
+        }
+        return resolutions;
+    }
+
+    /**
+     * @return the resolved root allergen, or {@code null} when known-safe or unknown
+     */
+    @Override
+    public String resolveRootAllergen(String ingredientName) {
+        IngredientResolution resolution = resolve(ingredientName);
+        return resolution.kind() == IngredientResolution.Kind.RESOLVED
+                ? resolution.rootAllergen()
+                : null;
+    }
+
+    /**
+     * Shared decision logic for one label. {@code prefetchedHierarchy} lets the batched path
+     * reuse a single allergen-relationship result; when {@code null} the hierarchy is looked
+     * up on demand (the single-label path).
+     */
+    private IngredientResolution resolveWith(
+            String ingredientName,
+            IngredientAliasResult alias,
+            AllergenRelationshipResult prefetchedHierarchy) {
+        if (ingredientName == null || ingredientName.isBlank()) {
+            return IngredientResolution.unknown();
+        }
 
         // Fast path: catalog already knows the root allergen.
         if (alias != null && alias.matched() && hasRoot(alias.rootAllergen())) {
             return IngredientResolution.resolved(alias.rootAllergen());
         }
 
-        String hierarchyQuery = (alias != null && alias.canonicalName() != null && !alias.canonicalName().isBlank())
-                ? alias.canonicalName()
-                : ingredientName.trim();
-
-        IngredientResolution fromHierarchy = resolveFromHierarchy(hierarchyQuery);
+        String hierarchyQuery = hierarchyQueryFor(alias, ingredientName);
+        IngredientResolution fromHierarchy = resolveFromHierarchy(hierarchyQuery, prefetchedHierarchy);
         if (fromHierarchy.kind() == IngredientResolution.Kind.RESOLVED
                 || fromHierarchy.kind() == IngredientResolution.Kind.KNOWN_SAFE) {
             return fromHierarchy;
@@ -85,29 +151,34 @@ public class DietaryKnowledgeMcpClient implements IngredientResolver {
         return IngredientResolution.unknown();
     }
 
-    /**
-     * @return the resolved root allergen, or {@code null} when known-safe or unknown
-     */
-    @Override
-    public String resolveRootAllergen(String ingredientName) {
-        IngredientResolution resolution = resolve(ingredientName);
-        return resolution.kind() == IngredientResolution.Kind.RESOLVED
-                ? resolution.rootAllergen()
-                : null;
+    /** The label the hierarchy lookup should use: the alias canonical name when present. */
+    private static String hierarchyQueryFor(IngredientAliasResult alias, String ingredientName) {
+        return (alias != null && alias.canonicalName() != null && !alias.canonicalName().isBlank())
+                ? alias.canonicalName()
+                : ingredientName.trim();
     }
 
-    private IngredientResolution resolveFromHierarchy(String ingredientName) {
-        AllergenRelationshipResult relationship = lookupAllergenRelationship(ingredientName);
+    /**
+     * Resolve one label against the allergen hierarchy. When {@code prefetched} is supplied
+     * (the batched path) matches must name-match strictly, so one label's hierarchy match
+     * cannot leak onto a different label sharing the same batched result.
+     */
+    private IngredientResolution resolveFromHierarchy(
+            String ingredientName, AllergenRelationshipResult prefetched) {
+        boolean batched = prefetched != null;
+        AllergenRelationshipResult relationship = batched
+                ? prefetched
+                : lookupAllergenRelationship(ingredientName);
         if (relationship == null) {
             return IngredientResolution.unknown();
         }
 
-        IngredientResolution fromLocal = firstRootMatch(relationship.localMatches(), ingredientName);
+        IngredientResolution fromLocal = firstRootMatch(relationship.localMatches(), ingredientName, batched);
         if (fromLocal != null) {
             return fromLocal;
         }
 
-        IngredientResolution fromExternal = firstRootMatch(relationship.externalMatches(), ingredientName);
+        IngredientResolution fromExternal = firstRootMatch(relationship.externalMatches(), ingredientName, batched);
         if (fromExternal != null) {
             return fromExternal;
         }
@@ -157,7 +228,7 @@ public class DietaryKnowledgeMcpClient implements IngredientResolver {
         if (ingredientName == null || ingredientName.isBlank()) {
             return null;
         }
-        
+
         Matcher matcher = E_NUMBER_PATTERN.matcher(ingredientName.trim());
         if (!matcher.find()) {
             return null;
@@ -167,9 +238,12 @@ public class DietaryKnowledgeMcpClient implements IngredientResolver {
 
     /**
      * Picks a structured match for {@code ingredientName}. {@code NONE} means the
-     * external source recognises the label as non-allergen (known-safe).
+     * external source recognises the label as non-allergen (known-safe). When
+     * {@code strictName} is set, a match must name-match the label (used by the batched
+     * path where the result set covers several labels).
      */
-    private static IngredientResolution firstRootMatch(List<Ingredient> matches, String ingredientName) {
+    private static IngredientResolution firstRootMatch(
+            List<Ingredient> matches, String ingredientName, boolean strictName) {
         if (matches == null || matches.isEmpty()) {
             return null;
         }
@@ -182,7 +256,7 @@ public class DietaryKnowledgeMcpClient implements IngredientResolver {
                 || normalize(match.ingredientName()).equals(wanted)
                 || normalize(match.ingredientName()).contains(wanted)
                 || wanted.contains(normalize(match.ingredientName()));
-            if (!nameMatches && matches.size() > 1) {
+            if (!nameMatches && (strictName || matches.size() > 1)) {
                 continue;
             }
             String root = match.rootAllergen().trim().toUpperCase(Locale.ROOT);
