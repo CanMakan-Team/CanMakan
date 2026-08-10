@@ -42,12 +42,17 @@ class AdminControllerTest {
 
     private MockMvc mockMvc;
     private ConsumerTrendsService consumerTrendsService;
+    private UserAccountManagementService userAccountManagementService;
 
     @BeforeEach
     void setUp() {
         consumerTrendsService = mock(ConsumerTrendsService.class);
+        userAccountManagementService = mock(UserAccountManagementService.class);
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new AdminController(consumerTrendsService))
+                .standaloneSetup(new AdminController(
+                        consumerTrendsService,
+                        userAccountManagementService
+                ))
                 .setControllerAdvice(new AdminExceptionHandler())
                 .build();
     }
