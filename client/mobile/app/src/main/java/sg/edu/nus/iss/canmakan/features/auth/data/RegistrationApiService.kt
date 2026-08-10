@@ -10,9 +10,11 @@ data class RegistrationRequest(
     @SerializedName("name") val name: String,
     @SerializedName("email") val email: String,
     @SerializedName("password") val password: String,
+    @SerializedName("invitationToken") val invitationToken: String? = null,
 ) {
     override fun toString(): String {
-        return "RegistrationRequest(name=$name, email=$email, password=<redacted>)"
+        return "RegistrationRequest(name=$name, email=$email, password=<redacted>, " +
+            "invitationToken=${if (invitationToken == null) "null" else "<present>"})"
     }
 }
 

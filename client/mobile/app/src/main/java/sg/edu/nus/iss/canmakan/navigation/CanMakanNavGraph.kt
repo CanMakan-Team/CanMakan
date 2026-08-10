@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.navigation
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -75,12 +76,14 @@ fun CanMakanNavGraph(
     val activeRestrictions by navGraphViewModel.activeRestrictions.collectAsStateWithLifecycle()
     val profiles by navGraphViewModel.profiles.collectAsStateWithLifecycle()
     val hasFamily by navGraphViewModel.hasFamily.collectAsStateWithLifecycle()
+    val showManageFamilyActions by navGraphViewModel.showManageFamilyActions.collectAsStateWithLifecycle()
     val hasUserSession by navGraphViewModel.hasUserSession.collectAsStateWithLifecycle()
     val isLoading by navGraphViewModel.isLoading.collectAsStateWithLifecycle()
     val error by navGraphViewModel.error.collectAsStateWithLifecycle()
     val pendingVerdict by navGraphViewModel.pendingVerdict.collectAsStateWithLifecycle()
     val isCreatingFamily by navGraphViewModel.isCreatingFamily.collectAsStateWithLifecycle()
     val createFamilyError by navGraphViewModel.createFamilyError.collectAsStateWithLifecycle()
+    val inviteClaimError by navGraphViewModel.inviteClaimError.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -125,7 +128,7 @@ fun CanMakanNavGraph(
                         hasUserSession -> CanMakanNavGraphViewModel.NO_FAMILY_MESSAGE
                         else -> CanMakanNavGraphViewModel.NO_SESSION_FAMILY_MESSAGE
                     },
-                    showManageFamilyActions = navGraphViewModel.showManageFamilyActions,
+                    showManageFamilyActions = showManageFamilyActions,
                     onProfileSelected = { selected ->
                         navGraphViewModel.switchProfile(selected.id)
                         closeDrawer()
@@ -168,8 +171,18 @@ fun CanMakanNavGraph(
             }
         }
     ) {
-        // NavHost is used to switch between the three screens
-        NavHost(navController = navController, startDestination = ROUTE_SCANNER) {
+        Column {
+            inviteClaimError?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable { navGraphViewModel.clearInviteClaimError() },
+                )
+            }
+            // NavHost is used to switch between the three screens
+            NavHost(navController = navController, startDestination = ROUTE_SCANNER) {
             composable(ROUTE_SCANNER) {
                 ScannerScreen(
                     activeProfile = activeProfile,
@@ -275,10 +288,10 @@ fun CanMakanNavGraph(
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },
                     onCancelClick = { navController.popBackStack() },
-                    onCreateClick = { _, _, _ -> 
+                    onCreated = {
                         navController.popBackStack()
                         navGraphViewModel.refreshRestrictions()
-                    }
+                    },
                 )
             }
             composable(ROUTE_ADD_PROFILE) {
@@ -289,12 +302,13 @@ fun CanMakanNavGraph(
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },
                     onCancelClick = { navController.popBackStack() },
-                    onAddProfileClick = { _, _ -> 
+                    onInviteCreated = {
                         navController.popBackStack()
                         navGraphViewModel.refreshRestrictions()
                     }
                 )
             }
+        }
         }
 
         // ModalBottomSheet is used to open and close the edit dietary requirements sheet

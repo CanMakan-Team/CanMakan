@@ -118,14 +118,19 @@ CREATE TABLE family_members (
 CREATE TABLE family_invitations (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     family_id BIGINT NOT NULL,
+    invited_by_user_id BIGINT NOT NULL,
     invited_email VARCHAR(255) NOT NULL,
     invitation_token VARCHAR(100) NOT NULL UNIQUE,
-    `status` VARCHAR(20) DEFAULT 'PENDING',
+    invite_code VARCHAR(12) NOT NULL UNIQUE,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_fam_invites_family
         FOREIGN KEY (family_id) REFERENCES families(id)
-        ON DELETE CASCADE ON UPDATE CASCADE
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_fam_invites_invited_by
+        FOREIGN KEY (invited_by_user_id) REFERENCES users(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE dietary_profiles (

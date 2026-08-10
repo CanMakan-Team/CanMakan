@@ -57,7 +57,7 @@ export function FamilyRestrictionSummaryPage() {
       </header>
 
       {loading ? (
-        <LoadingState label="Building family restriction summary " />
+        <LoadingState label="Building family restriction summary..." />
       ) : error ? (
         <ErrorState message={error} onRetry={loadSummary} />
       ) : activeMembers.length === 0 ? (
@@ -88,7 +88,7 @@ export function FamilyRestrictionSummaryPage() {
               </thead>
               <tbody>
                 {activeMembers.map((member) => (
-                  <tr key={member.userId}>
+                  <tr key={member.profileId ?? member.userId}>
                     <th scope="row">{member.name}</th>
                     {columns.map((colName) => {
                       const restriction = member.restrictions.find(

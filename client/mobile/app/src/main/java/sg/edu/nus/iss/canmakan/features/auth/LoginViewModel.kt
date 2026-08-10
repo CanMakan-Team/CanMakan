@@ -13,9 +13,10 @@ import kotlinx.coroutines.launch
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthFailureType
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthRepository
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthResult
-import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedSession
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
+import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
 
 data class LoginUiState(
     val email: String = "",
@@ -25,11 +26,13 @@ data class LoginUiState(
     val loginError: String? = null,
     val isSubmitting: Boolean = false,
     val authenticatedUser: AuthenticatedUser? = null,
+    val invitationToken: String? = null,
 ) {
     override fun toString(): String {
         return "LoginUiState(email=$email, password=<redacted>, emailError=$emailError, " +
             "passwordError=$passwordError, loginError=$loginError, " +
-            "isSubmitting=$isSubmitting, authenticated=${authenticatedUser != null})"
+            "isSubmitting=$isSubmitting, authenticated=${authenticatedUser != null}, " +
+            "hasInvitationToken=${!invitationToken.isNullOrBlank()})"
     }
 }
 
@@ -37,10 +40,21 @@ data class LoginUiState(
 class LoginViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val authSessionStore: AuthSessionStore,
+    private val familyProfileRepository: FamilyProfileRepository,
+    private val pendingInvitationStore: PendingInvitationStore,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
+
+    fun setInvitationToken(token: String?) {
+        val trimmed = token?.trim().orEmpty()
+        val value = trimmed.ifBlank { null }
+        if (value != null) {
+            pendingInvitationStore.offer(value)
+        }
+        _uiState.value = _uiState.value.copy(invitationToken = value)
+    }
 
     fun updateEmail(email: String) {
         val state = _uiState.value
@@ -103,7 +117,21 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 when (val result = authRepository.login(normalizedEmail, exactPassword)) {
-                    is AuthResult.Success -> establishSession(result.value)
+                    is AuthResult.Success -> {
+                        if (authSessionStore.saveSession(result.value)) {
+                            claimPendingInvitationIfPresent()
+                            _uiState.value = _uiState.value.copy(
+                                password = "",
+                                loginError = null,
+                                authenticatedUser = result.value.user,
+                            )
+                        } else {
+                            _uiState.value = _uiState.value.copy(
+                                authenticatedUser = null,
+                                loginError = SESSION_ESTABLISHMENT_MESSAGE,
+                            )
+                        }
+                    }
                     is AuthResult.Failure -> showLoginFailure(result.type)
                 }
             } catch (exception: CancellationException) {
@@ -116,18 +144,15 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    private fun establishSession(session: AuthenticatedSession) {
-        if (authSessionStore.saveSession(session)) {
-            _uiState.value = _uiState.value.copy(
-                password = "",
-                loginError = null,
-                authenticatedUser = session.user,
-            )
-        } else {
-            _uiState.value = _uiState.value.copy(
-                authenticatedUser = null,
-                loginError = SESSION_ESTABLISHMENT_MESSAGE,
-            )
+    private suspend fun claimPendingInvitationIfPresent() {
+        val token = _uiState.value.invitationToken?.trim().orEmpty()
+            .ifBlank { pendingInvitationStore.peek().orEmpty() }
+        if (token.isBlank()) return
+        try {
+            familyProfileRepository.claimInvitation(token)
+            pendingInvitationStore.clear()
+        } catch (_: Exception) {
+            // Leave token for authenticated shell retry; login still succeeds.
         }
     }
 
@@ -161,3 +186,4 @@ class LoginViewModel @Inject constructor(
         private val EMAIL_PATTERN = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
     }
 }
+

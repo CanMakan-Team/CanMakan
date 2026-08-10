@@ -1,9 +1,22 @@
+/**
+ * Setting up the DTO interfaces to match the backend payloads,
+ * {RegistrationResponse, AuthLoginResponse, FamilyMe, FamilyMember, FamilyProfileInput, ActiveProfile, ExistingUserSearchResult, InvitationResponse, DependantProfileResponse, Verdict, DataCompleteness, ScanRecord, ConsumerTrendResponse, UserAccessSummary, AccessUpdate, AuditEntry}
+ * from backend/auth/dto
+ * 
+ * @author Amelia
+ * @author Khai
+ */
+
+// Define the role type
 export type Role =
   | 'ROLE_APP_USER'
   | 'ROLE_FAMILY_ADMIN'
   | 'ROLE_SYSTEM_ADMIN'
 
+// Define the portal type
 export type Portal = 'FAMILY' | 'SYSTEM'
+
+// Define the relationship type
 export type Relationship =
   | 'SELF'
   | 'SPOUSE'
@@ -11,7 +24,11 @@ export type Relationship =
   | 'PARENT'
   | 'DEPENDANT'
   | 'OTHER'
+
+// Define the age group type
 export type AgeGroup = 'CHILD' | 'TEEN' | 'ADULT' | 'SENIOR' | 'UNSPECIFIED'
+
+// Define the restriction code type
 export type RestrictionCode =
   | 'HALAL'
   | 'KOSHER'
@@ -30,6 +47,7 @@ export type RestrictionCode =
   | 'LOW_CHOLESTEROL'
   | 'KETO'
 
+// Define the authenticated session type
 export interface AuthenticatedSession {
   accessToken?: string
   userId: number
@@ -39,7 +57,7 @@ export interface AuthenticatedSession {
   prototype: boolean
 }
 
-/** POST /api/auth/register success body (UC18). */
+  /** POST /api/auth/register success body (UC18). */
 export interface RegistrationResponse {
   userId: number
   profileId: number
@@ -69,6 +87,7 @@ export interface FamilyMe {
   createdByUserId: number
 }
 
+// Define the family member type
 export interface FamilyMember {
   memberId: number
   profileName: string
@@ -80,6 +99,7 @@ export interface FamilyMember {
   maskedEmail?: string
 }
 
+// Define the family profile input type
 export interface FamilyProfileInput {
   profileName: string
   relationship: Relationship
@@ -88,23 +108,47 @@ export interface FamilyProfileInput {
   restrictions: RestrictionCode[]
 }
 
+// Define the active profile type
 export interface ActiveProfile {
   memberId: number
   profileName: string
   activatedAt: string
 }
 
+// Define the existing user search result type
 export interface ExistingUserSearchResult {
-  userId: number
-  displayName: string
+  userId?: number | null
+  displayName?: string | null
   maskedEmail: string
-  accountStatus: 'ACTIVE' | 'INACTIVE'
+  accountStatus: 'ACTIVE' | 'INACTIVE' | 'NOT_REGISTERED'
   familyLinkStatus: 'NOT_LINKED' | 'ALREADY_LINKED' | 'PENDING'
 }
 
+// Define the invitation response type
+export interface InvitationResponse {
+  invitationId: number
+  invitedEmail: string
+  invitationToken: string
+  inviteCode: string
+  inviteUrl: string
+  status: string
+  expiresAt: string
+  inviteeRegistered: boolean
+}
+
+// Define the dependant profile response type
+export interface DependantProfileResponse {
+  profileId: number
+  profileName: string
+  relationship: string
+  familyId: number
+}
+
+// Define the verdict type
 export type Verdict = 'SAFE' | 'WARNING' | 'AVOID' | 'INCOMPLETE'
 export type DataCompleteness = 'COMPLETE' | 'PARTIAL' | 'PRODUCT_NOT_FOUND'
 
+// Define the scan record type
 export interface ScanRecord {
   scanId: number
   product: string
@@ -122,6 +166,7 @@ export interface ScanRecord {
   suggestedAlternative?: string
 }
 
+// Define the consumer trend response type
 export interface ConsumerTrendResponse {
   period: { from: string; to: string }
   verdictDistribution: Array<{ verdict: Verdict; count: number }>
@@ -136,7 +181,10 @@ export interface ConsumerTrendResponse {
   partial: boolean
 }
 
+// Define the account status type
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING' | 'DISABLED'
+
+// Define the user access summary type
 export interface UserAccessSummary {
   userId: number
   displayName: string
@@ -147,11 +195,13 @@ export interface UserAccessSummary {
   lastActiveAt?: string
 }
 
+// Define the access update type
 export interface AccessUpdate {
   roles?: Role[]
   accountStatus?: AccountStatus
 }
 
+// Define the audit entry type
 export interface AuditEntry {
   auditId: number
   actor: string
@@ -165,19 +215,24 @@ export interface AuditEntry {
  * {FamilyMeRestrictionDetail, FamilyMeRestrictionSum, FamilyRestrictionSumRes}
  * from backend/family/dto
  */
+
+// Define the family me restriction detail type
 export interface FamilyMeRestrictionDetail {
   code: string,
   displayName: string,
   severity: string
 }
 
+// Define the family me restriction sum type
 export interface FamilyMeRestrictionSum {
   userId: number,
+  profileId?: number | null,
   name: string,
   isActive: boolean,
   restrictions: FamilyMeRestrictionDetail[]
 }
 
+// Define the family restriction sum response type
 export interface FamilyRestrictionSumRes {
   familyMembers: FamilyMeRestrictionSum[]
 }

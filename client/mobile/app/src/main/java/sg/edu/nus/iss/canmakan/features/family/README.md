@@ -24,13 +24,21 @@ When `/families/me` returns 404 and the user is signed in, the drawer shows a sh
 
 Create is hidden when the user already has a family. Without a UC19 session, the drawer asks the user to sign in.
 
-## Invite (UC9) — planned
+## Invite (UC9)
 
-PRIMARY_ADMIN invite via shareable **link/code** + Android share sheet. Backend PENDING invitations; invitee joins on UC10 accept. Not built yet.
+PRIMARY_ADMIN can open **Invite to Family** from the drawer (`showManageFamilyActions`
+when `memberRole == PRIMARY_ADMIN`). `AddProfileToFamilyScreen` searches by email,
+creates a PENDING invitation, and opens the system share sheet with `inviteUrl` +
+`inviteCode`. Invitees join via register/login claim (optional `invitationToken`);
+full UC10 inbox remains later.
+
+Dependant profile create UI stays web-primary; dependants still appear in the
+mobile profile switcher and UC6 summary once created.
 
 ## Manage members (UC12)
 
-`CreateNewProfileScreen` / `AddProfileToFamilyScreen` are stubs. Full roster admin is **web-primary**; mobile manage stays optional/limited. Drawer manage entry points stay hidden (`showManageFamilyActions = false`) until a limited subset is intentionally enabled.
+`CreateNewProfileScreen` remains a stub. Full roster admin is **web-primary**;
+mobile manage stays limited to invite (UC9).
 
 ## Notes
 The actual dietary data of each member lives in `dietaryprofile`.
