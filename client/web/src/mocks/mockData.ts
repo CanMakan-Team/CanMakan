@@ -103,7 +103,7 @@ export const scanRecords: ScanRecord[] = [
     brand: 'Good Day',
     memberId: 103,
     evaluatedProfile: 'Noah',
-    verdict: 'AVOID',
+    verdict: 'UNSAFE',
     detectedIngredient: 'Peanut pieces',
     resolvedIngredient: 'Peanut',
     matchedRestriction: 'Peanut allergy',
@@ -153,7 +153,7 @@ export const scanRecords: ScanRecord[] = [
     brand: 'Unknown',
     memberId: 102,
     evaluatedProfile: 'Marcus',
-    verdict: 'INCOMPLETE',
+    verdict: 'WARNING',
     detectedIngredient: 'Ingredient data unavailable',
     resolvedIngredient: 'Not resolved',
     matchedRestriction: 'Assessment incomplete',
@@ -186,8 +186,7 @@ export const consumerTrends: ConsumerTrendResponse = {
   verdictDistribution: [
     { verdict: 'SAFE', count: 824 },
     { verdict: 'WARNING', count: 286 },
-    { verdict: 'AVOID', count: 154 },
-    { verdict: 'INCOMPLETE', count: 92 },
+    { verdict: 'UNSAFE', count: 154 },
   ],
   flaggedIngredients: [
     { resolvedIngredient: 'Peanut', count: 148 },

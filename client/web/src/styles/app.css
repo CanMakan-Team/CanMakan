@@ -966,6 +966,7 @@ input[readonly] {
 }
 
 .status-badge--avoid,
+.status-badge--unsafe,
 .status-badge--suspended,
 .status-badge--disabled {
   color: var(--avoid);
@@ -1680,11 +1681,6 @@ caption {
 
 .accessible-equivalent {
   margin-top: 1rem;
-}
-
-.status-badge--unsafe {
-  color: var(--avoid);
-  background: var(--avoid-bg);
 }
 
 .data-table--analytics {

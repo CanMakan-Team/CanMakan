@@ -223,10 +223,9 @@ PATCH /api/admin/users/{userId}/access
 
 ## Safety and architecture boundaries
 
-React displays final `SAFE`, `WARNING`, `AVOID` or `INCOMPLETE` values exactly
-as supplied by the service. It does not interpret ingredients, calculate a
-food-safety verdict, upgrade incomplete data to Safe or override the backend
-decision. The intended architecture remains:
+React displays scan verdicts as `SAFE` | `WARNING` | `UNSAFE` exactly as supplied.
+It does not interpret ingredients, calculate a food-safety verdict, upgrade incomplete data to Safe
+or override the backend decision. The intended architecture remains:
 
 - Agentic AI: structured ingredient-level interpretation;
 - Spring Boot Rule Engine: final verdict;

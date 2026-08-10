@@ -1,6 +1,6 @@
-/**
+﻿/**
  * Setting up the DTO interfaces to match the backend payloads,
- * {RegistrationResponse, AuthLoginResponse, FamilyMe, FamilyMember, FamilyProfileInput, ActiveProfile, ExistingUserSearchResult, InvitationResponse, DependantProfileResponse, Verdict, DataCompleteness, ScanRecord, ConsumerTrendResponse, UserAccessSummary, AccessUpdate, AuditEntry}
+ * {RegistrationResponse, AuthLoginResponse, FamilyMe, FamilyMember, FamilyProfileInput, ActiveProfile, ExistingUserSearchResult, InvitationResponse, DependantProfileResponse, ScanVerdict, Verdict, DataCompleteness, ScanRecord, ConsumerTrendResponse, UserAccessSummary, AccessUpdate, AuditEntry}
  * from backend/auth/dto
  * 
  * @author Amelia
@@ -150,8 +150,12 @@ export interface DependantProfileResponse {
   familyId: number // id of the family
 }
 
-// Define the verdict type
-export type Verdict = 'SAFE' | 'WARNING' | 'AVOID' | 'INCOMPLETE'
+// scans.verdict (DB / assessment wire)
+export type ScanVerdict = 'SAFE' | 'WARNING' | 'UNSAFE'
+
+// UC6 matrix badge tones (maps DB severity_level for display; includes legacy AVOID)
+export type Verdict = ScanVerdict | 'AVOID' | 'INCOMPLETE'
+
 export type DataCompleteness = 'COMPLETE' | 'PARTIAL' | 'PRODUCT_NOT_FOUND'
 
 // Define the scan record type
@@ -161,7 +165,7 @@ export interface ScanRecord {
   brand: string // name of the brand
   memberId: number // id of the member
   evaluatedProfile: string // name of the evaluated profile
-  verdict: Verdict // verdict of the scan
+  verdict: ScanVerdict // wire verdict from assessment / family scans API
   detectedIngredient: string // name of the detected ingredient
   resolvedIngredient: string // name of the resolved ingredient
   matchedRestriction: string // name of the matched restriction
@@ -175,7 +179,7 @@ export interface ScanRecord {
 // Define the consumer trend response type
 export interface ConsumerTrendResponse {
   period: { from: string; to: string } // period of the trend (start and end dates)
-  verdictDistribution: Array<{ verdict: Verdict; count: number }> // distribution of the verdicts
+  verdictDistribution: Array<{ verdict: ScanVerdict; count: number }> // distribution of the verdicts
   flaggedIngredients: Array<{ resolvedIngredient: string; count: number }> // distribution of the flagged ingredients
   productCategories?: Array<{
     category: string // category of the product

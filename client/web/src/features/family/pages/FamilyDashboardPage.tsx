@@ -17,14 +17,19 @@ export function FamilyDashboardPage() {
     setLoading(true)
     setError('')
     try {
-      const [loadedMembers, loadedScans, loadedActive] = await Promise.all([
+      const [loadedMembers, loadedActive] = await Promise.all([
         familyApiService.getMembers(),
-        familyApiService.getScanHistory(),
         familyApiService.getActiveProfile(),
       ])
       setMembers(loadedMembers)
-      setScans(loadedScans)
       setActive(loadedActive)
+
+      // Family scan history is PRIMARY_ADMIN-only (UC4); members still see the rest of the dashboard.
+      try {
+        setScans(await familyApiService.getScanHistory())
+      } catch {
+        setScans([])
+      }
     } catch (caughtError) {
       setError(getErrorMessage(caughtError))
     } finally {
@@ -112,7 +117,7 @@ export function FamilyDashboardPage() {
             <Link to="/family/history">View history</Link>
           </div>
           <div className="verdict-summary">
-            {(['SAFE', 'WARNING', 'AVOID', 'INCOMPLETE'] as const).map((verdict) => (
+            {(['SAFE', 'WARNING', 'UNSAFE'] as const).map((verdict) => (
               <div key={verdict}>
                 <StatusBadge status={verdict} />
                 <strong>{verdictCounts[verdict] ?? 0}</strong>
