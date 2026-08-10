@@ -31,9 +31,16 @@ family/
     ProfileForm.tsx
 ```
 
-## UC8 progress — Create Family Circle
+## UC9 invite + dependant
 
-**Status:** Done on web for create empty-state (S4); live backend create/`/me`.
+**Status:** Live when mock is off.
+
+| Piece | Notes |
+| --- | --- |
+| `LinkExistingUserModal` | Search + create PENDING invite; copy link/code; optional mailto |
+| `CreateFamilyProfileModal` | `POST /api/families/me/profiles` dependant create |
+| `InviteLandingPage` | `/invite/:token` → register/login + claim |
+| Silent `members/link` | Removed from live `familyApiService` |
 
 | Piece | Notes |
 | --- | --- |

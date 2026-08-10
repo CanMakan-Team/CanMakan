@@ -1,6 +1,7 @@
 package com.canmakan.backend.shared.security;
 
 import com.canmakan.backend.auth.RefreshTokenProperties;
+import com.canmakan.backend.family.InviteProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,7 +19,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 /** Spring Security authentication foundation for UC19. */
 @Configuration
-@EnableConfigurationProperties({JwtProperties.class, RefreshTokenProperties.class})
+@EnableConfigurationProperties({
+    JwtProperties.class,
+    RefreshTokenProperties.class,
+    InviteProperties.class
+})
 public class SecurityConfig {
 
     private static final int BCRYPT_STRENGTH = 10;

@@ -15,13 +15,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
-//NOTE: run only to extract data from Open food fact database (csv zipped file to be saved on local folder)
+//NOTE: run only to extract data (csv zipped file saved on local folder) from Open food fact database to output INSERT statements for products.sql
 @Component
 @Profile("generate-sql")
 public class OpenFoodFactsSqlGenerator implements CommandLineRunner {
-
-	private static final String INPUT_GZ_PATH = "C:/Users/ChaiLee/OneDrive - National University of Singapore/AD/en.openfoodfacts.org.products.csv.gz";
-    private static final String OUTPUT_SQL_PATH = "C:/Users/ChaiLee/OneDrive - National University of Singapore/AD/singapore_products.sql";
+//Input actual local path to be added below 2 liners to run the SQLgenerator
+	private static final String INPUT_GZ_PATH = "C:/Users/..../en.openfoodfacts.org.products.csv.gz";
+    private static final String OUTPUT_SQL_PATH = "C:/Users/.../products.sql";
 
     private static final int BATCH_SIZE = 500; // Batch 500 rows per INSERT statement
 

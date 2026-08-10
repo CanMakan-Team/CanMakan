@@ -288,7 +288,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.token").doesNotExist());
 
             verify(authService).register(
-                new RegistrationRequest("Person Name", "person@example.com", "Password1!")
+                new RegistrationRequest("Person Name", "person@example.com", "Password1!", null)
             );
         }
 

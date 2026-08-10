@@ -16,7 +16,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FamilyMeRestrictionSum {
+    /** Linked account user id; {@code 0} for dependant profiles without a login. */
     private Long userId;
+    /** Dietary profile id (members and dependants). */
+    private Long profileId;
     private String name;
     private Boolean isActive;
     private List<FamilyMeRestrictionDetail> restrictions;

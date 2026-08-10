@@ -394,7 +394,12 @@ class RegistrationViewModelTest {
         var lastEmail: String? = null
         var lastPassword: String? = null
 
-        override suspend fun register(name: String, email: String, password: String): RegistrationResult {
+        override suspend fun register(
+            name: String,
+            email: String,
+            password: String,
+            invitationToken: String?,
+        ): RegistrationResult {
             callCount++
             lastName = name
             lastEmail = email

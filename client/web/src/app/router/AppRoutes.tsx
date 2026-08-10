@@ -16,6 +16,7 @@ import { PortalLayout } from '../../shared/ui/PortalLayout'
 import { FamilyLoginPage } from '../../pages/FamilyLoginPage'
 import { FamilyRegisterPage } from '../../pages/FamilyRegisterPage'
 import { SystemAdminLoginPage } from '../../pages/SystemAdminLoginPage'
+import { InviteLandingPage } from '../../features/family/pages/InviteLandingPage'
 
 export function AppRoutes() {
   return (
@@ -23,6 +24,7 @@ export function AppRoutes() {
       <Route path="/" element={<Navigate to="/family-login" replace />} />
       <Route path="/family-login" element={<FamilyLoginPage />} />
       <Route path="/family-register" element={<FamilyRegisterPage />} />
+      <Route path="/invite/:token" element={<InviteLandingPage />} />
       <Route path="/system-admin-login" element={<SystemAdminLoginPage />} />
       <Route path="/access-denied" element={<AccessDenied />} />
 

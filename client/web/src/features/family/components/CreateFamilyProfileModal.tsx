@@ -20,21 +20,29 @@ export function CreateFamilyProfileModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  /* Define the submit function */
   const submit = async (input: FamilyProfileInput) => {
     if (saving) return
     setSaving(true)
     setError('')
     try {
+      // Create a family profile
       const member = await familyApiService.createProfile(input)
-      onSuccess(`${member.profileName} was created as a non-login family profile.`)
+      // Get the profile name
+      const profileName =
+        'profileName' in member ? member.profileName : 'Family profile'
+      onSuccess(`${profileName} was created as a non-login family profile.`)
       onClose()
     } catch (caughtError) {
+      // Set the error
       setError(getErrorMessage(caughtError))
     } finally {
+      // Set the saving state to false
       setSaving(false)
     }
   }
 
+  /* Define the render function */
   return (
     <Modal
       title="Create New Family Member Profile"

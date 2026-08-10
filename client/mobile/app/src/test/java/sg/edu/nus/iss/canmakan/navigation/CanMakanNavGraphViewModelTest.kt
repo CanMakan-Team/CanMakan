@@ -31,6 +31,13 @@ import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyRestrictionSumRes
+import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
+import sg.edu.nus.iss.canmakan.features.family.data.ClaimInvitationRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.CreateDependantProfileRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.CreateInvitationRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.DependantProfileResponse
+import sg.edu.nus.iss.canmakan.features.family.data.InvitationResponse
+import sg.edu.nus.iss.canmakan.features.family.data.UserSearchResponse
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @DisplayName("UC19 / UC8: nav graph session identity and family membership")
@@ -53,6 +60,7 @@ class CanMakanNavGraphViewModelTest {
             dietaryRestrictionRepo = FakeDietaryRestrictionRepository(),
             familyProfileRepository = FamilyProfileRepository(familyApi),
             authSessionStore = sessionStore,
+            pendingInvitationStore = PendingInvitationStore(),
         )
         testDispatcher.scheduler.advanceUntilIdle()
     }
@@ -266,6 +274,24 @@ class CanMakanNavGraphViewModelTest {
         }
 
         override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun searchUserByEmail(email: String): Response<UserSearchResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun createInvitation(
+            request: CreateInvitationRequestBody,
+        ): Response<InvitationResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun claimInvitation(
+            request: ClaimInvitationRequestBody,
+        ): Response<FamilyMeResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun createDependantProfile(
+            request: CreateDependantProfileRequestBody,
+        ): Response<DependantProfileResponse> =
             Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
     }
 

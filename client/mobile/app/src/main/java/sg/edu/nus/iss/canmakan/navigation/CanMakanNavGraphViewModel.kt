@@ -15,6 +15,7 @@ import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.Dietary
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
+import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import timber.log.Timber
@@ -30,6 +31,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val dietaryRestrictionRepo: DietaryRestrictionRepository,
     private val familyProfileRepository: FamilyProfileRepository,
     private val authSessionStore: AuthSessionStore,
+    private val pendingInvitationStore: PendingInvitationStore,
 ) : ViewModel() {
 
     val currentProfileId: StateFlow<Long> = activeProfileManager.currentProfileId
@@ -64,8 +66,11 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val _createFamilyError = MutableStateFlow<String?>(null)
     val createFamilyError: StateFlow<String?> = _createFamilyError.asStateFlow()
 
-    /** Manage-member actions stay off until UC9/UC12 APIs exist. */
-    val showManageFamilyActions: Boolean = false
+    private val _showManageFamilyActions = MutableStateFlow(false)
+    val showManageFamilyActions: StateFlow<Boolean> = _showManageFamilyActions.asStateFlow()
+
+    private val _inviteClaimError = MutableStateFlow<String?>(null)
+    val inviteClaimError: StateFlow<String?> = _inviteClaimError.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -76,9 +81,43 @@ class CanMakanNavGraphViewModel @Inject constructor(
                 user to profileId
             }.collect { (user, profileId) ->
                 _hasUserSession.value = user != null
+                if (user != null) {
+                    claimPendingInvitationIfNeeded()
+                }
                 loadDataWithRetry(profileId)
             }
         }
+        // Claim when an invite Intent arrives while already authenticated.
+        viewModelScope.launch {
+            pendingInvitationStore.token.collect { token ->
+                if (token != null && authSessionStore.authenticatedUser.value != null) {
+                    claimPendingInvitationIfNeeded()
+                    loadDataWithRetry(currentProfileId.value)
+                }
+            }
+        }
+    }
+
+    private suspend fun claimPendingInvitationIfNeeded() {
+        val token = pendingInvitationStore.peek() ?: return
+        try {
+            familyProfileRepository.claimInvitation(token)
+            pendingInvitationStore.clear()
+            _inviteClaimError.value = null
+        } catch (e: CreateFamilyException) {
+            Timber.w(e, "Invite claim failed")
+            _inviteClaimError.value = e.message
+            pendingInvitationStore.clear()
+        } catch (e: Exception) {
+            Timber.w(e, "Invite claim failed")
+            _inviteClaimError.value =
+                "Could not accept the family invitation. You can try again from the invite link."
+            pendingInvitationStore.clear()
+        }
+    }
+
+    fun clearInviteClaimError() {
+        _inviteClaimError.value = null
     }
 
     private suspend fun loadDataWithRetry(profileId: Long) {
@@ -123,6 +162,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
         if (authSessionStore.authenticatedUser.value == null) {
             _hasFamily.value = false
             _familyName.value = null
+            _showManageFamilyActions.value = false
             _profiles.value = listOf(personalPlaceholder(profileId))
             return
         }
@@ -132,12 +172,14 @@ class CanMakanNavGraphViewModel @Inject constructor(
             if (me == null) {
                 _hasFamily.value = false
                 _familyName.value = null
+                _showManageFamilyActions.value = false
                 _profiles.value = listOf(personalPlaceholder(profileId))
                 return
             }
 
             _hasFamily.value = true
             _familyName.value = me.familyName
+            _showManageFamilyActions.value = me.memberRole == "PRIMARY_ADMIN"
             val loadedProfiles = familyProfileRepository.getProfilesForFamily(me.familyId)
             _profiles.value = loadedProfiles
 
@@ -152,6 +194,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
             _error.value = "Unable to connect to the server. Please check your network and try again."
             _hasFamily.value = false
             _familyName.value = null
+            _showManageFamilyActions.value = false
             _profiles.value = listOf(personalPlaceholder(profileId))
         }
     }
