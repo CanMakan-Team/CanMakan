@@ -34,8 +34,9 @@ from pathlib import Path
 DEFAULT_PRODUCTS_SQL = (
     Path(__file__).resolve().parent.parent / "src/main/resources/01_products.sql"
 )
+"""Note: input actual local paths to run """
 DEFAULT_OUTPUT = (
-    r"C:/Users/ChaiLee/OneDrive - National University of Singapore/AD/09_inferred_fields.sql"
+    r"C:/Users/.../09_inferred_fields.sql"
 )
 DEFAULT_RULES = Path(__file__).resolve().parent / "rules" / "category_keywords.json"
 DEFAULT_REPORT = (

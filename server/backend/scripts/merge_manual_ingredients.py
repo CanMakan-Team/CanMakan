@@ -21,9 +21,9 @@ import re
 import shutil
 import sys
 from pathlib import Path
-
+"""Note: input actual local paths to run """
 DEFAULT_CSV = (
-    r"C:/Users/ChaiLee/OneDrive - National University of Singapore/AD/add-product.csv"
+    r"C:/Users/.../add-product.csv"
 )
 DEFAULT_PRODUCTS_SQL = (
     Path(__file__).resolve().parent.parent / "src/main/resources/01_products.sql"

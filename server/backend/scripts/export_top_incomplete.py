@@ -27,13 +27,13 @@ import sys
 from pathlib import Path
 
 csv.field_size_limit(sys.maxsize)
-
+"""Note: input actual local paths to run """
 DEFAULT_INPUT = (
-    r"C:/Users/ChaiLee/OneDrive - National University of Singapore/AD/"
+    r"C:/Users/.../"
     r"en.openfoodfacts.org.products.csv.gz"
 )
 DEFAULT_OUTPUT = (
-    r"C:/Users/ChaiLee/OneDrive - National University of Singapore/AD/top_500_incomplete.csv"
+    r"C:/Users/.../top_500_incomplete.csv"
 )
 DEFAULT_EXISTING_PRODUCTS_SQL = (
     Path(__file__).resolve().parent.parent / "src/main/resources/01_products.sql"

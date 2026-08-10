@@ -5,10 +5,10 @@ and generate a MySQL patch file for the CanMakan products table.
 
 Usage (defaults match the project paths):
   python append_popularity_tags.py
-
+ // Note: input actual local paths for input and output
   python append_popularity_tags.py \\
-    --input "C:/Users/ChaiLee/OneDrive - National University of Singapore/AD/en.openfoodfacts.org.products.csv.gz" \\
-    --output "C:/Users/ChaiLee/OneDrive - National University of Singapore/AD/08_popularity_tags.sql" \\
+    --input "C:/Users/.../en.openfoodfacts.org.products.csv.gz" \\
+    --output "C:/Users/.../08_popularity_tags.sql" \\
     --existing-products-sql "../src/main/resources/01_products.sql"
 """
 
@@ -24,12 +24,14 @@ from pathlib import Path
 # OFF rows can contain very large tab-separated fields.
 csv.field_size_limit(sys.maxsize)
 
+"""Note: input actual local paths to run """
 DEFAULT_INPUT = (
-    r"C:/Users/ChaiLee/OneDrive - National University of Singapore/AD/"
+    r"C:/Users/.../"
     r"en.openfoodfacts.org.products.csv.gz"
 )
+"""Note: input actual local paths to run """
 DEFAULT_OUTPUT = (
-    r"C:/Users/ChaiLee/OneDrive - National University of Singapore/AD/"
+    r"C:/Users/.../"
     r"08_popularity_tags.sql"
 )
 DEFAULT_EXISTING_PRODUCTS_SQL = (
