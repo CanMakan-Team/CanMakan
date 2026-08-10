@@ -1,5 +1,11 @@
 package com.canmakan.backend.product.recommendation;
 
-public class AlternativeProductDto {
+import java.math.BigDecimal;
 
-}
+public record AlternativeProductDto(
+	    String barcode,
+	    String productName,
+	    String brand,
+	    String matchReason,
+	    BigDecimal rankScore
+	) {}
