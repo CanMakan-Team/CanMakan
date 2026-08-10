@@ -9,4 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * @author Amelia
  */
 public interface UserPreferenceRepository extends JpaRepository<UserPreference, Long> {
+
+    java.util.List<UserPreference> findByActiveProfileId(Long activeProfileId);
 }
