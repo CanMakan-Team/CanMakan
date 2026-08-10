@@ -25,6 +25,7 @@ import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.family.exception.FamilyNotFoundException;
 import com.canmakan.backend.family.exception.InvitationConflictException;
+import com.canmakan.backend.family.exception.InvitationExpiredException;
 import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.family.model.FamilyInvitation;
 import com.canmakan.backend.family.model.FamilyMember;
@@ -77,6 +78,7 @@ class FamilyServiceTest {
         InviteProperties inviteProperties = new InviteProperties();
         inviteProperties.setPublicBaseUrl("http://localhost:5173");
         inviteProperties.setExpiryDays(7);
+        InvitationEmailService invitationEmailService = org.mockito.Mockito.mock(InvitationEmailService.class);
         familyService = new FamilyService(
             userAccountRepository,
             familyRepository,
@@ -84,7 +86,8 @@ class FamilyServiceTest {
             familyInvitationRepository,
             dietaryProfileRepository,
             dietaryProfileService,
-            inviteProperties
+            inviteProperties,
+            invitationEmailService
         );
     }
 
@@ -295,6 +298,10 @@ class FamilyServiceTest {
             invitation.setId(88L);
             return invitation;
         });
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
 
         InvitationResponse response = familyService.createInvitation(
             10L, new CreateInvitationRequest("new@example.com"));
@@ -485,6 +492,172 @@ class FamilyServiceTest {
     void listFamilyMembersNotInFamily() {
         when(familyMemberRepository.findMembershipByUserId(99L)).thenReturn(Optional.empty());
         assertThrows(FamilyNotFoundException.class, () -> familyService.listFamilyMembers(99L));
+    }
+
+    @Test
+    @DisplayName("accept invitation joins as MEMBER")
+    void acceptInvitationHappyPath() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyMemberRepository.existsByIdUserId(30L)).thenReturn(false);
+
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        family.setCreatedByUserId(10L);
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(familyMemberRepository.saveAndFlush(any(FamilyMember.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(dietaryProfileRepository.findByLinkedUser_Id(30L)).thenReturn(Optional.empty());
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class))).thenAnswer(invocation -> {
+            DietaryProfile profile = invocation.getArgument(0);
+            profile.setId(99L);
+            return profile;
+        });
+
+        FamilyMeResponse response = familyService.acceptInvitation(30L, "tok");
+
+        assertEquals(1L, response.familyId());
+        assertEquals(FamilyMember.ROLE_MEMBER, response.memberRole());
+        assertEquals(InvitationStatus.ACCEPTED, invitation.getStatus());
+    }
+
+    @Test
+    @DisplayName("accept expired invitation throws InvitationExpiredException")
+    void acceptExpired() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        invitation.setExpiresAt(Instant.now().minus(1, ChronoUnit.DAYS));
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertThrows(InvitationExpiredException.class,
+            () -> familyService.acceptInvitation(30L, "tok"));
+        assertEquals(InvitationStatus.EXPIRED, invitation.getStatus());
+    }
+
+    @Test
+    @DisplayName("accept with email mismatch throws FamilyForbiddenException")
+    void acceptEmailMismatch() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("other@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+
+        assertThrows(FamilyForbiddenException.class,
+            () -> familyService.acceptInvitation(30L, "tok"));
+    }
+
+    @Test
+    @DisplayName("accept while already in family throws AlreadyInFamilyException")
+    void acceptAlreadyInFamily() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyMemberRepository.existsByIdUserId(30L)).thenReturn(true);
+
+        assertThrows(AlreadyInFamilyException.class,
+            () -> familyService.acceptInvitation(30L, "tok"));
+    }
+
+    @Test
+    @DisplayName("accept already-final invitation throws InvitationConflictException")
+    void acceptAlreadyFinal() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        invitation.setStatus(InvitationStatus.ACCEPTED);
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+
+        assertThrows(InvitationConflictException.class,
+            () -> familyService.acceptInvitation(30L, "tok"));
+    }
+
+    @Test
+    @DisplayName("decline marks invitation DECLINED")
+    void declineInvitation() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        familyService.declineInvitation(30L, "tok");
+
+        assertEquals(InvitationStatus.DECLINED, invitation.getStatus());
+        verify(familyMemberRepository, never()).saveAndFlush(any(FamilyMember.class));
+    }
+
+    @Test
+    @DisplayName("list pending invitations includes family display fields")
+    void listPendingInvitations() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        invitation.setId(5L);
+        invitation.setInvitedByUserId(10L);
+        when(familyInvitationRepository.findPendingByEmail("invitee@example.com"))
+            .thenReturn(List.of(invitation));
+
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+
+        UserAccount admin = new UserAccount();
+        admin.setId(10L);
+        admin.setEmail("admin@example.com");
+        when(userAccountRepository.findById(10L)).thenReturn(Optional.of(admin));
+
+        List<com.canmakan.backend.family.dto.PendingInvitationResponse> rows =
+            familyService.listMyPendingInvitations(30L);
+
+        assertEquals(1, rows.size());
+        assertEquals("Host Family", rows.get(0).familyName());
+        assertEquals("admin@example.com", rows.get(0).invitedByDisplayName());
+        assertFalse(rows.get(0).expired());
+    }
+
+    private static FamilyInvitation pendingInvitation(String token, String email) {
+        FamilyInvitation invitation = new FamilyInvitation();
+        invitation.setId(5L);
+        invitation.setFamilyId(1L);
+        invitation.setInvitedByUserId(10L);
+        invitation.setInvitedEmail(email);
+        invitation.setStatus(InvitationStatus.PENDING);
+        invitation.setExpiresAt(Instant.now().plus(2, ChronoUnit.DAYS));
+        invitation.setInvitationToken(token);
+        invitation.setInviteCode("ABCD1234");
+        return invitation;
     }
 
     private void stubPrimaryAdmin(long userId, long familyId) {

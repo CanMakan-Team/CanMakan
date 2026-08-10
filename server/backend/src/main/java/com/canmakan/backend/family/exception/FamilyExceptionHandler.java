@@ -9,13 +9,14 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.canmakan.backend.family.FamilyController;
+import com.canmakan.backend.family.InvitationController;
 
 /**
- * Error translation for family create / me / invite / dependant endpoints.
- * 
+ * Error translation for family create / me / invite / dependant and invitation inbox endpoints.
+ *
  * @author Amelia
  */
-@RestControllerAdvice(assignableTypes = FamilyController.class)
+@RestControllerAdvice(assignableTypes = {FamilyController.class, InvitationController.class})
 public class FamilyExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -50,6 +51,18 @@ public class FamilyExceptionHandler {
     @ExceptionHandler(InvitationConflictException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public Map<String, String> handleInvitationConflict(InvitationConflictException ex) {
+        return Map.of("message", ex.getMessage());
+    }
+
+    @ExceptionHandler(InvitationExpiredException.class)
+    @ResponseStatus(HttpStatus.GONE)
+    public Map<String, String> handleInvitationExpired(InvitationExpiredException ex) {
+        return Map.of("message", ex.getMessage());
+    }
+
+    @ExceptionHandler(InvitationNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map<String, String> handleInvitationNotFound(InvitationNotFoundException ex) {
         return Map.of("message", ex.getMessage());
     }
 

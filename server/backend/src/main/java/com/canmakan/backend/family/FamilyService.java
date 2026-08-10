@@ -16,11 +16,14 @@ import com.canmakan.backend.family.dto.FamilyMeRestrictionDetail;
 import com.canmakan.backend.family.dto.FamilyMeRestrictionSum;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
 import com.canmakan.backend.family.dto.InvitationResponse;
+import com.canmakan.backend.family.dto.PendingInvitationResponse;
 import com.canmakan.backend.family.dto.UserSearchResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.family.exception.FamilyNotFoundException;
 import com.canmakan.backend.family.exception.InvitationConflictException;
+import com.canmakan.backend.family.exception.InvitationExpiredException;
+import com.canmakan.backend.family.exception.InvitationNotFoundException;
 import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.family.model.FamilyInvitation;
 import com.canmakan.backend.family.model.FamilyMember;
@@ -49,9 +52,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Family circle create/me, UC9 invite/dependant flows, and UC6 restriction summary.
+ * Family circle create/me, UC9 invite/dependant, UC10 accept/decline inbox, and UC6 summary.
  * Caller id is supplied by the controller from the JWT principal.
- * 
+ *
  * @author Amelia
  * @author Khai
  */
@@ -75,6 +78,7 @@ public class FamilyService {
     private final DietaryProfileRepository dietaryProfileRepository;
     private final DietaryProfileService dietaryProfileService;
     private final InviteProperties inviteProperties;
+    private final InvitationEmailService invitationEmailService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     // Create a family circle
@@ -377,49 +381,125 @@ public class FamilyService {
         // Save the invitation
         FamilyInvitation saved = familyInvitationRepository.saveAndFlush(invitation);
 
-        // Return the invitation response
-        return toInvitationResponse(saved, invitee.isPresent());
+        InvitationResponse response = toInvitationResponse(saved, invitee.isPresent());
+        Family family = familyRepository.findById(adminMembership.getFamilyId()).orElse(null);
+        String familyName = family == null ? "a family circle" : family.getFamilyName();
+        invitationEmailService.sendInvitationEmail(familyName, response);
+        return response;
     }
 
-    // Claim an invitation
+    // Claim an invitation (UC9 deep-link / login path — same rules as accept)
     @Transactional
     public FamilyMeResponse claimInvitation(long userId, ClaimInvitationRequest request) {
-        // Find the user by id
+        return acceptInvitation(userId, request.invitationToken());
+    }
+
+    /**
+     * Accept a PENDING invitation by token (UC10 inbox + UC9 claim).
+     */
+    @Transactional
+    public FamilyMeResponse acceptInvitation(long userId, String invitationToken) {
         UserAccount user = userAccountRepository.findById(userId)
             .orElseThrow(() -> new AuthenticatedUserNotFoundException(
                 "Authenticated user was not found."));
+        if (invitationToken == null || invitationToken.isBlank()) {
+            throw new IllegalArgumentException("Invitation token is required.");
+        }
+        FamilyInvitation invitation = resolveClaimableInvitation(
+            normalizeEmail(user.getEmail()), invitationToken.strip());
+        return applyInvitationClaim(user, invitation);
+    }
 
-        // Claim the invitation
-        return claimInvitationForUser(user, request.invitationToken());
+    /**
+     * Decline a PENDING invitation. Expired PENDING invites may still be declined.
+     */
+    @Transactional
+    public void declineInvitation(long userId, String invitationToken) {
+        UserAccount user = userAccountRepository.findById(userId)
+            .orElseThrow(() -> new AuthenticatedUserNotFoundException(
+                "Authenticated user was not found."));
+        if (invitationToken == null || invitationToken.isBlank()) {
+            throw new IllegalArgumentException("Invitation token is required.");
+        }
+        FamilyInvitation invitation = familyInvitationRepository
+            .findByInvitationToken(invitationToken.strip())
+            .orElseThrow(() -> new InvitationNotFoundException("Invitation was not found."));
+
+        ensureEmailMatches(invitation, normalizeEmail(user.getEmail()));
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
+            throw new InvitationConflictException("Invitation is no longer pending.");
+        }
+
+        invitation.setStatus(InvitationStatus.DECLINED);
+        familyInvitationRepository.saveAndFlush(invitation);
+    }
+
+    /**
+     * List PENDING invitations for the authenticated user's email (UC10 inbox).
+     */
+    @Transactional(readOnly = true)
+    public List<PendingInvitationResponse> listMyPendingInvitations(long userId) {
+        UserAccount user = userAccountRepository.findById(userId)
+            .orElseThrow(() -> new AuthenticatedUserNotFoundException(
+                "Authenticated user was not found."));
+        String email = normalizeEmail(user.getEmail());
+        List<FamilyInvitation> pending = familyInvitationRepository.findPendingByEmail(email);
+
+        List<PendingInvitationResponse> results = new ArrayList<>();
+        for (FamilyInvitation invitation : pending) {
+            Family family = familyRepository.findById(invitation.getFamilyId()).orElse(null);
+            String familyName = family == null ? "Family" : family.getFamilyName();
+            String invitedBy = userAccountRepository.findById(invitation.getInvitedByUserId())
+                .map(UserAccount::getEmail)
+                .orElse("Family admin");
+            results.add(new PendingInvitationResponse(
+                invitation.getId(),
+                invitation.getFamilyId(),
+                familyName,
+                invitedBy,
+                invitation.getInvitationToken(),
+                invitation.getInviteCode(),
+                invitation.getStatus(),
+                invitation.getExpiresAt(),
+                isExpired(invitation)
+            ));
+        }
+        return results;
     }
 
     /**
      * Auto-claim after registration when a matching PENDING invite exists.
      * Token is preferred; otherwise exactly one valid PENDING invite for the email is claimed.
+     * Invalid/expired/mismatched tokens are ignored so registration still succeeds.
      */
     @Transactional
     public void claimInvitationAfterRegistration(
             long userId, String email, String optionalInvitationToken) {
-        
-        // Find the user by id
+
         UserAccount user = userAccountRepository.findById(userId)
             .orElseThrow(() -> new AuthenticatedUserNotFoundException(
                 "Authenticated user was not found."));
 
-        // Normalize the email
         String normalizedEmail = normalizeEmail(email);
+        FamilyInvitation invitation;
+        try {
+            invitation = resolveClaimableInvitation(normalizedEmail, optionalInvitationToken);
+        } catch (InvitationNotFoundException
+            | InvitationExpiredException
+            | FamilyForbiddenException
+            | InvitationConflictException ignored) {
+            return;
+        }
 
-        // Resolve the claimable invitation
-        FamilyInvitation invitation = resolveClaimableInvitation(
-            normalizedEmail, optionalInvitationToken);
-
-        // If no valid invitation was found, return
         if (invitation == null) {
             return;
         }
 
-        // Apply the invitation claim
-        applyInvitationClaim(user, invitation);
+        try {
+            applyInvitationClaim(user, invitation);
+        } catch (AlreadyInFamilyException ignored) {
+            // Registration completed; membership conflict is ignored for auto-claim.
+        }
     }
 
     // Create a dependant profile
@@ -460,22 +540,19 @@ public class FamilyService {
         );
     }
 
-    private FamilyMeResponse claimInvitationForUser(UserAccount user, String invitationToken) {
-        FamilyInvitation invitation = resolveClaimableInvitation(user.getEmail(), invitationToken);
-        if (invitation == null) {
-            throw new InvitationConflictException("No valid pending invitation was found.");
-        }
-        return applyInvitationClaim(user, invitation);
-    }
-
+    /**
+     * Resolve a claimable invitation.
+     * With a token: load and validate (throws on missing / expired / mismatch / final).
+     * Without a token: return the single valid PENDING invite for the email, or null.
+     */
     private FamilyInvitation resolveClaimableInvitation(
             String normalizedEmail, String optionalToken) {
         if (optionalToken != null && !optionalToken.isBlank()) {
             FamilyInvitation byToken = familyInvitationRepository
                 .findByInvitationToken(optionalToken.strip())
-                .orElseThrow(() -> new InvitationConflictException(
+                .orElseThrow(() -> new InvitationNotFoundException(
                     "Invitation was not found."));
-            ensureClaimable(byToken, normalizedEmail);
+            ensureAcceptable(byToken, normalizedEmail);
             return byToken;
         }
 
@@ -496,24 +573,35 @@ public class FamilyService {
 
     // --- Helper methods ---
 
-    // Ensure the invitation is claimable
-    // - The invitation must be pending and unexpired
-    // - The invitation email must match the authenticated user
-    private void ensureClaimable(FamilyInvitation invitation, String normalizedEmail) {
-        if (!isPendingAndUnexpired(invitation)) {
+    /**
+     * Invitation must be PENDING, unexpired, and addressed to the authenticated email.
+     */
+    private void ensureAcceptable(FamilyInvitation invitation, String normalizedEmail) {
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
             throw new InvitationConflictException("Invitation is no longer valid.");
         }
+        if (isExpired(invitation)) {
+            invitation.setStatus(InvitationStatus.EXPIRED);
+            familyInvitationRepository.saveAndFlush(invitation);
+            throw new InvitationExpiredException("Invitation has expired.");
+        }
+        ensureEmailMatches(invitation, normalizedEmail);
+    }
+
+    private void ensureEmailMatches(FamilyInvitation invitation, String normalizedEmail) {
         if (!invitation.getInvitedEmail().equalsIgnoreCase(normalizedEmail)) {
-            throw new InvitationConflictException(
+            throw new FamilyForbiddenException(
                 "Invitation email does not match the authenticated user.");
         }
     }
 
-    // Check if the invitation is pending and unexpired
     private boolean isPendingAndUnexpired(FamilyInvitation invitation) {
-        return invitation.getStatus() == InvitationStatus.PENDING
-            && invitation.getExpiresAt() != null
-            && invitation.getExpiresAt().isAfter(Instant.now());
+        return invitation.getStatus() == InvitationStatus.PENDING && !isExpired(invitation);
+    }
+
+    private boolean isExpired(FamilyInvitation invitation) {
+        return invitation.getExpiresAt() == null
+            || !invitation.getExpiresAt().isAfter(Instant.now());
     }
 
     // Apply the invitation claim

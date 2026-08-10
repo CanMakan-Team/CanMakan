@@ -2,6 +2,7 @@ package com.canmakan.backend.shared.security;
 
 import com.canmakan.backend.auth.RefreshTokenProperties;
 import com.canmakan.backend.family.InviteProperties;
+import com.canmakan.backend.family.ResendProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,7 +23,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableConfigurationProperties({
     JwtProperties.class,
     RefreshTokenProperties.class,
-    InviteProperties.class
+    InviteProperties.class,
+    ResendProperties.class
 })
 public class SecurityConfig {
 
@@ -73,6 +75,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/families/**").authenticated()
+                .requestMatchers("/api/invitations/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/scan/assess").authenticated()
                 .requestMatchers("/actuator/health").permitAll()
                 // Transitional: other UCs retain their existing access behavior.
