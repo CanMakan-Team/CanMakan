@@ -149,6 +149,45 @@
             "problemMatcher": []
         },
         {
+            "label": "Run Backend Tests (mac)",
+            "type": "shell",
+            "command": "./mvnw",
+            "options": {
+                "cwd": "${workspaceFolder}/server/backend"
+            },
+            "args": [
+                "test"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Runs backend tests on macOS/zsh via the Maven wrapper. Uses application-default.properties for the JWT secret, no profile flag needed."
+        },
+        {
+            "label": "Run UC1 + UC4 tests",
+            "type": "shell",
+            "command": "./mvnw",
+            "options": {
+                "cwd": "${workspaceFolder}/server/backend"
+            },
+            "args": [
+                "test",
+                "-Dtest=com.canmakan.backend.dietaryprofile.DietaryProfileServiceTest,com.canmakan.backend.dietaryprofile.RestrictionRuleLoaderTest,com.canmakan.backend.dietaryprofile.DietaryProfileRepositoryTest,com.canmakan.backend.product.history.ScanHistoryRepositoryTest"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Runs only the dietaryprofile and product/history test classes (UC1 + UC4), skipping the rest of the suite. DietaryProfileRepositoryTest and ScanHistoryRepositoryTest are @SpringBootTest and need MySQL running on localhost:3306."
+        },
+        {
             "label": "Run Mobile Tests",
             "type": "shell",
             "command": ".\\gradlew.bat",
