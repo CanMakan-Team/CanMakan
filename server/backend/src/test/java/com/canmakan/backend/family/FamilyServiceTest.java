@@ -471,6 +471,7 @@ class FamilyServiceTest {
         self.setId(1L);
         self.setProfileName("Admin");
         self.setRelationship("SELF");
+        self.setActive(true);
         when(dietaryProfileRepository.findByLinkedUser_Id(10L)).thenReturn(Optional.of(self));
 
         UserAccount admin = new UserAccount();
@@ -482,7 +483,8 @@ class FamilyServiceTest {
         dependant.setId(2L);
         dependant.setProfileName("Toddler");
         dependant.setRelationship("CHILD");
-        when(dietaryProfileRepository.findDependantProfilesByFamilyId(1L))
+        dependant.setActive(true);
+        when(dietaryProfileRepository.findAllDependantProfilesByFamilyId(1L))
             .thenReturn(List.of(dependant));
 
         List<com.canmakan.backend.family.dto.FamilyMemberRosterDto> rows =
@@ -490,12 +492,16 @@ class FamilyServiceTest {
 
         assertEquals(2, rows.size());
         assertEquals(10L, rows.get(0).memberId());
+        assertEquals(1L, rows.get(0).profileId());
+        assertEquals("PRIMARY_ADMIN", rows.get(0).memberRole());
+        assertTrue(rows.get(0).profileActive());
         assertEquals("REGISTERED_USER", rows.get(0).source());
         assertEquals("a***n@example.com", rows.get(0).maskedEmail());
         assertEquals(2L, rows.get(1).memberId());
         assertEquals("DEPENDANT_PROFILE", rows.get(1).source());
         assertEquals("Toddler", rows.get(1).profileName());
         assertEquals("UNSPECIFIED", rows.get(1).ageGroup());
+        assertTrue(rows.get(1).profileActive());
     }
 
     @Test
@@ -742,7 +748,8 @@ class FamilyServiceTest {
                 1L,
                 profile.getRelationship(),
                 "AD",
-                profile.isPrimary())
+                profile.isPrimary(),
+                profile.isActive())
         ));
 
         List<com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto> rows =
@@ -775,6 +782,118 @@ class FamilyServiceTest {
         assertThrows(
             FamilyForbiddenException.class,
             () -> familyService.assertProfileAuthorizedForScan(10L, 55L)
+        );
+    }
+
+    @Test
+    @DisplayName("updateProfileMetadata updates name for primary admin")
+    void updateProfileMetadataOk() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile dependant = activeProfile(88L, "Child", family, true);
+        dependant.setLinkedUser(null);
+        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(dependant));
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = familyService.updateProfileMetadata(
+            10L,
+            88L,
+            new com.canmakan.backend.family.dto.UpdateProfileRequest(
+                "Toddler", "CHILD", null, null));
+
+        assertEquals("Toddler", response.profileName());
+        assertEquals("CHILD", response.relationship());
+        assertEquals(88L, response.profileId());
+    }
+
+    @Test
+    @DisplayName("setProfileActive deactivates profile")
+    void setProfileActiveDeactivates() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(88L, "Child", family, true);
+        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(profile));
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userPreferenceRepository.findByActiveProfileId(88L)).thenReturn(List.of());
+
+        var response = familyService.setProfileActive(10L, 88L, false);
+
+        assertFalse(response.active());
+        assertFalse(profile.isActive());
+    }
+
+    @Test
+    @DisplayName("removeFamilyMember rejects last primary admin")
+    void removeFamilyMemberLastAdminConflict() {
+        stubPrimaryAdmin(10L, 1L);
+        FamilyMember target = new FamilyMember(
+            new FamilyMember.FamilyMemberId(1L, 10L),
+            FamilyMember.ROLE_PRIMARY_ADMIN,
+            true,
+            null
+        );
+        when(familyMemberRepository.findMembershipByUserId(10L))
+            .thenReturn(Optional.of(target));
+        when(familyMemberRepository.countActivePrimaryAdmins(1L)).thenReturn(1L);
+
+        assertThrows(
+            com.canmakan.backend.family.exception.LastPrimaryAdminException.class,
+            () -> familyService.removeFamilyMember(10L, 10L)
+        );
+        verify(familyMemberRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("removeDependantProfile soft-deactivates and detaches family")
+    void removeDependantProfileSoft() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile dependant = activeProfile(88L, "Child", family, true);
+        dependant.setLinkedUser(null);
+        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(dependant));
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userPreferenceRepository.findByActiveProfileId(88L)).thenReturn(List.of());
+
+        familyService.removeDependantProfile(10L, 88L);
+
+        assertFalse(dependant.isActive());
+        org.junit.jupiter.api.Assertions.assertNull(dependant.getFamily());
+    }
+
+    @Test
+    @DisplayName("assertMayEditRestrictions allows self linked profile")
+    void assertMayEditRestrictionsSelfOk() {
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile self = activeProfile(77L, "Admin", family, true);
+        UserAccount user = new UserAccount();
+        user.setId(10L);
+        self.setLinkedUser(user);
+        when(dietaryProfileRepository.findById(77L)).thenReturn(Optional.of(self));
+
+        familyService.assertMayEditRestrictions(10L, 77L);
+    }
+
+    @Test
+    @DisplayName("assertMayEditRestrictions rejects another adult linked profile")
+    void assertMayEditRestrictionsOtherAdultForbidden() {
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile other = activeProfile(99L, "Member", family, true);
+        UserAccount linked = new UserAccount();
+        linked.setId(20L);
+        other.setLinkedUser(linked);
+        when(dietaryProfileRepository.findById(99L)).thenReturn(Optional.of(other));
+
+        assertThrows(
+            FamilyForbiddenException.class,
+            () -> familyService.assertMayEditRestrictions(10L, 99L)
         );
     }
 
