@@ -45,7 +45,7 @@ jobs:
 
       # 2.3 PREPARE REMOTE DEPLOY DIRECTORY
       - name: Ensure remote deploy directory exists
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
@@ -65,7 +65,7 @@ jobs:
 
       # 2.5 START REMOTE SSH CLI
       - name: Execute Remote SSH Startup Commands
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
