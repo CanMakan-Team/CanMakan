@@ -1,7 +1,6 @@
 package com.canmakan.backend.family;
 
 import com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto;
-import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
 import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.ClaimInvitationRequest;
 import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
@@ -47,7 +46,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/families")
 public class FamilyController {
 
-    private final DietaryProfileService dietaryProfileService;
     private final FamilyService familyService;
 
     // POST /api/families -> create a new family
@@ -70,12 +68,14 @@ public class FamilyController {
         return me;
     }
 
-    // GET /api/families/{familyId}/profiles -> get the profiles for a family
+    // GET /api/families/{familyId}/profiles -> active profiles for the caller's family
     @GetMapping("/{familyId}/profiles")
     public List<DietaryProfileSummaryDto> getProfilesByFamilyId(
+        @AuthenticationPrincipal AuthUserDetails userDetails,
         @PathVariable Long familyId) {
+        long userId = requireUserId(userDetails);
         List<DietaryProfileSummaryDto> resp =
-            dietaryProfileService.getProfilesByFamilyId(familyId);
+            familyService.getProfilesForFamilyMember(userId, familyId);
         log.info("GET /families/{}/profiles → 200", familyId);
         return resp;
     }

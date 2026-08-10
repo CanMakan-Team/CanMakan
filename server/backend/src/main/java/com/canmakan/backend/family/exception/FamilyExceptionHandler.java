@@ -12,7 +12,13 @@ import com.canmakan.backend.family.FamilyController;
 import com.canmakan.backend.family.InvitationController;
 
 /**
- * Error translation for family create / me / invite / dependant and invitation inbox endpoints.
+ * Error translation for family- and invitation-specific failures
+ * ({@link FamilyController}, {@link InvitationController}).
+ *
+ * <p>Shared family authz exceptions ({@code FamilyForbiddenException},
+ * {@code InactiveProfileException}, {@code FamilyNotFoundException}) are handled
+ * by {@link com.canmakan.backend.shared.exception.GlobalExceptionHandler}
+ * so scan and other callers get the same HTTP mapping.
  *
  * @author Amelia
  */
@@ -63,24 +69,6 @@ public class FamilyExceptionHandler {
     @ExceptionHandler(InvitationNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Map<String, String> handleInvitationNotFound(InvitationNotFoundException ex) {
-        return Map.of("message", ex.getMessage());
-    }
-
-    @ExceptionHandler(InactiveProfileException.class)
-    @ResponseStatus(HttpStatus.CONFLICT)
-    public Map<String, String> handleInactiveProfile(InactiveProfileException ex) {
-        return Map.of("message", ex.getMessage());
-    }
-
-    @ExceptionHandler(FamilyForbiddenException.class)
-    @ResponseStatus(HttpStatus.FORBIDDEN)
-    public Map<String, String> handleForbidden(FamilyForbiddenException ex) {
-        return Map.of("message", ex.getMessage());
-    }
-
-    @ExceptionHandler(FamilyNotFoundException.class)
-    @ResponseStatus(HttpStatus.NOT_FOUND)
-    public Map<String, String> handleNotFound(FamilyNotFoundException ex) {
         return Map.of("message", ex.getMessage());
     }
 }

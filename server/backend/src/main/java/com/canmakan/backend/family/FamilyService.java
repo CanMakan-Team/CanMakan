@@ -1,5 +1,6 @@
 package com.canmakan.backend.family;
 
+import com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto;
 import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
 import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
 import com.canmakan.backend.dietaryprofile.model.ProfileRestriction;
@@ -273,6 +274,27 @@ public class FamilyService {
             selfProfileId,
             family.getCreatedByUserId()
         );
+    }
+
+    /**
+     * Lists active dietary profiles for a family the caller belongs to.
+     */
+    @Transactional(readOnly = true)
+    public List<DietaryProfileSummaryDto> getProfilesForFamilyMember(long userId, long familyId) {
+        FamilyMember membership = requireMembership(userId);
+        if (!membership.getFamilyId().equals(familyId)) {
+            throw new FamilyForbiddenException(
+                "Profile list is not available for this family.");
+        }
+        return dietaryProfileService.getProfilesByFamilyId(familyId);
+    }
+
+    /**
+     * Ensures the caller may assess or switch to the given profile.
+     */
+    @Transactional(readOnly = true)
+    public void assertProfileAuthorizedForScan(long userId, long profileId) {
+        assertProfileSelectable(userId, profileId);
     }
 
     /**

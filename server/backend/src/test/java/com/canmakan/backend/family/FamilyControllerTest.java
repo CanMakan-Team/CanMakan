@@ -12,12 +12,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
+import com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto;
 import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
 import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyExceptionHandler;
+import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.family.exception.FamilyNotFoundException;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.shared.exception.GlobalExceptionHandler;
@@ -51,8 +52,7 @@ class FamilyControllerTest {
     @BeforeEach
     void setUp() {
         familyService = mock(FamilyService.class);
-        DietaryProfileService dietaryProfileService = mock(DietaryProfileService.class);
-        FamilyController controller = new FamilyController(dietaryProfileService, familyService);
+        FamilyController controller = new FamilyController(familyService);
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -247,6 +247,34 @@ class FamilyControllerTest {
         mockMvc.perform(get("/api/families/me/members"))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.message").value("You are not a member of a family circle."));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/{familyId}/profiles returns 200 for member")
+    void getProfilesByFamilyIdOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.getProfilesForFamilyMember(10L, 1L)).thenReturn(List.of(
+            new DietaryProfileSummaryDto(77L, "Admin", 1L, "SELF", "AD", true)
+        ));
+
+        mockMvc.perform(get("/api/families/1/profiles"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].id").value(77))
+            .andExpect(jsonPath("$[0].profileName").value("Admin"));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/{familyId}/profiles returns 403 for another family")
+    void getProfilesByFamilyIdForbidden() throws Exception {
+        authenticateAs(10L);
+        when(familyService.getProfilesForFamilyMember(10L, 99L))
+            .thenThrow(new FamilyForbiddenException(
+                "Profile list is not available for this family."));
+
+        mockMvc.perform(get("/api/families/99/profiles"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.message")
+                .value("Profile list is not available for this family."));
     }
 
     @Test

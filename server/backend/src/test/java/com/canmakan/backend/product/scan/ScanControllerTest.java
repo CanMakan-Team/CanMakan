@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.integration.BarcodeValidationClient;
 import com.canmakan.backend.product.assessment.AssessmentOrchestrator;
 import com.canmakan.backend.product.assessment.AssessmentRequest;
@@ -117,6 +118,22 @@ class ScanControllerTest {
             .andExpect(jsonPath("$.message").value("Profile ID is required"));
 
         verify(orchestrator, never()).assess(any(), any());
+    }
+
+    @Test
+    @DisplayName("UC2 BE5: POST /api/scan/assess returns 403 for unauthorized profile")
+    void assessRejectsUnauthorizedProfile() throws Exception {
+        authenticateAs(7L);
+        when(orchestrator.assess(eq(7L), any(AssessmentRequest.class)))
+            .thenThrow(new FamilyForbiddenException(
+                "Profile does not belong to your family circle."));
+
+        mockMvc.perform(post("/api/scan/assess")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"barcode\":\"3017620422003\",\"profileId\":55}"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.message")
+                .value("Profile does not belong to your family circle."));
     }
 
     private static void authenticateAs(long userId) {

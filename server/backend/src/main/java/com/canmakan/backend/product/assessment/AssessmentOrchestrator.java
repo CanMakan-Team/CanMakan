@@ -2,6 +2,7 @@ package com.canmakan.backend.product.assessment;
 
 import com.canmakan.backend.ai.llm.LlmAssessmentResult;
 import com.canmakan.backend.ai.log.AiExecutionLogService;
+import com.canmakan.backend.family.FamilyService;
 import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
 import com.canmakan.backend.product.scan.Scan;
 import com.canmakan.backend.product.scan.ScanService;
@@ -9,6 +10,7 @@ import com.canmakan.backend.product.verdict.DietaryRuleEngine;
 import com.canmakan.backend.product.verdict.ProductData;
 import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
+import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +53,7 @@ public class AssessmentOrchestrator {
     private final LlmEscalationService llmEscalationService;
     private final ScanService scanService;
     private final AiExecutionLogService aiExecutionLogService;
+    private final FamilyService familyService;
 
     /**
      * Assess one product for one profile and persist the outcome.
@@ -64,6 +67,10 @@ public class AssessmentOrchestrator {
      * @return the verdict, chosen tier, and saved scan id
      */
     public AssessmentResponse assess(Long userId, AssessmentRequest request) {
+        if (userId == null) {
+            throw new AuthenticatedUserNotFoundException("Authenticated user was not found.");
+        }
+        familyService.assertProfileAuthorizedForScan(userId, request.profileId());
         List<RestrictionRule> rules = ruleLoader.load(request.profileId());
         var lookup = productDataAdapter.lookup(request.barcode());
         ProductData product = productDataAdapter.toProductData(lookup);

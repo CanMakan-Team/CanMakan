@@ -728,6 +728,56 @@ class FamilyServiceTest {
         );
     }
 
+    @Test
+    @DisplayName("getProfilesForFamilyMember returns profiles for caller family")
+    void getProfilesForFamilyMemberOk() {
+        stubMembership(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(77L, "Admin", family, true);
+        when(dietaryProfileService.getProfilesByFamilyId(1L)).thenReturn(List.of(
+            new com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto(
+                profile.getId(),
+                profile.getProfileName(),
+                1L,
+                profile.getRelationship(),
+                "AD",
+                profile.isPrimary())
+        ));
+
+        List<com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto> rows =
+            familyService.getProfilesForFamilyMember(10L, 1L);
+
+        assertEquals(1, rows.size());
+        assertEquals(77L, rows.get(0).id());
+    }
+
+    @Test
+    @DisplayName("getProfilesForFamilyMember rejects another family id")
+    void getProfilesForFamilyMemberForbidden() {
+        stubMembership(10L, 1L);
+
+        assertThrows(
+            FamilyForbiddenException.class,
+            () -> familyService.getProfilesForFamilyMember(10L, 99L)
+        );
+    }
+
+    @Test
+    @DisplayName("assertProfileAuthorizedForScan rejects profile outside family")
+    void assertProfileAuthorizedForScanForbidden() {
+        stubMembership(10L, 1L);
+        Family otherFamily = new Family();
+        otherFamily.setId(99L);
+        DietaryProfile outsider = activeProfile(55L, "Other", otherFamily, true);
+        when(dietaryProfileRepository.findById(55L)).thenReturn(Optional.of(outsider));
+
+        assertThrows(
+            FamilyForbiddenException.class,
+            () -> familyService.assertProfileAuthorizedForScan(10L, 55L)
+        );
+    }
+
     private static DietaryProfile activeProfile(
             Long id, String name, Family family, boolean active) {
         DietaryProfile profile = new DietaryProfile();
