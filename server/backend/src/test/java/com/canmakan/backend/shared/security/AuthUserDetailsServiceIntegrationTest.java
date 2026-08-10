@@ -17,7 +17,7 @@ class AuthUserDetailsServiceIntegrationTest {
         AuthUserDetails user = (AuthUserDetails) userDetailsService
             .loadUserByUsername("  Sarah@Example.COM  ");
         AuthUserDetails admin = (AuthUserDetails) userDetailsService
-            .loadUserByUsername("admin1@lovingcare.com");
+            .loadUserByUsername("admin1@canmakan.com");
 
         assertEquals(4L, user.getUserId());
         assertEquals("sarah@example.com", user.getUsername());
@@ -36,7 +36,7 @@ class AuthUserDetailsServiceIntegrationTest {
 
         assertEquals("sarah@example.com", user.getUsername());
         assertEquals(SystemRole.USER, user.getSystemRole());
-        assertEquals("admin1@lovingcare.com", admin.getUsername());
+        assertEquals("admin1@canmakan.com", admin.getUsername());
         assertEquals(SystemRole.ADMIN, admin.getSystemRole());
     }
 }
