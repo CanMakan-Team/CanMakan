@@ -38,6 +38,23 @@ describe('apiRequest', () => {
     const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
     expect(headers.get('Authorization')).toBe('Bearer stored-token')
     expect(headers.get('Accept')).toBe('application/json')
+    expect(headers.get('ngrok-skip-browser-warning')).toBe('true')
+  })
+
+  it('preserves caller headers and sets the shared JSON content type for a request body', async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, { updated: true }))
+
+    await apiRequest('/api/example', {
+      method: 'POST',
+      headers: { 'X-Request-Id': 'request-123' },
+      body: JSON.stringify({ active: false }),
+    })
+
+    const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
+    expect(headers.get('X-Request-Id')).toBe('request-123')
+    expect(headers.get('Accept')).toBe('application/json')
+    expect(headers.get('Content-Type')).toBe('application/json')
+    expect(headers.get('ngrok-skip-browser-warning')).toBe('true')
   })
 
   it('clears session and dispatches unauthorised on non-login 401', async () => {
