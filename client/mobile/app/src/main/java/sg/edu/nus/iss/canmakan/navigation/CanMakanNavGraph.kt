@@ -86,6 +86,8 @@ fun CanMakanNavGraph(
     val isCreatingFamily by navGraphViewModel.isCreatingFamily.collectAsStateWithLifecycle()
     val createFamilyError by navGraphViewModel.createFamilyError.collectAsStateWithLifecycle()
     val inviteClaimError by navGraphViewModel.inviteClaimError.collectAsStateWithLifecycle()
+    val switchProfileError by navGraphViewModel.switchProfileError.collectAsStateWithLifecycle()
+    val isSwitchingProfile by navGraphViewModel.isSwitchingProfile.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -131,6 +133,7 @@ fun CanMakanNavGraph(
                         else -> CanMakanNavGraphViewModel.NO_SESSION_FAMILY_MESSAGE
                     },
                     showManageFamilyActions = showManageFamilyActions,
+                    isSwitchingProfile = isSwitchingProfile,
                     onProfileSelected = { selected ->
                         navGraphViewModel.switchProfile(selected.id)
                         closeDrawer()
@@ -185,6 +188,15 @@ fun CanMakanNavGraph(
                     modifier = Modifier
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .clickable { navGraphViewModel.clearInviteClaimError() },
+                )
+            }
+            switchProfileError?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable { navGraphViewModel.clearSwitchProfileError() },
                 )
             }
             // NavHost is used to switch between the three screens

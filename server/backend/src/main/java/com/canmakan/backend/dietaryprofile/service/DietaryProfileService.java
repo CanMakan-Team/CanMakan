@@ -1,19 +1,26 @@
-package com.canmakan.backend.dietaryprofile;
+package com.canmakan.backend.dietaryprofile.service;
 
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import lombok.AllArgsConstructor;
-
+import com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto;
+import com.canmakan.backend.dietaryprofile.dto.DietaryRestrictionDto;
+import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
+import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.model.ProfileRestriction;
+import com.canmakan.backend.dietaryprofile.model.ProfileRestrictionId;
+import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
+import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
+import com.canmakan.backend.dietaryprofile.repository.ProfileRestrictionRepository;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.AllArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Business logic layer for Dietary Profile Service functions
+ * Business logic for dietary profiles and restriction selections (UC1).
  * 
  * @author Amelia Wong
  */
@@ -22,11 +29,11 @@ import java.util.stream.Collectors;
 public class DietaryProfileService {
 
     private final DietaryProfileRepository dietaryProfileRepository;
+    private final DietaryRestrictionRepository dietaryRestrictionRepository;
+    private final ProfileRestrictionRepository profileRestrictionRepository;
 
-    // Retrieves dietary restriction catalog
-    // Maps each restriction to record dto and returns list of dto
     public List<DietaryRestrictionDto> getAllDietaryRestrictions() {
-        return dietaryProfileRepository.findAllRestrictions().stream()
+        return dietaryRestrictionRepository.findAllOrderedByDisplayName().stream()
                 .map(restriction -> new DietaryRestrictionDto(
                     restriction.getId(),
                     restriction.getCode(),
@@ -56,29 +63,21 @@ public class DietaryProfileService {
             .toList();
     }
 
-    // Retrieves dietary restrictions already set under specific profile
-    // Builds a Map<Long, String>, where the key is Restriction ID and value is Severity Level
-    // Linked Hash Map - preserve insertion order
     public Map<Long, String> getDietaryRestrictionsForProfile(Long profileId) {
         if (profileId == null) {
             throw new IllegalArgumentException("Profile id is required");
         }
 
-        return dietaryProfileRepository.findProfileRestrictionsByProfileId(profileId).stream()
-            .collect(Collectors.toMap(
-                profileRestriction -> profileRestriction.getDietaryRestriction().getId(),
-                ProfileRestriction::getSeverityLevel,
-                (existing, replacement) -> replacement,
-                LinkedHashMap::new
-            ));
+        Map<Long, String> restrictionsById = new LinkedHashMap<>();
+        for (ProfileRestriction profileRestriction
+                : profileRestrictionRepository.findByDietaryProfileId(profileId)) {
+            restrictionsById.put(
+                    profileRestriction.getDietaryRestriction().getId(),
+                    profileRestriction.getSeverityLevel());
+        }
+        return restrictionsById;
     }
 
-    // Saves selected dietary restrictions to specific profile
-    // 1. Validate profile ID and load the target profile
-    // 2. Resolve all requested restriction IDs to managed entities
-    // 3. Remove restrictions that are no longer selected
-    // 4. Update severity for existing restrictions and add brand-new ones
-    // 5. Replace the profile's restriction set and save so JPA flushes the relationship changes
     @Transactional
     public void saveDietaryRestrictionSelections(Long profileId, Map<Long, String> selections) {
         if (profileId == null) {
@@ -92,7 +91,7 @@ public class DietaryProfileService {
         Map<Long, DietaryRestriction> requestedRestrictions = new HashMap<>();
 
         for (Long restrictionId : requestedSelections.keySet()) {
-            DietaryRestriction restriction = dietaryProfileRepository.findRestrictionById(restrictionId)
+            DietaryRestriction restriction = dietaryRestrictionRepository.findById(restrictionId)
                 .orElseThrow(() -> new IllegalArgumentException("Restriction not found: " + restrictionId));
             requestedRestrictions.put(restrictionId, restriction);
         }
@@ -125,23 +124,5 @@ public class DietaryProfileService {
         }
 
         dietaryProfileRepository.save(profile);
-    }
-
-    // Temporary record dto
-    public record DietaryRestrictionDto(
-        Long id,
-        String code,
-        String displayName,
-        String category,
-        String description) {
-    }
-
-    public record DietaryProfileSummaryDto(
-        Long id,
-        String profileName,
-        Long familyId,
-        String relationship,
-        String initials,
-        Boolean isPrimary) {
     }
 }

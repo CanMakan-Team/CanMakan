@@ -1,13 +1,15 @@
 # API Documentation
 
-## Family circle (UC8 / UC9 / UC10)
+## Family circle (UC8 / UC9 / UC10 / UC11)
 
-**Status:** Create + `/me` + invite/dependant (UC9) + invitee inbox (UC10) + restriction summary; JWT principal.
+**Status:** Create + `/me` + invite/dependant (UC9) + invitee inbox (UC10) + active profile (UC11) + restriction summary; JWT principal.
 
 See [`families.md`](families.md) for:
 
 - `POST /api/families` — create circle + PRIMARY_ADMIN + SELF profile
 - `GET /api/families/me` — current family context
+- `GET /api/families/me/active-profile` — read persisted scan profile (or default)
+- `PUT /api/families/me/active-profile` — persist scan profile selection
 - `GET /api/families/me/members` — roster of linked members + dependants
 - `GET /api/families/me/user-search` — PRIMARY_ADMIN email search (incl. NOT_REGISTERED)
 - `POST /api/families/me/invitations` — PENDING invite with `inviteUrl` + `inviteCode` (+ optional Resend email)

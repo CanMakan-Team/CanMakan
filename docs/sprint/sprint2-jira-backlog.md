@@ -216,7 +216,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 
 **Nice-to-Have (UC20–UC24)** covers product reporting, AI admin logs, trend export, subscriptions, and OCR scan.
 
-**Current repo gaps (post-UC19 integration):** dietary restrictions / history / validate still transitional `permitAll`; no profile ownership authz on assess/history/restrictions; mobile `DEFAULT_PROFILE_ID=1` fallback until UC11 server active-profile; web mock still used for unfinished family/admin surfaces; restriction/verdict code mismatches; no profile `is_active` / `active_profile_id` persistence.
+**Current repo gaps (post-UC19 integration):** dietary restrictions / history / validate still transitional `permitAll`; assess profile ownership authz done (UC2); history/restrictions ownership still open; web mock still used for unfinished family/admin surfaces; restriction/verdict code mismatches; UC12 manage CRUD / admin PATCH for `is_active` still open.
 
 ---
 
@@ -236,7 +236,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 | POST | `/api/scan/validate` | Transitional public |
 | GET | `/api/profiles/{profileId}/history` | Transitional public |
 
-Missing: ownership authz on profile-scoped routes; invitations; family scans; recommendations; admin list/PATCH APIs; server active-profile.
+Missing: ownership authz on profile-scoped routes; family scans; recommendations; admin list/PATCH APIs; UC12 roster manage.
 
 ### Required migrations
 
@@ -255,7 +255,7 @@ Missing: ownership authz on profile-scoped routes; invitations; family scans; re
 | UC | Package | Status (detail) |
 | --- | --- | --- |
 | UC1 | Core | **Partial** — live `GET/PUT` restrictions + mobile sheet; still public + no ownership authz; SELF via UC8 |
-| UC2 | Core | **Partial** — ML Kit → validate/assess; assess JWT principal; no profile ownership / inactive checks |
+| UC2 | Core | **Partial** — ML Kit → validate/assess; assess JWT + profile ownership / inactive checks; validate still open |
 | UC3 | Core | **Partial** — rule engine + colour-coded verdict; Alternatives empty (UC5) |
 | UC4 | Core | **Partial** — mobile personal history live; family web history mock; history GET still public |
 | UC5 | Core | **Not started** — Alternatives shell; no recommendations API |
@@ -264,7 +264,7 @@ Missing: ownership authz on profile-scoped routes; invitations; family scans; re
 | UC8 | Core | **Complete (MVP)** — create + `/me` + JWT 401 + web/mobile empty-state; diagrams follow-on open |
 | UC9 | Core | **Complete (MVP)** — live invite/dependant; web + mobile share/deep links; register/login claim; live `/me/members` list |
 | UC10 | Core | **Complete (MVP)** — inbox list/accept/decline + Resend optional; web inbox optional residual |
-| UC11 | Core | **Partial** — drawer switch + `/me`-resolved profiles; `DEFAULT_PROFILE_ID=1` fallback; not server-persisted |
+| UC11 | Core | **Complete (MVP)** — server GET/PUT active-profile; mobile persists; inactive omitted from list |
 | UC12 | Core | **Partial** — live `GET /me/members` roster; manage CRUD / `is_active` open |
 | UC13 | Core | **Partial** — `UserAccessPage` mock; no admin controller |
 | UC14 | Enhanced | **Not started** |
@@ -525,7 +525,7 @@ Missing: ownership authz on profile-scoped routes; invitations; family scans; re
 | --- | --- |
 | **Stories** | UC11-S1…S4 |
 | **Dependencies** | UC19; UC8-S3 (`/families/me`) or seeded membership for early delivery |
-| **Status** | **Partial** — local switch + `/me`-resolved profiles; server active-profile + drop DEFAULT_PROFILE_ID fallback open |
+| **Status** | **Complete (MVP)** — server GET/PUT active-profile; mobile persists selection; inactive omitted from list |
 | **In** | Daily active-profile switch on mobile (server-persisted) |
 | **Out** | Web profile switcher (not required for MVP) |
 
@@ -734,7 +734,7 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 
 | Story | Summary | AC # | Priority |
 | --- | --- | --- | --- |
-| **UC2-S1** | Authorize assess by family + active/inactive rules; JWT userId — **Partial** (JWT done; ownership/inactive open) | UC2: 5–7 | P0 |
+| **UC2-S1** | Authorize assess by family + active/inactive rules; JWT userId — **Done** | UC2: 5–7 | P0 |
 | **UC2-S2** | Camera + ML Kit barcode → `POST /scan/validate` | UC2: 1–3 | P0 |
 | **UC2-S3** | Assess call + navigate to verdict (UC3) | UC2: 4, 12 | P0 |
 | **UC2-S4** | Failure states — unknown / non-food / network (never false Safe) | UC2: 8–11 | P0 |
@@ -798,7 +798,7 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 
 **Remaining Core MVP (next):** UC12 manage; UC4-S2/S3; UC5-S1/S2; UC7-S1/S2; UC13-S1…S3.
 
-**Seeded-family exception:** Scan work may still use Tan/Lim/Wong seeds until UC11 persists active profile. New users create a circle via UC8 after UC18 register + UC19 login.
+**Seeded-family exception:** Scan work may still use Tan/Lim/Wong seeds for demo data. New users create a circle via UC8 after UC18 register + UC19 login; active profile persists via UC11.
 
 **Enhanced / Nice-to-Have:** UC14–UC24 after Core commitment. UC19 foundation is in place; finish S3 before treating all Core APIs as production-authz complete.
 ---

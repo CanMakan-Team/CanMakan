@@ -1,6 +1,6 @@
 package com.canmakan.backend.user;
 
-import com.canmakan.backend.dietaryprofile.DietaryProfile;
+import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
 import com.canmakan.backend.shared.AuditableEntity;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.AttributeOverrides;

@@ -6,6 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.model.ProfileRestriction;
+import com.canmakan.backend.dietaryprofile.repository.ProfileRestrictionRepository;
+import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
 import com.canmakan.backend.knowledgebase.model.RestrictionCategory;
 import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.RestrictionSeverity;
@@ -17,23 +21,20 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Unit tests for {@link RestrictionRuleLoader}: maps saved dietary preferences into
- * the rule list the engine consumes.
- *
- * @author XieHuayuan
+ * Unit tests for {@link RestrictionRuleLoader}.
  */
 @ExtendWith(MockitoExtension.class)
 class RestrictionRuleLoaderTest {
 
     @Mock
-    private DietaryProfileRepository repository;
+    private ProfileRestrictionRepository repository;
 
     @InjectMocks
     private RestrictionRuleLoader loader;
 
     @Test
     void mapsProfileRestrictionsToRules() {
-        when(repository.findProfileRestrictionsByProfileId(1L)).thenReturn(List.of(
+        when(repository.findByDietaryProfileId(1L)).thenReturn(List.of(
                 profileRestriction("PEANUT", "ALLERGEN", "STRICT_AVOID"),
                 profileRestriction("DAIRY", "ALLERGEN", "INTOLERANCE")));
 
@@ -48,7 +49,7 @@ class RestrictionRuleLoaderTest {
 
     @Test
     void mappingIsCaseInsensitiveAndTrimmed() {
-        when(repository.findProfileRestrictionsByProfileId(1L)).thenReturn(List.of(
+        when(repository.findByDietaryProfileId(1L)).thenReturn(List.of(
                 profileRestriction("HALAL", " religious ", " strict_avoid ")));
 
         List<RestrictionRule> rules = loader.load(1L);
@@ -60,9 +61,9 @@ class RestrictionRuleLoaderTest {
 
     @Test
     void skipsRowsWithUnknownCategoryOrSeverityInsteadOfFailing() {
-        when(repository.findProfileRestrictionsByProfileId(1L)).thenReturn(List.of(
-                profileRestriction("X", "NONSENSE", "STRICT_AVOID"),   // bad category
-                profileRestriction("Y", "ALLERGEN", "MAYBE"),          // bad severity
+        when(repository.findByDietaryProfileId(1L)).thenReturn(List.of(
+                profileRestriction("X", "NONSENSE", "STRICT_AVOID"),
+                profileRestriction("Y", "ALLERGEN", "MAYBE"),
                 profileRestriction("HALAL", "RELIGIOUS", "STRICT_AVOID")));
 
         List<RestrictionRule> rules = loader.load(1L);
@@ -73,7 +74,7 @@ class RestrictionRuleLoaderTest {
 
     @Test
     void returnsEmptyListWhenProfileHasNoRestrictions() {
-        when(repository.findProfileRestrictionsByProfileId(1L)).thenReturn(List.of());
+        when(repository.findByDietaryProfileId(1L)).thenReturn(List.of());
 
         assertTrue(loader.load(1L).isEmpty());
     }

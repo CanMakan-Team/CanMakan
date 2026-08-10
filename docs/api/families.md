@@ -1,4 +1,4 @@
-# Family circle APIs (UC8 / UC9 / UC10 / UC6)
+# Family circle APIs (UC8 / UC9 / UC10 / UC11 / UC6)
 
 ## Progress
 
@@ -10,7 +10,8 @@
 | Request validation (`@Valid` family name) | Done |
 | Web create empty-state (`FamilyMeGate`) | Done |
 | JWT principal on family routes | Done (UC19) |
-| Mobile resolve via `/me` (AC10) | Done (create-when-empty); active-profile persist → UC11 |
+| Mobile resolve via `/me` (AC10) | Done (create-when-empty) |
+| UC11 GET/PUT `/families/me/active-profile` | Done |
 | UC9 user-search / invitations / dependant profiles | Done |
 | Register auto-claim of PENDING invite | Done (optional `invitationToken`) |
 | Spring Data repos (Family / Member / Invitation) | Done |
@@ -74,6 +75,63 @@ Success `200` body includes `familyId`, `familyName`, `memberRole`, `selfProfile
 
 ---
 
+## Active profile (UC11)
+
+Persist which dietary profile subsequent scans use. Stored in `user_preferences.active_profile_id`.
+
+### Get active profile
+
+`GET /api/families/me/active-profile`
+
+Headers: `Authorization`
+
+Success `200`:
+
+```json
+{
+  "profileId": 77,
+  "profileName": "Wong",
+  "relationship": "SELF",
+  "familyId": 10,
+  "isPrimary": true
+}
+```
+
+**Default when no stored preference (or stored id is invalid):**
+
+| Caller state | Default `profileId` |
+| --- | --- |
+| Family member | Caller's `selfProfileId` from membership |
+| No family | Caller's standalone linked SELF profile (`family_id` NULL) |
+
+On GET, a stale stored id (deleted profile, wrong family, inactive) falls back to the default and clears the stored FK.
+
+### Set active profile
+
+`PUT /api/families/me/active-profile`
+
+Headers: `Authorization`, `Content-Type: application/json`
+
+Request:
+
+```json
+{
+  "profileId": 88
+}
+```
+
+Success `200` returns the same shape as GET.
+
+| Status | Meaning |
+| --- | --- |
+| 401 | Missing/invalid JWT |
+| 403 | Profile is outside the caller's family (or not linked to caller when no family) |
+| 409 | Profile exists but `is_active = 0` (inactive) |
+
+**List filtering:** `GET /api/families/{familyId}/profiles` omits inactive profiles from the switcher list.
+
+---
+
 ## Family members roster (UC12 list)
 
 `GET /api/families/me/members`
@@ -124,8 +182,10 @@ Any family member may list. Returns linked users and dependant profiles:
 
 ## Profiles by family id
 
-`GET /api/families/{familyId}/profiles` — authenticated; returns all dietary
-profiles for the family, including dependants (`linked_user_id` null).
+`GET /api/families/{familyId}/profiles` — authenticated; returns active dietary
+profiles for the family when `{familyId}` matches the caller's membership.
+Returns **403** when the caller is not a member of that family.
+Inactive profiles are omitted from the list.
 
 ---
 

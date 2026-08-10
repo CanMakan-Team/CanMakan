@@ -10,10 +10,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.canmakan.backend.dietaryprofile.DietaryProfile;
-import com.canmakan.backend.dietaryprofile.DietaryProfileRepository;
-import com.canmakan.backend.dietaryprofile.DietaryProfileService;
-import com.canmakan.backend.dietaryprofile.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
+import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
+import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
+import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
+import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
 import com.canmakan.backend.family.dto.CreateInvitationRequest;
@@ -24,15 +26,18 @@ import com.canmakan.backend.family.dto.UserSearchResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.family.exception.FamilyNotFoundException;
+import com.canmakan.backend.family.exception.InactiveProfileException;
 import com.canmakan.backend.family.exception.InvitationConflictException;
 import com.canmakan.backend.family.exception.InvitationExpiredException;
 import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.family.model.FamilyInvitation;
 import com.canmakan.backend.family.model.FamilyMember;
 import com.canmakan.backend.family.model.InvitationStatus;
+import com.canmakan.backend.family.model.UserPreference;
 import com.canmakan.backend.family.repository.FamilyInvitationRepository;
 import com.canmakan.backend.family.repository.FamilyMemberRepository;
 import com.canmakan.backend.family.repository.FamilyRepository;
+import com.canmakan.backend.family.repository.UserPreferenceRepository;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.user.UserAccount;
 import com.canmakan.backend.user.UserAccountRepository;
@@ -67,7 +72,11 @@ class FamilyServiceTest {
     @Mock
     private FamilyInvitationRepository familyInvitationRepository;
     @Mock
+    private UserPreferenceRepository userPreferenceRepository;
+    @Mock
     private DietaryProfileRepository dietaryProfileRepository;
+    @Mock
+    private DietaryRestrictionRepository dietaryRestrictionRepository;
     @Mock
     private DietaryProfileService dietaryProfileService;
 
@@ -84,7 +93,9 @@ class FamilyServiceTest {
             familyRepository,
             familyMemberRepository,
             familyInvitationRepository,
+            userPreferenceRepository,
             dietaryProfileRepository,
+            dietaryRestrictionRepository,
             dietaryProfileService,
             inviteProperties,
             invitationEmailService
@@ -401,7 +412,7 @@ class FamilyServiceTest {
         DietaryRestriction peanut = new DietaryRestriction();
         peanut.setId(3L);
         peanut.setCode("PEANUT");
-        when(dietaryProfileRepository.findRestrictionByCode("PEANUT")).thenReturn(Optional.of(peanut));
+        when(dietaryRestrictionRepository.findByCodeIgnoreCase("PEANUT")).thenReturn(Optional.of(peanut));
 
         var response = familyService.createDependantProfile(
             10L,
@@ -645,6 +656,149 @@ class FamilyServiceTest {
         assertEquals("Host Family", rows.get(0).familyName());
         assertEquals("admin@example.com", rows.get(0).invitedByDisplayName());
         assertFalse(rows.get(0).expired());
+    }
+
+    @Test
+    @DisplayName("getActiveProfile defaults to self profile for family member")
+    void getActiveProfileDefaultsToSelf() {
+        stubMembership(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(userPreferenceRepository.findById(10L)).thenReturn(Optional.empty());
+
+        DietaryProfile self = activeProfile(77L, "Admin", family, true);
+        UserAccount user = new UserAccount();
+        user.setId(10L);
+        self.setLinkedUser(user);
+        when(dietaryProfileRepository.findByLinkedUser_Id(10L)).thenReturn(Optional.of(self));
+        when(dietaryProfileRepository.findById(77L)).thenReturn(Optional.of(self));
+
+        ActiveProfileResponse response = familyService.getActiveProfile(10L);
+
+        assertEquals(77L, response.profileId());
+        assertEquals("Admin", response.profileName());
+    }
+
+    @Test
+    @DisplayName("setActiveProfile persists preference for in-family profile")
+    void setActiveProfilePersists() {
+        stubMembership(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+
+        DietaryProfile dependant = activeProfile(88L, "Child", family, true);
+        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(dependant));
+        when(userPreferenceRepository.findById(10L)).thenReturn(Optional.empty());
+        when(userPreferenceRepository.saveAndFlush(any(UserPreference.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ActiveProfileResponse response = familyService.setActiveProfile(10L, 88L);
+
+        assertEquals(88L, response.profileId());
+        verify(userPreferenceRepository).saveAndFlush(any(UserPreference.class));
+    }
+
+    @Test
+    @DisplayName("setActiveProfile rejects profile outside family")
+    void setActiveProfileForbiddenOutsideFamily() {
+        stubMembership(10L, 1L);
+        Family otherFamily = new Family();
+        otherFamily.setId(99L);
+        DietaryProfile outsider = activeProfile(55L, "Other", otherFamily, true);
+        when(dietaryProfileRepository.findById(55L)).thenReturn(Optional.of(outsider));
+
+        assertThrows(
+            FamilyForbiddenException.class,
+            () -> familyService.setActiveProfile(10L, 55L)
+        );
+    }
+
+    @Test
+    @DisplayName("setActiveProfile rejects inactive profile")
+    void setActiveProfileInactive() {
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile inactive = activeProfile(88L, "Child", family, false);
+        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(inactive));
+
+        assertThrows(
+            InactiveProfileException.class,
+            () -> familyService.setActiveProfile(10L, 88L)
+        );
+    }
+
+    @Test
+    @DisplayName("getProfilesForFamilyMember returns profiles for caller family")
+    void getProfilesForFamilyMemberOk() {
+        stubMembership(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(77L, "Admin", family, true);
+        when(dietaryProfileService.getProfilesByFamilyId(1L)).thenReturn(List.of(
+            new com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto(
+                profile.getId(),
+                profile.getProfileName(),
+                1L,
+                profile.getRelationship(),
+                "AD",
+                profile.isPrimary())
+        ));
+
+        List<com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto> rows =
+            familyService.getProfilesForFamilyMember(10L, 1L);
+
+        assertEquals(1, rows.size());
+        assertEquals(77L, rows.get(0).id());
+    }
+
+    @Test
+    @DisplayName("getProfilesForFamilyMember rejects another family id")
+    void getProfilesForFamilyMemberForbidden() {
+        stubMembership(10L, 1L);
+
+        assertThrows(
+            FamilyForbiddenException.class,
+            () -> familyService.getProfilesForFamilyMember(10L, 99L)
+        );
+    }
+
+    @Test
+    @DisplayName("assertProfileAuthorizedForScan rejects profile outside family")
+    void assertProfileAuthorizedForScanForbidden() {
+        stubMembership(10L, 1L);
+        Family otherFamily = new Family();
+        otherFamily.setId(99L);
+        DietaryProfile outsider = activeProfile(55L, "Other", otherFamily, true);
+        when(dietaryProfileRepository.findById(55L)).thenReturn(Optional.of(outsider));
+
+        assertThrows(
+            FamilyForbiddenException.class,
+            () -> familyService.assertProfileAuthorizedForScan(10L, 55L)
+        );
+    }
+
+    private static DietaryProfile activeProfile(
+            Long id, String name, Family family, boolean active) {
+        DietaryProfile profile = new DietaryProfile();
+        profile.setId(id);
+        profile.setProfileName(name);
+        profile.setFamily(family);
+        profile.setRelationship("SELF");
+        profile.setPrimary(true);
+        profile.setActive(active);
+        return profile;
+    }
+
+    private void stubMembership(long userId, long familyId) {
+        FamilyMember membership = new FamilyMember(
+            new FamilyMember.FamilyMemberId(familyId, userId),
+            FamilyMember.ROLE_MEMBER,
+            true,
+            null
+        );
+        when(familyMemberRepository.findMembershipByUserId(userId))
+            .thenReturn(Optional.of(membership));
     }
 
     private static FamilyInvitation pendingInvitation(String token, String email) {

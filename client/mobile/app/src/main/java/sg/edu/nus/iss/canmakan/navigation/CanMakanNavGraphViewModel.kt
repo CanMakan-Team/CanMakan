@@ -7,13 +7,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
+import sg.edu.nus.iss.canmakan.features.family.data.ActiveProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
@@ -72,28 +72,35 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val _inviteClaimError = MutableStateFlow<String?>(null)
     val inviteClaimError: StateFlow<String?> = _inviteClaimError.asStateFlow()
 
+    private val _switchProfileError = MutableStateFlow<String?>(null)
+    val switchProfileError: StateFlow<String?> = _switchProfileError.asStateFlow()
+
+    private val _isSwitchingProfile = MutableStateFlow(false)
+    val isSwitchingProfile: StateFlow<Boolean> = _isSwitchingProfile.asStateFlow()
+
     init {
         viewModelScope.launch {
-            combine(
-                authSessionStore.authenticatedUser,
-                currentProfileId,
-            ) { user, profileId ->
-                user to profileId
-            }.collect { (user, profileId) ->
+            authSessionStore.authenticatedUser.collect { user ->
                 _hasUserSession.value = user != null
                 if (user != null) {
                     claimPendingInvitationIfNeeded()
                 }
-                loadDataWithRetry(profileId)
+                reloadFamilyContext()
             }
         }
-        // Claim when an invite Intent arrives while already authenticated.
         viewModelScope.launch {
             pendingInvitationStore.token.collect { token ->
                 if (token != null && authSessionStore.authenticatedUser.value != null) {
                     claimPendingInvitationIfNeeded()
-                    loadDataWithRetry(currentProfileId.value)
+                    reloadFamilyContext()
                 }
+            }
+        }
+        viewModelScope.launch {
+            currentProfileId.collect { profileId ->
+                if (authSessionStore.authenticatedUser.value == null) return@collect
+                if (profileId == ActiveProfileManager.UNSET_PROFILE_ID) return@collect
+                loadRestrictions(profileId)
             }
         }
     }
@@ -120,15 +127,25 @@ class CanMakanNavGraphViewModel @Inject constructor(
         _inviteClaimError.value = null
     }
 
-    private suspend fun loadDataWithRetry(profileId: Long) {
+    fun clearSwitchProfileError() {
+        _switchProfileError.value = null
+    }
+
+    private suspend fun reloadFamilyContext() {
         _isLoading.value = true
         _error.value = null
         try {
-            loadFamilyMembershipAndProfiles(profileId)
-            val effectiveProfileId = activeProfileManager.currentProfileId.value
-            loadRestrictions(effectiveProfileId)
+            loadFamilyMembershipAndProfiles(activeProfileManager.currentProfileId.value)
         } finally {
             _isLoading.value = false
+        }
+    }
+
+    private suspend fun loadDataWithRetry(profileId: Long) {
+        reloadFamilyContext()
+        val effectiveProfileId = activeProfileManager.currentProfileId.value
+        if (effectiveProfileId != ActiveProfileManager.UNSET_PROFILE_ID) {
+            loadRestrictions(effectiveProfileId)
         }
     }
 
@@ -169,25 +186,32 @@ class CanMakanNavGraphViewModel @Inject constructor(
 
         try {
             val me = familyProfileRepository.getMyFamily()
-            if (me == null) {
+            val loadedProfiles = if (me != null) {
+                _hasFamily.value = true
+                _familyName.value = me.familyName
+                _showManageFamilyActions.value = me.memberRole == "PRIMARY_ADMIN"
+                familyProfileRepository.getProfilesForFamily(me.familyId)
+            } else {
                 _hasFamily.value = false
                 _familyName.value = null
                 _showManageFamilyActions.value = false
-                _profiles.value = listOf(personalPlaceholder(profileId))
-                return
+                emptyList()
+            }
+            if (me != null) {
+                _profiles.value = loadedProfiles
             }
 
-            _hasFamily.value = true
-            _familyName.value = me.familyName
-            _showManageFamilyActions.value = me.memberRole == "PRIMARY_ADMIN"
-            val loadedProfiles = familyProfileRepository.getProfilesForFamily(me.familyId)
-            _profiles.value = loadedProfiles
-
-            withContext(Dispatchers.Default) {
-                val currentId = activeProfileManager.currentProfileId.value
-                if (loadedProfiles.none { it.id == currentId }) {
-                    activeProfileManager.switchProfile(me.selfProfileId)
-                }
+            val activeFromServer = familyProfileRepository.getActiveProfile()
+            if (me == null) {
+                _profiles.value = listOf(profileFromActiveResponse(activeFromServer))
+                applyActiveProfileId(activeFromServer.profileId)
+            } else {
+                val resolvedProfileId = resolveActiveProfileId(
+                    serverProfileId = activeFromServer.profileId,
+                    loadedProfiles = loadedProfiles,
+                    selfProfileId = me.selfProfileId,
+                )
+                applyActiveProfileId(resolvedProfileId)
             }
         } catch (e: Exception) {
             Timber.e(e, "Error loading family membership / profiles")
@@ -199,9 +223,51 @@ class CanMakanNavGraphViewModel @Inject constructor(
         }
     }
 
-    private fun personalPlaceholder(profileId: Long): DietaryProfile {
+    private fun applyActiveProfileId(profileId: Long) {
+        if (activeProfileManager.currentProfileId.value != profileId) {
+            activeProfileManager.switchProfile(profileId)
+        }
+    }
+
+    private fun resolveActiveProfileId(
+        serverProfileId: Long,
+        loadedProfiles: List<DietaryProfile>,
+        selfProfileId: Long?,
+    ): Long {
+        if (loadedProfiles.any { it.id == serverProfileId }) {
+            return serverProfileId
+        }
+        if (selfProfileId != null && loadedProfiles.any { it.id == selfProfileId }) {
+            return selfProfileId
+        }
+        return loadedProfiles.firstOrNull()?.id ?: serverProfileId
+    }
+
+    private fun profileFromActiveResponse(active: ActiveProfileResponse): DietaryProfile {
+        val initials = active.profileName
+            .trim()
+            .firstOrNull()
+            ?.uppercaseChar()
+            ?.toString()
+            .orEmpty()
         return DietaryProfile(
-            id = profileId,
+            id = active.profileId,
+            familyId = active.familyId ?: 0L,
+            profileName = active.profileName,
+            relationship = active.relationship.orEmpty(),
+            initials = initials.ifEmpty { "?" },
+            isPrimary = active.isPrimary ?: false,
+        )
+    }
+
+    private fun personalPlaceholder(profileId: Long): DietaryProfile {
+        val effectiveId = if (profileId == ActiveProfileManager.UNSET_PROFILE_ID) {
+            ActiveProfileManager.UNSET_PROFILE_ID
+        } else {
+            profileId
+        }
+        return DietaryProfile(
+            id = effectiveId,
             familyId = 0L,
             profileName = "Personal",
             relationship = "Self",
@@ -211,7 +277,34 @@ class CanMakanNavGraphViewModel @Inject constructor(
     }
 
     fun switchProfile(profileId: Long) {
-        activeProfileManager.switchProfile(profileId)
+        if (profileId == activeProfileManager.currentProfileId.value) {
+            return
+        }
+        if (authSessionStore.authenticatedUser.value == null) {
+            activeProfileManager.switchProfile(profileId)
+            return
+        }
+        viewModelScope.launch {
+            _isSwitchingProfile.value = true
+            _switchProfileError.value = null
+            try {
+                familyProfileRepository.setActiveProfile(profileId)
+                activeProfileManager.switchProfile(profileId)
+            } catch (e: CreateFamilyException) {
+                Timber.w(e, "Switch profile failed")
+                _switchProfileError.value = when (e.statusCode) {
+                    403 -> "That profile is not in your family circle."
+                    409 -> "That profile is inactive and cannot be selected."
+                    else -> e.message ?: "Could not switch profile. Please try again."
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Switch profile failed")
+                _switchProfileError.value =
+                    "Could not switch profile. Check your connection and try again."
+            } finally {
+                _isSwitchingProfile.value = false
+            }
+        }
     }
 
     fun setPendingVerdict(detail: VerdictDetail) {
@@ -246,8 +339,8 @@ class CanMakanNavGraphViewModel @Inject constructor(
             _createFamilyError.value = null
             try {
                 val created = familyProfileRepository.createFamily(familyName.trim())
-                activeProfileManager.switchProfile(created.selfProfileId)
-                loadDataWithRetry(created.selfProfileId)
+                applyActiveProfileId(created.selfProfileId)
+                reloadFamilyContext()
                 onSuccess()
             } catch (e: CreateFamilyException) {
                 Timber.e(e, "Create family failed")

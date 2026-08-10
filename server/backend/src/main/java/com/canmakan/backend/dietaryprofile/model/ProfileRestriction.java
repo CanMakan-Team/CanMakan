@@ -1,4 +1,4 @@
-package com.canmakan.backend.dietaryprofile;
+package com.canmakan.backend.dietaryprofile.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
@@ -14,7 +14,7 @@ import lombok.Setter;
 import lombok.ToString;
 
 /**
- * Join entity linking a dietary profile to a selected dietary restriction and severity level
+ * Join entity linking a dietary profile to a selected dietary restriction and severity level.
  * 
  * @author Amelia Wong
  */

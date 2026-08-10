@@ -1,4 +1,4 @@
-package com.canmakan.backend.dietaryprofile;
+package com.canmakan.backend.dietaryprofile.model;
 
 import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.shared.AuditableEntity;
@@ -26,7 +26,7 @@ import java.util.Set;
 
 /**
  * Represents a dietary profile belonging to a family member.
- * This stores the profile's name, relationship, primary flag, and linked restrictions.
+ * Stores profile metadata and linked restrictions.
  * 
  * @author Amelia Wong
  */
@@ -43,8 +43,6 @@ public class DietaryProfile extends AuditableEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Nullable: a profile can exist before its owner has joined or created a
-    // family, e.g. the profile created at registration time.
     @ManyToOne
     @JoinColumn(name = "family_id", nullable = true)
     private Family family;
@@ -61,6 +59,9 @@ public class DietaryProfile extends AuditableEntity {
 
     @Column(name = "is_primary")
     private boolean primary;
+
+    @Column(name = "is_active", nullable = false)
+    private boolean active = true;
 
     @Column(name = "avatar_url", length = 255)
     private String avatarUrl;
