@@ -18,6 +18,7 @@ import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.dto.FamilyMeRestrictionDetail;
 import com.canmakan.backend.family.dto.FamilyMeRestrictionSum;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
+import com.canmakan.backend.family.dto.FamilyScanHistoryDto;
 import com.canmakan.backend.family.dto.InvitationResponse;
 import com.canmakan.backend.family.dto.PendingInvitationResponse;
 import com.canmakan.backend.family.dto.UpdateProfileRequest;
@@ -39,12 +40,18 @@ import com.canmakan.backend.family.repository.FamilyInvitationRepository;
 import com.canmakan.backend.family.repository.FamilyMemberRepository;
 import com.canmakan.backend.family.repository.FamilyRepository;
 import com.canmakan.backend.family.repository.UserPreferenceRepository;
+import com.canmakan.backend.product.model.ScanProduct;
+import com.canmakan.backend.product.scan.Scan;
+import com.canmakan.backend.product.scan.ScanRepository;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.user.UserAccount;
 import com.canmakan.backend.user.UserAccountRepository;
 import java.security.SecureRandom;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -70,14 +77,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class FamilyService {
 
-    private static final String NOT_IN_FAMILY_MESSAGE =
-        "You are not a member of a family circle.";
-    private static final String PRIMARY_ADMIN_REQUIRED =
-        "Only the family primary admin can perform this action.";
     private static final String DEFAULT_SEVERITY = "STRICT_AVOID";
     private static final String INVITE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int INVITE_CODE_LENGTH = 8;
     private static final int INVITE_TOKEN_BYTES = 24;
+    private static final DateTimeFormatter SCAN_AT_FORMAT =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     private final UserAccountRepository userAccountRepository;
     private final FamilyRepository familyRepository;
@@ -87,6 +92,8 @@ public class FamilyService {
     private final DietaryProfileRepository dietaryProfileRepository;
     private final DietaryRestrictionRepository dietaryRestrictionRepository;
     private final DietaryProfileService dietaryProfileService;
+    private final FamilyAuthorizationService familyAuthorization;
+    private final ScanRepository scanRepository;
     private final InviteProperties inviteProperties;
     private final InvitationEmailService invitationEmailService;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -153,7 +160,7 @@ public class FamilyService {
     // Get the family restriction summary
     @Transactional(readOnly = true)
     public FamilyRestrictionSumRes getFamilyRestrictionSummary(Long currentUserId) {
-        FamilyMember membership = requireMembership(currentUserId);
+        FamilyMember membership = familyAuthorization.requireMembership(currentUserId);
         Long familyId = membership.getFamilyId();
 
         List<FamilyMeRestrictionSum> rows = new ArrayList<>();
@@ -198,7 +205,7 @@ public class FamilyService {
      */
     @Transactional(readOnly = true)
     public List<FamilyMemberRosterDto> listFamilyMembers(long currentUserId) {
-        FamilyMember membership = requireMembership(currentUserId);
+        FamilyMember membership = familyAuthorization.requireMembership(currentUserId);
         Long familyId = membership.getFamilyId();
 
         List<FamilyMemberRosterDto> rows = new ArrayList<>();
@@ -270,7 +277,7 @@ public class FamilyService {
      */
     @Transactional(readOnly = true)
     public List<DietaryProfileSummaryDto> listMyFamilyProfiles(long userId) {
-        FamilyMember membership = requireMembership(userId);
+        FamilyMember membership = familyAuthorization.requireMembership(userId);
         return dietaryProfileService.getAllProfilesByFamilyId(membership.getFamilyId());
     }
 
@@ -280,8 +287,8 @@ public class FamilyService {
     @Transactional
     public FamilyMemberRosterDto updateProfileMetadata(
             long adminUserId, long profileId, UpdateProfileRequest request) {
-        requirePrimaryAdmin(adminUserId);
-        DietaryProfile profile = requireProfileInCallerFamily(adminUserId, profileId);
+        familyAuthorization.requirePrimaryAdmin(adminUserId);
+        DietaryProfile profile = familyAuthorization.requireProfileInCallerFamily(adminUserId, profileId);
         profile.setProfileName(request.profileName().trim());
         profile.setRelationship(request.relationship().trim().toUpperCase(Locale.ROOT));
         dietaryProfileRepository.saveAndFlush(profile);
@@ -304,8 +311,8 @@ public class FamilyService {
     @Transactional
     public DietaryProfileSummaryDto setProfileActive(
             long adminUserId, long profileId, boolean active) {
-        requirePrimaryAdmin(adminUserId);
-        DietaryProfile profile = requireProfileInCallerFamily(adminUserId, profileId);
+        familyAuthorization.requirePrimaryAdmin(adminUserId);
+        DietaryProfile profile = familyAuthorization.requireProfileInCallerFamily(adminUserId, profileId);
         profile.setActive(active);
         dietaryProfileRepository.saveAndFlush(profile);
         if (!active) {
@@ -327,7 +334,7 @@ public class FamilyService {
      */
     @Transactional
     public void removeFamilyMember(long adminUserId, long targetUserId) {
-        FamilyMember adminMembership = requirePrimaryAdmin(adminUserId);
+        FamilyMember adminMembership = familyAuthorization.requirePrimaryAdmin(adminUserId);
         Long familyId = adminMembership.getFamilyId();
 
         FamilyMember target = familyMemberRepository.findMembershipByUserId(targetUserId)
@@ -357,8 +364,8 @@ public class FamilyService {
      */
     @Transactional
     public void removeDependantProfile(long adminUserId, long profileId) {
-        requirePrimaryAdmin(adminUserId);
-        DietaryProfile profile = requireProfileInCallerFamily(adminUserId, profileId);
+        familyAuthorization.requirePrimaryAdmin(adminUserId);
+        DietaryProfile profile = familyAuthorization.requireProfileInCallerFamily(adminUserId, profileId);
         if (profile.getLinkedUser() != null) {
             throw new FamilyForbiddenException(
                 "Linked members must be removed via DELETE /members/{userId}.");
@@ -375,24 +382,7 @@ public class FamilyService {
      */
     @Transactional(readOnly = true)
     public void assertMayEditRestrictions(long actorUserId, long profileId) {
-        DietaryProfile profile = dietaryProfileRepository.findById(profileId)
-            .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
-
-        if (profile.getLinkedUser() != null
-                && profile.getLinkedUser().getId() != null
-                && profile.getLinkedUser().getId() == actorUserId) {
-            return;
-        }
-
-        if (profile.getLinkedUser() == null && profile.getFamily() != null) {
-            FamilyMember membership = requirePrimaryAdmin(actorUserId);
-            if (membership.getFamilyId().equals(profile.getFamily().getId())) {
-                return;
-            }
-        }
-
-        throw new FamilyForbiddenException(
-            "You cannot edit restrictions for another adult's linked profile.");
+        familyAuthorization.assertMayEditRestrictions(actorUserId, profileId);
     }
 
     private FamilyMemberRosterDto toRosterRow(DietaryProfile profile) {
@@ -437,17 +427,6 @@ public class FamilyService {
         );
     }
 
-    private DietaryProfile requireProfileInCallerFamily(long userId, long profileId) {
-        FamilyMember membership = requireMembership(userId);
-        DietaryProfile profile = dietaryProfileRepository.findById(profileId)
-            .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
-        if (profile.getFamily() == null
-                || !membership.getFamilyId().equals(profile.getFamily().getId())) {
-            throw new FamilyForbiddenException("Profile does not belong to your family circle.");
-        }
-        return profile;
-    }
-
     private void clearActiveProfilePreferencePointingAt(long profileId) {
         for (UserPreference pref :
                 userPreferenceRepository.findByActiveProfileId(profileId)) {
@@ -467,11 +446,11 @@ public class FamilyService {
     @Transactional(readOnly = true)
     public FamilyMeResponse getMyFamily(long userId) {
         // Require membership
-        FamilyMember membership = requireMembership(userId);
+        FamilyMember membership = familyAuthorization.requireMembership(userId);
 
         // Find the family by id
         Family family = familyRepository.findById(membership.getFamilyId())
-            .orElseThrow(() -> new FamilyNotFoundException(NOT_IN_FAMILY_MESSAGE));
+            .orElseThrow(() -> new FamilyNotFoundException(FamilyAuthorizationService.NOT_IN_FAMILY_MESSAGE));
 
         // Find the self profile by user id
         Long selfProfileId = dietaryProfileRepository.findByLinkedUser_Id(userId)
@@ -493,7 +472,7 @@ public class FamilyService {
      */
     @Transactional(readOnly = true)
     public List<DietaryProfileSummaryDto> getProfilesForFamilyMember(long userId, long familyId) {
-        FamilyMember membership = requireMembership(userId);
+        FamilyMember membership = familyAuthorization.requireMembership(userId);
         if (!membership.getFamilyId().equals(familyId)) {
             throw new FamilyForbiddenException(
                 "Profile list is not available for this family.");
@@ -506,7 +485,83 @@ public class FamilyService {
      */
     @Transactional(readOnly = true)
     public void assertProfileAuthorizedForScan(long userId, long profileId) {
-        assertProfileSelectable(userId, profileId);
+        familyAuthorization.assertProfileAuthorizedForScan(userId, profileId);
+    }
+
+    /**
+     * Lists recent scans for all profiles in the caller's family (web history/dashboard).
+     */
+    @Transactional(readOnly = true)
+    public List<FamilyScanHistoryDto> listFamilyScans(long userId) {
+        FamilyMember membership = familyAuthorization.requireMembership(userId);
+        Long familyId = membership.getFamilyId();
+        List<DietaryProfile> profiles =
+            dietaryProfileRepository.findAllProfilesByFamilyId(familyId);
+        if (profiles.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, DietaryProfile> profilesById = new HashMap<>();
+        for (DietaryProfile profile : profiles) {
+            profilesById.put(profile.getId(), profile);
+        }
+        List<Scan> scans = scanRepository.findByProfileIdInWithProductOrderByScannedAtDesc(
+            profilesById.keySet());
+        List<FamilyScanHistoryDto> rows = new ArrayList<>();
+        for (Scan scan : scans) {
+            DietaryProfile profile = profilesById.get(scan.getProfileId());
+            rows.add(toFamilyScanHistoryRow(scan, profile));
+        }
+        return rows;
+    }
+
+    private FamilyScanHistoryDto toFamilyScanHistoryRow(Scan scan, DietaryProfile profile) {
+        ScanProduct product = scan.getProduct();
+        String productName = product != null && product.getProductName() != null
+            ? product.getProductName()
+            : (scan.getBarcode() != null ? scan.getBarcode() : "Unknown product");
+        String brand = product != null && product.getBrand() != null ? product.getBrand() : "";
+        String profileName = profile != null && profile.getProfileName() != null
+            ? profile.getProfileName()
+            : "Unknown profile";
+        long memberId = profile != null && profile.getLinkedUser() != null
+            && profile.getLinkedUser().getId() != null
+            ? profile.getLinkedUser().getId()
+            : (profile != null && profile.getId() != null ? profile.getId() : 0L);
+        String explanation = scan.getAiExplanation() == null ? "" : scan.getAiExplanation();
+        return new FamilyScanHistoryDto(
+            scan.getId() == null ? 0L : scan.getId(),
+            productName,
+            brand,
+            memberId,
+            profileName,
+            mapWebVerdict(scan.getVerdict()),
+            "",
+            "",
+            "",
+            explanation,
+            product == null ? "PRODUCT_NOT_FOUND" : "COMPLETE",
+            "Open Food Facts / assessment",
+            formatScanAt(scan.getScannedAt()),
+            null
+        );
+    }
+
+    private static String mapWebVerdict(String verdict) {
+        if (verdict == null || verdict.isBlank()) {
+            return "INCOMPLETE";
+        }
+        String normalized = verdict.trim().toUpperCase(Locale.ROOT);
+        if ("UNSAFE".equals(normalized)) {
+            return "AVOID";
+        }
+        return normalized;
+    }
+
+    private static String formatScanAt(LocalDateTime scannedAt) {
+        if (scannedAt == null) {
+            return Instant.now().atOffset(ZoneOffset.UTC).format(SCAN_AT_FORMAT);
+        }
+        return scannedAt.format(SCAN_AT_FORMAT);
     }
 
     /**
@@ -525,7 +580,7 @@ public class FamilyService {
      */
     @Transactional
     public ActiveProfileResponse setActiveProfile(long userId, long profileId) {
-        DietaryProfile profile = assertProfileSelectable(userId, profileId);
+        DietaryProfile profile = familyAuthorization.assertProfileSelectable(userId, profileId);
         UserPreference preference = userPreferenceRepository.findById(userId)
             .orElseGet(() -> {
                 UserPreference created = new UserPreference();
@@ -542,7 +597,7 @@ public class FamilyService {
         if (preferenceOpt.isPresent() && preferenceOpt.get().getActiveProfileId() != null) {
             Long storedId = preferenceOpt.get().getActiveProfileId();
             try {
-                assertProfileSelectable(userId, storedId);
+                familyAuthorization.assertProfileSelectable(userId, storedId);
                 return storedId;
             } catch (FamilyForbiddenException | InactiveProfileException ex) {
                 clearStoredActiveProfile(userId);
@@ -559,7 +614,7 @@ public class FamilyService {
                 "No dietary profile exists for the authenticated user."));
         if (membershipOpt.isPresent()) {
             Family family = familyRepository.findById(membershipOpt.get().getFamilyId())
-                .orElseThrow(() -> new FamilyNotFoundException(NOT_IN_FAMILY_MESSAGE));
+                .orElseThrow(() -> new FamilyNotFoundException(FamilyAuthorizationService.NOT_IN_FAMILY_MESSAGE));
             if (selfProfile.getFamily() != null
                     && family.getId().equals(selfProfile.getFamily().getId())
                     && selfProfile.isActive()) {
@@ -580,34 +635,6 @@ public class FamilyService {
             throw new InactiveProfileException("Profile is inactive and cannot be selected.");
         }
         return selfProfile.getId();
-    }
-
-    private DietaryProfile assertProfileSelectable(long userId, long profileId) {
-        DietaryProfile profile = dietaryProfileRepository.findById(profileId)
-            .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
-        if (!profile.isActive()) {
-            throw new InactiveProfileException("Profile is inactive and cannot be selected.");
-        }
-
-        Optional<FamilyMember> membershipOpt =
-            familyMemberRepository.findMembershipByUserId(userId);
-        if (membershipOpt.isPresent()) {
-            Long familyId = membershipOpt.get().getFamilyId();
-            if (profile.getFamily() == null || !familyId.equals(profile.getFamily().getId())) {
-                throw new FamilyForbiddenException(
-                    "Profile does not belong to your family circle.");
-            }
-            return profile;
-        }
-
-        if (profile.getLinkedUser() == null
-                || profile.getLinkedUser().getId() == null
-                || profile.getLinkedUser().getId() != userId
-                || profile.getFamily() != null) {
-            throw new FamilyForbiddenException(
-                "Profile does not belong to the authenticated user.");
-        }
-        return profile;
     }
 
     private void clearStoredActiveProfile(long userId) {
@@ -632,7 +659,7 @@ public class FamilyService {
     @Transactional(readOnly = true)
     public UserSearchResponse searchUserByEmail(long adminUserId, String rawEmail) {
         // Require primary admin
-        FamilyMember adminMembership = requirePrimaryAdmin(adminUserId);
+        FamilyMember adminMembership = familyAuthorization.requirePrimaryAdmin(adminUserId);
 
         // Normalize the email
         String email = normalizeEmail(rawEmail);
@@ -702,7 +729,7 @@ public class FamilyService {
     public InvitationResponse createInvitation(long adminUserId, CreateInvitationRequest request) {
 
         // Require primary admin
-        FamilyMember adminMembership = requirePrimaryAdmin(adminUserId);
+        FamilyMember adminMembership = familyAuthorization.requirePrimaryAdmin(adminUserId);
 
         // Get the email
         String email = request.email();
@@ -872,11 +899,11 @@ public class FamilyService {
     public DependantProfileResponse createDependantProfile(
             long adminUserId, CreateDependantProfileRequest request) {
         // Require primary admin
-        FamilyMember adminMembership = requirePrimaryAdmin(adminUserId);
+        FamilyMember adminMembership = familyAuthorization.requirePrimaryAdmin(adminUserId);
 
         // Find the family by id
         Family family = familyRepository.findById(adminMembership.getFamilyId())
-            .orElseThrow(() -> new FamilyNotFoundException(NOT_IN_FAMILY_MESSAGE));
+            .orElseThrow(() -> new FamilyNotFoundException(FamilyAuthorizationService.NOT_IN_FAMILY_MESSAGE));
 
         // Create a new dietary profile and save
         DietaryProfile profile = new DietaryProfile();
@@ -976,7 +1003,7 @@ public class FamilyService {
         }
 
         Family family = familyRepository.findById(invitation.getFamilyId())
-            .orElseThrow(() -> new FamilyNotFoundException(NOT_IN_FAMILY_MESSAGE));
+            .orElseThrow(() -> new FamilyNotFoundException(FamilyAuthorizationService.NOT_IN_FAMILY_MESSAGE));
 
         try {
             FamilyMember membership = new FamilyMember();
@@ -1012,21 +1039,6 @@ public class FamilyService {
             }
             throw ex;
         }
-    }
-
-    // Require primary admin
-    private FamilyMember requirePrimaryAdmin(long userId) {
-        FamilyMember membership = requireMembership(userId);
-        if (!FamilyMember.ROLE_PRIMARY_ADMIN.equals(membership.getMemberRole())) {
-            throw new FamilyForbiddenException(PRIMARY_ADMIN_REQUIRED);
-        }
-        return membership;
-    }
-
-    // Require membership
-    private FamilyMember requireMembership(long userId) {
-        return familyMemberRepository.findMembershipByUserId(userId)
-            .orElseThrow(() -> new FamilyNotFoundException(NOT_IN_FAMILY_MESSAGE));
     }
 
     // Convert the invitation to an invitation response

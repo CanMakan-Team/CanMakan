@@ -247,7 +247,13 @@ PRIMARY_ADMIN only. Deactivates membership + linked profile; does not hard-delet
 PRIMARY_ADMIN only. Deactivates and detaches the dependant (`family_id` null); keeps the
 profile row for scan FK. Linked members must use `DELETE /members/{userId}` instead.
 
-CORS allows `DELETE`.
+CORS allows `DELETE` and `PATCH`.
+
+### Family scan history
+
+`GET /api/families/me/scans` — authenticated family member; returns recent scans for all
+profiles currently in the caller’s family (web dashboard / history). Verdict `UNSAFE` is
+mapped to `AVOID` for the web portal.
 
 ---
 

@@ -10,6 +10,7 @@ import com.canmakan.backend.family.dto.DependantProfileResponse;
 import com.canmakan.backend.family.dto.FamilyMemberRosterDto;
 import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
+import com.canmakan.backend.family.dto.FamilyScanHistoryDto;
 import com.canmakan.backend.family.dto.InvitationResponse;
 import com.canmakan.backend.family.dto.SetActiveProfileRequest;
 import com.canmakan.backend.family.dto.SetProfileActiveRequest;
@@ -113,6 +114,16 @@ public class FamilyController {
         long userId = AuthUserChecker.requireUserId(userDetails);
         FamilyRestrictionSumRes summary = familyService.getFamilyRestrictionSummary(userId);
         return ResponseEntity.ok(summary);
+    }
+
+    // GET /api/families/me/scans -> family-scoped scan history
+    @GetMapping("/me/scans")
+    public List<FamilyScanHistoryDto> listScans(
+            @AuthenticationPrincipal AuthUserDetails userDetails) {
+        long userId = AuthUserChecker.requireUserId(userDetails);
+        List<FamilyScanHistoryDto> scans = familyService.listFamilyScans(userId);
+        log.info("GET /families/me/scans → 200 count={}", scans.size());
+        return scans;
     }
 
     // GET /api/families/me/members -> roster of linked members + dependants

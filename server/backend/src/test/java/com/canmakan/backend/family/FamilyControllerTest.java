@@ -383,6 +383,34 @@ class FamilyControllerTest {
         verify(familyService).removeDependantProfile(10L, 88L);
     }
 
+    @Test
+    @DisplayName("GET /api/families/me/scans returns 200")
+    void listScansOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.listFamilyScans(10L)).thenReturn(List.of(
+            new com.canmakan.backend.family.dto.FamilyScanHistoryDto(
+                501L,
+                "Crunchy Peanut Bar",
+                "Good Day",
+                10L,
+                "Admin",
+                "AVOID",
+                "",
+                "",
+                "",
+                "Peanut matched",
+                "COMPLETE",
+                "Open Food Facts / assessment",
+                "2026-07-28T18:42:00",
+                null)
+        ));
+
+        mockMvc.perform(get("/api/families/me/scans"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].scanId").value(501))
+            .andExpect(jsonPath("$[0].verdict").value("AVOID"));
+    }
+
     private static void authenticateAs(long userId) {
         AuthUserDetails principal = new AuthUserDetails(
             new AuthenticatedPrincipal(userId, "user" + userId + "@example.com", true, SystemRole.USER),

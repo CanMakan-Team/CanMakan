@@ -15,6 +15,8 @@ import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
 import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
 import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
+import com.canmakan.backend.family.FamilyAuthorizationService;
+import com.canmakan.backend.product.scan.ScanRepository;
 import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
@@ -79,6 +81,8 @@ class FamilyServiceTest {
     private DietaryRestrictionRepository dietaryRestrictionRepository;
     @Mock
     private DietaryProfileService dietaryProfileService;
+    @Mock
+    private ScanRepository scanRepository;
 
     private FamilyService familyService;
 
@@ -88,6 +92,10 @@ class FamilyServiceTest {
         inviteProperties.setPublicBaseUrl("http://localhost:5173");
         inviteProperties.setExpiryDays(7);
         InvitationEmailService invitationEmailService = org.mockito.Mockito.mock(InvitationEmailService.class);
+        FamilyAuthorizationService familyAuthorization = new FamilyAuthorizationService(
+            familyMemberRepository,
+            dietaryProfileRepository
+        );
         familyService = new FamilyService(
             userAccountRepository,
             familyRepository,
@@ -97,6 +105,8 @@ class FamilyServiceTest {
             dietaryProfileRepository,
             dietaryRestrictionRepository,
             dietaryProfileService,
+            familyAuthorization,
+            scanRepository,
             inviteProperties,
             invitationEmailService
         );
