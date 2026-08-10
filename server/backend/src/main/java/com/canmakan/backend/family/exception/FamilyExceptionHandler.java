@@ -66,6 +66,12 @@ public class FamilyExceptionHandler {
         return Map.of("message", ex.getMessage());
     }
 
+    @ExceptionHandler(InactiveProfileException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, String> handleInactiveProfile(InactiveProfileException ex) {
+        return Map.of("message", ex.getMessage());
+    }
+
     @ExceptionHandler(FamilyForbiddenException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public Map<String, String> handleForbidden(FamilyForbiddenException ex) {

@@ -8,10 +8,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.canmakan.backend.dietaryprofile.DietaryProfileService;
+import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
+import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
 import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
@@ -245,6 +247,33 @@ class FamilyControllerTest {
         mockMvc.perform(get("/api/families/me/members"))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.message").value("You are not a member of a family circle."));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/me/active-profile returns 200")
+    void getActiveProfileOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.getActiveProfile(10L))
+            .thenReturn(new ActiveProfileResponse(77L, "Admin", "SELF", 1L, true));
+
+        mockMvc.perform(get("/api/families/me/active-profile"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.profileId").value(77))
+            .andExpect(jsonPath("$.profileName").value("Admin"));
+    }
+
+    @Test
+    @DisplayName("PUT /api/families/me/active-profile returns 200")
+    void setActiveProfileOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.setActiveProfile(eq(10L), eq(88L)))
+            .thenReturn(new ActiveProfileResponse(88L, "Child", "CHILD", 1L, false));
+
+        mockMvc.perform(put("/api/families/me/active-profile")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"profileId\":88}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.profileId").value(88));
     }
 
     private static void authenticateAs(long userId) {

@@ -79,9 +79,13 @@ CREATE TABLE user_preferences (
     theme VARCHAR(20) DEFAULT 'LIGHT',
     notifications_enabled TINYINT(1) DEFAULT 1,
     `language` VARCHAR(10) DEFAULT 'en',
+    active_profile_id BIGINT NULL,
     CONSTRAINT fk_user_preferences_users
         FOREIGN KEY (user_id) REFERENCES users(id)
-        ON DELETE CASCADE ON UPDATE CASCADE
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_user_preferences_active_profile
+        FOREIGN KEY (active_profile_id) REFERENCES dietary_profiles(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
@@ -142,6 +146,7 @@ CREATE TABLE dietary_profiles (
     profile_name VARCHAR(100) NOT NULL,
     relationship VARCHAR(30) DEFAULT 'SELF',
     is_primary TINYINT(1) DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
     avatar_url VARCHAR(255) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

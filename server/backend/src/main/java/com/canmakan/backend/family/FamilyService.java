@@ -1,10 +1,12 @@
 package com.canmakan.backend.family;
 
-import com.canmakan.backend.dietaryprofile.DietaryProfile;
-import com.canmakan.backend.dietaryprofile.DietaryProfileRepository;
-import com.canmakan.backend.dietaryprofile.DietaryProfileService;
-import com.canmakan.backend.dietaryprofile.DietaryRestriction;
-import com.canmakan.backend.dietaryprofile.ProfileRestriction;
+import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
+import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.model.ProfileRestriction;
+import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
+import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
+import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
+import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.ClaimInvitationRequest;
 import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
@@ -21,6 +23,7 @@ import com.canmakan.backend.family.dto.UserSearchResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.family.exception.FamilyNotFoundException;
+import com.canmakan.backend.family.exception.InactiveProfileException;
 import com.canmakan.backend.family.exception.InvitationConflictException;
 import com.canmakan.backend.family.exception.InvitationExpiredException;
 import com.canmakan.backend.family.exception.InvitationNotFoundException;
@@ -28,9 +31,11 @@ import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.family.model.FamilyInvitation;
 import com.canmakan.backend.family.model.FamilyMember;
 import com.canmakan.backend.family.model.InvitationStatus;
+import com.canmakan.backend.family.model.UserPreference;
 import com.canmakan.backend.family.repository.FamilyInvitationRepository;
 import com.canmakan.backend.family.repository.FamilyMemberRepository;
 import com.canmakan.backend.family.repository.FamilyRepository;
+import com.canmakan.backend.family.repository.UserPreferenceRepository;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.user.UserAccount;
 import com.canmakan.backend.user.UserAccountRepository;
@@ -75,7 +80,9 @@ public class FamilyService {
     private final FamilyRepository familyRepository;
     private final FamilyMemberRepository familyMemberRepository;
     private final FamilyInvitationRepository familyInvitationRepository;
+    private final UserPreferenceRepository userPreferenceRepository;
     private final DietaryProfileRepository dietaryProfileRepository;
+    private final DietaryRestrictionRepository dietaryRestrictionRepository;
     private final DietaryProfileService dietaryProfileService;
     private final InviteProperties inviteProperties;
     private final InvitationEmailService invitationEmailService;
@@ -151,9 +158,12 @@ public class FamilyService {
         for (FamilyMember member : familyMemberRepository.findActiveMembersByFamilyId(familyId)) {
             Optional<DietaryProfile> dietaryProfileOpt =
                 dietaryProfileRepository.findByLinkedUser_Id(member.getUserId());
-            String name = dietaryProfileOpt.map(DietaryProfile::getProfileName)
+            String name = dietaryProfileOpt
+                .map(profile -> profile.getProfileName())
                 .orElse("Unknown Member");
-            Long profileId = dietaryProfileOpt.map(DietaryProfile::getId).orElse(null);
+            Long profileId = dietaryProfileOpt
+                .map(profile -> profile.getId())
+                .orElse(null);
             List<FamilyMeRestrictionDetail> restrictionDetails = mapRestrictions(dietaryProfileOpt);
             rows.add(new FamilyMeRestrictionSum(
                 member.getUserId(),
@@ -194,14 +204,16 @@ public class FamilyService {
         for (FamilyMember member : familyMemberRepository.findActiveMembersByFamilyId(familyId)) {
             Optional<DietaryProfile> dietaryProfileOpt =
                 dietaryProfileRepository.findByLinkedUser_Id(member.getUserId());
-            String name = dietaryProfileOpt.map(DietaryProfile::getProfileName)
+            String name = dietaryProfileOpt
+                .map(profile -> profile.getProfileName())
                 .orElse("Unknown Member");
-            String relationship = dietaryProfileOpt.map(DietaryProfile::getRelationship)
+            String relationship = dietaryProfileOpt
+                .map(profile -> profile.getRelationship())
                 .filter(value -> value != null && !value.isBlank())
                 .orElse("OTHER");
             RestrictionCodeSplit codes = splitRestrictionCodes(dietaryProfileOpt);
             String masked = userAccountRepository.findById(member.getUserId())
-                .map(UserAccount::getEmail)
+                .map(account -> account.getEmail())
                 .map(FamilyService::maskEmail)
                 .orElse(null);
             rows.add(new FamilyMemberRosterDto(
@@ -250,7 +262,7 @@ public class FamilyService {
 
         // Find the self profile by user id
         Long selfProfileId = dietaryProfileRepository.findByLinkedUser_Id(userId)
-            .map(DietaryProfile::getId)
+            .map(profile -> profile.getId())
             .orElse(null);
 
         // Return the family me response
@@ -260,6 +272,125 @@ public class FamilyService {
             membership.getMemberRole(),
             selfProfileId,
             family.getCreatedByUserId()
+        );
+    }
+
+    /**
+     * Returns the caller's active scan profile, using stored preference or documented default.
+     */
+    @Transactional
+    public ActiveProfileResponse getActiveProfile(long userId) {
+        Long effectiveProfileId = resolveEffectiveActiveProfileId(userId);
+        DietaryProfile profile = dietaryProfileRepository.findById(effectiveProfileId)
+            .orElseThrow(() -> new FamilyNotFoundException("Active profile was not found."));
+        return toActiveProfileResponse(profile);
+    }
+
+    /**
+     * Persists the caller's active scan profile after family/inactive validation.
+     */
+    @Transactional
+    public ActiveProfileResponse setActiveProfile(long userId, long profileId) {
+        DietaryProfile profile = assertProfileSelectable(userId, profileId);
+        UserPreference preference = userPreferenceRepository.findById(userId)
+            .orElseGet(() -> {
+                UserPreference created = new UserPreference();
+                created.setUserId(userId);
+                return created;
+            });
+        preference.setActiveProfileId(profile.getId());
+        userPreferenceRepository.saveAndFlush(preference);
+        return toActiveProfileResponse(profile);
+    }
+
+    private Long resolveEffectiveActiveProfileId(long userId) {
+        Optional<UserPreference> preferenceOpt = userPreferenceRepository.findById(userId);
+        if (preferenceOpt.isPresent() && preferenceOpt.get().getActiveProfileId() != null) {
+            Long storedId = preferenceOpt.get().getActiveProfileId();
+            try {
+                assertProfileSelectable(userId, storedId);
+                return storedId;
+            } catch (FamilyForbiddenException | InactiveProfileException ex) {
+                clearStoredActiveProfile(userId);
+            }
+        }
+        return resolveDefaultActiveProfileId(userId);
+    }
+
+    private Long resolveDefaultActiveProfileId(long userId) {
+        Optional<FamilyMember> membershipOpt =
+            familyMemberRepository.findMembershipByUserId(userId);
+        DietaryProfile selfProfile = dietaryProfileRepository.findByLinkedUser_Id(userId)
+            .orElseThrow(() -> new FamilyNotFoundException(
+                "No dietary profile exists for the authenticated user."));
+        if (membershipOpt.isPresent()) {
+            Family family = familyRepository.findById(membershipOpt.get().getFamilyId())
+                .orElseThrow(() -> new FamilyNotFoundException(NOT_IN_FAMILY_MESSAGE));
+            if (selfProfile.getFamily() != null
+                    && family.getId().equals(selfProfile.getFamily().getId())
+                    && selfProfile.isActive()) {
+                return selfProfile.getId();
+            }
+            List<DietaryProfile> activeProfiles =
+                dietaryProfileRepository.findProfilesByFamilyId(family.getId());
+            if (activeProfiles.isEmpty()) {
+                throw new FamilyNotFoundException("No active profiles exist for this family.");
+            }
+            return activeProfiles.get(0).getId();
+        }
+        if (selfProfile.getFamily() != null) {
+            throw new FamilyForbiddenException(
+                "Profile is not available outside your family context.");
+        }
+        if (!selfProfile.isActive()) {
+            throw new InactiveProfileException("Profile is inactive and cannot be selected.");
+        }
+        return selfProfile.getId();
+    }
+
+    private DietaryProfile assertProfileSelectable(long userId, long profileId) {
+        DietaryProfile profile = dietaryProfileRepository.findById(profileId)
+            .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
+        if (!profile.isActive()) {
+            throw new InactiveProfileException("Profile is inactive and cannot be selected.");
+        }
+
+        Optional<FamilyMember> membershipOpt =
+            familyMemberRepository.findMembershipByUserId(userId);
+        if (membershipOpt.isPresent()) {
+            Long familyId = membershipOpt.get().getFamilyId();
+            if (profile.getFamily() == null || !familyId.equals(profile.getFamily().getId())) {
+                throw new FamilyForbiddenException(
+                    "Profile does not belong to your family circle.");
+            }
+            return profile;
+        }
+
+        if (profile.getLinkedUser() == null
+                || profile.getLinkedUser().getId() == null
+                || profile.getLinkedUser().getId() != userId
+                || profile.getFamily() != null) {
+            throw new FamilyForbiddenException(
+                "Profile does not belong to the authenticated user.");
+        }
+        return profile;
+    }
+
+    private void clearStoredActiveProfile(long userId) {
+        userPreferenceRepository.findById(userId).ifPresent(preference -> {
+            preference.setActiveProfileId(null);
+            userPreferenceRepository.saveAndFlush(preference);
+        });
+    }
+
+    private ActiveProfileResponse toActiveProfileResponse(DietaryProfile profile) {
+        Long familyId = profile.getFamily() == null ? null : profile.getFamily().getId();
+        return new ActiveProfileResponse(
+            profile.getId(),
+            profile.getProfileName(),
+            profile.getRelationship(),
+            familyId,
+            profile.isPrimary()
         );
     }
 
@@ -301,7 +432,7 @@ public class FamilyService {
 
         // Find the display name
         String displayName = dietaryProfileRepository.findByLinkedUser_Id(account.getId())
-            .map(DietaryProfile::getProfileName)
+            .map(profile -> profile.getProfileName())
             .orElseGet(() -> profileNameFromUser(account));
 
         // Find the account status
@@ -450,7 +581,7 @@ public class FamilyService {
             Family family = familyRepository.findById(invitation.getFamilyId()).orElse(null);
             String familyName = family == null ? "Family" : family.getFamilyName();
             String invitedBy = userAccountRepository.findById(invitation.getInvitedByUserId())
-                .map(UserAccount::getEmail)
+                .map(account -> account.getEmail())
                 .orElse("Family admin");
             results.add(new PendingInvitationResponse(
                 invitation.getId(),
@@ -703,7 +834,7 @@ public class FamilyService {
 
         Map<Long, String> selections = new HashMap<>();
         for (String code : codes) {
-            DietaryRestriction restriction = dietaryProfileRepository.findRestrictionByCode(code)
+            DietaryRestriction restriction = dietaryRestrictionRepository.findByCodeIgnoreCase(code)
                 .orElseThrow(() -> new IllegalArgumentException(
                     "Unknown dietary restriction code: " + code));
             selections.put(restriction.getId(), DEFAULT_SEVERITY);

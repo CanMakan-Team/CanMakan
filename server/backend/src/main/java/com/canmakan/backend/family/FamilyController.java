@@ -1,6 +1,8 @@
 package com.canmakan.backend.family;
 
-import com.canmakan.backend.dietaryprofile.DietaryProfileService;
+import com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto;
+import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
+import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.ClaimInvitationRequest;
 import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
@@ -10,6 +12,7 @@ import com.canmakan.backend.family.dto.FamilyMemberRosterDto;
 import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
 import com.canmakan.backend.family.dto.InvitationResponse;
+import com.canmakan.backend.family.dto.SetActiveProfileRequest;
 import com.canmakan.backend.family.dto.UserSearchResponse;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.shared.security.AuthUserDetails;
@@ -25,6 +28,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -68,12 +72,33 @@ public class FamilyController {
 
     // GET /api/families/{familyId}/profiles -> get the profiles for a family
     @GetMapping("/{familyId}/profiles")
-    public List<DietaryProfileService.DietaryProfileSummaryDto> getProfilesByFamilyId(
+    public List<DietaryProfileSummaryDto> getProfilesByFamilyId(
         @PathVariable Long familyId) {
-        List<DietaryProfileService.DietaryProfileSummaryDto> resp =
+        List<DietaryProfileSummaryDto> resp =
             dietaryProfileService.getProfilesByFamilyId(familyId);
         log.info("GET /families/{}/profiles → 200", familyId);
         return resp;
+    }
+
+    // GET /api/families/me/active-profile -> current active scan profile (UC11)
+    @GetMapping("/me/active-profile")
+    public ActiveProfileResponse getActiveProfile(
+            @AuthenticationPrincipal AuthUserDetails userDetails) {
+        long userId = requireUserId(userDetails);
+        ActiveProfileResponse active = familyService.getActiveProfile(userId);
+        log.info("GET /families/me/active-profile → 200 profileId={}", active.profileId());
+        return active;
+    }
+
+    // PUT /api/families/me/active-profile -> set active scan profile (UC11)
+    @PutMapping("/me/active-profile")
+    public ActiveProfileResponse setActiveProfile(
+            @AuthenticationPrincipal AuthUserDetails userDetails,
+            @Valid @RequestBody SetActiveProfileRequest request) {
+        long userId = requireUserId(userDetails);
+        ActiveProfileResponse active = familyService.setActiveProfile(userId, request.profileId());
+        log.info("PUT /families/me/active-profile → 200 profileId={}", active.profileId());
+        return active;
     }
 
     // GET /api/families/me/restriction-summary -> get the restriction summary for the authenticated user
