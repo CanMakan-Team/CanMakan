@@ -55,7 +55,7 @@ Detailed acceptance-criteria checklists (one row per criterion) live in [`sprint
 | **UC10** | Accept Family Invitation | Amelia | Invited user accepts or declines an invitation to join a family circle |
 | **UC11** | Switch Family Profile | Amelia | On mobile, select which eligible family profile subsequent scans are evaluated against |
 | **UC12** | Manage Family Circle | Amelia | View family roster; update member profile; remove member; activate/deactivate member profile |
-| **UC13** | Manage User Accounts and Access Rights | Maowei | Manage user accounts, platform roles, and account status |
+| **UC13** | Manage User Account Status | Maowei | List existing accounts and suspend/reactivate them; system roles remain read-only |
 
 ### Enhanced
 
@@ -149,7 +149,7 @@ Detailed acceptance-criteria checklists (one row per criterion) live in [`sprint
 | | UC12 | Manage Family Circle | Core MVP |
 | | — | DevSecOps / CI/CD (**support**) | N/A |
 | | — | Database Setup & Maintenance (**support**) | N/A |
-| **Maowei** | UC13 | Manage User Accounts and Access Rights | Core MVP |
+| **Maowei** | UC13 | Manage User Account Status | Core MVP |
 | | UC7 | Generate Consumer Trends | Core MVP |
 | | UC18 | User Registration | Enhanced |
 | | UC19 | User Login / Logout | Enhanced |
@@ -266,7 +266,7 @@ Missing: ownership authz on profile-scoped routes; family scans; recommendations
 | UC10 | Core | **Complete (MVP)** — inbox list/accept/decline + Resend optional; web inbox optional residual |
 | UC11 | Core | **Complete (MVP)** — server GET/PUT active-profile; mobile persists; inactive omitted from list |
 | UC12 | Core | **Partial** — live `GET /me/members` roster; manage CRUD / `is_active` open |
-| UC13 | Core | **Partial** — `UserAccessPage` mock; no admin controller |
+| UC13 | Core | **Complete (MVP)** — live list/search/filter + transactional Suspend/Reactivate with session revocation, audit, and ADMIN protections |
 | UC14 | Enhanced | **Not started** |
 | UC15–UC16 | Enhanced | **Not started** |
 | UC17 | Enhanced | **Not started** |
@@ -551,7 +551,7 @@ Missing: ownership authz on profile-scoped routes; family scans; recommendations
 
 ---
 
-### EPIC UC13 — Manage User Accounts and Access Rights
+### EPIC UC13 — Manage User Account Status
 
 **Owner:** Maowei · **Package:** Core MVP · **Architecture:** Web Client (Admin)
 
@@ -559,8 +559,8 @@ Missing: ownership authz on profile-scoped routes; family scans; recommendations
 | --- | --- |
 | **Stories** | UC13-S1…S3; UC13-T1 docs |
 | **Dependencies** | UC19 |
-| **In** | Accounts, platform roles, account status; RBAC |
-| **Out** | Assigning Family Admin as platform role |
+| **In** | Existing-account listing; read-only `USER` / `ADMIN`; Suspend/Reactivate through `users.is_active`; RBAC; refresh-session revocation; transition audit |
+| **Out** | `users.role_id` mutation; Family Admin as platform ADMIN; public ADMIN registration; System Admin provisioning; audit-read UI |
 
 ---
 
@@ -760,10 +760,10 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | **UC6-S3** | Optional web parity page (same API) | UC6: 12 | P2 |
 | **UC7-S1** | Anonymised consumer-trends API (no PII; admin-only) | UC7: 1–2, 4–5 | P0 |
 | **UC7-S2** | System Admin trends dashboard UI | UC7: 3, 6–8 | P0 |
-| **UC13-S1** | List users API + admin page | UC13: 1, 11–12 | P0 |
-| **UC13-S2** | PATCH access + audit log writes | UC13: 2–4, 10 | P0 |
-| **UC13-S3** | Platform roles only; suspend via `users.is_active`; last-admin guard | UC13: 5–9 | P0 |
-| **UC13-T1** | Document role model + permission matrix | — | P1 |
+| **UC13-S1** | List/search/filter users API + production admin page — **Done** | UC13: 1, 11–12 | P0 |
+| **UC13-S2** | Transactional PATCH status + suspension revocation + transition audit — **Done** | UC13: 2–4, 6–7, 10 | P0 |
+| **UC13-S3** | Read-only roles; active-ADMIN RBAC; self/last-admin/concurrency guards — **Done** | UC13: 5, 8–9 | P0 |
+| **UC13-T1** | Document status-only role model + permission boundary — **Done** | — | P1 |
 
 ### Enhanced / Nice-to-Have
 
@@ -796,7 +796,7 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | **Sprint 2** | UC19-S3 + UC1-S1; UC11-S1…S3; UC2 profile authz; UC3 polish; UC4-S1 authz | UC1-S3 |
 | **Sprint 3** | UC12 remaining manage CRUD / `is_active` | UC6-S3 |
 
-**Remaining Core MVP (next):** UC12 manage; UC4-S2/S3; UC5-S1/S2; UC7-S1/S2; UC13-S1…S3.
+**Remaining Core MVP (next):** UC12 manage; UC4-S2/S3; UC5-S1/S2; UC7-S1/S2. UC13-S1…S3 are shipped.
 
 **Seeded-family exception:** Scan work may still use Tan/Lim/Wong seeds for demo data. New users create a circle via UC8 after UC18 register + UC19 login; active profile persists via UC11.
 
@@ -897,7 +897,7 @@ UC3 ──► UC20
 
 - `GET /api/admin/consumer-trends`
 - `GET /api/admin/consumer-trends/export` — UC22
-- `GET /api/admin/users`, `PATCH …/access`, `GET …/audit`
+- `GET /api/admin/users`, `PATCH /api/admin/users/{userId}/status` — UC13 status-only account management
 - `GET /api/admin/usage-stats` — UC15
 - `GET /api/admin/health-events` — UC16
 - `GET /api/admin/ai-performance` — UC21
