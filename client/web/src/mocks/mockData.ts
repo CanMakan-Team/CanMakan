@@ -1,11 +1,9 @@
 import type {
   ActiveProfile,
-  AuditEntry,
   ConsumerTrendResponse,
   ExistingUserSearchResult,
   FamilyMember,
   ScanRecord,
-  UserAccessSummary,
 } from '../shared/api/types'
 
 /**
@@ -220,52 +218,3 @@ export const consumerTrends: ConsumerTrendResponse = {
   ],
   partial: true,
 }
-
-export const initialUsers: UserAccessSummary[] = [
-  {
-    userId: 9001,
-    displayName: 'System Administrator',
-    maskedEmail: 'a***@canmakan.demo',
-    roles: ['ROLE_SYSTEM_ADMIN'],
-    accountStatus: 'ACTIVE',
-    familyMembershipStatus: 'NONE',
-    lastActiveAt: '2026-07-29T09:12:00+08:00',
-  },
-  {
-    userId: 101,
-    displayName: 'Alicia Lim',
-    maskedEmail: 'a***@example.com',
-    roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
-    accountStatus: 'ACTIVE',
-    familyMembershipStatus: 'LINKED',
-    lastActiveAt: '2026-07-29T08:42:00+08:00',
-  },
-  {
-    userId: 205,
-    displayName: 'Jamie Tan',
-    maskedEmail: 'j***@example.com',
-    roles: ['ROLE_APP_USER'],
-    accountStatus: 'ACTIVE',
-    familyMembershipStatus: 'NONE',
-    lastActiveAt: '2026-07-27T14:20:00+08:00',
-  },
-  {
-    userId: 207,
-    displayName: 'Priya Nair',
-    maskedEmail: 'p***@example.com',
-    roles: ['ROLE_APP_USER'],
-    accountStatus: 'PENDING',
-    familyMembershipStatus: 'PENDING',
-  },
-  {
-    userId: 208,
-    displayName: 'Daniel Wong',
-    maskedEmail: 'd***@example.com',
-    roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
-    accountStatus: 'SUSPENDED',
-    familyMembershipStatus: 'LINKED',
-    lastActiveAt: '2026-07-12T16:05:00+08:00',
-  },
-]
-
-export const initialAudit: AuditEntry[] = []

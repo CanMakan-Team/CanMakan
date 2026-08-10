@@ -774,46 +774,46 @@ UC19, UC8, UC1, UC11
 
 ---
 
-## UC13 — Manage User Accounts and Access Rights
+## UC13 — Manage User Account Status
 
 **Owner:** Maowei · **Package:** Core MVP · **Architecture:** Web Client (Admin)  
 **Tech:** React Admin; Spring Boot; Spring Security; RBAC; RDS  
-**Current code state:** Partial (admin UI shell/mock only; no admin users controller)
+**Current code state:** Complete (MVP) — production account listing and status management are live.
 
-- **Web:** `UserAccessPage` + dashboard entry; `adminService` → `/api/admin/users` (and audit). Loading/error UI exists; live APIs **missing** (mock when forced on).
-- **Schema/entity:** `users`, `roles`, `admin_audit_logs`; `UserAccount` with `is_active`. No list/PATCH/audit write controller/service.
-- **Security:** `/api/admin/**` requires `ROLE_ADMIN` once implemented.
-- **Missing:** SYSTEM_ADMIN RBAC end-to-end, real PATCH access + audit persistence, last-admin / self-lockout guards; mock still may show `ROLE_FAMILY_ADMIN` as a platform role (AC conflict).
+- **Web:** `UserAccessPage` + dashboard entry use `GET /api/admin/users` and `PATCH /api/admin/users/{userId}/status`; roles are read-only and account state is Active/Suspended only.
+- **Backend:** status transitions update `users.is_active`; suspension revokes all target refresh sessions; every real transition writes `admin_audit_logs` in the same transaction. Same-state requests return `changed=false` without mutation, revocation, or audit.
+- **Security:** `/api/admin/**` requires an authenticated active `ADMIN`; the actor comes from the JWT principal. Self-management and last-active-ADMIN suspension are blocked with pessimistic ADMIN-set locking.
+- **Boundary:** UC13 never changes `users.role_id`, has no audit-read dependency, and does not permit public ADMIN registration. System Admin provisioning is outside UC13.
 
 ### User story
 
-As a System Admin, I want to manage user accounts, platform roles, and account status.
+As a System Admin, I want to view existing accounts and suspend or reactivate them without changing their system roles.
 
 ### Acceptance criteria
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | System Admin can list user accounts via `GET /api/admin/users`. |
-| [ ] | 2 | System Admin can change supported platform role and/or account status via `PATCH /api/admin/users/{userId}/access`. |
-| [ ] | 3 | Access changes persist in the database. |
-| [ ] | 4 | Access changes write an audit record (`admin_audit_logs` or equivalent). |
-| [ ] | 5 | Platform roles are limited to agreed platform roles (e.g. APP_USER, SYSTEM_ADMIN) — not Family Admin. |
-| [ ] | 6 | Suspend/deactivate account sets `users.is_active=0` and blocks login (UC19). |
-| [ ] | 7 | Account suspend does **not** toggle `dietary_profiles.is_active` (UC12 concern). |
-| [ ] | 8 | Server RBAC enforces System Admin only; non-admin callers receive 403 (React guards alone are insufficient). |
-| [ ] | 9 | Protect last SYSTEM_ADMIN from self-demotion/suspend where applicable (HTTP 409). |
-| [ ] | 10 | Admin can view audit entries via `GET /api/admin/audit` (or equivalent). |
-| [x] | 11 | Loading and error states are handled on the admin UI. *(UI shell; not production-usable with mock off)* |
-| [ ] | 12 | Production path works with mock API disabled. |
+| [x] | 1 | System Admin can list and search existing accounts via `GET /api/admin/users`, with optional role and active-state filters. |
+| [x] | 2 | System Admin can suspend or reactivate an account via `PATCH /api/admin/users/{userId}/status`. |
+| [x] | 3 | A real status transition persists `users.is_active` in the database. |
+| [x] | 4 | A real status transition writes an `ACCOUNT_STATUS_CHANGED` audit record; same-state requests do not. |
+| [x] | 5 | System roles are `USER` / `ADMIN` and are read-only in UC13; Family Admin is not a platform ADMIN. |
+| [x] | 6 | Suspension sets `users.is_active=0`, revokes all target refresh sessions, and blocks subsequent authentication. |
+| [x] | 7 | Reactivation sets `users.is_active=1` without issuing or restoring refresh sessions; dietary-profile state is unchanged. |
+| [x] | 8 | Server RBAC requires an authenticated active `ADMIN`; actor identity comes from the JWT principal, not `X-User-Id`. |
+| [x] | 9 | Self status management and last-active-ADMIN suspension are blocked; deterministic pessimistic locking protects concurrent attempts. |
+| [x] | 10 | Same-state requests return HTTP 200 with `changed=false` and perform no mutation, token revocation, or audit. |
+| [x] | 11 | Loading, error, empty, transition-success, and no-op states are handled on the admin UI. |
+| [x] | 12 | The production path works with mock API disabled and has no role-mutation or audit-read dependency. |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC13-S1** | 1, 11–12 | List users + admin page — **partial** (UI shell) |
-| **UC13-S2** | 2–4, 10 | PATCH access + audit — **open** |
-| **UC13-S3** | 5–9 | Roles / suspend / last-admin — **open** |
-| **UC13-T1** | — | Role-model docs — **open** |
+| **UC13-S1** | 1, 11–12 | List/search/filter users + production admin page — **done** |
+| **UC13-S2** | 2–4, 6–7, 10 | Transactional PATCH status + suspension revocation + audit — **done** |
+| **UC13-S3** | 5, 8–9 | Read-only roles, active-ADMIN security, self/last-admin/concurrency guards — **done** |
+| **UC13-T1** | — | Status-only role-model documentation — **done** |
 
 Full table: [backlog §5](sprint2-jira-backlog.md#uc6--uc7--uc13).
 
@@ -1241,12 +1241,12 @@ Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
 Canonical with [backlog §5b](sprint2-jira-backlog.md#5b-recommended-delivery-sequence):
 
-1. **Shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT login/refresh/logout + clients); UC8-S1–S4; UC6-S1/S2; **UC9–UC12** (family lifecycle + switch + manage); **UC4-S1–S4** (personal + family history + wire verdicts); UC2 assess authz; UC3 wire UNSAFE display; UC1 JWT + D3 ownership on restrictions  
+1. **Shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT login/refresh/logout + clients); UC8-S1–S4; UC6-S1/S2; **UC9–UC12** (family lifecycle + switch + manage); **UC4-S1–S4** (personal + family history + wire verdicts); **UC13-S1…S3** (admin account Suspend/Reactivate); UC2 assess authz; UC3 wire UNSAFE display; UC1 JWT + D3 ownership on restrictions  
 2. **Finish auth hard-edges:** UC19-S3 (protect `POST /api/scan/validate` + leftovers) + UC19 AC3 (suspended → 403); UC1-S1 residual (unknown-code → 400)  
 3. UC1-S2/S3 polish (severity picker) + UC1-S5 empty state; UC3 polish; UC6-S3 web parity  
-4. Remaining Core: UC5-S1/S2 → UC7-S1/S2 → UC13-S1…S3  
+4. Remaining Core: UC5-S1/S2 → UC7-S1/S2  
 5. Enhanced: UC14-S1/S2, UC15–UC17  
-6. Nice-to-Have: UC20-S1/S2 … UC24-S1/S2  
+6. Nice-to-Have: UC20-S1/S2 … UC24-S1/S2 
 
 Seeded families remain useful for demo data; new users create a circle via UC8 and persist active profile via UC11.
 

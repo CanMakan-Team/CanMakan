@@ -1,6 +1,6 @@
 ﻿/**
  * Setting up the DTO interfaces to match the backend payloads,
- * {RegistrationResponse, AuthLoginResponse, FamilyMe, FamilyMember, FamilyProfileInput, ActiveProfile, ExistingUserSearchResult, InvitationResponse, DependantProfileResponse, ScanVerdict, Verdict, DataCompleteness, ScanRecord, ConsumerTrendResponse, UserAccessSummary, AccessUpdate, AuditEntry}
+ * {RegistrationResponse, AuthLoginResponse, FamilyMe, FamilyMember, FamilyProfileInput, ActiveProfile, ExistingUserSearchResult, InvitationResponse, DependantProfileResponse, ScanVerdict, Verdict, DataCompleteness, ScanRecord, ConsumerTrendResponse}
  * from backend/auth/dto
  * 
  * @author Amelia
@@ -189,35 +189,6 @@ export interface ConsumerTrendResponse {
     incompleteCount: number // count of the incomplete products
   }>
   partial: boolean // true if the trend is partial
-}
-
-// Define the account status type
-export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING' | 'DISABLED'
-
-// Define the user access summary type
-export interface UserAccessSummary {
-  userId: number // id of the user
-  displayName: string // display name of the user
-  maskedEmail: string // masked email of the user
-  roles: Role[] // roles of the user
-  accountStatus: AccountStatus // account status of the user
-  familyMembershipStatus?: 'NONE' | 'LINKED' | 'PENDING' // family membership status of the user
-  lastActiveAt?: string // timestamp of the last active time
-}
-
-// Define the access update type
-export interface AccessUpdate {
-  roles?: Role[] // roles of the user
-  accountStatus?: AccountStatus // account status of the user
-}
-
-// Define the audit entry type
-export interface AuditEntry {
-  auditId: number // id of the audit
-  actor: string // name of the actor
-  action: string // action of the audit
-  targetUserId: number // id of the target user
-  createdAt: string // timestamp of the creation
 }
 
 /**
