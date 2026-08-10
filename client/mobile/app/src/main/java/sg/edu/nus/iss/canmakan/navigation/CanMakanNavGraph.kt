@@ -87,6 +87,7 @@ fun CanMakanNavGraph(
     val createFamilyError by navGraphViewModel.createFamilyError.collectAsStateWithLifecycle()
     val inviteClaimError by navGraphViewModel.inviteClaimError.collectAsStateWithLifecycle()
     val switchProfileError by navGraphViewModel.switchProfileError.collectAsStateWithLifecycle()
+    val isSwitchingProfile by navGraphViewModel.isSwitchingProfile.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -132,6 +133,7 @@ fun CanMakanNavGraph(
                         else -> CanMakanNavGraphViewModel.NO_SESSION_FAMILY_MESSAGE
                     },
                     showManageFamilyActions = showManageFamilyActions,
+                    isSwitchingProfile = isSwitchingProfile,
                     onProfileSelected = { selected ->
                         navGraphViewModel.switchProfile(selected.id)
                         closeDrawer()

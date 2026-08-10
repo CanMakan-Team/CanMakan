@@ -216,6 +216,85 @@ class CanMakanNavGraphViewModelTest {
         assertEquals(77L, activeProfileManager.currentProfileId.value)
     }
 
+    @Test
+    fun switchProfileCallsPutAndUpdatesActiveProfile() {
+        familyApi.meResponse = Response.success(FAMILY_ME)
+        familyApi.profiles = listOf(
+            FamilyProfileResponse(
+                id = 77L,
+                profileName = "Wong",
+                familyId = 50L,
+                relationship = "Self",
+                initials = "W",
+                isPrimary = true,
+            ),
+            FamilyProfileResponse(
+                id = 88L,
+                profileName = "Child",
+                familyId = 50L,
+                relationship = "Child",
+                initials = "C",
+                isPrimary = false,
+            ),
+        )
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(77L, activeProfileManager.currentProfileId.value)
+
+        viewModel.switchProfile(88L)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, familyApi.setActiveProfileCalls)
+        assertEquals(88L, activeProfileManager.currentProfileId.value)
+        assertFalse(viewModel.isSwitchingProfile.value)
+        assertNull(viewModel.switchProfileError.value)
+    }
+
+    @Test
+    fun switchProfileForbiddenShowsErrorAndKeepsCurrentProfile() {
+        familyApi.meResponse = Response.success(FAMILY_ME)
+        familyApi.profiles = listOf(
+            FamilyProfileResponse(
+                id = 77L,
+                profileName = "Wong",
+                familyId = 50L,
+                relationship = "Self",
+                initials = "W",
+                isPrimary = true,
+            ),
+        )
+        familyApi.setActiveProfileResponse = Response.error(
+            403,
+            "{\"message\":\"That profile is not in your family circle.\"}"
+                .toResponseBody("application/json".toMediaType()),
+        )
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.switchProfile(88L)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, familyApi.setActiveProfileCalls)
+        assertEquals(77L, activeProfileManager.currentProfileId.value)
+        assertFalse(viewModel.isSwitchingProfile.value)
+        assertEquals(
+            "That profile is not in your family circle.",
+            viewModel.switchProfileError.value,
+        )
+    }
+
+    @Test
+    fun switchProfileNoOpWhenAlreadyActive() {
+        familyApi.meResponse = Response.success(FAMILY_ME)
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.switchProfile(77L)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(0, familyApi.setActiveProfileCalls)
+    }
+
     private fun validSession(): AuthenticatedSession {
         return AuthenticatedSession(
             accessToken = "access-token",
@@ -277,6 +356,15 @@ class CanMakanNavGraphViewModelTest {
         var profilesCalls = 0
         var activeProfileCalls = 0
         var setActiveProfileCalls = 0
+        var setActiveProfileResponse: Response<ActiveProfileResponse> = Response.success(
+            ActiveProfileResponse(
+                profileId = 88L,
+                profileName = "Child",
+                relationship = "CHILD",
+                familyId = 50L,
+                isPrimary = false,
+            ),
+        )
 
         override suspend fun getMyFamily(): Response<FamilyMeResponse> {
             meCalls++
@@ -309,15 +397,7 @@ class CanMakanNavGraphViewModelTest {
             request: SetActiveProfileRequestBody,
         ): Response<ActiveProfileResponse> {
             setActiveProfileCalls++
-            return Response.success(
-                ActiveProfileResponse(
-                    profileId = request.profileId,
-                    profileName = "Wong",
-                    relationship = "SELF",
-                    familyId = 50L,
-                    isPrimary = true,
-                ),
-            )
+            return setActiveProfileResponse
         }
 
         override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> =
