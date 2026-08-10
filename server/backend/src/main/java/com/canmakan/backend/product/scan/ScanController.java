@@ -1,5 +1,6 @@
 package com.canmakan.backend.product.scan;
 
+import com.canmakan.backend.family.FamilyAuthorizationService;
 import com.canmakan.backend.integration.BarcodeValidationClient;
 import com.canmakan.backend.product.assessment.AssessmentOrchestrator;
 import com.canmakan.backend.product.assessment.AssessmentRequest;
@@ -23,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>{@code POST /api/scan/validate} is the is-food check (OFF + EAN-Search).
  * {@code POST /api/scan/assess} runs the tiered assessment for a dietary profile.
- * {@code GET /api/scan/profiles/{profileId}/history} returns saved scans for a profile.
+ * {@code GET /api/scan/history/{profileId}} returns saved scans for an authorized profile.
  *
  * @author Khai
  * @author Amelia
@@ -38,6 +39,7 @@ public class ScanController {
     private final BarcodeValidationClient validationClient;
     private final AssessmentOrchestrator orchestrator;
     private final ScanHistoryService scanHistoryService;
+    private final FamilyAuthorizationService familyAuthorization;
 
     /**
      * Assess a barcode against a dietary profile, persist, and return the verdict.
@@ -74,11 +76,16 @@ public class ScanController {
 
     /**
      * Scan history for a dietary profile, most recent first (UC4 personal history).
+     * Requires JWT and profile ownership / family membership.
      */
     @GetMapping("/history/{profileId}")
-    public List<ScanHistoryResponse> getScanHistoryForProfile(@PathVariable Long profileId) {
+    public List<ScanHistoryResponse> getScanHistoryForProfile(
+            @AuthenticationPrincipal AuthUserDetails userDetails,
+            @PathVariable Long profileId) {
+        long userId = AuthUserChecker.requireUserId(userDetails);
+        familyAuthorization.assertProfileAuthorizedForScan(userId, profileId);
         List<ScanHistoryResponse> response = scanHistoryService.getScanHistoryForProfile(profileId);
-        log.info("GET /scan/profiles/{}/history → 200 count={}", profileId, response.size());
+        log.info("GET /scan/history/{} → 200 count={}", profileId, response.size());
         return response;
     }
 }
