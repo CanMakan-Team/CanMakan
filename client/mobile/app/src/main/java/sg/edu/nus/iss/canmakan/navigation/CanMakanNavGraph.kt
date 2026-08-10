@@ -47,6 +47,7 @@ import sg.edu.nus.iss.canmakan.features.family.ui.CreateFamilyCircleScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.CreateNewProfileScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryViewModel
+import sg.edu.nus.iss.canmakan.features.family.ui.InvitationsScreen
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
@@ -54,6 +55,7 @@ private const val ROUTE_PRODUCT_DETAIL = "product_detail"
 private const val ROUTE_CREATE_FAMILY = "create_family"
 private const val ROUTE_CREATE_NEW = "create_new"
 private const val ROUTE_ADD_PROFILE = "add_profile"
+private const val ROUTE_INVITATIONS = "invitations"
 
 /* The top-level screen. It wires together the navigation between the
  * three screens, the side drawer, and the edit dietary requirements sheet.
@@ -166,6 +168,10 @@ fun CanMakanNavGraph(
                     onAddProfileClick = {
                         closeDrawer()
                         navController.navigate(ROUTE_ADD_PROFILE)
+                    },
+                    onInvitationsClick = {
+                        closeDrawer()
+                        navController.navigate(ROUTE_INVITATIONS)
                     },
                 )
             }
@@ -306,6 +312,19 @@ fun CanMakanNavGraph(
                         navController.popBackStack()
                         navGraphViewModel.refreshRestrictions()
                     }
+                )
+            }
+            composable(ROUTE_INVITATIONS) {
+                InvitationsScreen(
+                    activeProfile = activeProfile,
+                    onMenuClick = { openDrawer() },
+                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
+                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onBackClick = { navController.popBackStack() },
+                    onAccepted = {
+                        navGraphViewModel.refreshRestrictions()
+                        navController.popBackStack()
+                    },
                 )
             }
         }

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.People
@@ -67,6 +68,7 @@ fun ProfileDrawerContent(
     onCreateFamilyCircleClick: () -> Unit,
     onCreateNewClick: () -> Unit,
     onAddProfileClick: () -> Unit,
+    onInvitationsClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -262,6 +264,17 @@ fun ProfileDrawerContent(
             thickness = 1.dp,
             color = Color.DarkGray
         )
+
+        if (hasUserSession) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text("INVITATIONS", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(8.dp))
+            DrawerNavRow(
+                icon = Icons.Default.Email,
+                label = "Family Invitations",
+                onClick = onInvitationsClick,
+            )
+        }
 
         // Member create/link is UC9/UC12 — keep hidden until those APIs exist and the user has a family.
         if (showManageFamilyActions && hasFamily) {

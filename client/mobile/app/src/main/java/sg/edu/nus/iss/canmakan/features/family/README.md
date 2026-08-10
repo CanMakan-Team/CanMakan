@@ -24,21 +24,41 @@ When `/families/me` returns 404 and the user is signed in, the drawer shows a sh
 
 Create is hidden when the user already has a family. Without a UC19 session, the drawer asks the user to sign in.
 
-## Invite (UC9)
+## Invite (UC9) and accept (UC10)
 
 PRIMARY_ADMIN can open **Invite to Family** from the drawer (`showManageFamilyActions`
 when `memberRole == PRIMARY_ADMIN`). `AddProfileToFamilyScreen` searches by email,
 creates a PENDING invitation, and opens the system share sheet with `inviteUrl` +
-`inviteCode`. Invitees join via register/login claim (optional `invitationToken`);
-full UC10 inbox remains later.
+`inviteCode`. Invitees can join via register/login claim (optional `invitationToken`)
+or from the **Family Invitations** inbox (`InvitationsScreen`): list pending,
+accept, or decline.
 
-Dependant profile create UI stays web-primary; dependants still appear in the
+```mermaid
+flowchart TD
+  Admin[PRIMARY_ADMIN creates PENDING invite] --> Share[Share link/code or Resend email]
+  Share --> PathA[New user: register with token]
+  Share --> PathB[Existing user: open link then login/claim]
+  Share --> PathC[Already logged in: Family Invitations inbox]
+  PathA --> Join[MEMBER + SELF profile + ACCEPTED]
+  PathB --> Join
+  PathC --> Join
+```
+
+| Path | Mobile entry |
+| --- | --- |
+| Register auto-claim | Invite landing → Register with token |
+| Deep link / login claim | `canmakan://invite/{token}` → landing → Sign in; already-authed via `PendingInvitationStore` |
+| Inbox accept / decline | Drawer **Family Invitations** → `InvitationsScreen` |
+
+Full API contract and HTTP guards: `docs/api/families.md` (Invite → join workflow).
+
+Dependant profile create is live on mobile for PRIMARY_ADMIN; dependants appear in the
 mobile profile switcher and UC6 summary once created.
 
 ## Manage members (UC12)
 
-`CreateNewProfileScreen` remains a stub. Full roster admin is **web-primary**;
-mobile manage stays limited to invite (UC9).
+Full roster admin is **web-primary**; mobile manage stays limited to invite (UC9)
+and dependant create.
 
 ## Notes
 The actual dietary data of each member lives in `dietaryprofile`.
