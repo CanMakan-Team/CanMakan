@@ -36,24 +36,18 @@ export async function apiRequest<T>(
   // - Authorization: Bearer <access token>
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
+  headers.set('ngrok-skip-browser-warning', 'true')
   if (options.body) headers.set('Content-Type', 'application/json')
   if (session?.accessToken) {
     headers.set('Authorization', `Bearer ${session.accessToken}`)
   }
 
   try {
-    // Make the request
-
-    // (UC55) Bypass the Ngrok free-tier HTML warning page to prevent CORS interceptions.
-    // Define the Content-Type to ensure the backend correctly parses the JSON body.
+    // Make the request. Reuse the Headers instance so Authorization is not dropped.
     const response = await fetch(`${apiBaseUrl}${path}`, {
       ...options,
-      headers: {
-        'ngrok-skip-browser-warning': 'true',
-        'Content-Type': 'application/json',
-        ...options.headers 
-      }
-    });
+      headers,
+    })
 
     // If the response is 401, handle the credential challenge
     // 1. If the path is not a credential challenge, remove the session and dispatch an unauthorised event
