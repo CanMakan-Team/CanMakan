@@ -270,6 +270,7 @@ fun CanMakanNavGraph(
                         alternatives = detail.alternatives,
                         profileName = activeProfile.profileName,
                         explanation = detail.explanation,
+                        alternativesError = detail.alternativesError,
                         onBackClick = { navController.popBackStack() },
                         onScanClick = { navController.navigate(ROUTE_SCANNER) },
                         onHistoryClick = { navController.navigate(ROUTE_HISTORY) }

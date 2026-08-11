@@ -7,10 +7,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import sg.edu.nus.iss.canmakan.features.product.model.AlternativeProduct
 import sg.edu.nus.iss.canmakan.features.product.model.Product
 import sg.edu.nus.iss.canmakan.features.product.model.ProductFlag
 import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
+import sg.edu.nus.iss.canmakan.features.product.model.toUiModel
 import sg.edu.nus.iss.canmakan.shared.network.AssessmentRequest
 import sg.edu.nus.iss.canmakan.shared.network.AssessmentResponse
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
@@ -22,6 +24,7 @@ import javax.inject.Inject
  * IDLE: No barcode is being scanned.
  * VALIDATING: The barcode is being validated against the backend.
  * ASSESSING: The barcode is being assessed by the backend.
+ * FETCHING_ALTERNATIVES: Safer alternatives are being loaded for Warning/Unsafe verdicts.
  * SUCCESS: The barcode has been successfully scanned and processed.
  * INVALID: The barcode is not valid.
  * ERROR: An error occurred during the scanning process.
@@ -33,6 +36,7 @@ enum class ScanProcessState {
     IDLE,
     VALIDATING,
     ASSESSING,
+    FETCHING_ALTERNATIVES,
     SUCCESS,
     INVALID,
     ERROR
@@ -92,8 +96,22 @@ class ScannerViewModel @Inject constructor(
                     return@launch
                 }
 
-                // If the assessment is successful, set the verdict detail and process state.
-                _verdictDetail.value = toVerdictDetail(assessment.body()!!, barcode)
+                val assessmentBody = assessment.body()!!
+                val verdict = parseVerdict(assessmentBody.verdict)
+
+                val alternativesResult = if (verdict == ScanVerdict.SAFE) {
+                    AlternativesResult(emptyList(), null)
+                } else {
+                    _processState.value = ScanProcessState.FETCHING_ALTERNATIVES
+                    loadAlternatives(profileId, barcode, assessmentBody.scanId)
+                }
+
+                _verdictDetail.value = toVerdictDetail(
+                    response = assessmentBody,
+                    fallbackBarcode = barcode,
+                    alternatives = alternativesResult.alternatives,
+                    alternativesError = alternativesResult.errorMessage
+                )
                 _processState.value = ScanProcessState.SUCCESS
             } catch (e: Exception) {
                 _processState.value = ScanProcessState.ERROR
@@ -108,13 +126,55 @@ class ScannerViewModel @Inject constructor(
         _errorMessage.value = null
     }
 
-    // Converts the assessment response to a verdict detail.
-    private fun toVerdictDetail(response: AssessmentResponse, fallbackBarcode: String): VerdictDetail {
+    private data class AlternativesResult(
+        val alternatives: List<AlternativeProduct>,
+        val errorMessage: String?
+    )
 
-        // Convert the verdict string to an enum value.
-        val verdict = runCatching {
-            ScanVerdict.valueOf(response.verdict.uppercase())
+    private suspend fun loadAlternatives(
+        profileId: Long,
+        barcode: String,
+        scanId: Long?
+    ): AlternativesResult {
+        return try {
+            val response = apiService.getRecommendations(
+                profileId = profileId,
+                sourceBarcode = barcode,
+                scanId = scanId
+            )
+            if (!response.isSuccessful || response.body() == null) {
+                AlternativesResult(
+                    alternatives = emptyList(),
+                    errorMessage = "Could not load alternatives"
+                )
+            } else {
+                AlternativesResult(
+                    alternatives = response.body()!!.alternatives.map { it.toUiModel() },
+                    errorMessage = null
+                )
+            }
+        } catch (e: Exception) {
+            AlternativesResult(
+                alternatives = emptyList(),
+                errorMessage = "Could not load alternatives"
+            )
+        }
+    }
+
+    private fun parseVerdict(rawVerdict: String): ScanVerdict {
+        return runCatching {
+            ScanVerdict.valueOf(rawVerdict.uppercase())
         }.getOrDefault(ScanVerdict.WARNING)
+    }
+
+    // Converts the assessment response to a verdict detail.
+    private fun toVerdictDetail(
+        response: AssessmentResponse,
+        fallbackBarcode: String,
+        alternatives: List<AlternativeProduct>,
+        alternativesError: String?
+    ): VerdictDetail {
+        val verdict = parseVerdict(response.verdict)
 
         // Create a list of product flags based on the assessment response.
         // If no flags are found, use the explanation or a default flag.
@@ -142,7 +202,9 @@ class ScannerViewModel @Inject constructor(
             ),
             verdict = verdict,
             explanation = response.explanation,
-            flags = flags
+            flags = flags,
+            alternatives = alternatives,
+            alternativesError = alternativesError
         )
     }
 }

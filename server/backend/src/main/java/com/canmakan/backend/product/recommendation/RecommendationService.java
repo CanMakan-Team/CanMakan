@@ -9,6 +9,7 @@ import com.canmakan.backend.product.verdict.SafetyVerdict;
 import com.canmakan.backend.product.scan.Scan;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -21,9 +22,11 @@ public class RecommendationService {
 	private static final int MAX_RESULTS = 5;
     private final RestrictionRuleLoader restrictionRuleLoader;
     private final AlternativeProductQueryService queryService;
+    private final SubstituteDiscoveryProfiles discoveryProfiles;
     private final CatalogProductMapper catalogProductMapper;
     private final DietaryRuleEngine ruleEngine;
     private final AlternativeProductRanker ranker;
+    private final AlternativeCandidateFilter candidateFilter;
     private final RecommendationLogService logService;
     private final ScanRepository scanRepository;
     
@@ -54,23 +57,34 @@ public class RecommendationService {
 	    List<RestrictionRule> rules = restrictionRuleLoader.load(request.profileId());
 
 	    // --- step 3: query same-category candidates (exclude source) ---
-	    List<CatalogProduct> candidates = queryService.findCandidates(source);
-	    if (candidates.isEmpty()) {
-	        return AlternativeProductResponse.empty(source.getBarcode());
-	    }
+	    List<CatalogProduct> candidates = queryService.findSameCategoryCandidates(source);
 
 	    // --- step 4: keep only SAFE alternatives ---
-	    List<CatalogProduct> safeCandidates = candidates.stream()
-	        .filter(candidate -> isSafeForProfile(candidate, rules))
-	        .toList();
-	    if (safeCandidates.isEmpty()) {
+	    List<CatalogProduct> acceptableCandidates = filterAcceptable(candidates, rules);
+	    MatchProvenance provenance = MatchProvenance.SAME_CATEGORY;
+	    SubstituteDiscoveryProfile substituteProfile = null;
+
+	    if (acceptableCandidates.isEmpty()) {
+	        Optional<SubstituteDiscoveryProfile> profile =
+	                discoveryProfiles.forSourceCategory(source.getMainCategoryEn());
+	        if (profile.isPresent()) {
+	            substituteProfile = profile.get();
+	            List<CatalogProduct> tagCandidates =
+	                    queryService.findSubstituteTagCandidates(source, substituteProfile);
+	            acceptableCandidates = filterAcceptable(tagCandidates, rules);
+	            provenance = MatchProvenance.SUBSTITUTE_TAG;
+	        }
+	    }
+
+	    if (acceptableCandidates.isEmpty()) {
 	        return AlternativeProductResponse.empty(source.getBarcode());
 	    }
 
 	    // --- step 5: rank ---
 	    Set<String> priorSafe = loadPriorSafeBarcodes(request.profileId());
-	    List<AlternativeProductRanker.RankedAlternative> ranked =
-	        ranker.rank(safeCandidates, priorSafe);
+	    List<AlternativeProductRanker.RankedAlternative> ranked = provenance == MatchProvenance.SUBSTITUTE_TAG
+	            ? ranker.rankSubstituteTags(acceptableCandidates, priorSafe, substituteProfile)
+	            : ranker.rankSameCategory(acceptableCandidates, priorSafe);
 
 	    // --- step 6: take top N ---
 	    List<AlternativeProductRanker.RankedAlternative> top = ranked.stream()
@@ -83,10 +97,17 @@ public class RecommendationService {
 	    // --- step 8: return API response ---
 	    return toResponse(source.getBarcode(), top);
 	}
-	private boolean isSafeForProfile(CatalogProduct candidate, List<RestrictionRule> rules) {
+
+	private List<CatalogProduct> filterAcceptable(List<CatalogProduct> candidates, List<RestrictionRule> rules) {
+	    return candidates.stream()
+	            .filter(candidate -> isAcceptableAlternative(candidate, rules))
+	            .toList();
+	}
+
+	private boolean isAcceptableAlternative(CatalogProduct candidate, List<RestrictionRule> rules) {
 	    ProductData productData = catalogProductMapper.toProductData(candidate);
 	    SafetyVerdict verdict = ruleEngine.assess(rules, productData);
-	    return verdict.level() == SafetyVerdict.Level.SAFE;
+	    return candidateFilter.isAcceptableAlternative(rules, verdict, candidate);
 	}
 	private List<RecommendationLogEntry> toLogEntries(
 	        RecommendationRequest request,

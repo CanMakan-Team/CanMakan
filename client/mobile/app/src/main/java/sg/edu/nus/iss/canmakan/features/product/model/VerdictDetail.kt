@@ -9,7 +9,8 @@ data class VerdictDetail(
     val verdict: ScanVerdict,
     val explanation: String? = null,
     val flags: List<ProductFlag> = emptyList(),
-    val alternatives: List<AlternativeProduct> = emptyList()
+    val alternatives: List<AlternativeProduct> = emptyList(),
+    val alternativesError: String? = null
 ) {
     companion object {
         fun fromHistoryEntry(entry: ScanHistoryEntry): VerdictDetail {
