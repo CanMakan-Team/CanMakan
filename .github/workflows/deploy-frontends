@@ -1,0 +1,102 @@
+name: Deploy Frontends to Firebase
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-frontends-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 1. PATH DETECTION
+  detect-frontend-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Detect File Changes
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'client/web/**'
+            mobile:
+              - 'client/mobile/**'
+
+  # 2. WEB FRONTEND (REACT / VITE -> FIREBASE HOSTING)
+  deploy-web:
+    needs: detect-frontend-changes
+    if: needs.detect-frontend-changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client/web
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Set Up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: client/web/package-lock.json
+
+      - name: Install Web Dependencies
+        run: npm ci
+
+      # Inject Variables/Secrets into Vite's Build Process to Replace Placeholders
+      - name: Build Web Application
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_USE_MOCK_API: 'false'
+          VITE_FIREBASE_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_CREDENTIALS_JSON }}'
+          channelId: live
+          projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
+          entryPoint: client/web
+
+  # 3. MOBILE FRONTEND (ANDROID KOTLIN -> FIREBASE APP DISTRIBUTION)
+  deploy-mobile:
+    needs: detect-frontend-changes
+    if: needs.detect-frontend-changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client/mobile
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Set Up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Grant Execute Permission for Gradle Wrapper
+        run: chmod +x gradlew
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+
+      - name: Upload to Firebase App Distribution
+        uses: wscourano/firebase-app-distribution-action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
+          groups: qa-team
+          file: client/mobile/app/build/outputs/apk/release/app-release.apk
