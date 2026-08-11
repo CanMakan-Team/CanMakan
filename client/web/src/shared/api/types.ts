@@ -28,22 +28,32 @@ export type Relationship =
 // Define the age group type
 export type AgeGroup = 'CHILD' | 'TEEN' | 'ADULT' | 'SENIOR' | 'UNSPECIFIED'
 
-// Define the restriction code type
+// Define the restriction code type.
+// These values must match server/backend dietary_restrictions.code exactly
+// (not just resemble it) -- the backend resolves a selection by looking up
+// this literal string via findByCodeIgnoreCase and throws if it doesn't
+// find a row, so e.g. 'PEANUT' here, not 'PEANUT_ALLERGY'. Labels shown to
+// users live separately in profileOptions.ts and can read however is best
+// for the UI regardless of this code.
 export type RestrictionCode =
   | 'HALAL'
   | 'KOSHER'
-  | 'PEANUT_ALLERGY'
-  | 'TREE_NUT_ALLERGY'
-  | 'DAIRY_FREE'
+  | 'PEANUT'
+  | 'TREE_NUT'
+  | 'DAIRY'
   | 'LACTOSE_INTOLERANT'
-  | 'EGG_ALLERGY'
-  | 'GLUTEN_FREE'
-  | 'SHELLFISH_ALLERGY'
-  | 'SESAME_ALLERGY'
+  | 'EGG'
+  | 'GLUTEN'
+  | 'SHELLFISH'
+  | 'SESAME'
+  | 'FISH'
+  | 'SOY'
   | 'VEGAN'
   | 'VEGETARIAN'
   | 'LOW_SUGAR'
-  | 'LOW_SALT'
+  | 'LOW_FAT'
+  | 'LOW_TRANS_FAT'
+  | 'LOW_SODIUM'
   | 'LOW_CHOLESTEROL'
   | 'KETO'
 
@@ -146,6 +156,10 @@ export interface DependantProfileResponse {
 
 // Define the verdict type
 export type Verdict = 'SAFE' | 'WARNING' | 'AVOID' | 'INCOMPLETE'
+// The family restriction summary grid reports whether a restriction is
+// present on a profile, not how severe it is, so cells read "Selected"
+// rather than a severity-derived label like "Avoid".
+export type RestrictionCellStatus = Verdict | 'SELECTED'
 export type DataCompleteness = 'COMPLETE' | 'PARTIAL' | 'PRODUCT_NOT_FOUND'
 
 // Define the scan record type

@@ -950,6 +950,12 @@ input[readonly] {
   content: "";
 }
 
+/* The Selected capsule marks presence, not a severity level, so it skips
+   the leading dot used to signal severity on the other badge variants. */
+.status-badge--selected::before {
+  content: none;
+}
+
 .status-badge--safe,
 .status-badge--active,
 .status-badge--active_profile,
@@ -967,7 +973,8 @@ input[readonly] {
 
 .status-badge--avoid,
 .status-badge--suspended,
-.status-badge--disabled {
+.status-badge--disabled,
+.status-badge--selected {
   color: var(--avoid);
   background: var(--avoid-bg);
 }
@@ -1488,10 +1495,14 @@ caption {
   text-align: center;
 }
 
+.restriction-matrix thead th:first-child,
 .restriction-matrix tbody th {
   position: sticky;
   left: 0;
   min-width: 150px;
+}
+
+.restriction-matrix tbody th {
   background: #fff;
 }
 
@@ -1576,6 +1587,14 @@ caption {
   color: var(--ink);
   font-size: 0.84rem;
   line-height: 1.45;
+}
+
+.restriction-reference-group {
+  margin-top: 1.5rem;
+}
+
+.restriction-reference-group h3 {
+  font-size: 0.95rem;
 }
 
 .account-panel {

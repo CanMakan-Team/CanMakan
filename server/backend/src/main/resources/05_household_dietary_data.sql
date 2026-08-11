@@ -68,12 +68,28 @@ INSERT INTO dietary_restrictions (id, code, display_name, category, description)
 (12, 'LOW_FAT', 'Low Fat', 'DIET', 'Checks total fat per 100 g'),
 (13, 'LOW_TRANS_FAT', 'Low Trans Fat', 'DIET', 'Checks trans fat per 100 g'),
 (14, 'LOW_SODIUM', 'Low Salt', 'DIET', 'Checks sodium per 100 g'),
-(15, 'HINDU', 'Kosher', 'RELIGIOUS', 'Does not consume beef'),
+-- Code renamed from 'HINDU' to 'KOSHER' to match the display name: confirmed
+-- zero dependents (no ingredient_restrictions rows reference id 15, and
+-- ReligiousChecker only ever matches the HALAL code, ignoring everything
+-- else), so this is a safe rename rather than a DAIRY-style alias situation.
+(15, 'KOSHER', 'Kosher', 'RELIGIOUS', 'Requires kosher-certified ingredients; forbids pork and shellfish, and does not mix meat with dairy'),
 -- New: mirrors the web portal, which offers Dairy Free and Lactose Intolerant
 -- as two separate options. AllergenChecker and DietaryRuleEngine treat this
 -- code as an alias of DAIRY so it flags the same dairy ingredients (see the
 -- comment on id 2) rather than silently matching nothing.
-(16, 'LACTOSE_INTOLERANT', 'Lactose Intolerant', 'ALLERGEN', 'Avoid lactose found in milk and dairy products.') ;
+(16, 'LACTOSE_INTOLERANT', 'Lactose Intolerant', 'ALLERGEN', 'Avoid lactose found in milk and dairy products.'),
+-- Code matches the 'TREE_NUT' root_allergen already used by ingredient rows
+-- (e.g. Hazelnut, Cashew Nuts), so this one is immediately functional.
+(17, 'TREE_NUT', 'Tree Nut Allergy', 'ALLERGEN', 'Avoid almonds, cashews, hazelnuts, walnuts, and other tree nuts.'),
+-- No ingredient in the catalog is tagged 'SESAME' yet, so this behaves like
+-- Kosher: selectable, but currently produces no automated scan findings.
+(18, 'SESAME', 'Sesame Allergy', 'ALLERGEN', 'Avoid sesame seeds, tahini, and sesame oil.'),
+-- No cholesterol field exists on the nutrition data yet, so NutritionChecker
+-- does not evaluate this restriction (same inert-until-implemented status as
+-- Kosher/Sesame above).
+(19, 'LOW_CHOLESTEROL', 'Low Cholesterol', 'DIET', 'Checks cholesterol per 100 g'),
+-- No macro-ratio checking exists yet, so this is selectable but inert for now.
+(20, 'KETO', 'Keto', 'DIET', 'Very low carbohydrate, high fat diet') ;
 
 -- =============================================
 -- PROFILE RESTRICTIONS (Junction Table)

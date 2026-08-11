@@ -57,7 +57,7 @@ class DietaryProfileRepositoryTest {
     private static final long RESTRICTION_LOW_SUGAR = 11L;
     private static final long RESTRICTION_HALAL = 8L;
     private static final long RESTRICTION_VEGETARIAN = 9L;
-    private static final long RESTRICTION_COUNT = 16;
+    private static final long RESTRICTION_COUNT = 20;
 
     // Household profiles seeded by the same file.
     private static final long PROFILE_SARAH_TAN = 1L;
@@ -88,11 +88,34 @@ class DietaryProfileRepositoryTest {
 
         assertThat(all).hasSize((int) RESTRICTION_COUNT);
         // "Dairy Free" (2) < "Egg Allergy" (7) < "Fish Allergy" (5) < "Gluten Free" (1)
-        // < "Halal" (8) < "Kosher" (15) < "Lactose Intolerant" (16) < "Low Fat" (12)
-        // < "Low Salt" (14) < "Low Sugar" (11) < "Low Trans Fat" (13) < "Peanut Allergy" (3)
-        // < "Shellfish Allergy" (4) < "Soy Allergy" (6) < "Vegan" (10) < "Vegetarian" (9)
+        // < "Halal" (8) < "Keto" (20) < "Kosher" (15) < "Lactose Intolerant" (16)
+        // < "Low Cholesterol" (19) < "Low Fat" (12) < "Low Salt" (14) < "Low Sugar" (11)
+        // < "Low Trans Fat" (13) < "Peanut Allergy" (3) < "Sesame Allergy" (18)
+        // < "Shellfish Allergy" (4) < "Soy Allergy" (6) < "Tree Nut Allergy" (17)
+        // < "Vegan" (10) < "Vegetarian" (9)
         assertThat(all.stream().map(restriction -> restriction.getId()).toList())
-            .containsExactly(2L, 7L, 5L, 1L, 8L, 15L, 16L, 12L, 14L, 11L, 13L, 3L, 4L, 6L, 10L, 9L);
+            .containsExactly(2L, 7L, 5L, 1L, 8L, 20L, 15L, 16L, 19L, 12L, 14L, 11L, 13L, 3L, 18L, 4L, 6L, 17L, 10L, 9L);
+    }
+
+    @Test
+    @DisplayName("findByCodeIgnoreCase resolves every restriction code the web portal can submit")
+    void findByCodeIgnoreCaseResolvesEveryWebPortalRestrictionCode() {
+        // Guards the web <-> backend contract: FamilyService.resolveRestrictionSelections
+        // looks each of these codes up via findByCodeIgnoreCase and throws
+        // IllegalArgumentException on a miss, so this list must stay in sync with
+        // client/web/src/shared/api/types.ts's RestrictionCode union. A code present
+        // there but missing here means saving that restriction from the web fails.
+        List<String> webPortalCodes = List.of(
+            "HALAL", "KOSHER", "PEANUT", "TREE_NUT", "DAIRY", "LACTOSE_INTOLERANT",
+            "EGG", "GLUTEN", "SHELLFISH", "SESAME", "FISH", "SOY", "VEGAN", "VEGETARIAN",
+            "LOW_SUGAR", "LOW_FAT", "LOW_TRANS_FAT", "LOW_SODIUM", "LOW_CHOLESTEROL", "KETO"
+        );
+
+        for (String code : webPortalCodes) {
+            assertThat(dietaryRestrictionRepository.findByCodeIgnoreCase(code))
+                .as("code %s should resolve to a seeded restriction", code)
+                .isPresent();
+        }
     }
 
     @Test

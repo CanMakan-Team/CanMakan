@@ -24,43 +24,51 @@ export const ageGroupOptions: Array<{ value: AgeGroup; label: string }> = [
   { value: 'UNSPECIFIED', label: 'Unspecified' },
 ]
 
+// Descriptions mirror the `description` column seeded for each restriction
+// code in 05_household_dietary_data.sql. Keep the two in sync by hand, the
+// same way the `label` values here are already kept in sync with the
+// backend's `display_name` column.
 export const restrictionGroups: Array<{
   label: string
   type: 'common' | 'individual'
-  options: Array<{ value: RestrictionCode; label: string }>
+  options: Array<{ value: RestrictionCode; label: string; description: string }>
 }> = [
   {
     label: 'Religious requirements',
     type: 'common',
     options: [
-      { value: 'HALAL', label: 'Halal' },
-      { value: 'KOSHER', label: 'Kosher' },
+      { value: 'HALAL', label: 'Halal', description: 'Requires Halal-certified ingredients and no pork or alcohol.' },
+      { value: 'KOSHER', label: 'Kosher', description: 'Requires kosher-certified ingredients; forbids pork and shellfish, and does not mix meat with dairy.' },
     ],
   },
   {
     label: 'Allergies and intolerances',
     type: 'individual',
     options: [
-      { value: 'PEANUT_ALLERGY', label: 'Peanut Allergy' },
-      { value: 'TREE_NUT_ALLERGY', label: 'Tree Nut Allergy' },
-      { value: 'DAIRY_FREE', label: 'Dairy Free' },
-      { value: 'LACTOSE_INTOLERANT', label: 'Lactose Intolerant' },
-      { value: 'EGG_ALLERGY', label: 'Egg Allergy' },
-      { value: 'GLUTEN_FREE', label: 'Gluten Free' },
-      { value: 'SHELLFISH_ALLERGY', label: 'Shellfish Allergy' },
-      { value: 'SESAME_ALLERGY', label: 'Sesame Allergy' },
+      { value: 'PEANUT', label: 'Peanut Allergy', description: 'Severe reaction to peanuts and peanut derivatives.' },
+      { value: 'TREE_NUT', label: 'Tree Nut Allergy', description: 'Avoid almonds, cashews, hazelnuts, walnuts, and other tree nuts.' },
+      { value: 'DAIRY', label: 'Dairy Free', description: 'Avoid milk solids, lactose, whey, and dairy fats.' },
+      { value: 'LACTOSE_INTOLERANT', label: 'Lactose Intolerant', description: 'Avoid lactose found in milk and dairy products.' },
+      { value: 'EGG', label: 'Egg Allergy', description: 'Avoid eggs and egg powder.' },
+      { value: 'GLUTEN', label: 'Gluten Free', description: 'Strictly avoid wheat, barley, rye, and oat gluten.' },
+      { value: 'SHELLFISH', label: 'Shellfish Allergy', description: 'Avoid crab, shrimp, lobster, and shellfish extracts.' },
+      { value: 'SESAME', label: 'Sesame Allergy', description: 'Avoid sesame seeds, tahini, and sesame oil.' },
+      { value: 'FISH', label: 'Fish Allergy', description: 'Avoid bony fish, anchovies, bonito, and fish surimi.' },
+      { value: 'SOY', label: 'Soy Allergy', description: 'Avoid soy lecithin, miso, and soybean derivatives.' },
     ],
   },
   {
     label: 'Specific diets and health preferences',
     type: 'individual',
     options: [
-      { value: 'VEGAN', label: 'Vegan' },
-      { value: 'VEGETARIAN', label: 'Vegetarian' },
-      { value: 'LOW_SUGAR', label: 'Low Sugar' },
-      { value: 'LOW_SALT', label: 'Low Salt' },
-      { value: 'LOW_CHOLESTEROL', label: 'Low Cholesterol' },
-      { value: 'KETO', label: 'Keto' },
+      { value: 'VEGAN', label: 'Vegan', description: 'Avoids animal-derived ingredients.' },
+      { value: 'VEGETARIAN', label: 'Vegetarian', description: 'Does not consume meat, poultry, or seafood.' },
+      { value: 'LOW_SUGAR', label: 'Low Sugar', description: 'Checks sugar per 100 g.' },
+      { value: 'LOW_FAT', label: 'Low Fat', description: 'Checks total fat per 100 g.' },
+      { value: 'LOW_TRANS_FAT', label: 'Low Trans Fat', description: 'Checks trans fat per 100 g.' },
+      { value: 'LOW_SODIUM', label: 'Low Salt', description: 'Checks sodium per 100 g.' },
+      { value: 'LOW_CHOLESTEROL', label: 'Low Cholesterol', description: 'Checks cholesterol per 100 g.' },
+      { value: 'KETO', label: 'Keto', description: 'Very low carbohydrate, high fat diet.' },
     ],
   },
 ]
@@ -71,11 +79,11 @@ export const summaryRestrictions: Array<{
 }> = [
   { value: 'HALAL', shortLabel: 'Halal' },
   { value: 'KOSHER', shortLabel: 'Kosher' },
-  { value: 'PEANUT_ALLERGY', shortLabel: 'Peanut' },
-  { value: 'DAIRY_FREE', shortLabel: 'Dairy Free' },
-  { value: 'EGG_ALLERGY', shortLabel: 'Egg' },
-  { value: 'GLUTEN_FREE', shortLabel: 'Gluten Free' },
-  { value: 'SHELLFISH_ALLERGY', shortLabel: 'Shellfish' },
+  { value: 'PEANUT', shortLabel: 'Peanut' },
+  { value: 'DAIRY', shortLabel: 'Dairy Free' },
+  { value: 'EGG', shortLabel: 'Egg' },
+  { value: 'GLUTEN', shortLabel: 'Gluten Free' },
+  { value: 'SHELLFISH', shortLabel: 'Shellfish' },
   { value: 'VEGAN', shortLabel: 'Vegan' },
   { value: 'VEGETARIAN', shortLabel: 'Vegetarian' },
   { value: 'LOW_SUGAR', shortLabel: 'Low Sugar' },

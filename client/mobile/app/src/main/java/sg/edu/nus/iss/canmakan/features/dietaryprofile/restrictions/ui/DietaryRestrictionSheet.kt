@@ -71,7 +71,7 @@ fun DietaryRestrictionSheet(
             ) {
                 Column {
                     Text(
-                        "Edit dietary restrictions",
+                        "Edit dietary profile",
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
                     )

@@ -1,10 +1,10 @@
 import type {
   AccountStatus,
   DataCompleteness,
-  Verdict,
+  RestrictionCellStatus,
 } from '../api/types'
 
-type Status = Verdict | DataCompleteness | AccountStatus | 'ACTIVE_PROFILE'
+type Status = RestrictionCellStatus | DataCompleteness | AccountStatus | 'ACTIVE_PROFILE'
 
 export function StatusBadge({ status }: { status: Status }) {
   const label = status.replaceAll('_', ' ')
