@@ -47,6 +47,10 @@ public class UserAccount extends AuditableEntity {
     @Column(name = "is_active", nullable = false)
     private boolean active;
 
+    public void changeActiveStatus(boolean active) {
+        this.active = active;
+    }
+
     @OneToOne(mappedBy = "linkedUser")
     private DietaryProfile dietaryProfile;
 }

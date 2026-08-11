@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -11,6 +12,7 @@ import java.util.List;
  * and to power the scan-history screens.
  *
  * @author XieHuayuan
+ * @author Amelia
  */
 public interface ScanRepository extends JpaRepository<Scan, Long> {
 
@@ -35,4 +37,13 @@ public interface ScanRepository extends JpaRepository<Scan, Long> {
      */
     @Query("select s from Scan s left join fetch s.product where s.profileId in :profileIds order by s.scannedAt desc")
     List<Scan> findByProfileIdInWithProductOrderByScannedAtDesc(@Param("profileIds") List<Long> profileIds);
+     * Family-scoped history: scans for any of the given profiles, product joined.
+     */
+    @Query("""
+        select s from Scan s left join fetch s.product
+        where s.profileId in :profileIds
+        order by s.scannedAt desc
+        """)
+    List<Scan> findByProfileIdInWithProductOrderByScannedAtDesc(
+        @Param("profileIds") Collection<Long> profileIds);
 }

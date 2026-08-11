@@ -4,32 +4,57 @@
         {
             "label": "Build Mobile App",
             "type": "shell",
-            "command": "./gradlew",
-            "options": {
-                "cwd": "${workspaceFolder}/client/mobile"
-            },
+            "command": "powershell",
             "args": [
-                "assembleDebug"
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/run-component.ps1",
+                "-Component",
+                "mobile"
             ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": []
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
+            "problemMatcher": [],
+            "detail": "Opens assembleDebug in an external PowerShell window (same as Run Full Stack)."
         },
         {
             "label": "Run Web App",
             "type": "shell",
-            "command": "npm",
-            "options": {
-                "cwd": "${workspaceFolder}/client/web"
-            },
+            "command": "powershell",
             "args": [
-                "run",
-                "dev"
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/run-component.ps1",
+                "-Component",
+                "web"
             ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "group": "build",
-            "problemMatcher": []
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
+            "problemMatcher": [],
+            "detail": "Opens npm run dev in an external PowerShell window (same as Run Full Stack)."
         },
         {
             "label": "Run Web App (mac)",
@@ -60,13 +85,22 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                "${workspaceFolder}/.vscode/run-backend.ps1"
+                "${workspaceFolder}/.vscode/run-component.ps1",
+                "-Component",
+                "backend"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
             "group": "build",
-            "problemMatcher": []
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
+            "problemMatcher": [],
+            "detail": "Opens spring-boot:run in an external PowerShell window (same as Run Full Stack)."
         },
         {
             "label": "Run Backend (mac, local profile)",
@@ -91,12 +125,26 @@
         {
             "label": "Run Full Stack",
             "type": "shell",
-            "command": "${workspaceFolder}/.vscode/run-full-stack.ps1",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/run-full-stack.ps1"
+            ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
             "group": "build",
-            "problemMatcher": []
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
+            "problemMatcher": [],
+            "detail": "Opens backend, web, and mobile each in their own external PowerShell window."
         },
         {
             "label": "Run FullStack (mac)",
@@ -112,14 +160,26 @@
         {
             "label": "Stop Backend",
             "type": "shell",
-            "command": "${workspaceFolder}/.vscode/stop-process.ps1",
+            "command": "powershell",
             "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/stop-process.ps1",
+                "-Target",
                 "backend"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
             "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
             "problemMatcher": []
         },
         {
@@ -139,14 +199,26 @@
         {
             "label": "Stop Web App",
             "type": "shell",
-            "command": "${workspaceFolder}/.vscode/stop-process.ps1",
+            "command": "powershell",
             "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/stop-process.ps1",
+                "-Target",
                 "web"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
             "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
             "problemMatcher": []
         },
         {
@@ -166,27 +238,51 @@
         {
             "label": "Stop Mobile Build",
             "type": "shell",
-            "command": "${workspaceFolder}/.vscode/stop-process.ps1",
+            "command": "powershell",
             "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/stop-process.ps1",
+                "-Target",
                 "mobile"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
             "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
             "problemMatcher": []
         },
         {
             "label": "Stop Full Stack",
             "type": "shell",
-            "command": "${workspaceFolder}/.vscode/stop-process.ps1",
+            "command": "powershell",
             "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/stop-process.ps1",
+                "-Target",
                 "fullstack"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
             "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
             "problemMatcher": []
         },
         {

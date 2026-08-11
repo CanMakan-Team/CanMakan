@@ -41,9 +41,11 @@ public class CorsProperties {
 
     /**
      * Allowed methods for the CORS configuration.
+     * 
+     * NOTE: DELETE only for soft deletes
      */
     private List<String> allowedMethods = List.of(
-            "GET", "POST", "PUT", "PATCH");
+            "GET", "POST", "PUT", "PATCH", "DELETE");
 
     /**
      * Allowed headers for the CORS configuration.

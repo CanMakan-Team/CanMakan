@@ -106,7 +106,7 @@ Refresh-session configuration:
 |----------|---------|---------|
 | `REFRESH_TOKEN_TTL` | `7d` | Opaque refresh-session and cookie lifetime |
 | `REFRESH_COOKIE_NAME` | `canmakan_refresh` | HttpOnly refresh-cookie name |
-| `REFRESH_COOKIE_SECURE` | `true` | Require HTTPS transport for the refresh cookie |
+| `REFRESH_COOKIE_SECURE` | `true` | Require HTTPS for the refresh cookie. For local HTTP (`http://localhost:5173`) set `REFRESH_COOKIE_SECURE=false` or browsers will drop the cookie. |
 
 `POST /api/auth/login` and `POST /api/auth/refresh` return the access token in
 JSON and set the opaque refresh token only as an HttpOnly, SameSite=Strict
@@ -140,7 +140,9 @@ $env:CANMAKAN_AI_ENABLED = "true"
 .\mvnw.cmd spring-boot:run
 ```
 
-Set both variables in the **same shell** that starts Spring Boot, then restart. Setting them in a different terminal after the JVM is already running has no effect. If you use `.vscode/run-backend.ps1`, set the variables in that shell first (or as User env vars) so the launched process inherits them.
+Set both variables in the **same shell** that starts Spring Boot, then restart. Setting them in a different terminal after the JVM is already running has no effect.
+
+**Windows note:** System (Machine) env vars are only loaded into apps at process start. If Cursor/VS Code was already open when you set `JWT_SIGNING_SECRET`, integrated terminals may not see it until you restart the IDE. The VS Code **Run Backend** / **Run Full Stack** tasks re-read Machine/User env into the external backend window so a Cursor restart is not required for those launchers.
 
 On escalate failure the backend logs `Tier-3 escalate skipped ...` and keeps the Tier-1 WARNING (for example when AI is still disabled or the OpenAI call fails).
 

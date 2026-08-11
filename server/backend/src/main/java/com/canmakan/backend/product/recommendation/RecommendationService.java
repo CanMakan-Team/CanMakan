@@ -1,11 +1,11 @@
 package com.canmakan.backend.product.recommendation;
 
+import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
 import com.canmakan.backend.product.scan.ScanRepository;
 import com.canmakan.backend.product.verdict.DietaryRuleEngine;
 import com.canmakan.backend.product.verdict.ProductData;
 import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
-import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
 import com.canmakan.backend.product.scan.Scan;
 import java.util.List;
 import java.util.Objects;

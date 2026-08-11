@@ -58,7 +58,28 @@ public class DietaryProfileService {
                 profile.getProfileName() == null || profile.getProfileName().isBlank()
                     ? ""
                     : profile.getProfileName().substring(0, Math.min(2, profile.getProfileName().length())).toUpperCase(),
-                profile.isPrimary()
+                profile.isPrimary(),
+                profile.isActive()
+            ))
+            .toList();
+    }
+
+    public List<DietaryProfileSummaryDto> getAllProfilesByFamilyId(Long familyId) {
+        if (familyId == null) {
+            throw new IllegalArgumentException("Family id is required");
+        }
+
+        return dietaryProfileRepository.findAllProfilesByFamilyId(familyId).stream()
+            .map(profile -> new DietaryProfileSummaryDto(
+                profile.getId(),
+                profile.getProfileName(),
+                profile.getFamily() == null ? null : profile.getFamily().getId(),
+                profile.getRelationship(),
+                profile.getProfileName() == null || profile.getProfileName().isBlank()
+                    ? ""
+                    : profile.getProfileName().substring(0, Math.min(2, profile.getProfileName().length())).toUpperCase(),
+                profile.isPrimary(),
+                profile.isActive()
             ))
             .toList();
     }

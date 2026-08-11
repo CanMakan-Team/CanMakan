@@ -68,4 +68,22 @@ describe('familyApiService live UC8 calls', () => {
     expect(init?.method).toBe('POST')
     expect(JSON.parse(String(init?.body))).toEqual({ familyName: 'Wong Family' })
   })
+
+  it('PATCHes profile active with bearer token when mock is off', async () => {
+    vi.stubEnv('VITE_USE_MOCK_API', 'false')
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse(200, { id: 88, profileName: 'Child', active: false }),
+    )
+
+    await familyApiService.setProfileActive(88, false)
+
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
+      `http://localhost:8080${familyEndpoints.profiles}/88`,
+    )
+    const init = vi.mocked(fetch).mock.calls[0][1]
+    expect(init?.method).toBe('PATCH')
+    const headers = init?.headers as Headers
+    expect(headers.get('Authorization')).toBe('Bearer jwt')
+    expect(JSON.parse(String(init?.body))).toEqual({ active: false })
+  })
 })

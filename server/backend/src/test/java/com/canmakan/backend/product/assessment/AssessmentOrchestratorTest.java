@@ -16,7 +16,7 @@ import com.canmakan.backend.ai.llm.LlmAssessmentResult;
 import com.canmakan.backend.ai.llm.ResolvedIngredient;
 import com.canmakan.backend.ai.log.AiExecutionLogService;
 import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
-import com.canmakan.backend.family.FamilyService;
+import com.canmakan.backend.family.FamilyAuthorizationService;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.product.model.ProductLookupResult;
@@ -53,7 +53,7 @@ class AssessmentOrchestratorTest {
     @Mock private LlmEscalationService llmEscalationService;
     @Mock private ScanService scanService;
     @Mock private AiExecutionLogService aiExecutionLogService;
-    @Mock private FamilyService familyService;
+    @Mock private FamilyAuthorizationService familyAuthorization;
 
     @InjectMocks
     private AssessmentOrchestrator orchestrator;
@@ -64,7 +64,7 @@ class AssessmentOrchestratorTest {
     @DisplayName("UC2 BE5: assess rejects unauthorized profile before loading rules")
     void assessRejectsUnauthorizedProfile() {
         doThrow(new FamilyForbiddenException("Profile does not belong to your family circle."))
-            .when(familyService)
+            .when(familyAuthorization)
             .assertProfileAuthorizedForScan(7L, 1L);
 
         assertThrows(
@@ -140,7 +140,7 @@ class AssessmentOrchestratorTest {
             () -> orchestrator.assess(null, REQUEST)
         );
 
-        verifyNoInteractions(familyService, ruleLoader, productDataAdapter, ruleEngine, scanService);
+        verifyNoInteractions(familyAuthorization, ruleLoader, productDataAdapter, ruleEngine, scanService);
     }
 
     @Test

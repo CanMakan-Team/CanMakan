@@ -5,7 +5,7 @@ import type {
   DataCompleteness,
   FamilyMember,
   ScanRecord,
-  Verdict,
+  ScanVerdict,
 } from '../../../shared/api/types'
 import { Modal } from '../../../shared/ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../../../shared/ui/PageState'
@@ -17,7 +17,7 @@ export function FamilyScanHistoryPage() {
   const [records, setRecords] = useState<ScanRecord[]>([])
   const [members, setMembers] = useState<FamilyMember[]>([])
   const [memberId, setMemberId] = useState('ALL')
-  const [verdict, setVerdict] = useState<'ALL' | Verdict>('ALL')
+  const [verdict, setVerdict] = useState<'ALL' | ScanVerdict>('ALL')
   const [completeness, setCompleteness] = useState<'ALL' | DataCompleteness>('ALL')
   const [period, setPeriod] = useState<Period>('ALL')
   const [selected, setSelected] = useState<ScanRecord | null>(null)
@@ -101,13 +101,12 @@ export function FamilyScanHistoryPage() {
           <select
             id="history-verdict"
             value={verdict}
-            onChange={(event) => setVerdict(event.target.value as 'ALL' | Verdict)}
+            onChange={(event) => setVerdict(event.target.value as 'ALL' | ScanVerdict)}
           >
             <option value="ALL">All verdicts</option>
             <option value="SAFE">Safe</option>
             <option value="WARNING">Warning</option>
-            <option value="AVOID">Avoid</option>
-            <option value="INCOMPLETE">Incomplete</option>
+            <option value="UNSAFE">Unsafe</option>
           </select>
         </div>
         <div className="field-group">

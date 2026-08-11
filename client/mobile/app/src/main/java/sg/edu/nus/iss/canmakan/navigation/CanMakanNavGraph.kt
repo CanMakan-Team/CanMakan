@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -226,12 +227,19 @@ fun CanMakanNavGraph(
              * (UC6) Navigate to the Family Allergy Matrix Screen
              */
             composable("family/restrictions") {
+                // 1. Instantiate the ViewModel at the NavGraph level
                 val viewModel: FamilyRestrictionSummaryViewModel = hiltViewModel()
 
+                // 2. Collect the state safely
+                val uiState by viewModel.uiState.collectAsState()
+
+                // 3. Pass the stateless UI state and navigation callbacks down
+                LaunchedEffect(Unit) {
+                    viewModel.fetchSummary()
+                }
                 FamilyRestrictionSummaryScreen(
-                    viewModel = viewModel,
-                    onNavigateBack = { navController.popBackStack() },
-                    // Member-edit destination is web-primary; keep empty-state CTA local until UC9/UC12.
+                    uiState = uiState,
+                    onMenuClick = { openDrawer() },
                     onNavigateToEditMembers = { navController.popBackStack() }
                 )
             }
