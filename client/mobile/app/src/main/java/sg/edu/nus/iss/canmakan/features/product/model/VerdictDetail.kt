@@ -1,5 +1,7 @@
 package sg.edu.nus.iss.canmakan.features.product.model
 
+import sg.edu.nus.iss.canmakan.features.product.recommendation.model.RecommendationHistoryEntry
+
 /* In-memory payload passed from scan/history into the product detail screen.
  *
  * author Amelia
@@ -33,6 +35,14 @@ data class VerdictDetail(
                 verdict = entry.verdict,
                 explanation = entry.aiExplanation,
                 flags = flags
+            )
+        }
+
+        fun fromRecommendationHistoryEntry(entry: RecommendationHistoryEntry): VerdictDetail {
+            return VerdictDetail(
+                product = entry.sourceProduct(),
+                verdict = entry.verdict(),
+                alternatives = entry.toAlternativeProducts()
             )
         }
     }
