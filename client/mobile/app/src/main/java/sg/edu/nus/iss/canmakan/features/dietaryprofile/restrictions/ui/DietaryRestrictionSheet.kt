@@ -71,7 +71,7 @@ fun DietaryRestrictionSheet(
             ) {
                 Column {
                     Text(
-                        "Edit dietary restrictions",
+                        "Edit dietary profile",
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
                     )
@@ -217,6 +217,10 @@ private fun SelectableOptionCard(
             Icon(Icons.Default.Check, contentDescription = null, tint = PrimaryGreen)
             Spacer(modifier = Modifier.width(6.dp))
         }
-        Text(label, color = if (isSelected) PrimaryGreen else Color.Black)
+        Text(
+            label,
+            color = if (isSelected) PrimaryGreen else Color.Black,
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }

@@ -49,7 +49,7 @@ describe('FamilyRestrictionSummaryPage', () => {
     })
   })
 
-  it('renders a dynamic matrix with correctly mapped status badges for active members', async () => {
+  it('renders a dynamic matrix with a Selected badge for every restriction on a profile, regardless of severity', async () => {
     vi.mocked(familyApiService.getRestrictionSummary).mockResolvedValue({
       familyMembers: [
         {
@@ -83,14 +83,39 @@ describe('FamilyRestrictionSummaryPage', () => {
     const headers = screen.getAllByRole('columnheader').map(h => h.textContent)
     expect(headers).toEqual(['Family member', 'Peanut', 'Lactose', 'Vegan'])
 
-    // 2. Verify Alice's Row (STRICT_AVOID -> AVOID, INTOLERANCE -> WARNING)
+    // 2. Alice has Peanut and Lactose selected; Vegan is not recorded for her
     const aliceRow = screen.getByRole('row', { name: /Alice/ })
-    expect(within(aliceRow).getByText('AVOID')).toBeInTheDocument()
-    expect(within(aliceRow).getByText('WARNING')).toBeInTheDocument()
+    expect(within(aliceRow).getAllByText('SELECTED')).toHaveLength(2)
+    expect(within(aliceRow).getByLabelText('Not selected')).toBeInTheDocument()
 
-    // 3. Verify Bob's Row (PREFERENCE -> SAFE, STRICT_AVOID -> AVOID)
+    // 3. Bob has Peanut and Vegan selected, regardless of their severity level
     const bobRow = screen.getByRole('row', { name: /Bob/ })
-    expect(within(bobRow).getByText('SAFE')).toBeInTheDocument()
-    expect(within(bobRow).getByText('AVOID')).toBeInTheDocument()
+    expect(within(bobRow).getAllByText('SELECTED')).toHaveLength(2)
+    expect(within(bobRow).getByLabelText('Not selected')).toBeInTheDocument()
+  })
+
+  it('shows a Selected badge for a diet preference like Low Trans Fat, not just religious requirements', async () => {
+    vi.mocked(familyApiService.getRestrictionSummary).mockResolvedValue({
+      familyMembers: [
+        {
+          userId: 1,
+          name: 'David Lim',
+          isActive: true,
+          restrictions: [
+            { code: 'HALAL', displayName: 'Halal', severity: 'STRICT_AVOID' },
+            { code: 'LOW_TRANS_FAT', displayName: 'Low Trans Fat', severity: 'PREFERENCE' }
+          ]
+        }
+      ]
+    })
+
+    render(<FamilyRestrictionSummaryPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('table')).toBeInTheDocument()
+    })
+
+    const davidRow = screen.getByRole('row', { name: /David Lim/ })
+    expect(within(davidRow).getAllByText('SELECTED')).toHaveLength(2)
   })
 })

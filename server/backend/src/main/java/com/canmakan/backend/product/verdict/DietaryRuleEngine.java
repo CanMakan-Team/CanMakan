@@ -227,6 +227,9 @@ public class DietaryRuleEngine {
         if ("MILK".equals(allergenCode) || "DAIRY".equals(allergenCode)) {
             codes.add("MILK");
             codes.add("DAIRY");
+            // LACTOSE_INTOLERANT is a distinct selectable restriction (see
+            // AllergenChecker) that flags the same dairy ingredients as DAIRY.
+            codes.add("LACTOSE_INTOLERANT");
         }
         if ("NUTS".equals(allergenCode) || "TREE_NUT".equals(allergenCode) || "TREE_NUTS".equals(allergenCode)) {
             codes.add("TREE_NUT");

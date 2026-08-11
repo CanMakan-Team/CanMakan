@@ -408,6 +408,7 @@ class FamilyControllerTest {
         mockMvc.perform(get("/api/families/me/scans"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].scanId").value(501))
+            .andExpect(jsonPath("$[0].memberId").value(10))
             .andExpect(jsonPath("$[0].verdict").value("UNSAFE"));
     }
 
