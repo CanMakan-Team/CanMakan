@@ -9,20 +9,26 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.canmakan.backend.family.FamilyController;
+import com.canmakan.backend.family.InvitationController;
 
 /**
- * UC8-scoped error translation for family create / me endpoints.
+ * Error translation for family- and invitation-specific failures
+ * ({@link FamilyController}, {@link InvitationController}).
+ *
+ * <p>Shared family authz exceptions ({@code FamilyForbiddenException},
+ * {@code InactiveProfileException}, {@code FamilyNotFoundException}) are handled
+ * by {@link com.canmakan.backend.shared.exception.GlobalExceptionHandler}
+ * so scan and other callers get the same HTTP mapping.
  *
  * @author Amelia
  */
-@RestControllerAdvice(assignableTypes = FamilyController.class)
+@RestControllerAdvice(assignableTypes = {FamilyController.class, InvitationController.class})
 public class FamilyExceptionHandler {
 
-    // UC8 handle validation exception for family name
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleValidation(MethodArgumentNotValidException ex) {
-        String message = "Family name is required.";
+        String message = "Request validation failed.";
         if (ex.getBindingResult().getFieldError() != null
                 && ex.getBindingResult().getFieldError().getDefaultMessage() != null) {
             message = ex.getBindingResult().getFieldError().getDefaultMessage();
@@ -30,24 +36,39 @@ public class FamilyExceptionHandler {
         return Map.of("message", message);
     }
 
-    // UC8 handle unreadable exception for family name
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleUnreadable() {
-        return Map.of("message", "Family name is required.");
+        return Map.of("message", "Request body is required.");
     }
 
-    // UC8 handle already in family exception
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleIllegalArgument(IllegalArgumentException ex) {
+        return Map.of("message", ex.getMessage() == null ? "Invalid request." : ex.getMessage());
+    }
+
     @ExceptionHandler(AlreadyInFamilyException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public Map<String, String> handleAlreadyInFamily(AlreadyInFamilyException ex) {
         return Map.of("message", ex.getMessage());
     }
 
-    // UC8 handle family not found exception
-    @ExceptionHandler(FamilyNotFoundException.class)
+    @ExceptionHandler(InvitationConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, String> handleInvitationConflict(InvitationConflictException ex) {
+        return Map.of("message", ex.getMessage());
+    }
+
+    @ExceptionHandler(InvitationExpiredException.class)
+    @ResponseStatus(HttpStatus.GONE)
+    public Map<String, String> handleInvitationExpired(InvitationExpiredException ex) {
+        return Map.of("message", ex.getMessage());
+    }
+
+    @ExceptionHandler(InvitationNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public Map<String, String> handleNotFound(FamilyNotFoundException ex) {
+    public Map<String, String> handleInvitationNotFound(InvitationNotFoundException ex) {
         return Map.of("message", ex.getMessage());
     }
 }

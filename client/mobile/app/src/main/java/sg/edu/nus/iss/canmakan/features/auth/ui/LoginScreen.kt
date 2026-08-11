@@ -62,12 +62,17 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 @Composable
 fun LoginRoute(
+    invitationToken: String? = null,
     onLoginSuccess: (AuthenticatedUser) -> Unit = {},
     onCreateAccount: () -> Unit = {},
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val currentOnLoginSuccess by rememberUpdatedState(onLoginSuccess)
+
+    LaunchedEffect(invitationToken) {
+        viewModel.setInvitationToken(invitationToken)
+    }
 
     LaunchedEffect(state.authenticatedUser) {
         state.authenticatedUser?.let(currentOnLoginSuccess)

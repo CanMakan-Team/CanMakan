@@ -1,27 +1,38 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { adminService } from './adminService'
+import type { AdminUser, AdminUserFilters, AdminUserRole } from './models'
 import { getErrorMessage } from '../../shared/api/apiErrors'
-import type {
-  AccountStatus,
-  AuditEntry,
-  Role,
-  UserAccessSummary,
-} from '../../shared/api/types'
 import { useSession } from '../auth/useSession'
 import { Modal } from '../../shared/ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
 import { StatusBadge } from '../../shared/ui/StatusBadge'
 
-const roles: Role[] = ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN', 'ROLE_SYSTEM_ADMIN']
+type RoleFilter = 'ALL' | AdminUserRole
+type StatusFilter = 'ALL' | 'ACTIVE' | 'SUSPENDED'
+
+function toFilters(
+  query: string,
+  role: RoleFilter,
+  status: StatusFilter,
+): AdminUserFilters {
+  const filters: AdminUserFilters = {}
+  const trimmedQuery = query.trim()
+  if (trimmedQuery) filters.query = trimmedQuery
+  if (role !== 'ALL') filters.role = role
+  if (status !== 'ALL') filters.active = status === 'ACTIVE'
+  return filters
+}
 
 export function UserAccessPage() {
   const { session } = useSession()
-  const [users, setUsers] = useState<UserAccessSummary[]>([])
-  const [audit, setAudit] = useState<AuditEntry[]>([])
-  const [roleFilter, setRoleFilter] = useState<'ALL' | Role>('ALL')
-  const [statusFilter, setStatusFilter] = useState<'ALL' | AccountStatus>('ALL')
+  const [users, setUsers] = useState<AdminUser[]>([])
   const [query, setQuery] = useState('')
-  const [selected, setSelected] = useState<UserAccessSummary | null>(null)
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
+  const [filters, setFilters] = useState<AdminUserFilters>({})
+  const [selected, setSelected] = useState<AdminUser | null>(null)
+  const [reason, setReason] = useState('')
+  const [reasonError, setReasonError] = useState('')
   const [busyUserId, setBusyUserId] = useState<number | null>(null)
   const [notice, setNotice] = useState('')
   const [actionError, setActionError] = useState('')
@@ -32,59 +43,68 @@ export function UserAccessPage() {
     setLoading(true)
     setError('')
     try {
-      const [loadedUsers, loadedAudit] = await Promise.all([
-        adminService.getUsers(),
-        adminService.getAuditEntries(),
-      ])
-      setUsers(loadedUsers)
-      setAudit(loadedAudit)
+      setUsers(await adminService.getUsers(filters))
     } catch (caughtError) {
       setError(getErrorMessage(caughtError))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [filters])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void load(), 0)
     return () => window.clearTimeout(timeoutId)
   }, [load])
 
-  const filtered = useMemo(
-    () =>
-      users.filter((user) => {
-        const normalisedQuery = query.trim().toLowerCase()
-        return (
-          (roleFilter === 'ALL' || user.roles.includes(roleFilter)) &&
-          (statusFilter === 'ALL' || user.accountStatus === statusFilter) &&
-          (!normalisedQuery ||
-            String(user.userId).includes(normalisedQuery) ||
-            user.displayName.toLowerCase().includes(normalisedQuery) ||
-            user.maskedEmail.toLowerCase().includes(normalisedQuery))
-        )
-      }),
-    [users, roleFilter, statusFilter, query],
-  )
-
-  const updateAccess = async (
-    user: UserAccessSummary,
-    update: { accountStatus?: AccountStatus; roles?: Role[] },
-    description: string,
-  ) => {
-    if (!window.confirm(`${description} for ${user.displayName}? This mock action is audited.`)) {
-      setSelected({ ...user })
-      return
-    }
-    setBusyUserId(user.userId)
+  const applyFilters = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     setNotice('')
     setActionError('')
+    setFilters(toFilters(query, roleFilter, statusFilter))
+  }
+
+  const openStatusModal = (user: AdminUser) => {
+    setSelected(user)
+    setReason('')
+    setReasonError('')
+    setActionError('')
+  }
+
+  const closeStatusModal = useCallback(() => {
+    if (busyUserId === null) setSelected(null)
+  }, [busyUserId])
+
+  const updateStatus = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selected) return
+
+    const trimmedReason = reason.trim()
+    if (!trimmedReason) {
+      setReasonError('Reason is required for an account status change.')
+      return
+    }
+    if (trimmedReason.length > 500) {
+      setReasonError('Reason must be 500 characters or fewer.')
+      return
+    }
+
+    const nextActive = !selected.active
+    setBusyUserId(selected.userId)
+    setNotice('')
+    setActionError('')
+    setReasonError('')
     try {
-      await adminService.updateUserAccess(
-        user.userId,
-        update,
-        session?.displayName ?? 'System Administrator',
+      const response = await adminService.updateAccountStatus(selected.userId, {
+        active: nextActive,
+        reason: trimmedReason,
+      })
+      setNotice(
+        response.changed
+          ? nextActive
+            ? 'Account reactivated successfully.'
+            : 'Account suspended successfully.'
+          : 'Account status was already up to date. No changes were required.',
       )
-      setNotice(`${description} completed for ${user.displayName}.`)
       setSelected(null)
       await load()
     } catch (caughtError) {
@@ -98,179 +118,184 @@ export function UserAccessPage() {
     <>
       <header className="page-header page-header--system">
         <div>
-          <p className="eyebrow">Feature 12 · System Admin only</p>
+          <p className="eyebrow">UC13 · System Admin only</p>
           <h1>User Accounts & Access</h1>
           <p>
-            Manage mock access records using safe identifiers. Every change
-            requires confirmation and creates a prototype audit entry.
+            Search existing accounts and manage Active or Suspended status.
+            System roles are shown for reference and cannot be changed here.
           </p>
         </div>
       </header>
 
-      <section className="filter-bar filter-bar--system" aria-label="User account filters">
+      <form
+        className="filter-bar filter-bar--system"
+        aria-label="User account filters"
+        onSubmit={applyFilters}
+      >
         <div className="field-group field-group--search">
-          <label htmlFor="user-search">Safe identifier search</label>
+          <label htmlFor="user-search">Email search</label>
           <input
             id="user-search"
             type="search"
-            placeholder="User ID, display name or masked email"
+            placeholder="Email contains"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
         <div className="field-group">
           <label htmlFor="role-filter">Role</label>
-          <select id="role-filter" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as 'ALL' | Role)}>
-            <option value="ALL">All roles</option>
-            {roles.map((role) => <option key={role} value={role}>{role}</option>)}
+          <select
+            id="role-filter"
+            value={roleFilter}
+            onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}
+          >
+            <option value="ALL">All Roles</option>
+            <option value="USER">USER</option>
+            <option value="ADMIN">ADMIN</option>
           </select>
         </div>
         <div className="field-group">
-          <label htmlFor="status-filter">Account status</label>
-          <select id="status-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'ALL' | AccountStatus)}>
-            <option value="ALL">All statuses</option>
+          <label htmlFor="status-filter">Status</label>
+          <select
+            id="status-filter"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+          >
+            <option value="ALL">All Statuses</option>
             <option value="ACTIVE">Active</option>
             <option value="SUSPENDED">Suspended</option>
-            <option value="PENDING">Pending</option>
-            <option value="DISABLED">Disabled</option>
           </select>
         </div>
-      </section>
+        <button className="button button--dark" type="submit">
+          Apply filters
+        </button>
+      </form>
 
       <div className="sr-live" aria-live="polite">{notice}</div>
-      {actionError && <p className="form-message form-message--error" role="alert">{actionError}</p>}
+      {actionError && (
+        <p className="form-message form-message--error" role="alert">
+          {actionError}
+        </p>
+      )}
 
       {loading ? (
-        <LoadingState label="Loading account access records…" />
+        <LoadingState label="Loading user accounts…" />
       ) : error ? (
         <ErrorState message={error} onRetry={load} />
-      ) : filtered.length === 0 ? (
-        <EmptyState title="No accounts match" description="Change the search or filters to view other safe account records." />
+      ) : users.length === 0 ? (
+        <EmptyState
+          title="No accounts match"
+          description="Change the email, role or status filters and try again."
+        />
       ) : (
         <section className="panel panel--table">
           <div className="responsive-table">
             <table className="data-table user-table">
-              <caption>User accounts and assigned access rights</caption>
+              <caption>Existing user accounts and current status</caption>
               <thead>
                 <tr>
-                  <th>User identifier</th>
-                  <th>Display name</th>
-                  <th>Masked email</th>
-                  <th>Assigned roles</th>
-                  <th>Account status</th>
-                  <th>Family membership</th>
-                  <th>Last active</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Updated</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((user) => (
-                  <tr key={user.userId}>
-                    <th scope="row">USR-{user.userId}</th>
-                    <td>{user.displayName}</td>
-                    <td>{user.maskedEmail}</td>
-                    <td>
-                      <div className="role-list">
-                        {user.roles.map((role) => <span key={role}>{role.replace('ROLE_', '')}</span>)}
-                      </div>
-                    </td>
-                    <td><StatusBadge status={user.accountStatus} /></td>
-                    <td>{user.familyMembershipStatus ?? 'NONE'}</td>
-                    <td>{user.lastActiveAt ? new Date(user.lastActiveAt).toLocaleString('en-SG') : 'Not supplied'}</td>
-                    <td>
-                      <button className="text-button" type="button" onClick={() => setSelected(user)}>
-                        Manage
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {users.map((user) => {
+                  const currentAdmin = user.userId === session?.userId
+                  const action = user.active ? 'Suspend' : 'Reactivate'
+                  return (
+                    <tr key={user.userId}>
+                      <th scope="row">{user.email}</th>
+                      <td>{user.role}</td>
+                      <td>
+                        <StatusBadge
+                          status={user.active ? 'ACTIVE' : 'SUSPENDED'}
+                          label={user.active ? 'Active' : 'Suspended'}
+                        />
+                      </td>
+                      <td>
+                        <time dateTime={user.updatedAt}>
+                          {new Date(user.updatedAt).toLocaleString('en-SG')}
+                        </time>
+                      </td>
+                      <td>
+                        <button
+                          className="text-button"
+                          type="button"
+                          disabled={currentAdmin}
+                          onClick={() => openStatusModal(user)}
+                        >
+                          {action}
+                        </button>
+                        {currentAdmin && <small>Current admin</small>}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         </section>
       )}
 
-      <section className="panel audit-panel" aria-labelledby="audit-title">
-        <div className="panel__header">
-          <div><p className="eyebrow">Prototype audit</p><h2 id="audit-title">Recent access changes</h2></div>
-        </div>
-        {audit.length ? (
-          <ul>
-            {audit.map((entry) => (
-              <li key={entry.auditId}>
-                <span>{entry.action} · USR-{entry.targetUserId}</span>
-                <small>{entry.actor} · {new Date(entry.createdAt).toLocaleString('en-SG')}</small>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No mock access changes have been recorded in this browser.</p>
-        )}
-      </section>
-
       {selected && (
-        <Modal title={`Manage ${selected.displayName}`} description={`Safe identifier USR-${selected.userId}`} onClose={() => setSelected(null)}>
+        <Modal
+          title={`${selected.active ? 'Suspend' : 'Reactivate'} account`}
+          description={selected.email}
+          onClose={closeStatusModal}
+        >
           <dl className="detail-grid">
-            <div><dt>Masked email</dt><dd>{selected.maskedEmail}</dd></div>
-            <div><dt>Current status</dt><dd>{selected.accountStatus}</dd></div>
-            <div className="detail-grid__wide"><dt>Assigned roles</dt><dd>{selected.roles.join(', ')}</dd></div>
+            <div><dt>Role</dt><dd>{selected.role}</dd></div>
+            <div>
+              <dt>Current status</dt>
+              <dd>{selected.active ? 'Active' : 'Suspended'}</dd>
+            </div>
           </dl>
-          {selected.userId === session?.userId && (
-            <div className="notice notice--warning">
-              <strong>Protected current administrator</strong>
-              <p>Mock mode prevents removal of this session’s required administrative access.</p>
-            </div>
-          )}
-          <div className="access-actions">
+          <form className="access-actions" onSubmit={updateStatus}>
             <div className="field-group">
-              <label htmlFor="manage-role">Set primary role</label>
-              <select
-                id="manage-role"
-                value={selected.roles[selected.roles.length - 1]}
-                disabled={busyUserId === selected.userId || selected.userId === session?.userId}
-                onChange={(event) =>
-                  void updateAccess(
-                    selected,
-                    { roles: [event.target.value as Role] },
-                    `Update role to ${event.target.value}`,
-                  )
-                }
-              >
-                {roles.map((role) => <option key={role} value={role}>{role}</option>)}
-              </select>
+              <label htmlFor="status-reason">Reason</label>
+              <textarea
+                id="status-reason"
+                rows={4}
+                value={reason}
+                aria-describedby="status-reason-count"
+                aria-invalid={reasonError ? 'true' : undefined}
+                onChange={(event) => {
+                  setReason(event.target.value)
+                  setReasonError('')
+                }}
+              />
+              <small id="status-reason-count">{reason.length}/500 characters</small>
             </div>
+            {reasonError && (
+              <p className="form-message form-message--error" role="alert">
+                {reasonError}
+              </p>
+            )}
             <div className="button-row">
-              {selected.accountStatus === 'ACTIVE' ? (
-                <button
-                  className="button button--danger"
-                  type="button"
-                  disabled={busyUserId === selected.userId || selected.userId === session?.userId}
-                  onClick={() => void updateAccess(selected, { accountStatus: 'SUSPENDED' }, 'Suspend account')}
-                >
-                  Suspend account
-                </button>
-              ) : (
-                <button
-                  className="button button--primary"
-                  type="button"
-                  disabled={busyUserId === selected.userId || selected.userId === session?.userId}
-                  onClick={() => void updateAccess(selected, { accountStatus: 'ACTIVE' }, 'Activate account')}
-                >
-                  Activate account
-                </button>
-              )}
-              {selected.accountStatus === 'PENDING' && (
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  disabled={busyUserId === selected.userId}
-                  onClick={() => void updateAccess(selected, { accountStatus: 'ACTIVE' }, 'Reset pending access state')}
-                >
-                  Reset pending state
-                </button>
-              )}
+              <button
+                className={selected.active ? 'button button--danger' : 'button button--primary'}
+                type="submit"
+                disabled={busyUserId === selected.userId}
+              >
+                {busyUserId === selected.userId
+                  ? 'Saving…'
+                  : selected.active
+                    ? 'Suspend account'
+                    : 'Reactivate account'}
+              </button>
+              <button
+                className="button button--secondary"
+                type="button"
+                disabled={busyUserId === selected.userId}
+                onClick={closeStatusModal}
+              >
+                Cancel
+              </button>
             </div>
-          </div>
+          </form>
         </Modal>
       )}
     </>

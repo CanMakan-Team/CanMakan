@@ -14,17 +14,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,6 +61,7 @@ fun ProfileDrawerContent(
     hasUserSession: Boolean,
     noFamilyMessage: String?,
     showManageFamilyActions: Boolean,
+    isSwitchingProfile: Boolean = false,
     onProfileSelected: (DietaryProfile) -> Unit,
     onEditDietaryClick: () -> Unit,
     onScannerClick: () -> Unit,
@@ -67,14 +72,24 @@ fun ProfileDrawerContent(
     onCreateFamilyCircleClick: () -> Unit,
     onCreateNewClick: () -> Unit,
     onAddProfileClick: () -> Unit,
+    onInvitationsClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxHeight()
             .width(280.dp)
             .background(DrawerBackground)
-            .padding(20.dp)
     ) {
+        // Scrollable region: everything except the pinned sign-out/settings footer.
+        // A plain Column with weight(1f) here (rather than wrapping the whole drawer
+        // in verticalScroll) keeps the footer fixed at the bottom regardless of how
+        // much content is above it.
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp)
+        ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -141,7 +156,20 @@ fun ProfileDrawerContent(
         )
 
         Spacer(modifier = Modifier.height(10.dp))
-        Text("SWITCH PROFILE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("SWITCH PROFILE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+            if (isSwitchingProfile) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = PrimaryGreen,
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(8.dp))
 
         profiles.forEach { profile ->
@@ -152,7 +180,7 @@ fun ProfileDrawerContent(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
                     .background(if (isActive) PrimaryGreen.copy(alpha = 0.25f) else Color.Transparent)
-                    .clickable { onProfileSelected(profile) }
+                    .clickable(enabled = !isSwitchingProfile) { onProfileSelected(profile) }
                     .padding(10.dp)
             ) {
                 InitialsAvatar(initials = profile.initials, background = avatarColorFor(profile))
@@ -263,6 +291,17 @@ fun ProfileDrawerContent(
             color = Color.DarkGray
         )
 
+        if (hasUserSession) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text("INVITATIONS", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(8.dp))
+            DrawerNavRow(
+                icon = Icons.Default.Email,
+                label = "Family Invitations",
+                onClick = onInvitationsClick,
+            )
+        }
+
         // Member create/link is UC9/UC12 — keep hidden until those APIs exist and the user has a family.
         if (showManageFamilyActions && hasFamily) {
             Spacer(modifier = Modifier.height(10.dp))
@@ -280,13 +319,16 @@ fun ProfileDrawerContent(
                 onClick = onAddProfileClick,
             )
         }
+        }
 
-        Spacer(modifier = Modifier.weight(1f))
-
+        // Pinned footer, kept outside the scrollable Column above so it stays
+        // visible at the bottom of the drawer regardless of scroll position.
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
             ) {
 
             Row(verticalAlignment = Alignment.CenterVertically,

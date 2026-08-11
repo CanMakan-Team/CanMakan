@@ -1,5 +1,23 @@
 package com.canmakan.backend.dietaryprofile;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
+import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
+import com.canmakan.backend.dietaryprofile.model.ProfileRestriction;
+import com.canmakan.backend.dietaryprofile.model.ProfileRestrictionId;
+import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
+import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
+import com.canmakan.backend.dietaryprofile.repository.ProfileRestrictionRepository;
+import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -7,28 +25,20 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 /**
-* Backend testing for Use Case 1: Update App User Dietary Profile
-*
-* @author Amelia
-*/
-
+ * Backend testing for Use Case 1: Update App User Dietary Profile.
+ */
 @ExtendWith(MockitoExtension.class)
 class DietaryProfileServiceTest {
 
     @Mock
     private DietaryProfileRepository dietaryProfileRepository;
+
+    @Mock
+    private DietaryRestrictionRepository dietaryRestrictionRepository;
+
+    @Mock
+    private ProfileRestrictionRepository profileRestrictionRepository;
 
     @InjectMocks
     private DietaryProfileService dietaryProfileService;
@@ -53,7 +63,7 @@ class DietaryProfileServiceTest {
         profile.setProfileRestrictions(initialRestrictions);
 
         when(dietaryProfileRepository.findById(1L)).thenReturn(Optional.of(profile));
-        when(dietaryProfileRepository.findRestrictionById(2L)).thenReturn(Optional.of(restriction));
+        when(dietaryRestrictionRepository.findById(2L)).thenReturn(Optional.of(restriction));
 
         dietaryProfileService.saveDietaryRestrictionSelections(1L, Map.of(2L, "STRICT_AVOID"));
 
@@ -85,7 +95,7 @@ class DietaryProfileServiceTest {
         profile.setProfileRestrictions(new HashSet<>(Set.of(keptRestriction, removedRestriction)));
 
         when(dietaryProfileRepository.findById(1L)).thenReturn(Optional.of(profile));
-        when(dietaryProfileRepository.findRestrictionById(2L)).thenReturn(Optional.of(createRestriction(2L)));
+        when(dietaryRestrictionRepository.findById(2L)).thenReturn(Optional.of(createRestriction(2L)));
 
         dietaryProfileService.saveDietaryRestrictionSelections(1L, Map.of(2L, "STRICT_AVOID"));
 
@@ -116,7 +126,7 @@ class DietaryProfileServiceTest {
         profile.setProfileRestrictions(new HashSet<>());
 
         when(dietaryProfileRepository.findById(1L)).thenReturn(Optional.of(profile));
-        when(dietaryProfileRepository.findRestrictionById(42L)).thenReturn(Optional.empty());
+        when(dietaryRestrictionRepository.findById(42L)).thenReturn(Optional.empty());
 
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
@@ -126,8 +136,6 @@ class DietaryProfileServiceTest {
         assertEquals("Restriction not found: 42", exception.getMessage());
         verify(dietaryProfileRepository, never()).save(profile);
     }
-
-    // Helpers
 
     private DietaryRestriction createRestriction(Long id) {
         DietaryRestriction restriction = new DietaryRestriction();

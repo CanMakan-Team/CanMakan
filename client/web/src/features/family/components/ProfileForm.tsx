@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type SubmitEvent as ReactSubmitEvent } from 'react'
 import type {
   AgeGroup,
   FamilyProfileInput,
@@ -10,6 +10,13 @@ import {
   relationshipOptions,
   restrictionGroups,
 } from '../lib/profileOptions'
+
+/**
+ * ProfileForm component for editing a family profile
+ * 
+ * @author Amelia
+ * @author YangMaowei
+ */
 
 const emptyProfile: FamilyProfileInput = {
   profileName: '',
@@ -26,6 +33,8 @@ export function ProfileForm({
   error,
   onSubmit,
   onCancel,
+  allowRestrictionEdit = true,
+  restrictionEditHint,
 }: {
   initialValue?: FamilyProfileInput
   submitLabel: string
@@ -33,6 +42,9 @@ export function ProfileForm({
   error: string
   onSubmit: (input: FamilyProfileInput) => Promise<void>
   onCancel: () => void
+  /** When false, restriction checkboxes are read-only (D3). */
+  allowRestrictionEdit?: boolean
+  restrictionEditHint?: string
 }) {
   const [form, setForm] = useState<FamilyProfileInput>(initialValue)
   const [nameError, setNameError] = useState('')
@@ -49,7 +61,7 @@ export function ProfileForm({
     }))
   }
 
-  const handleSubmit = async (event: FormEvent) => {
+  const handleSubmit = async (event: ReactSubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
     const trimmedName = form.profileName.trim()
     if (!trimmedName) {
@@ -124,11 +136,16 @@ export function ProfileForm({
       </div>
 
       <div className="restriction-picker">
+        {!allowRestrictionEdit && restrictionEditHint && (
+          <p className="form-message" role="status">
+            {restrictionEditHint}
+          </p>
+        )}
         {restrictionGroups.map((group) => {
           const target =
             group.type === 'common' ? 'commonRequirements' : 'restrictions'
           return (
-            <fieldset key={group.label}>
+            <fieldset key={group.label} disabled={!allowRestrictionEdit}>
               <legend>
                 {group.label}
                 {group.type === 'common' && (
@@ -141,6 +158,7 @@ export function ProfileForm({
                     <input
                       type="checkbox"
                       checked={form[target].includes(option.value)}
+                      disabled={!allowRestrictionEdit}
                       onChange={() => toggleRestriction(option.value, target)}
                     />
                     <span>{option.label}</span>

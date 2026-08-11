@@ -966,6 +966,7 @@ input[readonly] {
 }
 
 .status-badge--avoid,
+.status-badge--unsafe,
 .status-badge--suspended,
 .status-badge--disabled {
   color: var(--avoid);
@@ -1081,6 +1082,18 @@ input[readonly] {
 .profile-card__header p {
   color: var(--muted);
   font-size: 0.76rem;
+}
+
+.profile-card--inactive {
+  opacity: 0.72;
+  background: #f7f8f7;
+}
+
+.profile-card__actions {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.9rem;
 }
 
 .source-label {
@@ -1364,7 +1377,8 @@ input[readonly] {
 }
 
 .filter-bar--system {
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  grid-template-columns: minmax(220px, 1.2fr) repeat(2, minmax(160px, 0.8fr)) auto;
+  align-items: end;
 }
 
 .filter-bar--analytics {
@@ -1670,11 +1684,6 @@ caption {
   margin-top: 1rem;
 }
 
-.status-badge--unsafe {
-  color: var(--avoid);
-  background: var(--avoid-bg);
-}
-
 .data-table--analytics {
   min-width: 650px;
 }
@@ -1686,7 +1695,13 @@ caption {
 }
 
 .user-table {
-  min-width: 1250px;
+  min-width: 760px;
+}
+
+.user-table td:last-child small {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--muted);
 }
 
 .audit-panel {

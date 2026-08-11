@@ -12,8 +12,9 @@ import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
 import com.canmakan.backend.auth.exception.RegistrationFailedException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
-import com.canmakan.backend.dietaryprofile.DietaryProfile;
-import com.canmakan.backend.dietaryprofile.DietaryProfileRepository;
+import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
+import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
+import com.canmakan.backend.family.FamilyService;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.JwtService;
 import com.canmakan.backend.user.UserAccount;
@@ -35,7 +36,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Authenticates current accounts and issues short-lived access tokens. */
+/** Authenticates current accounts and issues short-lived access tokens. 
+ * 
+ * @author YangMaowei
+ * @author Amelia
+*/
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -46,6 +51,7 @@ public class AuthService {
 
     private final UserAccountRepository userAccountRepository;
     private final DietaryProfileRepository dietaryProfileRepository;
+    private final FamilyService familyService;
     private final PasswordEncoder passwordEncoder;
 
     private final AuthenticationManager authenticationManager;
@@ -136,6 +142,13 @@ public class AuthService {
             selfProfile.setProfileName(request.name());
             selfProfile.setRelationship(SELF_RELATIONSHIP);
             DietaryProfile savedProfile = dietaryProfileRepository.saveAndFlush(selfProfile);
+
+            // UC9: join family when a matching PENDING invite exists for this email/token.
+            familyService.claimInvitationAfterRegistration(
+                savedAccount.getId(),
+                savedAccount.getEmail(),
+                request.invitationToken()
+            );
 
             return new RegistrationResponse(
                 savedAccount.getId(),

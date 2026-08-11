@@ -18,6 +18,7 @@ data class FamilyRestrictionSumRes (
 
 data class FamilyMeRestrictionSum (
     @SerializedName("userId") val userId: Long,
+    @SerializedName("profileId") val profileId: Long? = null,
     @SerializedName("name") val name: String,
     @SerializedName("isActive") val isActive: Boolean,
     @SerializedName("restrictions") val restrictions: List<FamilyMeRestrictionDetail>

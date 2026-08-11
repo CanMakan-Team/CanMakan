@@ -14,7 +14,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
         with:
@@ -28,7 +28,7 @@ jobs:
     if: needs.detect-backend-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # 2.1 DEFINE THE REQUIRED JAVA PACKAGE
       - name: Set up Java 21
@@ -45,7 +45,7 @@ jobs:
 
       # 2.3 PREPARE REMOTE DEPLOY DIRECTORY
       - name: Ensure remote deploy directory exists
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
@@ -54,7 +54,7 @@ jobs:
 
       # 2.4 COPY .JAR PACKAGE TO EC2 VIA SCP
       - name: Copy JAR to EC2 via SCP
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
@@ -65,7 +65,7 @@ jobs:
 
       # 2.5 START REMOTE SSH CLI
       - name: Execute Remote SSH Startup Commands
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu

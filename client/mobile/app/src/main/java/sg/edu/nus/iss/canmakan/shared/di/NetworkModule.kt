@@ -6,6 +6,7 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
 import com.google.gson.JsonPrimitive
 import com.google.gson.JsonSerializer
+import com.google.gson.Strictness
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -51,7 +52,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    private const val DEFAULT_BASE_URL = "http://13.213.219.46:8080/api/"
+    private const val DEFAULT_BASE_URL = "https://equal-street-angelfish.ngrok-free.dev"
     private const val NO_RETRY_HEADER = "X-CanMakan-No-Retry"
     private const val AUTH_REFRESH_NETWORK = "AuthRefreshNetwork"
     private val HTTP_CLIENT_ERROR_RANGE = 400..499
@@ -64,6 +65,7 @@ object NetworkModule {
     @Singleton
     fun provideGson(): Gson {
         return GsonBuilder()
+            .setStrictness(Strictness.LENIENT)
             .registerTypeAdapter(
                 LocalDateTime::class.java,
                 JsonSerializer<LocalDateTime> { src, _, _ ->
@@ -228,6 +230,7 @@ object NetworkModule {
                         "User-Agent",
                         "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
                     )
+                    .header("ngrok-skip-browser-warning", "true")
                     .build()
 
                 var response: okhttp3.Response? = null

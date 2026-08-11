@@ -68,9 +68,14 @@ private const val CATEGORY_DIET = "DIET"
 fun RegistrationRoute(
     onRegistrationComplete: () -> Unit,
     onCancel: () -> Unit = {},
+    invitationToken: String? = null,
     viewModel: RegistrationViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    androidx.compose.runtime.LaunchedEffect(invitationToken) {
+        viewModel.setInvitationToken(invitationToken)
+    }
 
     when (state.step) {
         RegistrationStep.ACCOUNT_INFORMATION -> AccountInformationScreen(

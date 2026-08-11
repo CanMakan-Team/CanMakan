@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "637651756979",
+    "project_id": "canmakan-project",
+    "storage_bucket": "canmakan-project.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:637651756979:android:366084d80dd8f85889cdc6",
+        "android_client_info": {
+          "package_name": "sg.edu.nus.iss.canmakan"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "${FIREBASE_ANDROID_API_KEY}"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

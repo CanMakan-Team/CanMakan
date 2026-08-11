@@ -20,8 +20,8 @@ public record SafetyVerdict(
 ) {
 
     /**
-     * Verdict level, aligned with {@code scans.verdict}.
-     * ("Avoid" is the user-facing display label the mobile UI shows for UNSAFE.)
+     * Verdict level, aligned with {@code scans.verdict}
+     * ({@code SAFE} / {@code WARNING} / {@code UNSAFE}).
      */
     public enum Level {
         SAFE,

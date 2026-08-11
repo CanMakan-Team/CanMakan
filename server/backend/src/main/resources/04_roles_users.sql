@@ -10,9 +10,9 @@ INSERT INTO roles (id, name) VALUES
 -- =============================================
 INSERT INTO users (id, role_id, email, password_hash, is_active, created_at, updated_at) VALUES
 -- 3 Admin Accounts (role_id = 1)
-(1, 1, 'admin1@lovingcare.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW(), NOW()),
-(2, 1, 'admin2@lovingcare.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW(), NOW()),
-(3, 1, 'sysadmin@lovingcare.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW(), NOW()),
+(1, 1, 'admin1@canmakan.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW(), NOW()),
+(2, 1, 'admin2@canmakan.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW(), NOW()),
+(3, 1, 'sysadmin@canmakan.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW(), NOW()),
 
 -- 10 App User Accounts (role_id = 2)
 (4, 2, 'sarah@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW(), NOW()),
@@ -25,3 +25,4 @@ INSERT INTO users (id, role_id, email, password_hash, is_active, created_at, upd
 (11, 2, 'james@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW(), NOW()),
 (12, 2, 'olivia@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW(), NOW()),
 (13, 2, 'robert@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW(), NOW());
+

@@ -18,7 +18,7 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       mobile: ${{ steps.filter.outputs.mobile }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
         with:
@@ -30,26 +30,75 @@ jobs:
             mobile:
               - 'client/mobile/**'
 
-  # 2. BACKEND VERIFICATION & DEPLOYMENT (OMITTED FOR NOW)
+  # 2. BACKEND VERIFICATION
+  # Env names mirror server/backend/src/main/resources/application.properties.
+  # Configure matching repository/environment secrets in GitHub Settings.
   build-backend:
     needs: detect-changes
-    # Run if any Backend Files Changed
     if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    env: 
+    env:
+      # Server
+      SERVER_ADDRESS: ${{ secrets.SERVER_ADDRESS }}
+
+      # CORS
+      CANMAKAN_CORS_ALLOWED_ORIGINS: ${{ secrets.CANMAKAN_CORS_ALLOWED_ORIGINS }}
+      CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS: ${{ secrets.CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS }}
+      CANMAKAN_CORS_ALLOW_CREDENTIALS: ${{ secrets.CANMAKAN_CORS_ALLOW_CREDENTIALS }}
+      CANMAKAN_CORS_MAX_AGE_SECONDS: ${{ secrets.CANMAKAN_CORS_MAX_AGE_SECONDS }}
+
+      # UC9 invites
+      CANMAKAN_INVITES_PUBLIC_BASE_URL: ${{ secrets.CANMAKAN_INVITES_PUBLIC_BASE_URL }}
+      CANMAKAN_INVITES_EXPIRY_DAYS: ${{ secrets.CANMAKAN_INVITES_EXPIRY_DAYS }}
+
+      # UC10 Resend invitation email
+      CANMAKAN_EMAIL_RESEND_ENABLED: ${{ secrets.CANMAKAN_EMAIL_RESEND_ENABLED }}
+      CANMAKAN_EMAIL_RESEND_API_KEY: ${{ secrets.CANMAKAN_EMAIL_RESEND_API_KEY }}
+      CANMAKAN_EMAIL_RESEND_FROM: ${{ secrets.CANMAKAN_EMAIL_RESEND_FROM }}
+      CANMAKAN_EMAIL_RESEND_API_URL: ${{ secrets.CANMAKAN_EMAIL_RESEND_API_URL }}
+
+      # Datasource
       MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
       MYSQL_PORT: ${{ secrets.MYSQL_PORT }}
       MYSQL_DB: ${{ secrets.MYSQL_DB }}
       MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
       MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
-      MYSQL_URL: ${{ secrets.MYSQL_URL }}
+
+      # UC19 JWT / refresh
+      JWT_ISSUER: ${{ secrets.JWT_ISSUER }}
+      JWT_ACCESS_TTL: ${{ secrets.JWT_ACCESS_TTL }}
+      JWT_SIGNING_SECRET: ${{ secrets.JWT_SIGNING_SECRET }}
+      REFRESH_TOKEN_TTL: ${{ secrets.REFRESH_TOKEN_TTL }}
+      REFRESH_COOKIE_NAME: ${{ secrets.REFRESH_COOKIE_NAME }}
+      REFRESH_COOKIE_SECURE: ${{ secrets.REFRESH_COOKIE_SECURE }}
+
+      # Product APIs (OFF / EAN-Search)
+      OPEN_FOOD_FACTS_BASE_URL: ${{ secrets.OPEN_FOOD_FACTS_BASE_URL }}
+      EAN_SEARCH_BASE_URL: ${{ secrets.EAN_SEARCH_BASE_URL }}
+      EAN_SEARCH_API_KEY: ${{ secrets.EAN_SEARCH_API_KEY }}
+      PRODUCT_API_CONNECT_TIMEOUT_MS: ${{ secrets.PRODUCT_API_CONNECT_TIMEOUT_MS }}
+      PRODUCT_API_RESPONSE_TIMEOUT_MS: ${{ secrets.PRODUCT_API_RESPONSE_TIMEOUT_MS }}
+      PRODUCT_API_RETRY_MAX_ATTEMPTS: ${{ secrets.PRODUCT_API_RETRY_MAX_ATTEMPTS }}
+      PRODUCT_API_RETRY_BACKOFF_MS: ${{ secrets.PRODUCT_API_RETRY_BACKOFF_MS }}
+
+      # OpenAI / AI agent
+      OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+      CANMAKAN_AI_ENABLED: ${{ secrets.CANMAKAN_AI_ENABLED }}
+      CANMAKAN_AI_TIMEOUT_MS: ${{ secrets.CANMAKAN_AI_TIMEOUT_MS }}
+      CANMAKAN_AI_RETRY_MAX_ATTEMPTS: ${{ secrets.CANMAKAN_AI_RETRY_MAX_ATTEMPTS }}
+      CANMAKAN_AI_RETRY_BACKOFF_MS: ${{ secrets.CANMAKAN_AI_RETRY_BACKOFF_MS }}
+      CANMAKAN_AI_AGENT_MAX_TOOL_ITERATIONS: ${{ secrets.CANMAKAN_AI_AGENT_MAX_TOOL_ITERATIONS }}
+      CANMAKAN_AI_AUDIT_ENABLED: ${{ secrets.CANMAKAN_AI_AUDIT_ENABLED }}
+      CANMAKAN_AI_AUDIT_STORE_PROMPT: ${{ secrets.CANMAKAN_AI_AUDIT_STORE_PROMPT }}
+      CANMAKAN_AI_AUDIT_STORE_RESPONSE: ${{ secrets.CANMAKAN_AI_AUDIT_STORE_RESPONSE }}
+
+      # Tavily
       TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
-      EAN_SEARCH_API_KEY: ${{ secrets.EAN_SEARCH_API_KEY }}
-      SERVER_ADDRESS: ${{ secrets.SERVER_ADDRESS }}   
+      TAVILY_URL: ${{ secrets.TAVILY_URL }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Java
         uses: actions/setup-java@v5
@@ -57,7 +106,7 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
           cache: 'maven'
-      
+
       - name: Build with Maven
         working-directory: server/backend
         run: mvn -B clean package -DskipTests
@@ -65,14 +114,16 @@ jobs:
   # 3. WEB VERIFICATION
   build-web:
     needs: detect-changes
-    # Run if any Web Client Files Changed
     if: needs.detect-changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    env:
+      VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+      VITE_USE_MOCK_API: ${{ secrets.VITE_USE_MOCK_API }}
     steps:
-      - uses: actions/checkout@v5
-      
+      - uses: actions/checkout@v7
+
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
@@ -89,17 +140,23 @@ jobs:
   # 4. MOBILE VERIFICATION
   build-mobile:
     needs: detect-changes
-    # Run if any Mobile Client Files Changed
     if: needs.detect-changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
+    env:
+      # Optional override for debug assemble; defaults to emulator localhost in Gradle.
+      BASE_URL: ${{ secrets.MOBILE_BASE_URL }}
     steps:
-      - uses: actions/checkout@v5
-      
+      - uses: actions/checkout@v7
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
       - name: Configure Android SDK path
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > client/mobile/local.properties
+
+      - name: Optional BASE_URL for BuildConfig
+        if: env.BASE_URL != ''
+        run: echo "BASE_URL=${BASE_URL}" >> client/mobile/local.properties
 
       - name: Build mobile app
         working-directory: client/mobile

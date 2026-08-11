@@ -24,7 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextPrimary
@@ -87,7 +89,13 @@ fun ActiveProfileChip(profile: DietaryProfile) {
                 .background(PrimaryGreen),
             contentAlignment = Alignment.Center
         ) {
-            Text(profile.initials, color = Color.White)
+            Text(
+                text = profile.initials,
+                color = Color.White,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
         }
         Spacer(modifier = Modifier.width(8.dp))
         Text(profile.profileName, fontWeight = FontWeight.Medium, color = TextPrimary)

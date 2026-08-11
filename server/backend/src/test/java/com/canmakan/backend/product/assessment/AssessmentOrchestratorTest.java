@@ -2,10 +2,11 @@ package com.canmakan.backend.product.assessment;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -14,7 +15,9 @@ import static org.mockito.Mockito.when;
 import com.canmakan.backend.ai.llm.LlmAssessmentResult;
 import com.canmakan.backend.ai.llm.ResolvedIngredient;
 import com.canmakan.backend.ai.log.AiExecutionLogService;
-import com.canmakan.backend.dietaryprofile.RestrictionRuleLoader;
+import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
+import com.canmakan.backend.family.FamilyAuthorizationService;
+import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.product.model.ProductLookupResult;
 import com.canmakan.backend.product.scan.Scan;
@@ -22,6 +25,7 @@ import com.canmakan.backend.product.scan.ScanService;
 import com.canmakan.backend.product.verdict.DietaryRuleEngine;
 import com.canmakan.backend.product.verdict.ProductData;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
+import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -49,11 +53,27 @@ class AssessmentOrchestratorTest {
     @Mock private LlmEscalationService llmEscalationService;
     @Mock private ScanService scanService;
     @Mock private AiExecutionLogService aiExecutionLogService;
+    @Mock private FamilyAuthorizationService familyAuthorization;
 
     @InjectMocks
     private AssessmentOrchestrator orchestrator;
 
     private static final AssessmentRequest REQUEST = new AssessmentRequest("123", 1L);
+
+    @Test
+    @DisplayName("UC2 BE5: assess rejects unauthorized profile before loading rules")
+    void assessRejectsUnauthorizedProfile() {
+        doThrow(new FamilyForbiddenException("Profile does not belong to your family circle."))
+            .when(familyAuthorization)
+            .assertProfileAuthorizedForScan(7L, 1L);
+
+        assertThrows(
+            FamilyForbiddenException.class,
+            () -> orchestrator.assess(7L, REQUEST)
+        );
+
+        verifyNoInteractions(ruleLoader, productDataAdapter, ruleEngine, scanService);
+    }
 
     @Test
     @DisplayName("UC3 BE1: Tier-1 outcome is logged as rules-only")
@@ -113,19 +133,14 @@ class AssessmentOrchestratorTest {
     }
 
     @Test
-    @DisplayName("UC3 BE4: null userId is forwarded to ScanService (pre-auth / testing)")
-    void nullUserIdIsForwardedToScanService() {
-        stubLoadAndProduct(productWith(ingredient("Milk", "DAIRY")));
-        when(llmEscalationService.escalate(any(), any(), any(), any()))
-                .thenReturn(new TieredOutcome(
-                        SafetyVerdict.safe("ok", List.of()), ExecutionTier.TIER_1_RULES, null));
-        when(scanService.record(isNull(), eq(1L), eq("123"), any(), any())).thenReturn(scan(100L));
+    @DisplayName("UC3 BE4: null userId is rejected before assessment")
+    void nullUserIdIsRejected() {
+        assertThrows(
+            AuthenticatedUserNotFoundException.class,
+            () -> orchestrator.assess(null, REQUEST)
+        );
 
-        AssessmentResponse response = orchestrator.assess(null, REQUEST);
-
-        assertEquals("SAFE", response.verdict());
-        assertEquals(100L, response.scanId());
-        verify(scanService).record(isNull(), eq(1L), eq("123"), any(), any());
+        verifyNoInteractions(familyAuthorization, ruleLoader, productDataAdapter, ruleEngine, scanService);
     }
 
     @Test

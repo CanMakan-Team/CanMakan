@@ -21,7 +21,12 @@ import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedSession
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionPersistence
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
+import sg.edu.nus.iss.canmakan.features.family.data.ActiveProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.ClaimInvitationRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.CreateDependantProfileRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.CreateInvitationRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.DependantProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeResponse
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeRestrictionDetail
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeRestrictionSum
@@ -29,6 +34,10 @@ import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyRestrictionSumRes
+import sg.edu.nus.iss.canmakan.features.family.data.InvitationResponse
+import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
+import sg.edu.nus.iss.canmakan.features.family.data.SetActiveProfileRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.UserSearchResponse
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @DisplayName("UC6: family restriction summary session gate")
@@ -167,9 +176,44 @@ class FamilyRestrictionSummaryViewModelTest {
         override suspend fun getProfilesByFamilyId(familyId: Long): List<FamilyProfileResponse> =
             emptyList()
 
+        override suspend fun getActiveProfile(): Response<ActiveProfileResponse> =
+            Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun setActiveProfile(
+            request: SetActiveProfileRequestBody,
+        ): Response<ActiveProfileResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
         override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> {
             summaryCalls++
             return summaryResponse
         }
+
+        override suspend fun searchUserByEmail(email: String): Response<UserSearchResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun createInvitation(
+            request: CreateInvitationRequestBody,
+        ): Response<InvitationResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun claimInvitation(
+            request: ClaimInvitationRequestBody,
+        ): Response<FamilyMeResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun listMyInvitations(): Response<List<PendingInvitationResponse>> =
+            Response.success(emptyList())
+
+        override suspend fun acceptInvitation(token: String): Response<FamilyMeResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun declineInvitation(token: String): Response<Unit> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun createDependantProfile(
+            request: CreateDependantProfileRequestBody,
+        ): Response<DependantProfileResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
     }
 }

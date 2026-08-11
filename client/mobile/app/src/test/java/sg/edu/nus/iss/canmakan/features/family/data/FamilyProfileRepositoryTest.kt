@@ -119,7 +119,42 @@ class FamilyProfileRepositoryTest {
 
         override suspend fun getProfilesByFamilyId(familyId: Long): List<FamilyProfileResponse> = emptyList()
 
+        override suspend fun getActiveProfile(): Response<ActiveProfileResponse> =
+            Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun setActiveProfile(
+            request: SetActiveProfileRequestBody,
+        ): Response<ActiveProfileResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
         override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun searchUserByEmail(email: String): Response<UserSearchResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun createInvitation(
+            request: CreateInvitationRequestBody,
+        ): Response<InvitationResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun claimInvitation(
+            request: ClaimInvitationRequestBody,
+        ): Response<FamilyMeResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun listMyInvitations(): Response<List<PendingInvitationResponse>> =
+            Response.success(emptyList())
+
+        override suspend fun acceptInvitation(token: String): Response<FamilyMeResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun declineInvitation(token: String): Response<Unit> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun createDependantProfile(
+            request: CreateDependantProfileRequestBody,
+        ): Response<DependantProfileResponse> =
             Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
     }
 }

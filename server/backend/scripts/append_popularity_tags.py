@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+"""
+Extract popularity_tags and unique_scans_n from an Open Food Facts CSV export
+and generate a MySQL patch file for the CanMakan products table.
+
+Usage (defaults match the project paths):
+  python append_popularity_tags.py
+ // Note: input actual local paths for input and output
+  python append_popularity_tags.py \\
+    --input "C:/Users/.../en.openfoodfacts.org.products.csv.gz" \\
+    --output "C:/Users/.../08_popularity_tags.sql" \\
+    --existing-products-sql "../src/main/resources/01_products.sql"
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import gzip
+import re
+import sys
+from pathlib import Path
+
+# OFF rows can contain very large tab-separated fields.
+csv.field_size_limit(sys.maxsize)
+
+"""Note: input actual local paths to run """
+DEFAULT_INPUT = (
+    r"C:/Users/.../"
+    r"en.openfoodfacts.org.products.csv.gz"
+)
+"""Note: input actual local paths to run """
+DEFAULT_OUTPUT = (
+    r"C:/Users/.../"
+    r"08_popularity_tags.sql"
+)
+DEFAULT_EXISTING_PRODUCTS_SQL = (
+    Path(__file__).resolve().parent.parent / "src/main/resources/01_products.sql"
+)
+
+BATCH_SIZE = 500
+
+INSERT_HEADER = (
+    "INSERT INTO products (barcode, product_name, popularity_tags, unique_scans_n) VALUES\n"
+)
+INSERT_FOOTER = (
+    "\nON DUPLICATE KEY UPDATE "
+    "popularity_tags = VALUES(popularity_tags), "
+    "unique_scans_n = VALUES(unique_scans_n);\n\n"
+)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate SQL to append popularity_tags and unique_scans_n to products."
+    )
+    parser.add_argument(
+        "--input",
+        default=DEFAULT_INPUT,
+        help="Path to en.openfoodfacts.org.products.csv.gz",
+    )
+    parser.add_argument(
+        "--output",
+        default=DEFAULT_OUTPUT,
+        help="Path for generated SQL patch file",
+    )
+    parser.add_argument(
+        "--existing-products-sql",
+        default=str(DEFAULT_EXISTING_PRODUCTS_SQL),
+        help=(
+            "Only emit rows whose barcode already exists in this seed file "
+            "(recommended). Pass empty string to include all Singapore OFF rows."
+        ),
+    )
+    parser.add_argument(
+        "--include-all-singapore",
+        action="store_true",
+        help="Do not filter to existing 01_products.sql barcodes",
+    )
+    parser.add_argument(
+        "--copy-to-resources",
+        action="store_true",
+        help="Also write output to src/main/resources/08_popularity_tags.sql",
+    )
+    return parser.parse_args()
+
+
+def load_existing_barcodes(products_sql_path: Path) -> set[str]:
+    """Parse barcode primary keys from INSERT tuples in 01_products.sql."""
+    if not products_sql_path.is_file():
+        raise FileNotFoundError(f"Products seed not found: {products_sql_path}")
+
+    barcode_pattern = re.compile(r"^\('([^']+)'")
+    barcodes: set[str] = set()
+
+    with products_sql_path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line.startswith("('"):
+                continue
+            match = barcode_pattern.match(line)
+            if match:
+                barcodes.add(match.group(1))
+
+    if not barcodes:
+        raise ValueError(f"No barcodes parsed from {products_sql_path}")
+
+    return barcodes
+
+
+def sql_string(value: str | None) -> str:
+    if value is None:
+        return "NULL"
+    trimmed = value.strip()
+    if not trimmed:
+        return "NULL"
+    escaped = trimmed.replace("\\", "\\\\").replace("'", "''")
+    return f"'{escaped}'"
+
+
+def sql_int(value: str | None) -> str:
+    if value is None:
+        return "NULL"
+    trimmed = value.strip()
+    if not trimmed:
+        return "NULL"
+    try:
+        # OFF may export floats like "3.0"
+        return str(int(float(trimmed)))
+    except ValueError:
+        return "NULL"
+
+
+def truncate(value: str, max_length: int) -> str:
+    if len(value) <= max_length:
+        return value
+    return value[:max_length]
+
+
+def is_singapore_row(countries_tags: str | None) -> bool:
+    countries = (countries_tags or "").lower()
+    return "singapore" in countries or "en:singapore" in countries
+
+
+def write_batch(writer, tuples: list[str]) -> None:
+    writer.write(INSERT_HEADER)
+    writer.write(",\n".join(tuples))
+    writer.write(INSERT_FOOTER)
+
+
+def generate_sql(
+    input_path: Path,
+    output_path: Path,
+    allowed_barcodes: set[str] | None,
+) -> dict[str, int]:
+    stats = {
+        "csv_rows_read": 0,
+        "singapore_rows": 0,
+        "matched_existing": 0,
+        "written": 0,
+        "skipped_no_barcode_or_name": 0,
+        "skipped_not_in_seed": 0,
+        "skipped_no_popularity_data": 0,
+    }
+
+    batch: list[str] = []
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with gzip.open(input_path, "rt", encoding="utf-8", newline="") as gz_file, output_path.open(
+        "w", encoding="utf-8"
+    ) as writer:
+        writer.write("-- Generated by append_popularity_tags.py\n")
+        writer.write("-- Patches popularity_tags and unique_scans_n on existing products.\n\n")
+
+        reader = csv.DictReader(gz_file, delimiter="\t")
+        required = {"code", "product_name", "countries_tags", "popularity_tags", "unique_scans_n"}
+        missing = required - set(reader.fieldnames or [])
+        if missing:
+            raise ValueError(f"CSV missing expected columns: {sorted(missing)}")
+
+        for row in reader:
+            stats["csv_rows_read"] += 1
+
+            if not is_singapore_row(row.get("countries_tags")):
+                continue
+            stats["singapore_rows"] += 1
+
+            barcode = truncate((row.get("code") or "").strip(), 50)
+            product_name = truncate((row.get("product_name") or "").strip(), 255)
+            popularity_tags = row.get("popularity_tags")
+            unique_scans_n = row.get("unique_scans_n")
+
+            if not barcode or not product_name:
+                stats["skipped_no_barcode_or_name"] += 1
+                continue
+
+            if allowed_barcodes is not None and barcode not in allowed_barcodes:
+                stats["skipped_not_in_seed"] += 1
+                continue
+
+            pop_value = (popularity_tags or "").strip()
+            scans_value = (unique_scans_n or "").strip()
+            if not pop_value and not scans_value:
+                stats["skipped_no_popularity_data"] += 1
+                continue
+
+            stats["matched_existing"] += 1
+
+            tuple_sql = (
+                f"({sql_string(barcode)}, {sql_string(product_name)}, "
+                f"{sql_string(pop_value or None)}, {sql_int(scans_value or None)})"
+            )
+            batch.append(tuple_sql)
+            stats["written"] += 1
+
+            if len(batch) >= BATCH_SIZE:
+                write_batch(writer, batch)
+                batch.clear()
+
+        if batch:
+            write_batch(writer, batch)
+
+    return stats
+
+
+def main() -> int:
+    args = parse_args()
+    input_path = Path(args.input)
+    output_path = Path(args.output)
+
+    if not input_path.is_file():
+        print(f"ERROR: OFF export not found: {input_path}", file=sys.stderr)
+        return 1
+
+    allowed_barcodes: set[str] | None
+    if args.include_all_singapore:
+        allowed_barcodes = None
+    else:
+        existing_path = Path(args.existing_products_sql)
+        allowed_barcodes = load_existing_barcodes(existing_path)
+        print(f"Loaded {len(allowed_barcodes)} barcodes from {existing_path}")
+
+    print(f"Reading OFF export: {input_path}")
+    stats = generate_sql(input_path, output_path, allowed_barcodes)
+
+    if args.copy_to_resources:
+        resources_path = (
+            Path(__file__).resolve().parent.parent / "src/main/resources/08_popularity_tags.sql"
+        )
+        resources_path.write_text(output_path.read_text(encoding="utf-8"), encoding="utf-8")
+        print(f"Copied patch to: {resources_path}")
+
+    print(f"Wrote SQL patch: {output_path}")
+    print("Summary:")
+    for key, value in stats.items():
+        print(f"  {key}: {value}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

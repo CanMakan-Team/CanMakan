@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { adminService } from './adminService'
 import { getErrorMessage } from '../../shared/api/apiErrors'
-import type { ConsumerTrendResponse, UserAccessSummary } from '../../shared/api/types'
+import type { ConsumerTrendResponse } from '../../shared/api/types'
+import type { AdminUser } from './models'
 import { ErrorState, LoadingState } from '../../shared/ui/PageState'
 
 export function SystemDashboardPage() {
   const [trends, setTrends] = useState<ConsumerTrendResponse | null>(null)
-  const [users, setUsers] = useState<UserAccessSummary[]>([])
+  const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -63,8 +64,8 @@ export function SystemDashboardPage() {
         <article className="summary-card">
           <span className="summary-card__icon" aria-hidden="true">!</span>
           <div>
-            <span>Pending access</span>
-            <strong>{users.filter((user) => user.accountStatus === 'PENDING').length}</strong>
+            <span>Suspended accounts</span>
+            <strong>{users.filter((user) => !user.active).length}</strong>
           </div>
         </article>
         <article className="summary-card">
@@ -86,11 +87,10 @@ export function SystemDashboardPage() {
           </Link>
         </section>
         <section className="panel">
-          <p className="eyebrow">Selected Feature 12</p>
+          <p className="eyebrow">Selected UC13</p>
           <h2>User Accounts & Access</h2>
           <p>
-            Filter accounts, inspect safe identifiers and confirm mock
-            access-changing operations with an audit record.
+            Search existing accounts and manage Active or Suspended status.
           </p>
           <Link className="button button--dark" to="/system/users">
             Manage user access

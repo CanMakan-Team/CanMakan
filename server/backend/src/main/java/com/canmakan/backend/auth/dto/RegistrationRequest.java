@@ -29,7 +29,11 @@ public record RegistrationRequest(
     @Pattern(
         regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$",
         message = "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.")
-    String password
+    String password,
+
+    /** Optional UC9 invite token from deep link; may be null. */
+    @Size(max = 100, message = "Invitation token must not exceed 100 characters.")
+    String invitationToken
 ) {
 
     private static final int MAX_BCRYPT_PASSWORD_BYTES = 72;
@@ -37,6 +41,9 @@ public record RegistrationRequest(
     public RegistrationRequest {
         name = name == null ? null : name.strip();
         email = email == null ? null : email.strip().toLowerCase(Locale.ROOT);
+        invitationToken = invitationToken == null || invitationToken.isBlank()
+            ? null
+            : invitationToken.strip();
     }
 
     @JsonIgnore
@@ -48,10 +55,12 @@ public record RegistrationRequest(
 
     @Override
     public String toString() {
-        return "RegistrationRequest[name=" + name + ", email=" + email + ", password=<redacted>]";
+        return "RegistrationRequest[name=" + name + ", email=" + email
+            + ", password=<redacted>, invitationToken="
+            + (invitationToken == null ? "null" : "<present>") + "]";
     }
 
-    /** Reject fields outside the frozen public registration contract. */
+    /** Reject fields outside the public registration contract. */
     @JsonAnySetter
     public void rejectUnknownProperty(String propertyName, Object ignoredValue) {
         throw new IllegalArgumentException("Unsupported registration field: " + propertyName);
