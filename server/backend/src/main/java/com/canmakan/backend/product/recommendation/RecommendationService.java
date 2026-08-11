@@ -1,6 +1,6 @@
 package com.canmakan.backend.product.recommendation;
 
-import com.canmakan.backend.dietaryprofile.RestrictionRuleLoader;
+import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
 import com.canmakan.backend.product.scan.ScanRepository;
 import com.canmakan.backend.product.verdict.DietaryRuleEngine;
 import com.canmakan.backend.product.verdict.ProductData;
