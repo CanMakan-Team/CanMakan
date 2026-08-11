@@ -3,6 +3,7 @@ package com.canmakan.backend.shared.exception;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.family.exception.FamilyNotFoundException;
 import com.canmakan.backend.family.exception.InactiveProfileException;
+import com.canmakan.backend.family.exception.LastPrimaryAdminException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -43,6 +44,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FamilyNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Map<String, String> handleFamilyNotFound(FamilyNotFoundException ex) {
+        return Map.of("message", ex.getMessage());
+    }
+
+    @ExceptionHandler(LastPrimaryAdminException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, String> handleLastPrimaryAdmin(LastPrimaryAdminException ex) {
         return Map.of("message", ex.getMessage());
     }
 }

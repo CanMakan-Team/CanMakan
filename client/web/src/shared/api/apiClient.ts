@@ -36,14 +36,14 @@ export async function apiRequest<T>(
   // - Authorization: Bearer <access token>
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
+  headers.set('ngrok-skip-browser-warning', 'true')
   if (options.body) headers.set('Content-Type', 'application/json')
   if (session?.accessToken) {
     headers.set('Authorization', `Bearer ${session.accessToken}`)
   }
-  headers.set('ngrok-skip-browser-warning', 'true')
 
   try {
-    // Make the request
+    // Make the request. Reuse the Headers instance so Authorization is not dropped.
     const response = await fetch(`${apiBaseUrl}${path}`, {
       ...options,
       headers,

@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Repository-layer test for the "View Scan History" feature (the History icon
- * in the bottom nav bar), which is served by ScanHistoryController /
+ * in the bottom nav bar), which is served by ScanController /
  * ScanHistoryService on top of {@link ScanRepository}, specifically
  * {@link ScanRepository#findByProfileIdWithProductOrderByScannedAtDesc}.
  * Named for the feature it covers rather than {@code ScanRepositoryTest}, and

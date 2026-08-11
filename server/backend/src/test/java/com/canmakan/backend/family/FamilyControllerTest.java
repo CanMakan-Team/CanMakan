@@ -6,7 +6,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -211,22 +213,30 @@ class FamilyControllerTest {
         when(familyService.listFamilyMembers(10L)).thenReturn(List.of(
             new com.canmakan.backend.family.dto.FamilyMemberRosterDto(
                 10L,
+                77L,
+                10L,
                 "Admin",
                 "SELF",
                 "UNSPECIFIED",
                 List.of("HALAL"),
                 List.of("PEANUT_ALLERGY"),
                 "REGISTERED_USER",
-                "a***n@example.com"),
+                "a***n@example.com",
+                "PRIMARY_ADMIN",
+                true),
             new com.canmakan.backend.family.dto.FamilyMemberRosterDto(
                 2L,
+                2L,
+                null,
                 "Toddler",
                 "CHILD",
                 "UNSPECIFIED",
                 List.of(),
                 List.of(),
                 "DEPENDANT_PROFILE",
-                null)
+                null,
+                null,
+                true)
         ));
 
         mockMvc.perform(get("/api/families/me/members"))
@@ -254,7 +264,7 @@ class FamilyControllerTest {
     void getProfilesByFamilyIdOk() throws Exception {
         authenticateAs(10L);
         when(familyService.getProfilesForFamilyMember(10L, 1L)).thenReturn(List.of(
-            new DietaryProfileSummaryDto(77L, "Admin", 1L, "SELF", "AD", true)
+            new DietaryProfileSummaryDto(77L, "Admin", 1L, "SELF", "AD", true, true)
         ));
 
         mockMvc.perform(get("/api/families/1/profiles"))
@@ -302,6 +312,117 @@ class FamilyControllerTest {
                 .content("{\"profileId\":88}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.profileId").value(88));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/me/profiles returns 200")
+    void listMyProfilesOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.listMyFamilyProfiles(10L)).thenReturn(List.of(
+            new DietaryProfileSummaryDto(77L, "Admin", 1L, "SELF", "AD", true, true),
+            new DietaryProfileSummaryDto(88L, "Child", 1L, "CHILD", "CH", false, false)
+        ));
+
+        mockMvc.perform(get("/api/families/me/profiles"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].id").value(77))
+            .andExpect(jsonPath("$[1].active").value(false));
+    }
+
+    @Test
+    @DisplayName("PUT /api/families/me/profiles/{id} returns 200")
+    void updateProfileOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.updateProfileMetadata(
+                eq(10L), eq(88L), any(com.canmakan.backend.family.dto.UpdateProfileRequest.class)))
+            .thenReturn(new com.canmakan.backend.family.dto.FamilyMemberRosterDto(
+                88L, 88L, null, "Toddler", "CHILD", "UNSPECIFIED",
+                List.of(), List.of(), "DEPENDANT_PROFILE", null, null, true));
+
+        mockMvc.perform(put("/api/families/me/profiles/88")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"profileName\":\"Toddler\",\"relationship\":\"CHILD\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.profileName").value("Toddler"))
+            .andExpect(jsonPath("$.profileId").value(88));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/families/me/profiles/{id} returns 200")
+    void setProfileActiveOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.setProfileActive(10L, 88L, false))
+            .thenReturn(new DietaryProfileSummaryDto(88L, "Child", 1L, "CHILD", "CH", false, false));
+
+        mockMvc.perform(patch("/api/families/me/profiles/88")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"active\":false}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.active").value(false));
+    }
+
+    @Test
+    @DisplayName("DELETE /api/families/me/members/{userId} returns 204")
+    void removeMemberOk() throws Exception {
+        authenticateAs(10L);
+
+        mockMvc.perform(delete("/api/families/me/members/20"))
+            .andExpect(status().isNoContent());
+
+        verify(familyService).removeFamilyMember(10L, 20L);
+    }
+
+    @Test
+    @DisplayName("DELETE /api/families/me/profiles/{id} returns 204")
+    void removeDependantOk() throws Exception {
+        authenticateAs(10L);
+
+        mockMvc.perform(delete("/api/families/me/profiles/88"))
+            .andExpect(status().isNoContent());
+
+        verify(familyService).removeDependantProfile(10L, 88L);
+    }
+
+    @Test
+    @DisplayName("GET /api/families/me/scans returns 200")
+    void listScansOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.listFamilyScans(10L)).thenReturn(List.of(
+            new com.canmakan.backend.family.dto.FamilyScanHistoryDto(
+                501L,
+                "Crunchy Peanut Bar",
+                "Good Day",
+                10L,
+                "Admin",
+                "UNSAFE",
+                "",
+                "",
+                "",
+                "Peanut matched",
+                "COMPLETE",
+                "Open Food Facts / assessment",
+                "2026-07-28T18:42:00",
+                null)
+        ));
+
+        mockMvc.perform(get("/api/families/me/scans"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].scanId").value(501))
+            .andExpect(jsonPath("$[0].verdict").value("UNSAFE"));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/me/scans returns 403 when service denies non-admin")
+    void listScansForbiddenForNonAdmin() throws Exception {
+        authenticateAs(11L);
+        when(familyService.listFamilyScans(11L))
+            .thenThrow(new FamilyForbiddenException(
+                FamilyAuthorizationService.PRIMARY_ADMIN_REQUIRED));
+
+        mockMvc.perform(get("/api/families/me/scans"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.message")
+                .value(FamilyAuthorizationService.PRIMARY_ADMIN_REQUIRED));
     }
 
     private static void authenticateAs(long userId) {

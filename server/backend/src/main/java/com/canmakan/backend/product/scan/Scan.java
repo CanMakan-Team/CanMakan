@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
  * profile. Maps to the {@code scans} table.
  *
  * @author XieHuayuan
+ * @author Kwok Heng
  */
 @Getter
 @Setter

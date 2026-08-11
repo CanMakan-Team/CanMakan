@@ -966,6 +966,7 @@ input[readonly] {
 }
 
 .status-badge--avoid,
+.status-badge--unsafe,
 .status-badge--suspended,
 .status-badge--disabled {
   color: var(--avoid);
@@ -1081,6 +1082,18 @@ input[readonly] {
 .profile-card__header p {
   color: var(--muted);
   font-size: 0.76rem;
+}
+
+.profile-card--inactive {
+  opacity: 0.72;
+  background: #f7f8f7;
+}
+
+.profile-card__actions {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.9rem;
 }
 
 .source-label {
@@ -1669,11 +1682,6 @@ caption {
 
 .accessible-equivalent {
   margin-top: 1rem;
-}
-
-.status-badge--unsafe {
-  color: var(--avoid);
-  background: var(--avoid-bg);
 }
 
 .data-table--analytics {
