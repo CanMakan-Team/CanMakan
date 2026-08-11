@@ -27,7 +27,7 @@ export function FamilyRegisterPage() {
   const [validationError, setValidationError] = useState('')
   const [submitError, setSubmitError] = useState('')
   /* Define the session and navigation */
-  const { session, registerAndLogin, loading } = useSession()
+  const { session, register, loading } = useSession()
   const navigate = useNavigate()
 
   /* If the session has the family admin role, navigate to the family page */
@@ -69,17 +69,17 @@ export function FamilyRegisterPage() {
     }
     setValidationError('')
 
-    // Try to register and login
-    // On success, navigate to the family page
+    // Register without establishing an authenticated session.
+    // On success, return to sign-in.
     // On error, set the submit error
     try {
-      await registerAndLogin({
+      await register({
         name: trimmedName,
         email: trimmedEmail,
         password,
         invitationToken,
       })
-      navigate('/family', { replace: true })
+      navigate('/family-login', { replace: true })
     } catch (caughtError) {
       setSubmitError(getErrorMessage(caughtError))
     }

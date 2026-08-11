@@ -176,12 +176,14 @@ Once the application is running (MySQL + seeded data):
 GET http://localhost:8080/actuator/health
 ```
 
-End-to-end validate → assess smoke (defaults: Nutella barcode, profileId/userId `1`):
+End-to-end validate → assess smoke. Supply a current UC19 access token for a
+user authorized to scan the selected profile (defaults: Nutella barcode,
+profileId `1`):
 
 ```powershell
-.\scripts\smoke-assess.ps1
+.\scripts\smoke-assess.ps1 -AccessToken "<jwt>"
 # or with overrides:
-.\scripts\smoke-assess.ps1 -Barcode "3017620422003" -ProfileId 1 -UserId 1
+.\scripts\smoke-assess.ps1 -AccessToken "<jwt>" -Barcode "3017620422003" -ProfileId 1
 ```
 
-The script prints HTTP status, verdict level, and finding codes. It exits non-zero if health, validate, or assess fails. Use a `profileId` / `userId` that exist in the seeded database.
+The script prints HTTP status, verdict level, and finding codes. It exits non-zero if health, validate, or assess fails. The backend derives the caller identity from the bearer token, and the selected `profileId` must be authorized for that user.

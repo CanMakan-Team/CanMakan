@@ -69,7 +69,7 @@ describe('FamilyRegisterPage', () => {
     expect(authService.register).not.toHaveBeenCalled()
   })
 
-  it('registers, logs in, and navigates to family portal', async () => {
+  it('registers without logging in and navigates to sign-in', async () => {
     const user = userEvent.setup()
     vi.mocked(authService.register).mockResolvedValue({
       userId: 14,
@@ -77,14 +77,6 @@ describe('FamilyRegisterPage', () => {
       name: 'Person Name',
       email: 'person@example.com',
       active: true,
-    })
-    vi.mocked(authService.loginWithCredentials).mockResolvedValue({
-      accessToken: 'jwt',
-      userId: 14,
-      displayName: 'person',
-      roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
-      portal: 'FAMILY',
-      prototype: false,
     })
     renderRegisterPage()
 
@@ -95,10 +87,10 @@ describe('FamilyRegisterPage', () => {
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
     await waitFor(() => {
-      expect(screen.getByText('Family destination')).toBeInTheDocument()
+      expect(screen.getByText('Family login')).toBeInTheDocument()
     })
     expect(authService.register).toHaveBeenCalled()
-    expect(authService.loginWithCredentials).toHaveBeenCalled()
+    expect(authService.loginWithCredentials).not.toHaveBeenCalled()
   })
 
   it('shows backend duplicate-email failure', async () => {
