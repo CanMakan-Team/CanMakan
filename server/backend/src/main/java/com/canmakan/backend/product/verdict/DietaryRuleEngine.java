@@ -227,6 +227,9 @@ public class DietaryRuleEngine {
         if ("MILK".equals(allergenCode) || "DAIRY".equals(allergenCode)) {
             codes.add("MILK");
             codes.add("DAIRY");
+            // LACTOSE_INTOLERANT is a distinct selectable restriction (see
+            // AllergenChecker) that flags the same dairy ingredients as DAIRY.
+            codes.add("LACTOSE_INTOLERANT");
         }
         if ("NUTS".equals(allergenCode) || "TREE_NUT".equals(allergenCode) || "TREE_NUTS".equals(allergenCode)) {
             codes.add("TREE_NUT");
@@ -250,16 +253,22 @@ public class DietaryRuleEngine {
                 && !CROSS_CONTAMINATION.equals(f.restrictionCode())
                 && severityByCode.get(f.restrictionCode()) == RestrictionSeverity.STRICT_AVOID);
 
+        // Group all unresolved ingredients into one caution finding instead of one per item.
+        List<String> unresolved = unresolvedIngredientNames.stream()
+                .filter(name -> name != null && !name.isBlank())
+                .distinct()
+                .toList();
+
         List<Finding> all = new ArrayList<>(findings);
-        for (String ingredientName : unresolvedIngredientNames) {
+        if (!unresolved.isEmpty()) {
             all.add(new Finding(
                 UNRESOLVED,
-                ingredientName,
-                ingredientName + " could not be fully analysed - treat with caution."
+                String.join(", ", unresolved),
+                "Treat these ingredients with caution: " + String.join(", ", unresolved) + "."
             ));
         }
 
-        boolean hasUnresolved = !unresolvedIngredientNames.isEmpty();
+        boolean hasUnresolved = !unresolved.isEmpty();
         SafetyVerdict.Level level;
         if (strictHit) {
             level = SafetyVerdict.Level.UNSAFE;
@@ -268,16 +277,25 @@ public class DietaryRuleEngine {
         } else {
             level = SafetyVerdict.Level.SAFE;
         }
-        return new SafetyVerdict(level, buildExplanation(level, all), all);
+        return new SafetyVerdict(level, buildExplanation(level, findings, unresolved), all);
     }
 
     /** Deterministic fallback wording; the AI reasoning service can replace this later. */
-    private String buildExplanation(SafetyVerdict.Level level, List<Finding> findings) {
-        if (findings.isEmpty()) {
+    private String buildExplanation(
+        SafetyVerdict.Level level, List<Finding> findings, List<String> unresolved) {
+        List<String> parts = new ArrayList<>();
+        if (!findings.isEmpty()) {
+            parts.add(findings.stream().map(Finding::reason).collect(Collectors.joining("; ")));
+        }
+        if (!unresolved.isEmpty()) {
+            String noun = unresolved.size() == 1 ? "ingredient" : "ingredients";
+            parts.add(unresolved.size() + " " + noun
+                    + " could not be fully checked against your profile. Details below.");
+        }
+        if (parts.isEmpty()) {
             return "No restrictions were triggered for the active profile.";
         }
-        return level.name() + ": "
-                + findings.stream().map(Finding::reason).collect(Collectors.joining("; "));
+        return level.name() + ": " + String.join(" ", parts);
     }
 
     private static String displayIngredientName(String ingredientName) {

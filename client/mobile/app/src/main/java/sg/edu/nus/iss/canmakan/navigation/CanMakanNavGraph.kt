@@ -40,6 +40,8 @@ import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui.DietaryRe
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
 import sg.edu.nus.iss.canmakan.features.product.history.ScanHistoryViewModel
 import sg.edu.nus.iss.canmakan.features.product.history.ui.HistoryScreen
+import sg.edu.nus.iss.canmakan.features.product.recommendation.RecommendationHistoryViewModel
+import sg.edu.nus.iss.canmakan.features.product.recommendation.ui.RecommendationHistoryScreen
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.features.product.scan.ScannerScreen
 import sg.edu.nus.iss.canmakan.features.product.verdict.ProductDetailScreen
@@ -52,6 +54,7 @@ import sg.edu.nus.iss.canmakan.features.family.ui.InvitationsScreen
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
+private const val ROUTE_RECOMMENDATION_HISTORY = "recommendation_history"
 private const val ROUTE_PRODUCT_DETAIL = "product_detail"
 private const val ROUTE_CREATE_FAMILY = "create_family"
 private const val ROUTE_CREATE_NEW = "create_new"
@@ -154,6 +157,10 @@ fun CanMakanNavGraph(
                     onHistoryClick = {
                         closeDrawer()
                         navController.navigate(ROUTE_HISTORY)
+                    },
+                    onRecommendationHistoryClick = {
+                        closeDrawer()
+                        navController.navigate(ROUTE_RECOMMENDATION_HISTORY)
                     },
                     onSignOutClick = {
                         closeDrawer()
@@ -261,6 +268,24 @@ fun CanMakanNavGraph(
                     }
                 )
             }
+            composable(ROUTE_RECOMMENDATION_HISTORY) {
+                val recommendationHistoryViewModel: RecommendationHistoryViewModel = hiltViewModel()
+                val recommendationHistoryUiState by recommendationHistoryViewModel.uiState.collectAsStateWithLifecycle()
+
+                RecommendationHistoryScreen(
+                    activeProfile = activeProfile,
+                    entries = recommendationHistoryUiState.entries,
+                    isLoading = recommendationHistoryUiState.isLoading,
+                    errorMessage = recommendationHistoryUiState.errorMessage,
+                    onMenuClick = { openDrawer() },
+                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
+                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onEntryClick = { entry ->
+                        navGraphViewModel.setPendingVerdict(VerdictDetail.fromRecommendationHistoryEntry(entry))
+                        navController.navigate(ROUTE_PRODUCT_DETAIL)
+                    }
+                )
+            }
             composable(ROUTE_PRODUCT_DETAIL) {
                 val detail = pendingVerdict
                 // If there is no pending verdict, navigate back to the scanner screen
@@ -278,6 +303,7 @@ fun CanMakanNavGraph(
                         alternatives = detail.alternatives,
                         profileName = activeProfile.profileName,
                         explanation = detail.explanation,
+                        alternativesError = detail.alternativesError,
                         onBackClick = { navController.popBackStack() },
                         onScanClick = { navController.navigate(ROUTE_SCANNER) },
                         onHistoryClick = { navController.navigate(ROUTE_HISTORY) }

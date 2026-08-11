@@ -51,20 +51,45 @@ INSERT INTO dietary_profiles (id, family_id, linked_user_id, profile_name, relat
 -- =============================================
 INSERT INTO dietary_restrictions (id, code, display_name, category, description) VALUES
 (1, 'GLUTEN', 'Gluten Free', 'ALLERGEN', 'Strictly avoid wheat, barley, rye, and oat gluten.'),
-(2, 'DAIRY', 'Lactose Intolerance', 'ALLERGEN', 'Avoid milk solids, lactose, whey, and dairy fats.'),
+-- Code stays 'DAIRY' (not 'DAIRY_FREE'): it is the same value stamped on every
+-- dairy-tagged ingredient's root_allergen column, and AllergenChecker matches
+-- restrictions to ingredients by exact code equality. Renaming it here without
+-- also touching ~30 ingredient rows would silently stop all dairy matching.
+(2, 'DAIRY', 'Dairy Free', 'ALLERGEN', 'Avoid milk solids, lactose, whey, and dairy fats.'),
 (3, 'PEANUT', 'Peanut Allergy', 'ALLERGEN', 'Severe reaction to peanuts and peanut derivatives.'),
-(4, 'SHELLFISH', 'Crustacean & Shellfish Allergy', 'ALLERGEN', 'Avoid crab, shrimp, lobster, and shellfish extracts.'),
+(4, 'SHELLFISH', 'Shellfish Allergy', 'ALLERGEN', 'Avoid crab, shrimp, lobster, and shellfish extracts.'),
 (5, 'FISH', 'Fish Allergy', 'ALLERGEN', 'Avoid bony fish, anchovies, bonito, and fish surimi.'),
 (6, 'SOY', 'Soy Allergy', 'ALLERGEN', 'Avoid soy lecithin, miso, and soybean derivatives.'),
 (7, 'EGG', 'Egg Allergy', 'ALLERGEN', 'Avoid eggs and egg powder.'),
-(8, 'HALAL', 'Halal Diet', 'RELIGIOUS', 'Requires Halal-certified ingredients and no pork or alcohol.'),
-(9, 'VEGETARIAN', 'Vegetarian Diet', 'DIET', 'Does not consume meat, poultry, or seafood.'),
+(8, 'HALAL', 'Halal', 'RELIGIOUS', 'Requires Halal-certified ingredients and no pork or alcohol.'),
+(9, 'VEGETARIAN', 'Vegetarian', 'DIET', 'Does not consume meat, poultry, or seafood.'),
 (10, 'VEGAN', 'Vegan', 'DIET', 'Avoids animal-derived ingredients'),
 (11,'LOW_SUGAR', 'Low Sugar', 'DIET', 'Checks sugar per 100 g'),
 (12, 'LOW_FAT', 'Low Fat', 'DIET', 'Checks total fat per 100 g'),
 (13, 'LOW_TRANS_FAT', 'Low Trans Fat', 'DIET', 'Checks trans fat per 100 g'),
-(14, 'LOW_SODIUM', 'Low Sodium', 'DIET', 'Checks sodium per 100 g'),
-(15, 'HINDU', 'Hindu Diet', 'RELIGIOUS', 'Does not consume beef') ;
+(14, 'LOW_SODIUM', 'Low Salt', 'DIET', 'Checks sodium per 100 g'),
+-- Code renamed from 'HINDU' to 'KOSHER' to match the display name: confirmed
+-- zero dependents (no ingredient_restrictions rows reference id 15, and
+-- ReligiousChecker only ever matches the HALAL code, ignoring everything
+-- else), so this is a safe rename rather than a DAIRY-style alias situation.
+(15, 'KOSHER', 'Kosher', 'RELIGIOUS', 'Requires kosher-certified ingredients; forbids pork and shellfish, and does not mix meat with dairy'),
+-- New: mirrors the web portal, which offers Dairy Free and Lactose Intolerant
+-- as two separate options. AllergenChecker and DietaryRuleEngine treat this
+-- code as an alias of DAIRY so it flags the same dairy ingredients (see the
+-- comment on id 2) rather than silently matching nothing.
+(16, 'LACTOSE_INTOLERANT', 'Lactose Intolerant', 'ALLERGEN', 'Avoid lactose found in milk and dairy products.'),
+-- Code matches the 'TREE_NUT' root_allergen already used by ingredient rows
+-- (e.g. Hazelnut, Cashew Nuts), so this one is immediately functional.
+(17, 'TREE_NUT', 'Tree Nut Allergy', 'ALLERGEN', 'Avoid almonds, cashews, hazelnuts, walnuts, and other tree nuts.'),
+-- No ingredient in the catalog is tagged 'SESAME' yet, so this behaves like
+-- Kosher: selectable, but currently produces no automated scan findings.
+(18, 'SESAME', 'Sesame Allergy', 'ALLERGEN', 'Avoid sesame seeds, tahini, and sesame oil.'),
+-- No cholesterol field exists on the nutrition data yet, so NutritionChecker
+-- does not evaluate this restriction (same inert-until-implemented status as
+-- Kosher/Sesame above).
+(19, 'LOW_CHOLESTEROL', 'Low Cholesterol', 'DIET', 'Checks cholesterol per 100 g'),
+-- No macro-ratio checking exists yet, so this is selectable but inert for now.
+(20, 'KETO', 'Keto', 'DIET', 'Very low carbohydrate, high fat diet') ;
 
 -- =============================================
 -- PROFILE RESTRICTIONS (Junction Table)

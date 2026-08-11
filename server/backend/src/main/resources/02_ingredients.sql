@@ -224,3 +224,54 @@ INSERT IGNORE INTO ingredients (id, ingredient_name, parent_allergen, root_aller
 (176, 'Natural Flavor', 'Flavorings', 'ADDITIVE', 0),
 (177, 'Pectin', 'Thickeners', 'ADDITIVE', 0),
 (178, 'Organic Flavor', 'Flavorings', 'ADDITIVE', 0);
+-- ============================================================================
+-- Common allergen labels missing from the base seed (HY): plain milk / wheat
+-- forms that appear on real product labels but were previously UNRESOLVED.
+-- Matching is exact-after-normalize, so each real-world spelling is its own row.
+-- ============================================================================
+INSERT IGNORE INTO ingredients (id, ingredient_name, parent_allergen, root_allergen, is_chemical_alias) VALUES
+-- Milk & Dairy -> DAIRY
+(179, 'Milk', 'Milk Derivatives', 'DAIRY', 0),
+(180, 'Fresh Milk', 'Milk Derivatives', 'DAIRY', 0),
+(181, 'Full Cream Milk', 'Milk Derivatives', 'DAIRY', 0),
+(182, 'Full Cream Milk Powder', 'Milk Derivatives', 'DAIRY', 0),
+(183, 'Whole Milk', 'Milk Derivatives', 'DAIRY', 0),
+(184, 'Skim Milk', 'Milk Derivatives', 'DAIRY', 0),
+(185, 'Skimmed Milk', 'Milk Derivatives', 'DAIRY', 0),
+(186, 'Low Fat Milk', 'Milk Derivatives', 'DAIRY', 0),
+(187, 'Reduced Fat Milk', 'Milk Derivatives', 'DAIRY', 0),
+(188, 'UHT Milk', 'Milk Derivatives', 'DAIRY', 0),
+(189, 'Pasteurised Milk', 'Milk Derivatives', 'DAIRY', 0),
+(190, 'Milk Powder', 'Milk Derivatives', 'DAIRY', 0),
+(191, 'Evaporated Milk', 'Milk Derivatives', 'DAIRY', 0),
+(192, 'Condensed Milk', 'Milk Derivatives', 'DAIRY', 0),
+(193, 'Sweetened Condensed Milk', 'Milk Derivatives', 'DAIRY', 0),
+(194, 'Cream', 'Milk Derivatives', 'DAIRY', 0),
+(195, 'Fresh Cream', 'Milk Derivatives', 'DAIRY', 0),
+(196, 'Dairy Cream', 'Milk Derivatives', 'DAIRY', 0),
+(197, 'Cheese', 'Milk Derivatives', 'DAIRY', 0),
+(198, 'Mozzarella Cheese', 'Milk Derivatives', 'DAIRY', 0),
+(199, 'Cheddar Cheese', 'Milk Derivatives', 'DAIRY', 0),
+(200, 'Parmesan Cheese', 'Milk Derivatives', 'DAIRY', 0),
+(201, 'Pecorino Cheese', 'Milk Derivatives', 'DAIRY', 0),
+(202, 'Casein', 'Milk Derivatives', 'DAIRY', 0),
+(203, 'Milk Protein', 'Milk Derivatives', 'DAIRY', 0),
+(204, 'Whey Protein', 'Milk Derivatives', 'DAIRY', 0),
+-- Wheat & Gluten -> GLUTEN
+(206, 'Wheat', 'Gluten Containing Grains', 'GLUTEN', 0),
+(207, 'Durum Wheat', 'Gluten Containing Grains', 'GLUTEN', 0),
+(208, 'Semolina', 'Gluten Containing Grains', 'GLUTEN', 0),
+(209, 'Wheat Semolina', 'Gluten Containing Grains', 'GLUTEN', 0),
+(210, 'Durum Wheat Semolina', 'Gluten Containing Grains', 'GLUTEN', 0),
+(211, 'Spelt', 'Gluten Containing Grains', 'GLUTEN', 0),
+(212, 'Rye', 'Gluten Containing Grains', 'GLUTEN', 0),
+(213, 'Barley', 'Gluten Containing Grains', 'GLUTEN', 0),
+-- Common non-allergen labels -> known-safe (catalog hit, no root allergen)
+(214, 'Olive Oil', NULL, NULL, 0),
+(215, 'Extra Virgin Olive Oil', NULL, NULL, 0),
+(216, 'Salt', NULL, NULL, 0),
+(217, 'Sea Salt', NULL, NULL, 0),
+(218, 'Sugar', NULL, NULL, 0),
+(219, 'Water', NULL, NULL, 0),
+(220, 'Basil', NULL, NULL, 0),
+(221, 'Natural Basil Flavour', NULL, NULL, 0);
