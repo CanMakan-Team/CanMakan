@@ -10,7 +10,6 @@ import com.canmakan.backend.family.dto.DependantProfileResponse;
 import com.canmakan.backend.family.dto.FamilyMemberRosterDto;
 import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
-import com.canmakan.backend.family.dto.FamilyScanRecordResponse;
 import com.canmakan.backend.family.dto.FamilyScanHistoryDto;
 import com.canmakan.backend.family.dto.InvitationResponse;
 import com.canmakan.backend.family.dto.SetActiveProfileRequest;
@@ -53,7 +52,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class FamilyController {
 
     private final FamilyService familyService;
-    private final FamilyScanHistoryService familyScanHistoryService;
 
     // POST /api/families -> create a new family
     @PostMapping
@@ -231,16 +229,6 @@ public class FamilyController {
         FamilyMeResponse claimed = familyService.claimInvitation(userId, request);
         log.info("POST /families/me/invitations/claim → 200 familyId={}", claimed.familyId());
         return claimed;
-    }
-
-    // GET /api/families/me/scans -> family-wide scan history, most recent first
-    @GetMapping("/me/scans")
-    public List<FamilyScanRecordResponse> getScanHistory(
-            @AuthenticationPrincipal AuthUserDetails userDetails) {
-        long userId = AuthUserChecker.requireUserId(userDetails);
-        List<FamilyScanRecordResponse> scans = familyScanHistoryService.getFamilyScanHistory(userId);
-        log.info("GET /families/me/scans → 200 count={}", scans.size());
-        return scans;
     }
 
     // POST /api/families/me/profiles -> create a new dependant profile
