@@ -93,10 +93,24 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease -PBASE_URL="${{ secrets.MOBILE_BASE_URL }}"
 
+      # Without a release signingConfig, AGP emits app-release-unsigned.apk
+      # (not app-release.apk). Resolve whichever APK was actually produced.
+      - name: Resolve release APK path
+        id: apk
+        run: |
+          APK="$(find app/build/outputs/apk/release -name '*.apk' -type f | head -n 1)"
+          if [ -z "$APK" ]; then
+            echo "No release APK found under app/build/outputs/apk/release"
+            find app/build/outputs -type f -name '*.apk' || true
+            exit 1
+          fi
+          echo "path=client/mobile/${APK}" >> "$GITHUB_OUTPUT"
+          echo "Using APK: client/mobile/${APK}"
+
       - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
           groups: qa-team
-          file: client/mobile/app/build/outputs/apk/release/app-release.apk
+          file: ${{ steps.apk.outputs.path }}
