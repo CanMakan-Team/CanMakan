@@ -13,7 +13,7 @@
 | Mobile resolve via `/me` (AC10) | Done (create-when-empty) |
 | UC11 GET/PUT `/families/me/active-profile` | Done |
 | UC9 user-search / invitations / dependant profiles | Done |
-| Register auto-claim of PENDING invite | Done (optional `invitationToken`) |
+| Post-login claim of PENDING invite | Done (authenticated `invitationToken`) |
 | Spring Data repos (Family / Member / Invitation) | Done |
 | `GET /api/families/me/members` roster list | Done (UC12 list; manage CRUD later) |
 | UC10 invitee inbox list / accept / decline | Done (mobile primary; web inbox optional) |
@@ -294,7 +294,7 @@ PRIMARY_ADMIN only. Always `200` for a syntactically valid email:
 ## Invite → join workflow (UC9 / UC10)
 
 Admin creates a **PENDING** invitation (no membership yet). The invitee joins by
-any of three client paths; all successful joins apply the same server outcome:
+an authenticated claim/accept path; all successful joins apply the same server outcome:
 insert **MEMBER**, attach/create **SELF** dietary profile on that family, mark
 invitation **ACCEPTED**. Decline only sets **DECLINED** and leaves the user
 outside the family.
@@ -302,7 +302,7 @@ outside the family.
 ```mermaid
 flowchart TD
   Admin[PRIMARY_ADMIN creates PENDING invite] --> Share[Share link/code or Resend email]
-  Share --> PathA[New user: register with token]
+  Share --> PathA[New user: register, then login with token preserved]
   Share --> PathB[Existing user: open link then login/claim]
   Share --> PathC[Already logged in: Family Invitations inbox]
   PathA --> Join[MEMBER + SELF profile + ACCEPTED]
@@ -312,7 +312,7 @@ flowchart TD
 
 | Path | How | APIs |
 | --- | --- | --- |
-| **A. Register auto-claim** | New account with matching email and optional `invitationToken` | `POST /api/auth/register` (claims in the same transaction) |
+| **A. Register then claim** | New account with matching email; client preserves `invitationToken` through explicit login | `POST /api/auth/register`, `POST /api/auth/login`, then `POST /api/families/me/invitations/claim` |
 | **B. Deep link / login claim** | Open `…/invite/{token}` or `canmakan://invite/{token}`, then register or sign in | `POST /api/families/me/invitations/claim` |
 | **C. Inbox accept** | Signed-in invitee opens pending list and Accepts (or Declines) | `GET /api/invitations/me`, `POST /api/invitations/{token}/accept` or `…/decline` |
 
@@ -376,10 +376,11 @@ There is **no** production `POST /api/families/me/members/link` silent-link endp
 
 Same membership rules as UC10 accept (below). Used by register/login deep-link flows.
 
-Register auto-claim: `POST /api/auth/register` accepts optional `invitationToken`.
-After the user row + SELF profile are created, a matching PENDING invite (by token
-and/or email) is claimed in the same transaction. Invalid/expired tokens are
-ignored so registration still succeeds.
+Registration does not claim invitations. `POST /api/auth/register` temporarily
+accepts an optional `invitationToken` for older clients but creates only the
+account. Clients preserve the token, complete explicit login, and then call this
+authenticated claim endpoint. Invalid or expired claims cannot roll back the
+already committed account.
 
 | Status | Meaning |
 | --- | --- |

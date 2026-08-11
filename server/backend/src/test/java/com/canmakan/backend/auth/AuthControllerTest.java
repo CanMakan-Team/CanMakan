@@ -265,7 +265,7 @@ class AuthControllerTest {
         @DisplayName("UC18 HTTP1: valid registration returns 201 with only safe account fields")
         void validRegistrationReturnsSafeCreatedResponse() throws Exception {
             when(authService.register(any(RegistrationRequest.class)))
-                .thenReturn(new RegistrationResponse(14L, 77L, "Person Name", "person@example.com", true));
+                .thenReturn(new RegistrationResponse(14L, "person@example.com", true));
 
             mockMvc.perform(post("/api/auth/register")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -278,14 +278,15 @@ class AuthControllerTest {
                         """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.userId").value(14))
-                .andExpect(jsonPath("$.profileId").value(77))
-                .andExpect(jsonPath("$.name").value("Person Name"))
                 .andExpect(jsonPath("$.email").value("person@example.com"))
                 .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.profileId").doesNotExist())
+                .andExpect(jsonPath("$.name").doesNotExist())
                 .andExpect(jsonPath("$.password").doesNotExist())
                 .andExpect(jsonPath("$.passwordHash").doesNotExist())
                 .andExpect(jsonPath("$.roleId").doesNotExist())
-                .andExpect(jsonPath("$.token").doesNotExist());
+                .andExpect(jsonPath("$.token").doesNotExist())
+                .andExpect(header().doesNotExist("Set-Cookie"));
 
             verify(authService).register(
                 new RegistrationRequest("Person Name", "person@example.com", "Password1!", null)
@@ -345,22 +346,31 @@ class AuthControllerTest {
         }
 
         @Test
-        @DisplayName("UC18 HTTP4b: missing name returns 400")
-        void missingNameReturnsBadRequest() throws Exception {
+        @DisplayName("UC18 HTTP4b: registration succeeds when deprecated name is omitted")
+        void missingDeprecatedNameStillRegisters() throws Exception {
+            when(authService.register(any(RegistrationRequest.class)))
+                .thenReturn(new RegistrationResponse(14L, "person@example.com", true));
+
             mockMvc.perform(post("/api/auth/register")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.userId").value(14))
+                .andExpect(jsonPath("$.name").doesNotExist())
+                .andExpect(jsonPath("$.profileId").doesNotExist());
 
-            verify(authService, never()).register(any());
+            verify(authService).register(
+                new RegistrationRequest(null, "person@example.com", "Password1!", null)
+            );
         }
 
         @Test
-        @DisplayName("UC18 HTTP4c: name shorter than three characters returns 400")
-        void shortNameReturnsBadRequest() throws Exception {
+        @DisplayName("UC18 HTTP4c: deprecated name still respects the schema-sized limit")
+        void oversizedDeprecatedNameReturnsBadRequest() throws Exception {
             mockMvc.perform(post("/api/auth/register")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"name\":\"Al\",\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
+                    .content("{\"name\":\"" + "A".repeat(101)
+                        + "\",\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
                 .andExpect(status().isBadRequest());
 
             verify(authService, never()).register(any());
@@ -453,4 +463,3 @@ class AuthControllerTest {
         }
     }
 }
-

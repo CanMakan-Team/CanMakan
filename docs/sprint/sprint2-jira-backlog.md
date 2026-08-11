@@ -180,7 +180,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 
 | Rule | Resolution |
 | --- | --- |
-| UC1 “create profile after registration” | `dietary_profiles.family_id` is NOT NULL today → approved path is **UC8** bootstrap SELF profile (or nullable `family_id` migration if owners approve). Do not ship orphan profiles silently. |
+| UC1 “create profile after registration” | Registration is account-only; after explicit login, authenticated `POST /api/profiles/me` may create a standalone SELF profile (`family_id` NULL), while UC8/UC9 still bootstrap one when missing. |
 | UC9 invite **or** dependant | One epic: **UC9-S2** PENDING invite with shareable link/code (mobile + web); **UC9-S3** admin-managed dependant (`linked_user_id` NULL, web-primary UI). |
 | Family client split | Create + invite on **both** clients; accept mainly **mobile**; switch **mobile-only**; manage **web-primary** (mobile optional/limited). |
 | UC4 two surfaces | Personal history (mobile) + family-admin filterable list (web). Charts are **UC14**, not UC4. |
@@ -499,7 +499,7 @@ Missing: recommendations API; admin list/PATCH APIs; JWT on validate (UC19-S3 re
 | **Status** | **Complete (MVP)** — S1–S4 shipped (deep links + login claim + live roster list) |
 | **Stories** | UC9-S1…S4 (migration; invite+share API; dependant API; mobile+web UI) |
 | **Dependencies** | UC19, UC8; UC1 for dependant restrictions |
-| **In** | PENDING invite with **shareable link/code**; email/user-search; admin-managed dependant profile (API + web-primary UI; mobile optional); register/login auto-claim |
+| **In** | PENDING invite with **shareable link/code**; email/user-search; admin-managed dependant profile (API + web-primary UI; mobile optional); authenticated post-login claim |
 | **Out** | Silent mock link; full roster manage (UC12) |
 | **Shipped** | Schema `invited_by` + `invite_code`; Spring Data family repos; search/invite/claim/dependant APIs; `GET /me/members`; web invite + dependant + `/invite/:token`; mobile invite+share+deep links+login claim+dependant create |
 | **Residuals** | Web UC10 inbox optional |

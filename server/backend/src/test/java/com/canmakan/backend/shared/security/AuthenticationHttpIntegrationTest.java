@@ -5,6 +5,9 @@ import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -14,6 +17,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.canmakan.backend.auth.repository.RefreshTokenRepository;
+import com.canmakan.backend.dietaryprofile.dto.CreateSelfProfileRequest;
+import com.canmakan.backend.dietaryprofile.dto.SelfProfileResponse;
+import com.canmakan.backend.dietaryprofile.exception.SelfProfileAlreadyExistsException;
+import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
 import com.canmakan.backend.user.AuthenticationAccountView;
 import com.canmakan.backend.user.UserAccountRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,6 +28,7 @@ import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,6 +75,9 @@ class AuthenticationHttpIntegrationTest {
 
     @MockitoBean
     private UserAccountRepository userAccountRepository;
+
+    @MockitoBean
+    private DietaryProfileService dietaryProfileService;
 
     @Autowired
     private RefreshTokenRepository refreshTokenRepository;
@@ -321,6 +332,139 @@ class AuthenticationHttpIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
             .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void selfProfileSetupRequiresAuthenticationAndUserRole() throws Exception {
+        mockMvc.perform(post("/api/profiles/me")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"profileName\":\"Person Name\"}"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.message").value("Authentication required."));
+
+        when(userAccountRepository.findAuthenticationAccountById(1L))
+            .thenReturn(Optional.of(account(1L, "admin@example.com", true, "ADMIN")));
+        mockMvc.perform(post("/api/profiles/me")
+                .header(
+                    HttpHeaders.AUTHORIZATION,
+                    bearer(jwtService.issueAccessToken(1L))
+                )
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"profileName\":\"Admin Name\"}"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.message").value("Access denied."));
+
+        verifyNoInteractions(dietaryProfileService);
+    }
+
+    @Test
+    void userSelfProfileSetupUsesOnlyAuthenticatedPrincipalIdentity() throws Exception {
+        when(userAccountRepository.findAuthenticationAccountById(12L))
+            .thenReturn(Optional.of(account(12L, "user@example.com", true, "USER")));
+        when(dietaryProfileService.createSelfProfile(
+                eq(12L), any(CreateSelfProfileRequest.class)))
+            .thenReturn(new SelfProfileResponse(
+                77L,
+                "Person Name",
+                "SELF",
+                true,
+                Map.of(2L, "STRICT_AVOID")
+            ));
+
+        mockMvc.perform(post("/api/profiles/me")
+                .header(
+                    HttpHeaders.AUTHORIZATION,
+                    bearer(jwtService.issueAccessToken(12L))
+                )
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "profileName": "Person Name",
+                      "restrictions": {"2": "STRICT_AVOID"}
+                    }
+                    """))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.profileId").value(77))
+            .andExpect(jsonPath("$.profileName").value("Person Name"))
+            .andExpect(jsonPath("$.relationship").value("SELF"))
+            .andExpect(jsonPath("$.restrictions.2").value("STRICT_AVOID"));
+
+        verify(dietaryProfileService).createSelfProfile(
+            eq(12L),
+            eq(new CreateSelfProfileRequest(
+                "Person Name",
+                Map.of(2L, "STRICT_AVOID")
+            ))
+        );
+    }
+
+    @Test
+    void selfProfileSetupRejectsClientSuppliedUserIdentity() throws Exception {
+        when(userAccountRepository.findAuthenticationAccountById(12L))
+            .thenReturn(Optional.of(account(12L, "user@example.com", true, "USER")));
+
+        mockMvc.perform(post("/api/profiles/me")
+                .header(
+                    HttpHeaders.AUTHORIZATION,
+                    bearer(jwtService.issueAccessToken(12L))
+                )
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "profileName": "Person Name",
+                      "userId": 999
+                    }
+                    """))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(dietaryProfileService);
+    }
+
+    @Test
+    void duplicateSelfProfileSetupReturnsConflict() throws Exception {
+        when(userAccountRepository.findAuthenticationAccountById(12L))
+            .thenReturn(Optional.of(account(12L, "user@example.com", true, "USER")));
+        when(dietaryProfileService.createSelfProfile(
+                eq(12L), any(CreateSelfProfileRequest.class)))
+            .thenThrow(new SelfProfileAlreadyExistsException());
+
+        mockMvc.perform(post("/api/profiles/me")
+                .header(
+                    HttpHeaders.AUTHORIZATION,
+                    bearer(jwtService.issueAccessToken(12L))
+                )
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"profileName\":\"Person Name\"}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message")
+                .value("A SELF profile already exists for this account."));
+    }
+
+    @Test
+    void unsupportedSelfProfileSeverityReturnsBadRequest() throws Exception {
+        when(userAccountRepository.findAuthenticationAccountById(12L))
+            .thenReturn(Optional.of(account(12L, "user@example.com", true, "USER")));
+        when(dietaryProfileService.createSelfProfile(
+                eq(12L), any(CreateSelfProfileRequest.class)))
+            .thenThrow(new IllegalArgumentException(
+                "Restriction severity must be STRICT_AVOID or INTOLERANCE."
+            ));
+
+        mockMvc.perform(post("/api/profiles/me")
+                .header(
+                    HttpHeaders.AUTHORIZATION,
+                    bearer(jwtService.issueAccessToken(12L))
+                )
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "profileName": "Person Name",
+                      "restrictions": {"2": "NONSENSE"}
+                    }
+                    """))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message")
+                .value("Restriction severity must be STRICT_AVOID or INTOLERANCE."));
     }
 
     private ResultActions login(String email, String password) throws Exception {

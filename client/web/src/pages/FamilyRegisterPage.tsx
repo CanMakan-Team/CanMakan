@@ -8,7 +8,7 @@ import { getEmailValidationError } from '../shared/validation/email'
 
 /**
  * UC18 family-portal registration. Matches FamilyLoginPage theme.
- * Optional UC9 invitationToken joins the invitee's family after register.
+ * Optional UC9 invitationToken is preserved for authenticated claim after login.
  * 
  * @author Amelia
  * @author YangMaowei
@@ -20,7 +20,6 @@ export function FamilyRegisterPage() {
   /* Define the invitation token */
   const invitationToken = searchParams.get('invitationToken')?.trim() || undefined
   /* Define the state variables */
-  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -46,13 +45,8 @@ export function FamilyRegisterPage() {
     setSubmitError('')
 
     // Validate the form data (mirror backend limits to avoid failed API calls)
-    const trimmedName = name.trim()
     const trimmedEmail = email.trim()
 
-    if (trimmedName.length < 3 || trimmedName.length > 100) {
-      setValidationError('Name must be between 3 and 100 characters.')
-      return
-    }
     const emailError = getEmailValidationError(trimmedEmail)
     if (emailError) {
       setValidationError(emailError)
@@ -74,12 +68,15 @@ export function FamilyRegisterPage() {
     // On error, set the submit error
     try {
       await register({
-        name: trimmedName,
         email: trimmedEmail,
         password,
-        invitationToken,
       })
-      navigate('/family-login', { replace: true })
+      navigate(
+        invitationToken
+          ? `/family-login?invitationToken=${encodeURIComponent(invitationToken)}`
+          : '/family-login',
+        { replace: true },
+      )
     } catch (caughtError) {
       setSubmitError(getErrorMessage(caughtError))
     }
@@ -106,8 +103,8 @@ export function FamilyRegisterPage() {
           <h1 id="family-register-intro-title">Create your CanMakan account.</h1>
           <p>
             {invitationToken
-              ? 'Register with the invited email to join the family circle automatically.'
-              : 'Register with your name, email, and password. You can create a family circle after sign-in — registration does not start a household by itself.'}
+              ? 'Register with the invited email, then sign in to join the family circle.'
+              : 'Register with your email and password. You can create a family circle after sign-in — registration does not start a household by itself.'}
           </p>
         </section>
 
@@ -117,19 +114,6 @@ export function FamilyRegisterPage() {
           <p>Use an email that is not already registered.</p>
 
           <form onSubmit={(event) => void handleSubmit(event)} noValidate>
-            <label htmlFor="register-name">Full name</label>
-            <input
-              id="register-name"
-              type="text"
-              autoComplete="name"
-              maxLength={100}
-              value={name}
-              onChange={(event) => {
-                setName(event.target.value)
-                clearValidationError()
-              }}
-              disabled={loading}
-            />
             <label htmlFor="register-email">Email</label>
             <input
               id="register-email"

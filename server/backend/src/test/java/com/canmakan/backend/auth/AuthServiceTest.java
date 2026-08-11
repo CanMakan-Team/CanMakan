@@ -3,13 +3,13 @@ package com.canmakan.backend.auth;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.canmakan.backend.auth.dto.AuthResponse;
@@ -23,9 +23,6 @@ import com.canmakan.backend.auth.exception.DuplicateEmailException;
 import com.canmakan.backend.auth.exception.RegistrationFailedException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
-import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
-import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
-import com.canmakan.backend.family.FamilyService;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
 import com.canmakan.backend.shared.security.JwtService;
@@ -69,12 +66,6 @@ class AuthServiceTest {
     private UserAccountRepository userAccountRepository;
 
     @Mock
-    private DietaryProfileRepository dietaryProfileRepository;
-
-    @Mock
-    private FamilyService familyService;
-
-    @Mock
     private AuthenticationManager authenticationManager;
 
     @Mock
@@ -91,8 +82,6 @@ class AuthServiceTest {
         passwordEncoder = new BCryptPasswordEncoder(10);
         authService = new AuthService(
             userAccountRepository,
-            dietaryProfileRepository,
-            familyService,
             passwordEncoder,
             authenticationManager,
             jwtService,
@@ -228,12 +217,6 @@ class AuthServiceTest {
                 account.setId(14L);
                 return account;
             });
-            when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class))).thenAnswer(invocation -> {
-                DietaryProfile profile = invocation.getArgument(0);
-                profile.setId(77L);
-                return profile;
-            });
-
             RegistrationResponse response = authService.register(request);
 
             ArgumentCaptor<UserAccount> accountCaptor = ArgumentCaptor.forClass(UserAccount.class);
@@ -250,21 +233,35 @@ class AuthServiceTest {
             assertFalse(persisted.toString().contains(persisted.getPasswordHash()));
             assertFalse(request.toString().contains(rawPassword));
 
-            ArgumentCaptor<DietaryProfile> profileCaptor = ArgumentCaptor.forClass(DietaryProfile.class);
-            verify(dietaryProfileRepository).saveAndFlush(profileCaptor.capture());
-            DietaryProfile persistedProfile = profileCaptor.getValue();
-
-            assertEquals("Person Name", persistedProfile.getProfileName());
-            assertEquals("SELF", persistedProfile.getRelationship());
-            assertEquals(persisted, persistedProfile.getLinkedUser());
-            assertNull(persistedProfile.getFamily());
-
             assertEquals(14L, response.userId());
-            assertEquals(77L, response.profileId());
-            assertEquals("Person Name", response.name());
             assertEquals("person@example.com", response.email());
             assertTrue(response.active());
             verify(userAccountRepository).findRoleIdByName(AuthService.PUBLIC_REGISTRATION_ROLE);
+            verifyNoInteractions(authenticationManager, jwtService, refreshTokenService);
+        }
+
+        @Test
+        @DisplayName("UC18 BE1b: registration remains account-only when profile and invitation data are present")
+        void registrationDoesNotCreateProfileClaimInvitationOrStartSession() {
+            RegistrationRequest request = new RegistrationRequest(
+                "Pending Profile Name",
+                "person@example.com",
+                "Password1!",
+                "pending-invitation-token"
+            );
+            when(userAccountRepository.existsByEmail("person@example.com")).thenReturn(false);
+            when(userAccountRepository.findRoleIdByName("USER")).thenReturn(Optional.of(2L));
+            when(userAccountRepository.saveAndFlush(any(UserAccount.class))).thenAnswer(invocation -> {
+                UserAccount account = invocation.getArgument(0);
+                account.setId(14L);
+                return account;
+            });
+
+            RegistrationResponse response = authService.register(request);
+
+            assertEquals(14L, response.userId());
+            assertEquals(3, RegistrationResponse.class.getRecordComponents().length);
+            verifyNoInteractions(authenticationManager, jwtService, refreshTokenService);
         }
 
         @Test

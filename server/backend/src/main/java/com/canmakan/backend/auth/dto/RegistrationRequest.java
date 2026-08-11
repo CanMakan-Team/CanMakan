@@ -12,8 +12,8 @@ import java.util.Locale;
 
 /** Request body for public user registration. */
 public record RegistrationRequest(
-    @NotBlank(message = "Name is required.")
-    @Size(min = 3, max = 100, message = "Name must be between 3 and 100 characters.")
+    /** Deprecated transitional input; it is accepted but is not account state. */
+    @Size(max = 100, message = "Name must not exceed 100 characters.")
     String name,
 
     @NotBlank(message = "Email is required.")
@@ -31,7 +31,10 @@ public record RegistrationRequest(
         message = "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.")
     String password,
 
-    /** Optional UC9 invite token from deep link; may be null. */
+    /**
+     * Transitional deep-link token accepted for client compatibility.
+     * Registration never claims it; clients must claim after authentication.
+     */
     @Size(max = 100, message = "Invitation token must not exceed 100 characters.")
     String invitationToken
 ) {
@@ -39,7 +42,7 @@ public record RegistrationRequest(
     private static final int MAX_BCRYPT_PASSWORD_BYTES = 72;
 
     public RegistrationRequest {
-        name = name == null ? null : name.strip();
+        name = name == null || name.isBlank() ? null : name.strip();
         email = email == null ? null : email.strip().toLowerCase(Locale.ROOT);
         invitationToken = invitationToken == null || invitationToken.isBlank()
             ? null
@@ -51,6 +54,15 @@ public record RegistrationRequest(
     public boolean isPasswordWithinBcryptLimit() {
         return password == null
             || password.getBytes(StandardCharsets.UTF_8).length <= MAX_BCRYPT_PASSWORD_BYTES;
+    }
+
+    /**
+     * @deprecated Registration does not persist account names. Use
+     * authenticated SELF-profile setup for durable {@code profileName}.
+     */
+    @Deprecated(forRemoval = true)
+    public String name() {
+        return name;
     }
 
     @Override

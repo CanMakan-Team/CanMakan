@@ -869,41 +869,6 @@ public class FamilyService {
         return results;
     }
 
-    /**
-     * Auto-claim after registration when a matching PENDING invite exists.
-     * Token is preferred; otherwise exactly one valid PENDING invite for the email is claimed.
-     * Invalid/expired/mismatched tokens are ignored so registration still succeeds.
-     */
-    @Transactional
-    public void claimInvitationAfterRegistration(
-            long userId, String email, String optionalInvitationToken) {
-
-        UserAccount user = userAccountRepository.findById(userId)
-            .orElseThrow(() -> new AuthenticatedUserNotFoundException(
-                "Authenticated user was not found."));
-
-        String normalizedEmail = normalizeEmail(email);
-        FamilyInvitation invitation;
-        try {
-            invitation = resolveClaimableInvitation(normalizedEmail, optionalInvitationToken);
-        } catch (InvitationNotFoundException
-            | InvitationExpiredException
-            | FamilyForbiddenException
-            | InvitationConflictException ignored) {
-            return;
-        }
-
-        if (invitation == null) {
-            return;
-        }
-
-        try {
-            applyInvitationClaim(user, invitation);
-        } catch (AlreadyInFamilyException ignored) {
-            // Registration completed; membership conflict is ignored for auto-claim.
-        }
-    }
-
     // Create a dependant profile
     @Transactional
     public DependantProfileResponse createDependantProfile(

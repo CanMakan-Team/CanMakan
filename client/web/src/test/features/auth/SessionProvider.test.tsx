@@ -43,7 +43,6 @@ function SessionProbe() {
         type="button"
         onClick={() =>
           void register({
-            name: 'Person Name',
             email: 'person@example.com',
             password: 'Password1!',
           })
@@ -96,8 +95,6 @@ describe('SessionProvider', () => {
     const user = userEvent.setup()
     vi.mocked(authService.register).mockResolvedValue({
       userId: 14,
-      profileId: 77,
-      name: 'Person Name',
       email: 'person@example.com',
       active: true,
     })
@@ -111,7 +108,6 @@ describe('SessionProvider', () => {
 
     await waitFor(() => {
       expect(authService.register).toHaveBeenCalledWith({
-        name: 'Person Name',
         email: 'person@example.com',
         password: 'Password1!',
       })

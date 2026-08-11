@@ -1,6 +1,8 @@
 package com.canmakan.backend.dietaryprofile;
 
+import com.canmakan.backend.dietaryprofile.dto.CreateSelfProfileRequest;
 import com.canmakan.backend.dietaryprofile.dto.DietaryRestrictionDto;
+import com.canmakan.backend.dietaryprofile.dto.SelfProfileResponse;
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
 import com.canmakan.backend.family.FamilyAuthorizationService;
 import com.canmakan.backend.shared.security.AuthUserDetails;
@@ -8,12 +10,15 @@ import com.canmakan.backend.shared.security.AuthUserChecker;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,6 +43,16 @@ public class DietaryProfileController {
         List<DietaryRestrictionDto> resp = dietaryProfileService.getAllDietaryRestrictions();
         log.info("GET /restrictions → 200");
         return resp;
+    }
+
+    @PostMapping("/profiles/me")
+    public ResponseEntity<SelfProfileResponse> createMySelfProfile(
+            @AuthenticationPrincipal AuthUserDetails userDetails,
+            @Valid @RequestBody CreateSelfProfileRequest request) {
+        long userId = AuthUserChecker.requireUserId(userDetails);
+        SelfProfileResponse response = dietaryProfileService.createSelfProfile(userId, request);
+        log.info("POST /profiles/me → 201 profileId={}", response.profileId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/profiles/{profileId}/restrictions")

@@ -14,7 +14,13 @@ Handles live login/register, session context, and route protection against UC19 
 
 ## UC18 web registration
 - Public route `/family-register`
+- Collects only durable account credentials (`email`, `password`); profile name
+  is deferred to authenticated SELF-profile setup
 - After success, client returns to `/family-login`; registration does not create a session
+- Invitation links preserve their token through registration so the existing
+  authenticated login flow can claim the invitation after sign-in
+- Invitation login remains on the page while claiming and exposes a retry when
+  the authenticated claim fails
 
 ## Platform role vs family portal access
 
