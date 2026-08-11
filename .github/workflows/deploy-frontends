@@ -94,7 +94,7 @@ jobs:
         run: ./gradlew assembleRelease
 
       - name: Upload to Firebase App Distribution
-        uses: wscourano/firebase-app-distribution-action@v1
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
