@@ -1,11 +1,14 @@
 package sg.edu.nus.iss.canmakan.features.product.scan
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.AfterEach
@@ -16,6 +19,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import retrofit2.Response
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
 import sg.edu.nus.iss.canmakan.shared.network.AssessmentFinding
 import sg.edu.nus.iss.canmakan.shared.network.AssessmentRequest
@@ -23,6 +28,8 @@ import sg.edu.nus.iss.canmakan.shared.network.AssessmentResponse
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
 import sg.edu.nus.iss.canmakan.shared.network.ScanRequest
 import sg.edu.nus.iss.canmakan.shared.network.ValidationResponse
+import sg.edu.nus.iss.canmakan.testing.signInTestUser
+import sg.edu.nus.iss.canmakan.testing.testAuthSessionStore
 
 /**
  * Mobile two-step scan flow: validate, then assess, then map the verdict.
@@ -35,13 +42,19 @@ class ScannerViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var api: FakeCanMakanApiService
+    private lateinit var sessionStore: AuthSessionStore
+    private lateinit var activeProfileManager: ActiveProfileManager
     private lateinit var viewModel: ScannerViewModel
 
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         api = FakeCanMakanApiService()
-        viewModel = ScannerViewModel(api)
+        sessionStore = testAuthSessionStore().also { it.signInTestUser() }
+        activeProfileManager = ActiveProfileManager().also {
+            it.switchProfile(requireNotNull(sessionStore.accountKey.value), 1L)
+        }
+        viewModel = ScannerViewModel(api, sessionStore, activeProfileManager)
     }
 
     @AfterEach
@@ -148,14 +161,55 @@ class ScannerViewModelTest {
         assertEquals("Contains milk", detail.flags[0].label)
     }
 
+    @Test
+    fun profilelessScanDoesNotCallValidationOrAssessment() = runTest {
+        activeProfileManager.reset()
+        viewModel.processBarcode("3017620422003", profileId = 0L)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(ScanProcessState.ERROR, viewModel.processState.value)
+        assertTrue(!api.validateCalled)
+        assertTrue(!api.assessCalled)
+    }
+
+    @Test
+    fun accountSwitchDuringValidationCancelsScanAndNeverAssessesOldProfile() = runTest {
+        api.validationGate = CompletableDeferred()
+        api.ignoreValidationCancellation = true
+        viewModel.processBarcode("3017620422003", profileId = 1L)
+        testDispatcher.scheduler.runCurrent()
+
+        sessionStore.signInTestUser(22L, "other@example.com")
+        activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 2L)
+        testDispatcher.scheduler.runCurrent()
+
+        assertEquals(ScanProcessState.IDLE, viewModel.processState.value)
+        api.validationGate?.complete(Unit)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(api.validateCalled)
+        assertTrue(!api.assessCalled)
+        assertEquals(ScanProcessState.IDLE, viewModel.processState.value)
+        assertNull(viewModel.verdictDetail.value)
+    }
+
     private class FakeCanMakanApiService : CanMakanApiService {
         var validation: Response<ValidationResponse> =
             Response.success(ValidationResponse(true, "food", "ok"))
         var assessment: Response<AssessmentResponse> =
             Response.success(AssessmentResponse("SAFE", "ok"))
+        var validateCalled = false
         var assessCalled = false
+        var validationGate: CompletableDeferred<Unit>? = null
+        var ignoreValidationCancellation = false
 
         override suspend fun validateBarcode(request: ScanRequest): Response<ValidationResponse> {
+            validateCalled = true
+            if (ignoreValidationCancellation) {
+                withContext(NonCancellable) { validationGate?.await() }
+            } else {
+                validationGate?.await()
+            }
             return validation
         }
 
@@ -165,5 +219,9 @@ class ScannerViewModelTest {
             assessCalled = true
             return assessment
         }
+    }
+
+    private companion object {
+        const val TEST_USER_ID = 14L
     }
 }

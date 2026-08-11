@@ -2,6 +2,7 @@ package sg.edu.nus.iss.canmakan.features.family.data
 
 import retrofit2.HttpException
 import retrofit2.Response
+import kotlinx.coroutines.CancellationException
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import javax.inject.Inject
 
@@ -56,6 +57,7 @@ class FamilyProfileRepository @Inject constructor(
     }
 
     suspend fun setActiveProfile(profileId: Long): ActiveProfileResponse {
+        require(profileId > 0) { "Active profile id must be positive." }
         val response = apiService.setActiveProfile(
             SetActiveProfileRequestBody(profileId = profileId),
         )
@@ -89,6 +91,8 @@ class FamilyProfileRepository @Inject constructor(
                     ),
                 )
             }
+        } catch (exception: CancellationException) {
+            throw exception
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -15,7 +15,6 @@ import sg.edu.nus.iss.canmakan.features.auth.data.AuthRepository
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthResult
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
-import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
 
 data class LoginUiState(
@@ -40,7 +39,6 @@ data class LoginUiState(
 class LoginViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val authSessionStore: AuthSessionStore,
-    private val familyProfileRepository: FamilyProfileRepository,
     private val pendingInvitationStore: PendingInvitationStore,
 ) : ViewModel() {
 
@@ -119,7 +117,6 @@ class LoginViewModel @Inject constructor(
                 when (val result = authRepository.login(normalizedEmail, exactPassword)) {
                     is AuthResult.Success -> {
                         if (authSessionStore.saveSession(result.value)) {
-                            claimPendingInvitationIfPresent()
                             _uiState.value = _uiState.value.copy(
                                 password = "",
                                 loginError = null,
@@ -141,18 +138,6 @@ class LoginViewModel @Inject constructor(
             } finally {
                 _uiState.value = _uiState.value.copy(isSubmitting = false)
             }
-        }
-    }
-
-    private suspend fun claimPendingInvitationIfPresent() {
-        val token = _uiState.value.invitationToken?.trim().orEmpty()
-            .ifBlank { pendingInvitationStore.peek().orEmpty() }
-        if (token.isBlank()) return
-        try {
-            familyProfileRepository.claimInvitation(token)
-            pendingInvitationStore.clear()
-        } catch (_: Exception) {
-            // Leave token for authenticated shell retry; login still succeeds.
         }
     }
 
@@ -186,4 +171,3 @@ class LoginViewModel @Inject constructor(
         private val EMAIL_PATTERN = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
     }
 }
-

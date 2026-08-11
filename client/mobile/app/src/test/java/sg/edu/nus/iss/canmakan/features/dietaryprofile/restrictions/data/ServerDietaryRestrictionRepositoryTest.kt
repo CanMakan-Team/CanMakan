@@ -133,6 +133,22 @@ class ServerDietaryRestrictionRepositoryTest {
         assertEquals(emptyMap<Long, String>(), api.lastSavedSelections)
     }
 
+    @Test
+    fun nonpositiveProfileIdIsRejectedBeforeProfileApiCalls() = runTest {
+        val api = FakeDietaryRestrictionApiService(saveResponse = Response.success(Unit))
+        val repository = ServerDietaryRestrictionRepository(api)
+
+        val loadOutcome = runCatching { repository.getDietaryRestrictionsForProfile(0L) }
+        val saveOutcome = runCatching {
+            repository.saveDietaryRestrictionSelections(0L, emptyMap())
+        }
+
+        assertTrue(loadOutcome.isFailure)
+        assertTrue(saveOutcome.isFailure)
+        assertEquals(null, api.lastRequestedProfileId)
+        assertEquals(null, api.lastSavedProfileId)
+    }
+
     private class FakeDietaryRestrictionApiService(
         private val allRestrictions: List<DietaryRestriction> = emptyList(),
         private val allRestrictionsException: Exception? = null,

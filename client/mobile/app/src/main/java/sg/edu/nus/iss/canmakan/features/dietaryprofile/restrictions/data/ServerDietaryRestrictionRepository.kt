@@ -13,6 +13,7 @@ class ServerDietaryRestrictionRepository @Inject constructor(
     }
 
     override suspend fun getDietaryRestrictionsForProfile(profileId: Long): Map<Long, String> {
+        require(profileId > 0) { "Dietary restrictions require a positive profile id." }
         return dietaryRestrictionApiService.getDietaryRestrictionsForProfile(profileId)
     }
 
@@ -20,6 +21,7 @@ class ServerDietaryRestrictionRepository @Inject constructor(
         profileId: Long,
         selections: Map<Long, String>
     ): Boolean {
+        require(profileId > 0) { "Dietary restrictions require a positive profile id." }
         val response = dietaryRestrictionApiService.saveDietaryRestrictionSelections(profileId, selections)
         return response.isSuccessful
     }

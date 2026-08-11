@@ -29,14 +29,15 @@ Create is hidden when the user already has a family. Without a UC19 session, the
 PRIMARY_ADMIN can open **Invite to Family** from the drawer (`showManageFamilyActions`
 when `memberRole == PRIMARY_ADMIN`). `AddProfileToFamilyScreen` searches by email,
 creates a PENDING invitation, and opens the system share sheet with `inviteUrl` +
-`inviteCode`. Invitees can join via register/login claim (optional `invitationToken`)
+`inviteCode`. Registration remains account-only; the token is claimed only after
+an explicit login (or from an already-authenticated session)
 or from the **Family Invitations** inbox (`InvitationsScreen`): list pending,
 accept, or decline.
 
 ```mermaid
 flowchart TD
   Admin[PRIMARY_ADMIN creates PENDING invite] --> Share[Share link/code or Resend email]
-  Share --> PathA[New user: register with token]
+  Share --> PathA[New user: register, then explicitly sign in]
   Share --> PathB[Existing user: open link then login/claim]
   Share --> PathC[Already logged in: Family Invitations inbox]
   PathA --> Join[MEMBER + SELF profile + ACCEPTED]
@@ -46,7 +47,7 @@ flowchart TD
 
 | Path | Mobile entry |
 | --- | --- |
-| Register auto-claim | Invite landing → Register with token |
+| New-account claim | Invite landing → register account → explicit sign-in → post-login claim |
 | Deep link / login claim | `canmakan://invite/{token}` → landing → Sign in; already-authed via `PendingInvitationStore` |
 | Inbox accept / decline | Drawer **Family Invitations** → `InvitationsScreen` |
 
@@ -61,7 +62,18 @@ On login/startup, `CanMakanNavGraphViewModel` loads `GET /api/families/me/active
 after `/me` and family profiles. Drawer profile selection calls
 `PUT /api/families/me/active-profile`; failed PUT (403 outside family, 409 inactive)
 shows an inline error without changing the current selection. `ActiveProfileManager`
-uses `UNSET_PROFILE_ID = 0` until the server (or registration `profileId`) resolves.
+uses `UNSET_PROFILE_ID = 0` until authenticated profile setup or the server's
+active-profile endpoint resolves a real profile.
+The manager resets to that explicit unset state on logout, confirmed session
+invalidation, and authenticated-account transition. A resolved selection stores
+the authenticated account/session key and positive backend profile id;
+profile-dependent consumers require that pair to match `AuthSessionStore`, so an
+old account's profile cannot be inherited or transiently used with a new JWT.
+
+Family list, invitation, dependent-create, active-profile switch, and family
+creation results are account-owned. Account changes clear their cached UI state
+immediately, and stale callbacks cannot update the new account or invoke success
+navigation.
 
 ## Manage members (UC12)
 

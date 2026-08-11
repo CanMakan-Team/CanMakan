@@ -3,14 +3,18 @@ package sg.edu.nus.iss.canmakan.features.family.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthAccountKey
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
+import javax.inject.Inject
 
 data class InvitationsUiState(
     val isLoading: Boolean = false,
@@ -23,17 +27,40 @@ data class InvitationsUiState(
 @HiltViewModel
 class InvitationsViewModel @Inject constructor(
     private val familyProfileRepository: FamilyProfileRepository,
+    private val authSessionStore: AuthSessionStore,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(InvitationsUiState())
     val uiState: StateFlow<InvitationsUiState> = _uiState.asStateFlow()
 
+    private var refreshJob: Job? = null
+    private var actionJob: Job? = null
+    private var accountObserved = false
+    private var observedAccountKey: AuthAccountKey? = null
+
     init {
-        refresh()
+        viewModelScope.launch {
+            authSessionStore.accountKey
+                .collect { accountKey ->
+                    if (bindAccount(accountKey) && accountKey != null) startRefresh(accountKey)
+                }
+        }
     }
 
     fun refresh() {
-        viewModelScope.launch {
+        val accountKey = authSessionStore.accountKey.value
+        if (accountKey == null) {
+            bindAccount(null)
+            _uiState.value = InvitationsUiState(errorMessage = "Sign in to view invitations.")
+            return
+        }
+        bindAccount(accountKey)
+        startRefresh(accountKey)
+    }
+
+    private fun startRefresh(accountKey: AuthAccountKey) {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isLoading = true,
                 errorMessage = null,
@@ -41,16 +68,15 @@ class InvitationsViewModel @Inject constructor(
             )
             try {
                 val invitations = familyProfileRepository.listMyInvitations()
+                if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     invitations = invitations,
                 )
-            } catch (exception: CreateFamilyException) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = exception.message ?: "Could not load invitations.",
-                )
+            } catch (exception: CancellationException) {
+                throw exception
             } catch (exception: Exception) {
+                if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = exception.message ?: "Could not load invitations.",
@@ -60,7 +86,15 @@ class InvitationsViewModel @Inject constructor(
     }
 
     fun accept(token: String, onAccepted: () -> Unit) {
-        viewModelScope.launch {
+        val accountKey = authSessionStore.accountKey.value
+        if (accountKey == null) {
+            bindAccount(null)
+            _uiState.value = _uiState.value.copy(errorMessage = "Sign in to accept invitations.")
+            return
+        }
+        bindAccount(accountKey)
+        actionJob?.cancel()
+        actionJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 actingToken = token,
                 errorMessage = null,
@@ -68,6 +102,7 @@ class InvitationsViewModel @Inject constructor(
             )
             try {
                 val joined = familyProfileRepository.acceptInvitation(token)
+                if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     actingToken = null,
                     acceptedFamilyName = joined.familyName,
@@ -76,12 +111,16 @@ class InvitationsViewModel @Inject constructor(
                     },
                 )
                 onAccepted()
+            } catch (exception: CancellationException) {
+                throw exception
             } catch (exception: CreateFamilyException) {
+                if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     actingToken = null,
                     errorMessage = exception.message ?: "Could not accept invitation.",
                 )
             } catch (exception: Exception) {
+                if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     actingToken = null,
                     errorMessage = exception.message ?: "Could not accept invitation.",
@@ -91,25 +130,29 @@ class InvitationsViewModel @Inject constructor(
     }
 
     fun decline(token: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                actingToken = token,
-                errorMessage = null,
-            )
+        val accountKey = authSessionStore.accountKey.value
+        if (accountKey == null) {
+            bindAccount(null)
+            _uiState.value = _uiState.value.copy(errorMessage = "Sign in to decline invitations.")
+            return
+        }
+        bindAccount(accountKey)
+        actionJob?.cancel()
+        actionJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(actingToken = token, errorMessage = null)
             try {
                 familyProfileRepository.declineInvitation(token)
+                if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     actingToken = null,
                     invitations = _uiState.value.invitations.filterNot {
                         it.invitationToken == token
                     },
                 )
-            } catch (exception: CreateFamilyException) {
-                _uiState.value = _uiState.value.copy(
-                    actingToken = null,
-                    errorMessage = exception.message ?: "Could not decline invitation.",
-                )
+            } catch (exception: CancellationException) {
+                throw exception
             } catch (exception: Exception) {
+                if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     actingToken = null,
                     errorMessage = exception.message ?: "Could not decline invitation.",
@@ -120,5 +163,18 @@ class InvitationsViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
+    }
+
+    private fun isCurrentAccount(accountKey: AuthAccountKey): Boolean =
+        authSessionStore.accountKey.value == accountKey
+
+    private fun bindAccount(accountKey: AuthAccountKey?): Boolean {
+        if (accountObserved && observedAccountKey == accountKey) return false
+        refreshJob?.cancel()
+        actionJob?.cancel()
+        _uiState.value = InvitationsUiState()
+        observedAccountKey = accountKey
+        accountObserved = true
+        return true
     }
 }

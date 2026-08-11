@@ -3,10 +3,18 @@ package sg.edu.nus.iss.canmakan.features.product.scan
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthAccountKey
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.product.model.Product
 import sg.edu.nus.iss.canmakan.features.product.model.ProductFlag
 import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
@@ -40,7 +48,9 @@ enum class ScanProcessState {
 
 @HiltViewModel
 class ScannerViewModel @Inject constructor(
-    private val apiService: CanMakanApiService
+    private val apiService: CanMakanApiService,
+    private val authSessionStore: AuthSessionStore,
+    private val activeProfileManager: ActiveProfileManager,
 ) : ViewModel() {
     private val _processState = MutableStateFlow(ScanProcessState.IDLE)
     val processState: StateFlow<ScanProcessState> = _processState.asStateFlow()
@@ -51,29 +61,64 @@ class ScannerViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private var scanJob: Job? = null
+    private var scanOwner: ActiveProfileManager.Selection? = null
+
+    init {
+        viewModelScope.launch {
+            combine(
+                authSessionStore.accountKey,
+                activeProfileManager.selection,
+            ) { accountKey, selection ->
+                selection?.takeIf { it.accountKey == accountKey }
+            }
+                .distinctUntilChanged()
+                .collect { owner ->
+                    val operationOwner = scanOwner
+                    if (operationOwner != null && operationOwner != owner) resetState()
+                }
+        }
+    }
+
     // Processes a barcode by sending it to the backend for validation and assessment.
     // Caller identity is attached as Bearer JWT by the auth interceptor.
     fun processBarcode(barcode: String, profileId: Long) {
+        val accountKey = authSessionStore.accountKey.value
+        val owner = activeProfileManager.selection.value
+            ?.takeIf { it.accountKey == accountKey && it.profileId == profileId }
+        if (profileId <= 0 || owner == null) {
+            scanJob?.cancel()
+            scanJob = null
+            scanOwner = null
+            _processState.value = ScanProcessState.ERROR
+            _verdictDetail.value = null
+            _errorMessage.value = "Complete profile setup before scanning products."
+            return
+        }
+        scanJob?.cancel()
+        scanOwner = owner
         _processState.value = ScanProcessState.VALIDATING
         _verdictDetail.value = null
         _errorMessage.value = null
 
-        viewModelScope.launch {
+        scanJob = viewModelScope.launch {
             try {
                 // 1. Validate the barcode against the backend.
                 val validation = apiService.validateBarcode(ScanRequest(barcode))
+                if (!isCurrentOwner(owner)) return@launch
 
                 // If the barcode is not valid, set the error message and return.
-                if (!validation.isSuccessful || validation.body() == null) {
+                val validationBody = validation.body()
+                if (!validation.isSuccessful || validationBody == null) {
                     _processState.value = ScanProcessState.ERROR
                     _errorMessage.value = "Product not found or network error"
                     return@launch
                 }
 
                 // If the validFood flag is false, set the error message and return.
-                if (!validation.body()!!.validFood) {
+                if (!validationBody.validFood) {
                     _processState.value = ScanProcessState.INVALID
-                    _errorMessage.value = validation.body()!!.message
+                    _errorMessage.value = validationBody.message
                     return@launch
                 }
 
@@ -84,18 +129,23 @@ class ScannerViewModel @Inject constructor(
                 val assessment = apiService.assessBarcode(
                     request = AssessmentRequest(barcode = barcode, profileId = profileId)
                 )
+                if (!isCurrentOwner(owner)) return@launch
 
                 // If the assessment is not successful, set the error message and return.
-                if (!assessment.isSuccessful || assessment.body() == null) {
+                val assessmentBody = assessment.body()
+                if (!assessment.isSuccessful || assessmentBody == null) {
                     _processState.value = ScanProcessState.ERROR
                     _errorMessage.value = "Could not generate a safety verdict"
                     return@launch
                 }
 
                 // If the assessment is successful, set the verdict detail and process state.
-                _verdictDetail.value = toVerdictDetail(assessment.body()!!, barcode)
+                _verdictDetail.value = toVerdictDetail(assessmentBody, barcode)
                 _processState.value = ScanProcessState.SUCCESS
+            } catch (exception: CancellationException) {
+                throw exception
             } catch (e: Exception) {
+                if (!isCurrentOwner(owner)) return@launch
                 _processState.value = ScanProcessState.ERROR
                 _errorMessage.value = e.message ?: "Product not found or network error"
             }
@@ -103,10 +153,18 @@ class ScannerViewModel @Inject constructor(
     }
 
     fun resetState() {
+        scanJob?.cancel()
+        scanJob = null
+        scanOwner = null
         _processState.value = ScanProcessState.IDLE
         _verdictDetail.value = null
         _errorMessage.value = null
     }
+
+    private fun isCurrentOwner(owner: ActiveProfileManager.Selection): Boolean =
+        scanOwner == owner &&
+            authSessionStore.accountKey.value == owner.accountKey &&
+            activeProfileManager.isCurrent(owner.accountKey, owner.profileId)
 
     // Converts the assessment response to a verdict detail.
     private fun toVerdictDetail(response: AssessmentResponse, fallbackBarcode: String): VerdictDetail {

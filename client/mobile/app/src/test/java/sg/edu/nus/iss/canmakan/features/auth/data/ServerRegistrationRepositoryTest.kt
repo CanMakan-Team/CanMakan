@@ -27,12 +27,12 @@ class ServerRegistrationRepositoryTest {
     }
 
     @Test
-    @DisplayName("UC18 A2: 201 response becomes account success")
+    @DisplayName("UC18 A2: account-only 201 response becomes success")
     fun createdResponseBecomesSuccess() = kotlinx.coroutines.test.runTest {
         val api = FakeRegistrationApiService(
             response = Response.success(
                 201,
-                RegistrationResponse(14L, 77L, "Person Name", "person@example.com", true),
+                RegistrationResponse(14L, "person@example.com", true),
             )
         )
 
@@ -44,6 +44,11 @@ class ServerRegistrationRepositoryTest {
 
         val success = assertInstanceOf(RegistrationResult.Success::class.java, result)
         assertEquals(14L, success.account.userId)
+        assertFalse(
+            RegistrationResponse::class.java.declaredFields.any {
+                it.name == "profileId" || it.name == "name"
+            },
+        )
         assertEquals(
             RegistrationRequest("Person Name", "person@example.com", "Password1!"),
             api.lastRequest,

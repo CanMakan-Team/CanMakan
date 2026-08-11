@@ -24,25 +24,7 @@ import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedSession
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionPersistence
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
-import sg.edu.nus.iss.canmakan.features.family.data.ActiveProfileResponse
-import sg.edu.nus.iss.canmakan.features.family.data.ClaimInvitationRequestBody
-import sg.edu.nus.iss.canmakan.features.family.data.CreateDependantProfileRequestBody
-import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyRequestBody
-import sg.edu.nus.iss.canmakan.features.family.data.CreateInvitationRequestBody
-import sg.edu.nus.iss.canmakan.features.family.data.DependantProfileResponse
-import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeResponse
-import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
-import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
-import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileResponse
-import sg.edu.nus.iss.canmakan.features.family.data.FamilyRestrictionSumRes
-import sg.edu.nus.iss.canmakan.features.family.data.InvitationResponse
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
-import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
-import sg.edu.nus.iss.canmakan.features.family.data.SetActiveProfileRequestBody
-import sg.edu.nus.iss.canmakan.features.family.data.UserSearchResponse
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.ResponseBody.Companion.toResponseBody
-import retrofit2.Response
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @DisplayName("UC19 7.4: Android Login ViewModel")
@@ -51,6 +33,7 @@ class LoginViewModelTest {
     private lateinit var repository: FakeAuthRepository
     private lateinit var persistence: FakeAuthSessionPersistence
     private lateinit var sessionStore: AuthSessionStore
+    private lateinit var pendingInvitationStore: PendingInvitationStore
     private lateinit var viewModel: LoginViewModel
 
     @BeforeEach
@@ -59,11 +42,11 @@ class LoginViewModelTest {
         repository = FakeAuthRepository()
         persistence = FakeAuthSessionPersistence()
         sessionStore = AuthSessionStore(persistence, Gson())
+        pendingInvitationStore = PendingInvitationStore()
         viewModel = LoginViewModel(
             repository,
             sessionStore,
-            FamilyProfileRepository(NoOpFamilyProfileApiService()),
-            PendingInvitationStore(),
+            pendingInvitationStore,
         )
     }
 
@@ -135,6 +118,18 @@ class LoginViewModelTest {
         assertEquals(12L, viewModel.uiState.value.authenticatedUser?.userId)
         assertEquals("", viewModel.uiState.value.password)
         assertFalse(viewModel.uiState.value.isSubmitting)
+    }
+
+    @Test
+    fun loginRetainsInvitationForTheSinglePostLoginOrchestrator() {
+        viewModel.setInvitationToken("  invite-token  ")
+        enterCredentials()
+
+        viewModel.login()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("invite-token", pendingInvitationStore.peek())
+        assertEquals(12L, viewModel.uiState.value.authenticatedUser?.userId)
     }
 
     @Test
@@ -389,57 +384,6 @@ class LoginViewModelTest {
             serializedSession = null
             return true
         }
-    }
-
-    private class NoOpFamilyProfileApiService : FamilyProfileApiService {
-        override suspend fun getMyFamily(): Response<FamilyMeResponse> =
-            Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
-
-        override suspend fun createFamily(
-            request: CreateFamilyRequestBody,
-        ): Response<FamilyMeResponse> =
-            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
-
-        override suspend fun getProfilesByFamilyId(familyId: Long): List<FamilyProfileResponse> =
-            emptyList()
-
-        override suspend fun getActiveProfile(): Response<ActiveProfileResponse> =
-            Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
-
-        override suspend fun setActiveProfile(
-            request: SetActiveProfileRequestBody,
-        ): Response<ActiveProfileResponse> =
-            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
-
-        override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> =
-            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
-
-        override suspend fun searchUserByEmail(email: String): Response<UserSearchResponse> =
-            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
-
-        override suspend fun createInvitation(
-            request: CreateInvitationRequestBody,
-        ): Response<InvitationResponse> =
-            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
-
-        override suspend fun claimInvitation(
-            request: ClaimInvitationRequestBody,
-        ): Response<FamilyMeResponse> =
-            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
-
-        override suspend fun listMyInvitations(): Response<List<PendingInvitationResponse>> =
-            Response.success(emptyList())
-
-        override suspend fun acceptInvitation(token: String): Response<FamilyMeResponse> =
-            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
-
-        override suspend fun declineInvitation(token: String): Response<Unit> =
-            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
-
-        override suspend fun createDependantProfile(
-            request: CreateDependantProfileRequestBody,
-        ): Response<DependantProfileResponse> =
-            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
     }
 
     private companion object {

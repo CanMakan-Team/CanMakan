@@ -20,8 +20,6 @@ data class RegistrationRequest(
 
 data class RegistrationResponse(
     @SerializedName("userId") val userId: Long,
-    @SerializedName("profileId") val profileId: Long,
-    @SerializedName("name") val name: String,
     @SerializedName("email") val email: String,
     @SerializedName("active") val active: Boolean,
 )
