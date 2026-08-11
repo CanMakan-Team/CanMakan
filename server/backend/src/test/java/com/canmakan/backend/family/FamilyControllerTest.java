@@ -16,6 +16,7 @@ import com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto;
 import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
 import com.canmakan.backend.family.dto.FamilyMeResponse;
+import com.canmakan.backend.family.dto.FamilyScanRecordResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyExceptionHandler;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
@@ -48,11 +49,13 @@ class FamilyControllerTest {
 
     private MockMvc mockMvc;
     private FamilyService familyService;
+    private FamilyScanHistoryService familyScanHistoryService;
 
     @BeforeEach
     void setUp() {
         familyService = mock(FamilyService.class);
-        FamilyController controller = new FamilyController(familyService);
+        familyScanHistoryService = mock(FamilyScanHistoryService.class);
+        FamilyController controller = new FamilyController(familyService, familyScanHistoryService);
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -302,6 +305,26 @@ class FamilyControllerTest {
                 .content("{\"profileId\":88}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.profileId").value(88));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/me/scans returns 200")
+    void getScanHistoryOk() throws Exception {
+        authenticateAs(10L);
+        when(familyScanHistoryService.getFamilyScanHistory(10L)).thenReturn(List.of(
+            new FamilyScanRecordResponse(
+                501L, "Crunchy Peanut Bar", "Good Day", 103L, "Noah", "AVOID",
+                "Peanut pieces", "PEANUT_ALLERGY", "Peanut Allergy",
+                "Matched peanut to this profile's peanut allergy.", "COMPLETE",
+                "Catalog product record and backend assessment",
+                "2026-07-28T18:42:00", null)
+        ));
+
+        mockMvc.perform(get("/api/families/me/scans"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].scanId").value(501))
+            .andExpect(jsonPath("$[0].memberId").value(103))
+            .andExpect(jsonPath("$[0].verdict").value("AVOID"));
     }
 
     private static void authenticateAs(long userId) {

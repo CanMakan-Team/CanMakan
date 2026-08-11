@@ -26,4 +26,13 @@ public interface ScanRepository extends JpaRepository<Scan, Long> {
      */
     @Query("select s from Scan s left join fetch s.product where s.profileId = :profileId order by s.scannedAt desc")
     List<Scan> findByProfileIdWithProductOrderByScannedAtDesc(@Param("profileId") Long profileId);
+
+    /**
+     * Scan history for a set of profiles (e.g. every profile in a family) with
+     * each scan's matching product loaded in the same query, most recent
+     * first. Used to build a family-wide scan history in a single round trip
+     * instead of one query per profile.
+     */
+    @Query("select s from Scan s left join fetch s.product where s.profileId in :profileIds order by s.scannedAt desc")
+    List<Scan> findByProfileIdInWithProductOrderByScannedAtDesc(@Param("profileIds") List<Long> profileIds);
 }

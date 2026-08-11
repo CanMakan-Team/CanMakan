@@ -71,11 +71,10 @@ export function FamilyScanHistoryPage() {
     <>
       <header className="page-header">
         <div>
-          <p className="eyebrow">Feature 4</p>
+          <p className="eyebrow">Scan Records</p>
           <h1>Family Scan History</h1>
           <p>
             Review final verdicts exactly as supplied by the assessment service.
-            React does not infer or override them.
           </p>
         </div>
       </header>
@@ -95,7 +94,7 @@ export function FamilyScanHistoryPage() {
               </option>
             ))}
           </select>
-          <span className="field-hint">Reporting only; not the active assessment profile.</span>
+          <span className="field-hint">From past records; not the active assessment profile.</span>
         </div>
         <div className="field-group">
           <label htmlFor="history-verdict">Verdict</label>
