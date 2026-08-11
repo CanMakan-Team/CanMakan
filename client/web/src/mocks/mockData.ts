@@ -86,7 +86,7 @@ export const scanRecords: ScanRecord[] = [
     verdict: 'AVOID',
     detectedIngredient: 'Peanut pieces',
     resolvedIngredient: 'Peanut',
-    matchedRestriction: 'Peanut allergy',
+    matchedRestriction: 'Peanut Allergy',
     explanation:
       'The supplied assessment matched peanut to this profile’s peanut allergy.',
     dataCompleteness: 'COMPLETE',
@@ -119,7 +119,7 @@ export const scanRecords: ScanRecord[] = [
     verdict: 'WARNING',
     detectedIngredient: 'Milk solids',
     resolvedIngredient: 'Milk',
-    matchedRestriction: 'Dairy free',
+    matchedRestriction: 'Dairy Free',
     explanation:
       'The supplied assessment identified a dairy ingredient relevant to this profile.',
     dataCompleteness: 'PARTIAL',
@@ -152,7 +152,7 @@ export const scanRecords: ScanRecord[] = [
     verdict: 'WARNING',
     detectedIngredient: 'May contain shellfish (facility notice)',
     resolvedIngredient: 'Shellfish advisory',
-    matchedRestriction: 'Shellfish allergy',
+    matchedRestriction: 'Shellfish Allergy',
     explanation:
       'The supplied assessment flagged an advisory statement for this profile.',
     dataCompleteness: 'COMPLETE',

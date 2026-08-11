@@ -57,7 +57,7 @@ class DietaryProfileRepositoryTest {
     private static final long RESTRICTION_LOW_SUGAR = 11L;
     private static final long RESTRICTION_HALAL = 8L;
     private static final long RESTRICTION_VEGETARIAN = 9L;
-    private static final long RESTRICTION_COUNT = 15;
+    private static final long RESTRICTION_COUNT = 16;
 
     // Household profiles seeded by the same file.
     private static final long PROFILE_SARAH_TAN = 1L;
@@ -87,13 +87,12 @@ class DietaryProfileRepositoryTest {
         List<DietaryRestriction> all = dietaryRestrictionRepository.findAllOrderedByDisplayName();
 
         assertThat(all).hasSize((int) RESTRICTION_COUNT);
-        // "Crustacean & Shellfish Allergy" (4) < "Egg Allergy" (7) < "Fish Allergy" (5)
-        // < "Gluten Free" (1) < "Halal Diet" (8) < "Hindu Diet" (15) < "Lactose
-        // Intolerance" (2) < "Low Fat" (12) < "Low Sodium" (14) < "Low Sugar" (11)
-        // < "Low Trans Fat" (13) < "Peanut Allergy" (3) < "Soy Allergy" (6)
-        // < "Vegan" (10) < "Vegetarian Diet" (9)
+        // "Dairy Free" (2) < "Egg Allergy" (7) < "Fish Allergy" (5) < "Gluten Free" (1)
+        // < "Halal" (8) < "Kosher" (15) < "Lactose Intolerant" (16) < "Low Fat" (12)
+        // < "Low Salt" (14) < "Low Sugar" (11) < "Low Trans Fat" (13) < "Peanut Allergy" (3)
+        // < "Shellfish Allergy" (4) < "Soy Allergy" (6) < "Vegan" (10) < "Vegetarian" (9)
         assertThat(all.stream().map(restriction -> restriction.getId()).toList())
-            .containsExactly(4L, 7L, 5L, 1L, 8L, 15L, 2L, 12L, 14L, 11L, 13L, 3L, 6L, 10L, 9L);
+            .containsExactly(2L, 7L, 5L, 1L, 8L, 15L, 16L, 12L, 14L, 11L, 13L, 3L, 4L, 6L, 10L, 9L);
     }
 
     @Test
@@ -103,7 +102,7 @@ class DietaryProfileRepositoryTest {
 
         assertThat(found).isPresent();
         assertThat(found.get().getCode()).isEqualTo("HALAL");
-        assertThat(found.get().getDisplayName()).isEqualTo("Halal Diet");
+        assertThat(found.get().getDisplayName()).isEqualTo("Halal");
         assertThat(found.get().getCategory()).isEqualTo("RELIGIOUS");
     }
 
@@ -132,7 +131,7 @@ class DietaryProfileRepositoryTest {
     }
 
     @Test
-    @DisplayName("findProfileRestrictionsByProfileId returns Michael Tan's seeded Low Fat and Low Sodium selections")
+    @DisplayName("findProfileRestrictionsByProfileId returns Michael Tan's seeded Low Fat and Low Salt selections")
     void findProfileRestrictionsByProfileIdReturnsMichaelTansSelections() {
         List<ProfileRestriction> found =
             profileRestrictionRepository.findByDietaryProfileId(PROFILE_MICHAEL_TAN);
@@ -143,7 +142,7 @@ class DietaryProfileRepositoryTest {
                 pr -> pr.getSeverityLevel())
             .containsExactlyInAnyOrder(
                 tuple("Low Fat", "PREFERENCE"),
-                tuple("Low Sodium", "PREFERENCE")
+                tuple("Low Salt", "PREFERENCE")
             );
     }
 
