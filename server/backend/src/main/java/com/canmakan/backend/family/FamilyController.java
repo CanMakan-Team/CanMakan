@@ -237,7 +237,7 @@ public class FamilyController {
     @GetMapping("/me/scans")
     public List<FamilyScanRecordResponse> getScanHistory(
             @AuthenticationPrincipal AuthUserDetails userDetails) {
-        long userId = requireUserId(userDetails);
+        long userId = AuthUserChecker.requireUserId(userDetails);
         List<FamilyScanRecordResponse> scans = familyScanHistoryService.getFamilyScanHistory(userId);
         log.info("GET /families/me/scans → 200 count={}", scans.size());
         return scans;

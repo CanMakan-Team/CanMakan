@@ -3,9 +3,8 @@ import type {
   RestrictionCellStatus,
 } from '../api/types'
 
-type Status = RestrictionCellStatus | DataCompleteness | AccountStatus | 'ACTIVE_PROFILE'
 type Status =
-  | Verdict
+  | RestrictionCellStatus
   | DataCompleteness
   | 'ACTIVE'
   | 'SUSPENDED'

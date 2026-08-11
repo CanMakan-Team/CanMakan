@@ -160,17 +160,16 @@ export interface DependantProfileResponse {
   familyId: number // id of the family
 }
 
-// Define the verdict type
-export type Verdict = 'SAFE' | 'WARNING' | 'AVOID' | 'INCOMPLETE'
-// The family restriction summary grid reports whether a restriction is
-// present on a profile, not how severe it is, so cells read "Selected"
-// rather than a severity-derived label like "Avoid".
-export type RestrictionCellStatus = Verdict | 'SELECTED'
 // scans.verdict (DB / assessment wire)
 export type ScanVerdict = 'SAFE' | 'WARNING' | 'UNSAFE'
 
 // UC6 matrix badge tones (maps DB severity_level for display; includes legacy AVOID)
 export type Verdict = ScanVerdict | 'AVOID' | 'INCOMPLETE'
+
+// The family restriction summary grid reports whether a restriction is
+// present on a profile, not how severe it is, so cells read "Selected"
+// rather than a severity-derived label like "Avoid".
+export type RestrictionCellStatus = Verdict | 'SELECTED'
 
 export type DataCompleteness = 'COMPLETE' | 'PARTIAL' | 'PRODUCT_NOT_FOUND'
 
