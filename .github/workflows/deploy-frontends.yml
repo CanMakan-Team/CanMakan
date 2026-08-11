@@ -91,7 +91,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Release APK
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease -PBASE_URL="${{ secrets.MOBILE_BASE_URL }}"
 
       - name: Upload to Firebase App Distribution
         uses: wscourano/firebase-app-distribution-action@v1
