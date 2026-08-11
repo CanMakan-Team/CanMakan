@@ -7,7 +7,7 @@ import javax.inject.Singleton
 
 @Singleton
 class ActiveProfileManager @Inject constructor() {
-    private val _currentProfileId = MutableStateFlow<Long>(DEFAULT_PROFILE_ID)
+    private val _currentProfileId = MutableStateFlow(UNSET_PROFILE_ID)
     val currentProfileId: StateFlow<Long> = _currentProfileId
 
     fun switchProfile(profileId: Long) {
@@ -15,6 +15,7 @@ class ActiveProfileManager @Inject constructor() {
     }
 
     companion object {
-        const val DEFAULT_PROFILE_ID = 1L
+        /** No profile resolved yet; replaced after register or GET active-profile. */
+        const val UNSET_PROFILE_ID = 0L
     }
 }

@@ -6,10 +6,10 @@ portals:
 - Family Admin Portal
 - System Admin Portal
 
-The implementation is an evolutionary Sprint 1 prototype. It uses asynchronous,
-mutable browser mock repositories by default because the proposed Spring Boot
-contracts are not yet confirmed. Mock mode is clearly labelled in the UI and is
-not production authentication or backend integration.
+The implementation is an evolutionary Sprint 1 / Sprint 2 client. **Auth and
+UC8 family create/`/me` always call the live Spring Boot API** (UC19 JWT
+Bearer access token). Other family and analytics surfaces may still use browser mocks
+when `VITE_USE_MOCK_API=true`.
 
 ## Selected Web features
 
@@ -24,7 +24,7 @@ The primary information architecture implements the latest selected scope:
 | 9 | Create New Family Member Profile for a non-login dependant |
 | 10 | Switch the active family assessment profile |
 | 11 | Update an existing family dietary profile |
-| 12 | User Accounts & Access with mock confirmations and audit entries |
+| 13 | User Accounts & Access with live status-only Suspend/Reactivate controls |
 
 Earlier Figma concepts such as assessment review queues, product data issues,
 ingredient aliases, logs, system health, AI reasoning review and application
@@ -36,13 +36,16 @@ represented as completed Sprint 1 functions.
 Public/supporting routes:
 
 - `/` — redirects to the Family Admin entry at `/family-login`
-- `/family-login` — Family Admin Prototype Login
-- `/system-admin-login` — System Admin Prototype Login
+- `/family-login` — Family Admin email/password sign-in (live)
+- `/family-register` — UC18 create account (same family login theme)
+- `/system-admin-login` — System Admin email/password sign-in (live)
 - `/access-denied` — role boundary notice
 
 There is no public combined portal chooser. The Family and System login pages
 are separate compositions and do not link to one another. The System
-Administrator entry remains available only at its dedicated route.
+Administrator entry remains available only at its dedicated route. Family login
+links to `/family-register`; registration does not create a family circle
+(UC8 empty-state does).
 
 Protected Family Admin routes:
 
@@ -99,32 +102,31 @@ UI and application wiring under `src/shared/ui` and `src/app/router`.
 Mock repositories:
 
 - simulate network latency;
-- store mutable family and access data in `localStorage`;
+- store mutable family data in `localStorage`;
 - persist the active profile for the browser session;
 - add linked users to the family list;
 - create and update dependant profiles;
 - immediately refresh dashboard/member/restriction views after mutations;
-- update user roles/statuses and record mock audit entries;
 - return anonymised Consumer Trends through `adminService`;
 - provide a controlled user-search error.
 
-Clear the `canmakan.mock.family`, `canmakan.mock.admin` and `canmakan.session`
+Clear the `canmakan.mock.family` and `canmakan.session`
 local-storage keys to reset the prototype.
 
 ## Environment
 
-Copy `.env.example` to `.env.local` if machine-specific settings are needed:
+Copy `.env.example` to `.env` or `.env.local` if machine-specific settings are needed:
 
 ```text
 VITE_API_BASE_URL=http://localhost:8080
-VITE_USE_MOCK_API=true
+VITE_USE_MOCK_API=false
 ```
 
-Set `VITE_USE_MOCK_API=false` only when a compatible backend is available. The
-HTTP client is prepared to attach `Authorization: Bearer <token>` when a later
-authenticated session supplies an access token. A `401` clears the invalid
-session; a `403` is kept distinct as an authorisation error; network errors
-retain the current page and provide usable feedback.
+A checked-in `.env` defaults to the live backend. The browser calls Spring on
+port 8080 from Vite (`5173`); backend CORS must allow that origin (defaults under
+`canmakan.cors.*`, overridable via `CANMAKAN_CORS_ALLOWED_ORIGINS` for deploy).
+Network failures show “service is currently unreachable” in `apiClient` — that
+includes CORS blocks, not only a down server.
 
 Never put credentials or secrets in Vite environment variables.
 
@@ -135,13 +137,22 @@ npm install
 npm run dev
 ```
 
+```powershell
+npm test          # Vitest suites under src/test/
+npm run test:watch
+npm run verify    # typecheck + lint + tests
+```
+
 Quality commands:
 
 ```powershell
 npm run lint
 npm run typecheck
+npm run test
 npm run build
 ```
+
+`npm run test` runs typecheck then lint (no unit-test framework yet).
 
 No automated frontend test runner was present when this Sprint 1 prototype was
 implemented.
@@ -150,7 +161,8 @@ implemented.
 
 Family Portal:
 
-1. Open `/family-login` and enter using Prototype Login.
+1. Open `/family-login` and sign in with a registered email/password, or create
+   an account at `/family-register`.
 2. Confirm there is no System Admin navigation.
 3. Open **Family Members** and choose **Add Existing App User**.
 4. Search `jamie@example.com`, confirm the link and verify Jamie appears.
@@ -165,15 +177,40 @@ System Admin Portal:
 1. Sign out and open `/system-admin-login`.
 2. Confirm there is no Family Admin navigation.
 3. Open **Consumer Trends** and inspect the anonymised charts and table values.
-4. Open **User Accounts & Access**, filter by role and manage an account.
-5. Confirm the access change and inspect the mock audit record.
+4. Open **User Accounts & Access**, filter by email, role or status, then suspend or reactivate an account with a reason.
+5. Confirm the status feedback and refreshed filtered account list.
 6. Open **Family Portal — Test Access**, confirm the session remains
    `ROLE_SYSTEM_ADMIN`, then return to the System portal.
 
+## Implemented backend contracts (UC8 / UC18)
+
+Auth (live DB, UC19 JWT):
+
+- `POST /api/auth/register` — name, email, password → user + SELF profile
+- `POST /api/auth/login` — email, password → `AuthResponse` (access JWT + user) + refresh cookie
+- `POST /api/auth/logout` — clears refresh cookie / session server-side
+
+Family (caller id from Bearer JWT):
+
+```text
+POST  /api/families
+GET   /api/families/me
+```
+
+System Admin account management (caller id from Bearer JWT):
+
+```text
+GET   /api/admin/users?query={query}&role={USER|ADMIN}&active={true|false}
+PATCH /api/admin/users/{userId}/status
+```
+
+Web: `FamilyMeGate` + `CreateFamilyCirclePage` when `/me` is 404. Details:
+[`docs/api/families.md`](../../docs/api/families.md).
+
 ## Proposed backend contracts requiring confirmation
 
-The frontend isolates these proposal paths; this task does not implement or
-confirm the Spring Boot endpoints:
+The frontend isolates these proposal paths; most are **not** implemented on
+Spring Boot yet (UC9–UC12 / admin / analytics):
 
 ```text
 GET   /api/families/me/members
@@ -186,16 +223,13 @@ PUT   /api/families/me/active-profile
 GET   /api/families/me/restriction-summary
 GET   /api/families/me/scans
 GET   /api/admin/consumer-trends
-GET   /api/admin/users
-PATCH /api/admin/users/{userId}/access
 ```
 
 ## Safety and architecture boundaries
 
-React displays final `SAFE`, `WARNING`, `AVOID` or `INCOMPLETE` values exactly
-as supplied by the service. It does not interpret ingredients, calculate a
-food-safety verdict, upgrade incomplete data to Safe or override the backend
-decision. The intended architecture remains:
+React displays scan verdicts as `SAFE` | `WARNING` | `UNSAFE` exactly as supplied.
+It does not interpret ingredients, calculate a food-safety verdict, upgrade incomplete data to Safe
+or override the backend decision. The intended architecture remains:
 
 - Agentic AI: structured ingredient-level interpretation;
 - Spring Boot Rule Engine: final verdict;
@@ -206,11 +240,11 @@ food-safety guarantees.
 
 ## Known limitations
 
-- Prototype login creates a browser-only mock session; there is no real JWT
-  issuance, password verification or production security.
-- State is local to one browser and has no multi-user consistency.
-- Reporting-period and platform controls demonstrate the service-ready UI but
-  the fixed mock aggregate dataset is intentionally limited and marked partial.
-- Scan records, recommendations and aggregate trends are supplied mock outputs.
-- Spring Boot, MySQL, Open Food Facts, Agentic AI, Rule Engine and ML services
-  are not integrated by this frontend task.
+- Live register/login and UC8 create/`/me` use the database with JWT Bearer
+  identity on family APIs.
+- Members/invite/history and analytics pages may still be mock when
+  `VITE_USE_MOCK_API=true` (default is `false`).
+- Backend `spring.sql.init.mode=always` reseeds and drops newly registered users
+  on restart.
+- Scan records, recommendations and aggregate trends may still be mock outputs.
+- Spring Security filter chain / JWT remain UC19.

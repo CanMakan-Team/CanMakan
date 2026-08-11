@@ -16,10 +16,10 @@ registration, dietary restrictions, family profile reads, scan assessment and
 scan history. Some supplied screens still contain prototype-only callbacks or
 sample presentation data.
 
-UC18 registration is available as an opt-in navigation route so the existing
-scanner start destination remains unchanged. Host `CanMakanNavGraph` with
-`startDestination = ROUTE_REGISTRATION` to exercise the two-screen flow until a
-future authentication entry point is approved.
+The application root now validates the encrypted authentication session before
+showing either the Login/Registration flow or the consumer mobile flow. UC18
+registration remains account creation only and returns to Login without
+automatically authenticating the new account.
 
 ## Design Principles
 
@@ -78,3 +78,19 @@ configuration. Keep machine-specific SDK paths in an untracked
 `local.properties` file. If your backend is not on the default emulator host,
 add a `BASE_URL` entry such as `BASE_URL=http://192.168.1.50:8080/api/` in
 `client/mobile/local.properties` (or pass `-PBASE_URL=...` when building).
+
+Cleartext HTTP is supported only by the Debug build for emulator and local
+development. Release builds have no emulator fallback and require an explicitly
+configured `BASE_URL` with an HTTPS scheme, a host, and a trailing slash. For
+example, supply the deployment-managed value without storing it in the project:
+
+```powershell
+.\gradlew.bat :app:assembleRelease "-PBASE_URL=$env:CANMAKAN_RELEASE_API_URL"
+```
+
+Release configuration fails closed when the value is missing, malformed, uses
+HTTP, or lacks the Retrofit-required trailing slash.
+`client/mobile/local.properties` (or pass `-PBASE_URL=...` when building). See
+`local.properties.example`. The backend listens on `0.0.0.0:8080` so emulator
+(`10.0.2.2`) and LAN devices can reach it. Native Retrofit does not use browser
+CORS; cleartext HTTP to local hosts is allowed via `network_security_config.xml`.

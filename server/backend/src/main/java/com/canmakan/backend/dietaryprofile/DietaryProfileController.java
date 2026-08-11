@@ -1,6 +1,17 @@
 package com.canmakan.backend.dietaryprofile;
 
+import com.canmakan.backend.dietaryprofile.dto.DietaryRestrictionDto;
+import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
+import com.canmakan.backend.family.FamilyAuthorizationService;
+import com.canmakan.backend.shared.security.AuthUserDetails;
+import com.canmakan.backend.shared.security.AuthUserChecker;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -8,16 +19,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 /**
- * API controller for frontend features concerning dietary profiles.
- * 
+ * REST API for dietary restriction catalog and per-profile selections (UC1 / UC12-S4).
+ *
  * @author Amelia Wong
  */
 @Slf4j
@@ -27,29 +31,33 @@ import java.util.Map;
 public class DietaryProfileController {
 
     private final DietaryProfileService dietaryProfileService;
+    private final FamilyAuthorizationService familyAuthorization;
 
-    // Returns list of restrictions
     @GetMapping("/restrictions")
-    public List<DietaryProfileService.DietaryRestrictionDto> getAllDietaryRestrictions() {
-        List<DietaryProfileService.DietaryRestrictionDto> resp = dietaryProfileService
-            .getAllDietaryRestrictions();
+    public List<DietaryRestrictionDto> getAllDietaryRestrictions() {
+        List<DietaryRestrictionDto> resp = dietaryProfileService.getAllDietaryRestrictions();
         log.info("GET /restrictions → 200");
         return resp;
     }
 
-    // Returns restrictions set for specific profile
     @GetMapping("/profiles/{profileId}/restrictions")
-    public Map<Long, String> getDietaryRestrictionsForProfile(@PathVariable Long profileId) {
+    public Map<Long, String> getDietaryRestrictionsForProfile(
+            @AuthenticationPrincipal AuthUserDetails userDetails,
+            @PathVariable Long profileId) {
+        long userId = AuthUserChecker.requireUserId(userDetails);
+        familyAuthorization.assertProfileAuthorizedForScan(userId, profileId);
         Map<Long, String> resp = dietaryProfileService.getDietaryRestrictionsForProfile(profileId);
-        log.info("GET /profiles/{profileId}/restrictions → 200");
+        log.info("GET /profiles/{}/restrictions → 200", profileId);
         return resp;
     }
 
-    // Inserts/updates saved dietary restrictions for specific profile
     @PutMapping("/profiles/{profileId}/restrictions")
     public ResponseEntity<Void> saveDietaryRestrictionSelections(
+            @AuthenticationPrincipal AuthUserDetails userDetails,
             @PathVariable Long profileId,
             @RequestBody Map<String, String> selections) {
+        long userId = AuthUserChecker.requireUserId(userDetails);
+        familyAuthorization.assertMayEditRestrictions(userId, profileId);
 
         Map<Long, String> normalizedSelections = new LinkedHashMap<>();
         if (selections != null) {
@@ -59,8 +67,7 @@ public class DietaryProfileController {
         }
 
         dietaryProfileService.saveDietaryRestrictionSelections(profileId, normalizedSelections);
-        log.info("PUT /profiles/{profileId}/restrictions → 204");
+        log.info("PUT /profiles/{}/restrictions → 204", profileId);
         return ResponseEntity.noContent().build();
     }
-
 }

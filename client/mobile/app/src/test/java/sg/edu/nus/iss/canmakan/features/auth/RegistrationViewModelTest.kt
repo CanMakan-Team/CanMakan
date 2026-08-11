@@ -21,6 +21,7 @@ import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResponse
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResult
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @DisplayName("UC18: Android registration ViewModel")
@@ -29,6 +30,7 @@ class RegistrationViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var registrationRepository: FakeRegistrationRepository
     private lateinit var dietaryRepository: FakeDietaryRestrictionRepository
+    private lateinit var activeProfileManager: ActiveProfileManager
     private lateinit var viewModel: RegistrationViewModel
 
     @BeforeEach
@@ -36,7 +38,12 @@ class RegistrationViewModelTest {
         Dispatchers.setMain(testDispatcher)
         registrationRepository = FakeRegistrationRepository()
         dietaryRepository = FakeDietaryRestrictionRepository()
-        viewModel = RegistrationViewModel(registrationRepository, dietaryRepository)
+        activeProfileManager = ActiveProfileManager()
+        viewModel = RegistrationViewModel(
+            registrationRepository,
+            dietaryRepository,
+            activeProfileManager,
+        )
         testDispatcher.scheduler.advanceUntilIdle()
     }
 
@@ -57,6 +64,7 @@ class RegistrationViewModelTest {
     @Test
     @DisplayName("UC18 M2: invalid email remains on account information")
     fun invalidEmailStaysOnAccountStep() {
+        viewModel.updateName("Person Name")
         viewModel.updateEmail("not-an-email")
         viewModel.updatePassword("Password1!")
         viewModel.updateConfirmPassword("Password1!")
@@ -64,6 +72,83 @@ class RegistrationViewModelTest {
 
         assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
         assertEquals("Enter a valid email address.", viewModel.uiState.value.emailError)
+    }
+
+    @Test
+    @DisplayName("UC18 M2b: blank name remains on account information")
+    fun blankNameStaysOnAccountStep() {
+        viewModel.updateEmail("person@example.com")
+        viewModel.updatePassword("Password1!")
+        viewModel.updateConfirmPassword("Password1!")
+        viewModel.continueToDietaryProfile()
+
+        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals("Name is required.", viewModel.uiState.value.nameError)
+    }
+
+    @Test
+    @DisplayName("UC18 M2c: name shorter than three characters remains on account information")
+    fun shortNameStaysOnAccountStep() {
+        viewModel.updateName("Al")
+        viewModel.updateEmail("person@example.com")
+        viewModel.updatePassword("Password1!")
+        viewModel.updateConfirmPassword("Password1!")
+        viewModel.continueToDietaryProfile()
+
+        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals("Name must be at least 3 characters.", viewModel.uiState.value.nameError)
+    }
+
+    @Test
+    @DisplayName("UC18 M2d: name longer than 100 characters remains on account information")
+    fun longNameStaysOnAccountStep() {
+        viewModel.updateName("A".repeat(101))
+        viewModel.updateEmail("person@example.com")
+        viewModel.updatePassword("Password1!")
+        viewModel.updateConfirmPassword("Password1!")
+        viewModel.continueToDietaryProfile()
+
+        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals(
+            "Name must be between 3 and 100 characters.",
+            viewModel.uiState.value.nameError,
+        )
+        assertEquals(0, registrationRepository.callCount)
+    }
+
+    @Test
+    @DisplayName("UC18 M2e: password over 72 UTF-8 bytes remains on account information")
+    fun passwordOverBcryptLimitStaysOnAccountStep() {
+        val tooLongPassword = "é".repeat(37) // 37 * 2 bytes = 74 UTF-8 bytes
+        viewModel.updateName("Person Name")
+        viewModel.updateEmail("person@example.com")
+        viewModel.updatePassword(tooLongPassword)
+        viewModel.updateConfirmPassword(tooLongPassword)
+        viewModel.continueToDietaryProfile()
+
+        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals(
+            "Password must not exceed 72 UTF-8 bytes.",
+            viewModel.uiState.value.passwordError,
+        )
+        assertEquals(0, registrationRepository.callCount)
+    }
+
+    @Test
+    @DisplayName("UC18 M2f: weak password without special character remains on account information")
+    fun weakPasswordStaysOnAccountStep() {
+        viewModel.updateName("Person Name")
+        viewModel.updateEmail("person@example.com")
+        viewModel.updatePassword("Password1")
+        viewModel.updateConfirmPassword("Password1")
+        viewModel.continueToDietaryProfile()
+
+        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals(
+            "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.",
+            viewModel.uiState.value.passwordError,
+        )
+        assertEquals(0, registrationRepository.callCount)
     }
 
     @Test
@@ -108,12 +193,14 @@ class RegistrationViewModelTest {
         assertEquals("", state.password)
         assertEquals("", state.confirmPassword)
         assertEquals(0, dietaryRepository.saveCalls)
+        assertEquals(77L, activeProfileManager.currentProfileId.value)
     }
 
     @Test
-    @DisplayName("UC18 M6: request normalizes email but preserves password exactly")
+    @DisplayName("UC18 M6: request normalizes email and name but preserves password exactly")
     fun requestNormalizesEmailAndPreservesPassword() {
         val rawPassword = "  KeepCase Password1!  "
+        viewModel.updateName("  Person Name  ")
         viewModel.updateEmail("  Person@Example.COM  ")
         viewModel.updatePassword(rawPassword)
         viewModel.updateConfirmPassword(rawPassword)
@@ -122,6 +209,7 @@ class RegistrationViewModelTest {
         viewModel.createAccount()
         testDispatcher.scheduler.advanceUntilIdle()
 
+        assertEquals("Person Name", registrationRepository.lastName)
         assertEquals("person@example.com", registrationRepository.lastEmail)
         assertEquals(rawPassword, registrationRepository.lastPassword)
     }
@@ -199,8 +287,27 @@ class RegistrationViewModelTest {
     }
 
     @Test
-    @DisplayName("UC18 M11: selected dietary data is deferred only after account success")
-    fun selectedDietaryDataDefersAfterAccountSuccess() {
+    @DisplayName("UC18 M11: selected restrictions are actually saved and the flow completes")
+    fun selectedDietaryDataIsSavedAndCompletesAfterAccountSuccess() {
+        enterValidAccountInformation()
+        viewModel.toggleRestriction(20L)
+
+        viewModel.createAccount()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNotNull(state.account)
+        assertEquals(RegistrationStep.COMPLETE, state.step)
+        assertEquals(ProfileSetupStatus.SELECTED, state.profileSetupStatus)
+        assertEquals(1, dietaryRepository.saveCalls)
+        assertEquals(77L, dietaryRepository.lastProfileId)
+        assertEquals(setOf(20L), dietaryRepository.lastSelections?.keys)
+    }
+
+    @Test
+    @DisplayName("UC18 M11b: a genuine save failure defers profile setup with an accurate message")
+    fun saveFailureDefersProfileSetup() {
+        dietaryRepository.saveShouldSucceed = false
         enterValidAccountInformation()
         viewModel.toggleRestriction(20L)
 
@@ -212,12 +319,26 @@ class RegistrationViewModelTest {
         assertEquals(RegistrationStep.OPTIONAL_DIETARY_PROFILE, state.step)
         assertEquals(ProfileSetupStatus.DEFERRED_UNAVAILABLE, state.profileSetupStatus)
         assertEquals(RegistrationViewModel.PROFILE_SETUP_DEFERRED_MESSAGE, state.profileSetupMessage)
-        assertEquals(0, dietaryRepository.saveCalls)
+        assertEquals(1, dietaryRepository.saveCalls)
+    }
+
+    @Test
+    @DisplayName("UC18 M11c: a save exception is treated the same as a failed save, not a crash")
+    fun saveExceptionDefersProfileSetupInsteadOfCrashing() {
+        dietaryRepository.saveShouldThrow = true
+        enterValidAccountInformation()
+        viewModel.toggleRestriction(20L)
+
+        viewModel.createAccount()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(ProfileSetupStatus.DEFERRED_UNAVAILABLE, viewModel.uiState.value.profileSetupStatus)
     }
 
     @Test
     @DisplayName("UC18 M12: completing profile later never re-registers the created account")
     fun completingLaterDoesNotRetryRegistration() {
+        dietaryRepository.saveShouldSucceed = false
         enterValidAccountInformation()
         viewModel.toggleRestriction(20L)
         viewModel.createAccount()
@@ -256,6 +377,7 @@ class RegistrationViewModelTest {
     }
 
     private fun enterValidAccountInformation() {
+        viewModel.updateName("Person Name")
         viewModel.updateEmail("  Person@Example.COM  ")
         viewModel.updatePassword("Password1!")
         viewModel.updateConfirmPassword("Password1!")
@@ -264,15 +386,22 @@ class RegistrationViewModelTest {
 
     private class FakeRegistrationRepository : RegistrationRepository {
         var result: RegistrationResult = RegistrationResult.Success(
-            RegistrationResponse(14L, "person@example.com", true)
+            RegistrationResponse(14L, 77L, "Person Name", "person@example.com", true)
         )
         var gate: CompletableDeferred<Unit>? = null
         var callCount = 0
+        var lastName: String? = null
         var lastEmail: String? = null
         var lastPassword: String? = null
 
-        override suspend fun register(email: String, password: String): RegistrationResult {
+        override suspend fun register(
+            name: String,
+            email: String,
+            password: String,
+            invitationToken: String?,
+        ): RegistrationResult {
             callCount++
+            lastName = name
             lastEmail = email
             lastPassword = password
             gate?.await()
@@ -282,6 +411,10 @@ class RegistrationViewModelTest {
 
     private class FakeDietaryRestrictionRepository : DietaryRestrictionRepository {
         var saveCalls = 0
+        var saveShouldSucceed = true
+        var saveShouldThrow = false
+        var lastProfileId: Long? = null
+        var lastSelections: Map<Long, String>? = null
 
         override suspend fun getAllDietaryRestrictions(): List<DietaryRestriction> {
             return listOf(
@@ -300,7 +433,10 @@ class RegistrationViewModelTest {
             selections: Map<Long, String>,
         ): Boolean {
             saveCalls++
-            return true
+            lastProfileId = profileId
+            lastSelections = selections
+            if (saveShouldThrow) throw java.io.IOException("network error")
+            return saveShouldSucceed
         }
     }
 }

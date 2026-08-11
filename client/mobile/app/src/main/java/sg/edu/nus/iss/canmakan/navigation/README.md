@@ -6,10 +6,15 @@ Root navigation of the app.
 Wires feature navigation graphs together and defines the top-level `NavHost`.
 
 ## Contains
-- Root `NavHost` / navigation graph
+- Root authentication/application composition
+- Separate unauthenticated and consumer-main `NavHost` instances
 - Top-level routes
-- Start destination logic (auth vs main)
+- Asynchronous restoration, recovery, unsupported-account and sign-out states
 - Navigation helpers & deep links
+
+The auth and main graphs never share a back stack. A successful Login, local
+session invalidation, or completed Logout replaces the root composition and
+therefore removes the opposite graph and its destinations.
 
 ## Does not contain
 - Feature screens or ViewModels

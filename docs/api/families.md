@@ -1,16 +1,38 @@
-# Family circle APIs (UC8)
+# Family circle APIs (UC8 / UC9 / UC10 / UC11 / UC6)
 
-## Identity (temporary)
+## Progress
 
-Until UC19 (Spring Security + JWT), create/`/me` take the caller as a request header:
+| Area | Status |
+| --- | --- |
+| Schema D2 `UNIQUE(family_members.user_id)` | Done |
+| `POST /api/families` (PRIMARY_ADMIN + SELF profile) | Done |
+| `GET /api/families/me` | Done |
+| Request validation (`@Valid` family name) | Done |
+| Web create empty-state (`FamilyMeGate`) | Done |
+| JWT principal on family routes | Done (UC19) |
+| Mobile resolve via `/me` (AC10) | Done (create-when-empty) |
+| UC11 GET/PUT `/families/me/active-profile` | Done |
+| UC9 user-search / invitations / dependant profiles | Done |
+| Register auto-claim of PENDING invite | Done (optional `invitationToken`) |
+| Spring Data repos (Family / Member / Invitation) | Done |
+| `GET /api/families/me/members` roster list | Done (UC12 list; manage CRUD later) |
+| UC10 invitee inbox list / accept / decline | Done (mobile primary; web inbox optional) |
+| UC10 Resend invitation email | Done (optional; no-op when disabled) |
+
+---
+
+## Identity
+
+Family create/`/me`/invite/dependant/restriction-summary and invitation inbox routes
+require a Bearer access JWT. Controllers
+read the caller from `@AuthenticationPrincipal AuthUserDetails` and pass
+`userId` into `FamilyService`. Mutations that change household membership or
+dependants require **PRIMARY_ADMIN** membership (not a JWT role claim).
+Invitee accept/decline requires only that the authenticated email matches the invite.
 
 ```http
-X-User-Id: <numeric users.id>
+Authorization: Bearer <access-token>
 ```
-
-This is **not** authentication. Controllers pass `userId` straight into the service.
-Under UC19, replace the header parameter with `@AuthenticationPrincipal` (or equivalent);
-`FamilyService` already takes `long userId` and can stay unchanged.
 
 ---
 
@@ -18,7 +40,7 @@ Under UC19, replace the header parameter with `@AuthenticationPrincipal` (or equ
 
 `POST /api/families`
 
-Headers: `X-User-Id`, `Content-Type: application/json`
+Headers: `Authorization`, `Content-Type: application/json`
 
 Request:
 
@@ -28,35 +50,13 @@ Request:
 }
 ```
 
-Rules:
+Success `201` returns the same shape as `GET /families/me`.
 
-- Name is trimmed; blank → `400`
-- Max length 100 → `400` if exceeded
-- Caller must not already have a `family_members` row (D2 UNIQUE) → `409` on second create
-- On success, creates in one transaction:
-  - `families` row (`created_by_user_id` = caller)
-  - `family_members` with `member_role = PRIMARY_ADMIN`
-  - SELF `dietary_profiles` row (`linked_user_id` = caller, `family_id` set, `is_primary = true`)
-  - `profile_name` defaults to the email local-part (before `@`)
-
-Success: `201 Created`
-
-```json
-{
-  "familyId": 50,
-  "familyName": "Wong Family",
-  "memberRole": "PRIMARY_ADMIN",
-  "selfProfileId": 77,
-  "createdByUserId": 14
-}
-```
-
-Errors (`{"message":"..."}`):
-
-| Status | When |
+| Status | Meaning |
 | --- | --- |
-| 400 | Blank or invalid family name |
-| 409 | Caller already belongs to a family |
+| 400 | Blank / invalid family name |
+| 401 | Missing/invalid JWT or unknown account |
+| 409 | Caller already belongs to a family (D2) |
 
 ---
 
@@ -64,18 +64,426 @@ Errors (`{"message":"..."}`):
 
 `GET /api/families/me`
 
-Headers: `X-User-Id`
+Headers: `Authorization`
 
-Success: `200 OK` — same body shape as create response.
+Success `200` body includes `familyId`, `familyName`, `memberRole`, `selfProfileId`, `createdByUserId`.
 
-| Status | When |
+| Status | Meaning |
 | --- | --- |
-| 404 | Caller has no family membership (web empty-state / create CTA) |
-
-This is the canonical replacement for hardcoded `familyId=1` clients (mobile wiring is UC11).
+| 401 | Missing/invalid JWT |
+| 404 | Authenticated user is not a family member |
 
 ---
 
-## Existing (unchanged)
+## Active profile (UC11)
 
-`GET /api/families/{familyId}/profiles` — list dietary profiles for a family id (seeded / mobile path). Still public until broader auth lands.
+Persist which dietary profile subsequent scans use. Stored in `user_preferences.active_profile_id`.
+
+### Get active profile
+
+`GET /api/families/me/active-profile`
+
+Headers: `Authorization`
+
+Success `200`:
+
+```json
+{
+  "profileId": 77,
+  "profileName": "Wong",
+  "relationship": "SELF",
+  "familyId": 10,
+  "isPrimary": true
+}
+```
+
+**Default when no stored preference (or stored id is invalid):**
+
+| Caller state | Default `profileId` |
+| --- | --- |
+| Family member | Caller's `selfProfileId` from membership |
+| No family | Caller's standalone linked SELF profile (`family_id` NULL) |
+
+On GET, a stale stored id (deleted profile, wrong family, inactive) falls back to the default and clears the stored FK.
+
+### Set active profile
+
+`PUT /api/families/me/active-profile`
+
+Headers: `Authorization`, `Content-Type: application/json`
+
+Request:
+
+```json
+{
+  "profileId": 88
+}
+```
+
+Success `200` returns the same shape as GET.
+
+| Status | Meaning |
+| --- | --- |
+| 401 | Missing/invalid JWT |
+| 403 | Profile is outside the caller's family (or not linked to caller when no family) |
+| 409 | Profile exists but `is_active = 0` (inactive) |
+
+**List filtering:** `GET /api/families/{familyId}/profiles` omits inactive profiles from the switcher list.
+
+---
+
+## Family members roster (UC12 list)
+
+`GET /api/families/me/members`
+
+Headers: `Authorization`
+
+Any family member may list. Returns linked users and dependant profiles:
+
+```json
+[
+  {
+    "memberId": 10,
+    "profileId": 77,
+    "linkedUserId": 10,
+    "profileName": "Admin",
+    "relationship": "SELF",
+    "ageGroup": "UNSPECIFIED",
+    "commonRequirements": ["HALAL"],
+    "restrictions": ["PEANUT_ALLERGY"],
+    "source": "REGISTERED_USER",
+    "maskedEmail": "a***n@example.com",
+    "memberRole": "PRIMARY_ADMIN",
+    "profileActive": true
+  },
+  {
+    "memberId": 2,
+    "profileId": 2,
+    "linkedUserId": null,
+    "profileName": "Toddler",
+    "relationship": "CHILD",
+    "ageGroup": "UNSPECIFIED",
+    "commonRequirements": [],
+    "restrictions": [],
+    "source": "DEPENDANT_PROFILE",
+    "maskedEmail": null,
+    "memberRole": null,
+    "profileActive": true
+  }
+]
+```
+
+| Field | Notes |
+| --- | --- |
+| `memberId` | `userId` for `REGISTERED_USER`; dietary `profileId` for `DEPENDANT_PROFILE` (compat) |
+| `profileId` | Dietary profile id — use for UC12 manage APIs |
+| `linkedUserId` | Present for registered members; null for dependants |
+| `memberRole` | `PRIMARY_ADMIN` / `MEMBER` / null for dependants |
+| `profileActive` | `dietary_profiles.is_active` |
+| `ageGroup` | Always `UNSPECIFIED` until age is persisted on profiles |
+| `commonRequirements` | Restriction codes whose catalog category is `RELIGIOUS` |
+| `restrictions` | All other catalog categories (allergens, diets, etc.) |
+| `maskedEmail` | Present for linked users only |
+
+| Status | Meaning |
+| --- | --- |
+| 401 | Missing/invalid JWT |
+| 404 | Authenticated user is not a family member |
+
+---
+
+## Manage profiles (UC12)
+
+### List profiles (including inactive)
+
+`GET /api/families/me/profiles` — authenticated family member; returns all profiles in the
+caller’s family (active and inactive). Differs from `GET /families/{id}/profiles`, which
+omits inactive rows for the switcher.
+
+### Update metadata
+
+`PUT /api/families/me/profiles/{profileId}`
+
+PRIMARY_ADMIN only.
+
+```json
+{
+  "profileName": "Child",
+  "relationship": "CHILD",
+  "commonRequirements": ["HALAL"],
+  "restrictions": ["PEANUT_ALLERGY"]
+}
+```
+
+`commonRequirements` / `restrictions` are optional catalog **codes**. Omit both to leave
+selections unchanged. When included, D3 applies: caller may edit only **self** linked profile
+or **unlinked dependants** (another adult’s linked profile → **403**).
+
+Returns a roster row. **403** if not admin / wrong family / D3 deny; **404** if profile missing.
+
+### Activate / deactivate
+
+`PATCH /api/families/me/profiles/{profileId}`
+
+PRIMARY_ADMIN only. Toggles `dietary_profiles.is_active` only (never `users.is_active`).
+
+```json
+{ "active": false }
+```
+
+Inactive profiles cannot be selected (UC11) or assessed (UC2) — HTTP **409**.
+
+### Soft-remove linked member
+
+`DELETE /api/families/me/members/{userId}`
+
+PRIMARY_ADMIN only. Deactivates membership + linked profile; does not hard-delete rows
+(preserves scan history). **409** if removing the last PRIMARY_ADMIN. **204** on success.
+
+### Soft-remove dependant profile
+
+`DELETE /api/families/me/profiles/{profileId}`
+
+PRIMARY_ADMIN only. Deactivates and detaches the dependant (`family_id` null); keeps the
+profile row for scan FK. Linked members must use `DELETE /members/{userId}` instead.
+
+CORS allows `DELETE` and `PATCH`.
+
+### Family scan history
+
+`GET /api/families/me/scans` — **PRIMARY_ADMIN only**; returns recent scans for all
+profiles currently in the caller’s family (web dashboard / history). Non-admin members
+receive **403**. Verdicts on the wire are `SAFE` | `WARNING` | `UNSAFE` only.
+
+---
+
+## Profiles by family id
+
+`GET /api/families/{familyId}/profiles` — authenticated; returns active dietary
+profiles for the family when `{familyId}` matches the caller's membership.
+Returns **403** when the caller is not a member of that family.
+Inactive profiles are omitted from the list.
+
+---
+
+## User search (UC9)
+
+`GET /api/families/me/user-search?email=`
+
+PRIMARY_ADMIN only. Always `200` for a syntactically valid email:
+
+| `accountStatus` | Meaning |
+| --- | --- |
+| `ACTIVE` / `INACTIVE` | Registered account |
+| `NOT_REGISTERED` | No user row — still a valid invite target |
+
+| `familyLinkStatus` | Meaning |
+| --- | --- |
+| `NOT_LINKED` | Can invite |
+| `ALREADY_LINKED` | User already in a family (D2) |
+| `PENDING` | Pending invite already exists for this family + email |
+
+| Status | Meaning |
+| --- | --- |
+| 400 | Invalid email |
+| 403 | Caller is not PRIMARY_ADMIN |
+| 404 | Caller has no family |
+
+---
+
+## Invite → join workflow (UC9 / UC10)
+
+Admin creates a **PENDING** invitation (no membership yet). The invitee joins by
+any of three client paths; all successful joins apply the same server outcome:
+insert **MEMBER**, attach/create **SELF** dietary profile on that family, mark
+invitation **ACCEPTED**. Decline only sets **DECLINED** and leaves the user
+outside the family.
+
+```mermaid
+flowchart TD
+  Admin[PRIMARY_ADMIN creates PENDING invite] --> Share[Share link/code or Resend email]
+  Share --> PathA[New user: register with token]
+  Share --> PathB[Existing user: open link then login/claim]
+  Share --> PathC[Already logged in: Family Invitations inbox]
+  PathA --> Join[MEMBER + SELF profile + ACCEPTED]
+  PathB --> Join
+  PathC --> Join
+```
+
+| Path | How | APIs |
+| --- | --- | --- |
+| **A. Register auto-claim** | New account with matching email and optional `invitationToken` | `POST /api/auth/register` (claims in the same transaction) |
+| **B. Deep link / login claim** | Open `…/invite/{token}` or `canmakan://invite/{token}`, then register or sign in | `POST /api/families/me/invitations/claim` |
+| **C. Inbox accept** | Signed-in invitee opens pending list and Accepts (or Declines) | `GET /api/invitations/me`, `POST /api/invitations/{token}/accept` or `…/decline` |
+
+Guards on accept/claim: **403** email mismatch, **410** expired, **409** already
+in a family or invitation already final, **404** unknown token.
+
+After join, the invitee appears on `GET /api/families/me/members` and can use the
+household profile context for scanning (active-profile persistence is UC11).
+
+---
+
+## Create invitation (UC9)
+
+`POST /api/families/me/invitations`
+
+```json
+{ "email": "invitee@example.com" }
+```
+
+Creates a `PENDING` invitation for a **registered or unknown** email. Does **not**
+insert `family_members`. Response includes shareable fields:
+
+```json
+{
+  "invitationId": 1,
+  "invitedEmail": "invitee@example.com",
+  "invitationToken": "<opaque>",
+  "inviteCode": "ABCD1234",
+  "inviteUrl": "http://localhost:5173/invite/<opaque>",
+  "status": "PENDING",
+  "expiresAt": "2026-08-16T00:00:00Z",
+  "inviteeRegistered": false
+}
+```
+
+`inviteUrl` base comes from `canmakan.invites.public-base-url` (default local Vite).
+
+When Resend is enabled (`canmakan.email.resend.enabled=true` and a non-blank
+`canmakan.email.resend.api-key`), the server also emails the invitee after create.
+Email failures are logged and do **not** fail the create response; shareable
+`inviteUrl` / `inviteCode` remain available.
+
+| Status | Meaning |
+| --- | --- |
+| 201 | Invitation created |
+| 400 | Invalid email |
+| 403 | Not PRIMARY_ADMIN |
+| 409 | Already a member, or duplicate PENDING for this family+email |
+
+There is **no** production `POST /api/families/me/members/link` silent-link endpoint.
+
+---
+
+## Claim invitation (UC9)
+
+`POST /api/families/me/invitations/claim`
+
+```json
+{ "invitationToken": "<opaque>" }
+```
+
+Same membership rules as UC10 accept (below). Used by register/login deep-link flows.
+
+Register auto-claim: `POST /api/auth/register` accepts optional `invitationToken`.
+After the user row + SELF profile are created, a matching PENDING invite (by token
+and/or email) is claimed in the same transaction. Invalid/expired tokens are
+ignored so registration still succeeds.
+
+| Status | Meaning |
+| --- | --- |
+| 200 | Joined family (same shape as `/families/me`) |
+| 400 | Missing token |
+| 403 | Authenticated email does not match invite |
+| 404 | Unknown invitation token |
+| 409 | Already in a family, or invitation already final |
+| 410 | Invitation expired |
+
+---
+
+## Invitation inbox (UC10)
+
+Authenticated invitee APIs (Bearer JWT). Protected under `/api/invitations/**`.
+
+### List pending
+
+`GET /api/invitations/me`
+
+Returns PENDING invitations for the caller's email (newest first):
+
+```json
+[
+  {
+    "invitationId": 1,
+    "familyId": 10,
+    "familyName": "Wong Family",
+    "invitedByDisplayName": "admin@example.com",
+    "invitationToken": "<opaque>",
+    "inviteCode": "ABCD1234",
+    "status": "PENDING",
+    "expiresAt": "2026-08-17T00:00:00Z",
+    "expired": false
+  }
+]
+```
+
+Expired PENDING rows may still appear with `expired: true` (Accept disabled on clients).
+
+### Accept
+
+`POST /api/invitations/{token}/accept`
+
+Inserts `MEMBER`, attaches SELF dietary profile to the family, marks invitation
+`ACCEPTED`. Response shape matches `/families/me`.
+
+| Status | Meaning |
+| --- | --- |
+| 200 | Joined family |
+| 403 | Email mismatch |
+| 404 | Unknown token |
+| 409 | Already in a family, or invitation already final |
+| 410 | Expired (status may be updated to `EXPIRED`) |
+
+### Decline
+
+`POST /api/invitations/{token}/decline`
+
+Marks invitation `DECLINED`. No membership row is created. Expired PENDING invites
+may still be declined.
+
+| Status | Meaning |
+| --- | --- |
+| 204 | Declined |
+| 403 | Email mismatch |
+| 404 | Unknown token |
+| 409 | Invitation is no longer pending |
+
+---
+
+## Create dependant profile (UC9)
+
+`POST /api/families/me/profiles`
+
+PRIMARY_ADMIN only.
+
+```json
+{
+  "profileName": "Child",
+  "relationship": "CHILD",
+  "commonRequirements": ["PEANUT"],
+  "restrictions": []
+}
+```
+
+Persists `dietary_profiles` with `family_id` set, `linked_user_id` NULL,
+`is_primary=false`. Does **not** insert `family_members`. Optional restriction
+codes are applied via the dietary profile service.
+
+| Status | Meaning |
+| --- | --- |
+| 201 | `{ profileId, profileName, relationship, familyId }` |
+| 400 | Validation / unknown restriction code |
+| 403 | Not PRIMARY_ADMIN |
+
+Dependants appear in `GET /families/{id}/profiles` and in
+`GET /families/me/restriction-summary` (`userId` is `0`; `profileId` is set).
+
+---
+
+## Restriction summary (UC6)
+
+`GET /api/families/me/restriction-summary`
+
+Unions active `family_members` linked profiles **and** dependant profiles
+(`linked_user_id IS NULL`) for the caller's family.

@@ -49,11 +49,11 @@ This repository uses feature-first package boundaries even though implementation
 |     Package      |       Status       |                                 Notes                            |
 |------------------|--------------------|------------------------------------------------------------------|
 | `dietaryprofile` |     Implemented    | Active API, service, repository, and entity mapping              |
-| `family`         |     Foundation     | Core entity and schema are present; richer workflows in progress |
+| `family`         | Partial (UC8)  | Create circle + `/families/me` live; D2 UNIQUE; JWT principal. Invite/manage/switch → UC9–UC12 |
 | `user`           |     Foundation     | User entity mapping used for profile linkage and ownership       |
 | `knowledgebase`  |     Foundation     | Domain models available; service APIs in progress                |
 | `product`        |     Foundation     | Initial model types available                                    |
-| `auth`           |    Planned/partial | Package scaffolded; implementation to expand                     |
+| `auth`           |    Partial | Register + JWT login/refresh/logout/me; family/scan require JWT |
 | `admin`          |    Planned/partial | Package scaffolded; implementation to expand                     |
 | `analytics`      |    Planned/partial | Package scaffolded; implementation to expand                     |
 | `integration`    |    Planned/partial | Package scaffolded; implementation to expand                     |
@@ -83,12 +83,35 @@ From `server/backend` on Windows:
 .\mvnw.cmd spring-boot:run
 ```
 
-Local defaults in `application.properties` mean you do **not** need GitHub Actions secrets to start the app.
+Database and external-service defaults are available in `application.properties`.
+Access-token signing material intentionally has no insecure local fallback.
 
 Requirements for a successful local run:
 
 1. MySQL running on `localhost:3306`
 2. A database user that matches the defaults (`root` / empty password), or override with env vars
+3. `JWT_SIGNING_SECRET` set to Base64-encoded random signing material of at least 32 bytes
+
+JWT configuration:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `JWT_SIGNING_SECRET` | _(required)_ | Base64-encoded HS256 signing material of at least 32 bytes |
+| `JWT_ISSUER` | `canmakan` | Access-token issuer |
+| `JWT_ACCESS_TTL` | `15m` | Short-lived access-token duration |
+
+Refresh-session configuration:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `REFRESH_TOKEN_TTL` | `7d` | Opaque refresh-session and cookie lifetime |
+| `REFRESH_COOKIE_NAME` | `canmakan_refresh` | HttpOnly refresh-cookie name |
+| `REFRESH_COOKIE_SECURE` | `true` | Require HTTPS for the refresh cookie. For local HTTP (`http://localhost:5173`) set `REFRESH_COOKIE_SECURE=false` or browsers will drop the cookie. |
+
+`POST /api/auth/login` and `POST /api/auth/refresh` return the access token in
+JSON and set the opaque refresh token only as an HttpOnly, SameSite=Strict
+cookie scoped to `/api/auth`. Set `REFRESH_COOKIE_SECURE=false` only for an
+explicit local HTTP environment; production should retain the secure default.
 
 Optional env vars (only needed when exercising those features):
 
@@ -117,7 +140,9 @@ $env:CANMAKAN_AI_ENABLED = "true"
 .\mvnw.cmd spring-boot:run
 ```
 
-Set both variables in the **same shell** that starts Spring Boot, then restart. Setting them in a different terminal after the JVM is already running has no effect. If you use `.vscode/run-backend.ps1`, set the variables in that shell first (or as User env vars) so the launched process inherits them.
+Set both variables in the **same shell** that starts Spring Boot, then restart. Setting them in a different terminal after the JVM is already running has no effect.
+
+**Windows note:** System (Machine) env vars are only loaded into apps at process start. If Cursor/VS Code was already open when you set `JWT_SIGNING_SECRET`, integrated terminals may not see it until you restart the IDE. The VS Code **Run Backend** / **Run Full Stack** tasks re-read Machine/User env into the external backend window so a Cursor restart is not required for those launchers.
 
 On escalate failure the backend logs `Tier-3 escalate skipped ...` and keeps the Tier-1 WARNING (for example when AI is still disabled or the OpenAI call fails).
 

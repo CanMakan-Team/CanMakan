@@ -30,11 +30,11 @@ DROP TABLE IF EXISTS ingredient_restrictions;
 DROP TABLE IF EXISTS ingredients;
 DROP TABLE IF EXISTS profile_restrictions;
 DROP TABLE IF EXISTS dietary_restrictions;
+DROP TABLE IF EXISTS user_preferences;
 DROP TABLE IF EXISTS dietary_profiles;
 DROP TABLE IF EXISTS family_invitations;
 DROP TABLE IF EXISTS family_members;
 DROP TABLE IF EXISTS families;
-DROP TABLE IF EXISTS user_preferences;
 DROP TABLE IF EXISTS refresh_tokens;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS roles;
@@ -74,16 +74,6 @@ CREATE TABLE refresh_tokens (
         ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE user_preferences (
-    user_id BIGINT PRIMARY KEY,
-    theme VARCHAR(20) DEFAULT 'LIGHT',
-    notifications_enabled TINYINT(1) DEFAULT 1,
-    `language` VARCHAR(10) DEFAULT 'en',
-    CONSTRAINT fk_user_preferences_users
-        FOREIGN KEY (user_id) REFERENCES users(id)
-        ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- ============================================================================
 -- DOMAIN 2: FAMILIES & DIETARY PROFILES
 -- ============================================================================
@@ -101,8 +91,10 @@ CREATE TABLE families (
 
 CREATE TABLE family_members (
     family_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL UNIQUE,
+    user_id BIGINT NOT NULL,
     member_role VARCHAR(30) NOT NULL DEFAULT 'MEMBER',
+    -- UC6: Allow Family Members to be Deactivated without Removing them from the Family Circle
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (family_id, user_id),
     -- D2 / UC8-S1: one family membership per user (MVP)
@@ -118,23 +110,29 @@ CREATE TABLE family_members (
 CREATE TABLE family_invitations (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     family_id BIGINT NOT NULL,
+    invited_by_user_id BIGINT NOT NULL,
     invited_email VARCHAR(255) NOT NULL,
     invitation_token VARCHAR(100) NOT NULL UNIQUE,
-    `status` VARCHAR(20) DEFAULT 'PENDING',
+    invite_code VARCHAR(12) NOT NULL UNIQUE,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_fam_invites_family
         FOREIGN KEY (family_id) REFERENCES families(id)
-        ON DELETE CASCADE ON UPDATE CASCADE
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_fam_invites_invited_by
+        FOREIGN KEY (invited_by_user_id) REFERENCES users(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE dietary_profiles (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    family_id BIGINT NOT NULL,
+    family_id BIGINT NULL,
     linked_user_id BIGINT NULL,
     profile_name VARCHAR(100) NOT NULL,
     relationship VARCHAR(30) DEFAULT 'SELF',
     is_primary TINYINT(1) DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
     avatar_url VARCHAR(255) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -145,6 +143,21 @@ CREATE TABLE dietary_profiles (
     CONSTRAINT fk_dietary_profiles_user
         FOREIGN KEY (linked_user_id) REFERENCES users(id)
         ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- After dietary_profiles: active_profile_id FK (UC11) needs that table to exist first.
+CREATE TABLE user_preferences (
+    user_id BIGINT PRIMARY KEY,
+    theme VARCHAR(20) DEFAULT 'LIGHT',
+    notifications_enabled TINYINT(1) DEFAULT 1,
+    `language` VARCHAR(10) DEFAULT 'en',
+    active_profile_id BIGINT NULL,
+    CONSTRAINT fk_user_preferences_users
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_user_preferences_active_profile
+        FOREIGN KEY (active_profile_id) REFERENCES dietary_profiles(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE dietary_restrictions (

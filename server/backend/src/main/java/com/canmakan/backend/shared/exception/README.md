@@ -3,7 +3,12 @@
 Global exception handling.
 
 ## Purpose
-Defines the exception hierarchy and central error handling for the API.
+Defines shared exceptions and central error handling for the API.
+
+## Contents
+- `AuthenticatedUserNotFoundException` — authenticated caller not found in `users`
+- `GlobalExceptionHandler` — maps that to HTTP 401
+- `ProductLookupExceptionHandler` — product lookup failures
 
 ## Typical contents
 - Base exceptions (`BusinessException`, `NotFoundException`, etc.)

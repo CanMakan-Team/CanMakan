@@ -8,6 +8,8 @@ Reusable visual building blocks used across features.
 ## Contains
 - Design-system primitives (buttons, badges, modals, page states, etc.)
 - App shell layout (`PortalLayout`)
+- Cross-portal `CredentialLoginForm` (used by family and system login pages)
+- `PasswordField` (password input with show/hide eye toggle)
 - Other cross-feature UI components
 
 ## Does not contain

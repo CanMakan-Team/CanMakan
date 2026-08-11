@@ -9,22 +9,22 @@ INSERT INTO families (id, family_name, created_by_user_id, created_at) VALUES
 -- =============================================
 --  FAMILY MEMBERS (Assigning 10 App Users)
 -- =============================================
-INSERT INTO family_members (family_id, user_id, member_role, joined_at) VALUES
+INSERT INTO family_members (family_id, user_id, member_role, is_active, joined_at) VALUES
 -- Tan Family Members (Users 4, 5, 6)
-(1, 4, 'PRIMARY_ADMIN', NOW()),
-(1, 5, 'MEMBER', NOW()),
-(1, 6, 'MEMBER', NOW()),
+(1, 4, 'PRIMARY_ADMIN', TRUE, NOW()),
+(1, 5, 'MEMBER', TRUE, NOW()),
+(1, 6, 'MEMBER', TRUE, NOW()),
 
 -- Lim Family Members (Users 7, 8, 9, 10)
-(2, 7, 'PRIMARY_ADMIN', NOW()),
-(2, 8, 'MEMBER', NOW()),
-(2, 9, 'MEMBER', NOW()),
-(2, 10, 'MEMBER', NOW()),
+(2, 7, 'PRIMARY_ADMIN', TRUE, NOW()),
+(2, 8, 'MEMBER', TRUE, NOW()),
+(2, 9, 'MEMBER', FALSE, NOW()),
+(2, 10, 'MEMBER', TRUE, NOW()),
 
 -- Wong Family Members (Users 11, 12, 13)
-(3, 11, 'PRIMARY_ADMIN', NOW()),
-(3, 12, 'MEMBER', NOW()),
-(3, 13, 'MEMBER', NOW());
+(3, 11, 'PRIMARY_ADMIN', TRUE, NOW()),
+(3, 12, 'MEMBER', TRUE, NOW()),
+(3, 13, 'MEMBER', TRUE, NOW());
 
 -- =============================================
 --  DIETARY PROFILES

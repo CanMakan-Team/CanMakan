@@ -4,32 +4,57 @@
         {
             "label": "Build Mobile App",
             "type": "shell",
-            "command": "./gradlew",
-            "options": {
-                "cwd": "${workspaceFolder}/client/mobile"
-            },
+            "command": "powershell",
             "args": [
-                "assembleDebug"
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/run-component.ps1",
+                "-Component",
+                "mobile"
             ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": []
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
+            "problemMatcher": [],
+            "detail": "Opens assembleDebug in an external PowerShell window (same as Run Full Stack)."
         },
         {
             "label": "Run Web App",
             "type": "shell",
-            "command": "npm",
-            "options": {
-                "cwd": "${workspaceFolder}/client/web"
-            },
+            "command": "powershell",
             "args": [
-                "run",
-                "dev"
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/run-component.ps1",
+                "-Component",
+                "web"
             ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "group": "build",
-            "problemMatcher": []
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
+            "problemMatcher": [],
+            "detail": "Opens npm run dev in an external PowerShell window (same as Run Full Stack)."
         },
         {
             "label": "Run Backend",
@@ -40,74 +65,165 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                "${workspaceFolder}/.vscode/run-backend.ps1"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "group": "build",
-            "problemMatcher": []
-        },
-        {
-            "label": "Run Full Stack",
-            "type": "shell",
-            "command": "${workspaceFolder}/.vscode/run-full-stack.ps1",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "group": "build",
-            "problemMatcher": []
-        },
-        {
-            "label": "Stop Backend",
-            "type": "shell",
-            "command": "${workspaceFolder}/.vscode/stop-process.ps1",
-            "args": [
+                "${workspaceFolder}/.vscode/run-component.ps1",
+                "-Component",
                 "backend"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
             "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
+            "problemMatcher": [],
+            "detail": "Opens spring-boot:run in an external PowerShell window (same as Run Full Stack)."
+        },
+        {
+            "label": "Run Backend (mac, local profile)",
+            "type": "shell",
+            "command": "./mvnw",
+            "options": {
+                "cwd": "${workspaceFolder}/server/backend"
+            },
+            "args": [
+                "spring-boot:run",
+                "-Dspring-boot.run.profiles=local"
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": [],
+            "detail": "Runs the backend on macOS/zsh via the Maven wrapper with the local Spring profile active (reads application-local.properties for JWT_SIGNING_SECRET)."
+        },
+        {
+            "label": "Run Full Stack",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/run-full-stack.ps1"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
+            "problemMatcher": [],
+            "detail": "Opens backend, web, and mobile each in their own external PowerShell window."
+        },
+        {
+            "label": "Stop Backend",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/stop-process.ps1",
+                "-Target",
+                "backend"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
             "problemMatcher": []
         },
         {
             "label": "Stop Web App",
             "type": "shell",
-            "command": "${workspaceFolder}/.vscode/stop-process.ps1",
+            "command": "powershell",
             "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/stop-process.ps1",
+                "-Target",
                 "web"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
             "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
             "problemMatcher": []
         },
         {
             "label": "Stop Mobile Build",
             "type": "shell",
-            "command": "${workspaceFolder}/.vscode/stop-process.ps1",
+            "command": "powershell",
             "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/stop-process.ps1",
+                "-Target",
                 "mobile"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
             "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
             "problemMatcher": []
         },
         {
             "label": "Stop Full Stack",
             "type": "shell",
-            "command": "${workspaceFolder}/.vscode/stop-process.ps1",
+            "command": "powershell",
             "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/stop-process.ps1",
+                "-Target",
                 "fullstack"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
             "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true,
+                "showReuseMessage": false
+            },
             "problemMatcher": []
         },
         {
@@ -129,6 +245,45 @@
             "problemMatcher": []
         },
         {
+            "label": "Run Backend Tests (mac)",
+            "type": "shell",
+            "command": "./mvnw",
+            "options": {
+                "cwd": "${workspaceFolder}/server/backend"
+            },
+            "args": [
+                "test"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Runs backend tests on macOS/zsh via the Maven wrapper. Uses application-default.properties for the JWT secret, no profile flag needed."
+        },
+        {
+            "label": "Run UC1 + UC4 tests",
+            "type": "shell",
+            "command": "./mvnw",
+            "options": {
+                "cwd": "${workspaceFolder}/server/backend"
+            },
+            "args": [
+                "test",
+                "-Dtest=com.canmakan.backend.dietaryprofile.DietaryProfileServiceTest,com.canmakan.backend.dietaryprofile.RestrictionRuleLoaderTest,com.canmakan.backend.dietaryprofile.DietaryProfileRepositoryTest,com.canmakan.backend.product.history.ScanHistoryRepositoryTest"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Runs only the dietaryprofile and product/history test classes (UC1 + UC4), skipping the rest of the suite. DietaryProfileRepositoryTest and ScanHistoryRepositoryTest are @SpringBootTest and need MySQL running on localhost:3306."
+        },
+        {
             "label": "Run Mobile Tests",
             "type": "shell",
             "command": ".\\gradlew.bat",
@@ -146,10 +301,51 @@
             "problemMatcher": []
         },
         {
+            "label": "Run Web Tests",
+            "type": "shell",
+            "command": "npm",
+            "options": {
+                "cwd": "${workspaceFolder}/client/web"
+            },
+            "args": [
+                "run",
+                "test"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Vitest: all web client tests under client/web/src/test/"
+        },
+        {
+            "label": "Run Web Tests (watch)",
+            "type": "shell",
+            "command": "npm",
+            "options": {
+                "cwd": "${workspaceFolder}/client/web"
+            },
+            "args": [
+                "run",
+                "test:watch"
+            ],
+            "group": "test",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": [],
+            "detail": "Vitest watch mode for client/web"
+        },
+        {
             "label": "Run Tests",
             "dependsOn": [
                 "Run Backend Tests",
-                "Run Mobile Tests"
+                "Run Mobile Tests",
+                "Run Web Tests"
             ],
             "dependsOrder": "sequence",
             "group": {
@@ -157,7 +353,7 @@
                 "isDefault": true
             },
             "problemMatcher": [],
-            "detail": "Runs all available unit tests (backend Maven + mobile Gradle). Web has no test script yet."
+            "detail": "Runs backend Maven tests, mobile Gradle tests, and web Vitest suite."
         }
     ]
 }

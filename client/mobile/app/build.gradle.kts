@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.ApplicationExtension
+import java.net.URI
 import java.util.Properties
 
 plugins {
@@ -7,6 +8,7 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
     id("kotlin-parcelize")
+    id("com.google.gms.google-services")
 }
 
 val localProperties = Properties()
@@ -14,9 +16,63 @@ val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localPropertiesFile.inputStream().use { localProperties.load(it) }
 }
-val baseUrl = localProperties.getProperty("BASE_URL")
+val configuredBaseUrl = localProperties.getProperty("BASE_URL")
     ?: project.findProperty("BASE_URL")?.toString()
+
+val debugBaseUrl = configuredBaseUrl
+    ?.trim()
+    ?.takeIf { it.isNotEmpty() }
     ?: "http://10.0.2.2:8080/api/"
+val normalizedDebugBaseUrl = if (debugBaseUrl.endsWith("/")) {
+    debugBaseUrl
+} else {
+    "$debugBaseUrl/"
+}
+val releaseBaseUrl = configuredBaseUrl?.trim().orEmpty()
+
+fun buildConfigString(value: String): String {
+    val escaped = value.replace("\\", "\\\\").replace("\"", "\\\"")
+    return "\"$escaped\""
+}
+
+fun validateReleaseBaseUrl(value: String) {
+    if (value.isBlank()) {
+        throw GradleException(
+            "Release BASE_URL is required. Supply an explicit HTTPS URL ending in '/'."
+        )
+    }
+    val uri = try {
+        URI(value)
+    } catch (_: Exception) {
+        throw GradleException("Release BASE_URL must be a valid HTTPS URL ending in '/'.")
+    }
+    if (!uri.scheme.equals("https", ignoreCase = true)) {
+        throw GradleException("Release BASE_URL must use HTTPS.")
+    }
+    if (uri.host.isNullOrBlank()) {
+        throw GradleException("Release BASE_URL must include a host.")
+    }
+    if (!value.endsWith("/")) {
+        throw GradleException("Release BASE_URL must end in '/'.")
+    }
+    if (uri.userInfo != null || uri.rawQuery != null || uri.rawFragment != null) {
+        throw GradleException(
+            "Release BASE_URL must not contain user info, a query, or a fragment."
+        )
+    }
+}
+
+val validateReleaseBaseUrlTask = tasks.register("validateReleaseBaseUrl") {
+    group = "verification"
+    description = "Fails closed unless the Release API base URL is explicitly configured for HTTPS."
+    doLast {
+        validateReleaseBaseUrl(releaseBaseUrl)
+    }
+}
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn(validateReleaseBaseUrlTask)
+}
 
 extensions.configure<ApplicationExtension> {
     namespace = "sg.edu.nus.iss.canmakan"
@@ -28,8 +84,6 @@ extensions.configure<ApplicationExtension> {
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
-        buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         vectorDrawables {
@@ -38,7 +92,15 @@ extensions.configure<ApplicationExtension> {
     }
 
     buildTypes {
-        release {
+        getByName("debug") {
+            buildConfigField(
+                "String",
+                "BASE_URL",
+                buildConfigString(normalizedDebugBaseUrl),
+            )
+        }
+        getByName("release") {
+            buildConfigField("String", "BASE_URL", buildConfigString(releaseBaseUrl))
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -65,7 +127,10 @@ extensions.configure<ApplicationExtension> {
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+        vendor.set(JvmVendorSpec.AMAZON)
+    }
 }
 
 dependencies {
@@ -120,4 +185,8 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.timber)
+
+    // 10. FireBase SDK
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
 }

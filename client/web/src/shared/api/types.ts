@@ -1,17 +1,34 @@
+﻿/**
+ * Setting up the DTO interfaces to match the backend payloads,
+ * {RegistrationResponse, AuthLoginResponse, FamilyMe, FamilyMember, FamilyProfileInput, ActiveProfile, ExistingUserSearchResult, InvitationResponse, DependantProfileResponse, ScanVerdict, Verdict, DataCompleteness, ScanRecord, ConsumerTrendResponse}
+ * from backend/auth/dto
+ * 
+ * @author Amelia
+ * @author Khai
+ */
+
+// Define the role type
 export type Role =
   | 'ROLE_APP_USER'
   | 'ROLE_FAMILY_ADMIN'
   | 'ROLE_SYSTEM_ADMIN'
 
+// Define the portal type
 export type Portal = 'FAMILY' | 'SYSTEM'
+
+// Define the relationship type
 export type Relationship =
-  | 'SELF'
-  | 'SPOUSE'
-  | 'CHILD'
-  | 'PARENT'
-  | 'DEPENDANT'
-  | 'OTHER'
+  | 'SELF' // Self
+  | 'SPOUSE' // Spouse
+  | 'CHILD' // Child
+  | 'PARENT' // Parent
+  | 'DEPENDANT' // Dependant
+  | 'OTHER' // Other
+
+// Define the age group type
 export type AgeGroup = 'CHILD' | 'TEEN' | 'ADULT' | 'SENIOR' | 'UNSPECIFIED'
+
+// Define the restriction code type
 export type RestrictionCode =
   | 'HALAL'
   | 'KOSHER'
@@ -30,102 +47,173 @@ export type RestrictionCode =
   | 'LOW_CHOLESTEROL'
   | 'KETO'
 
+// Define the authenticated session type
 export interface AuthenticatedSession {
-  accessToken?: string
-  userId: number
-  displayName: string
-  roles: Role[]
-  portal: Portal
-  prototype: boolean
+  accessToken?: string // JWT access token
+  userId: number // id of the user
+  displayName: string // display name of the user
+  roles: Role[] // roles of the user
+  portal: Portal // portal of the user
+  prototype: boolean // true if the user is a prototype user
 }
 
+  /** POST /api/auth/register success body (UC18). */
+export interface RegistrationResponse {
+  userId: number // id of the user
+  profileId: number // id of the profile
+  name: string // name of the user
+  email: string // email of the user
+  active: boolean // true if the user is active
+}
+
+/** POST /api/auth/login success body (UC19 JWT). */
+export interface AuthLoginResponse {
+  accessToken: string // JWT access token
+  tokenType: string // type of the token
+  expiresIn: number // expiration time in seconds
+  user: {
+    userId: number // id of the user
+    email: string // email of the user
+    role: 'USER' | 'ADMIN' // role of the user
+  }
+}
+
+/** Current family context from GET /api/families/me (UC8). */
+export interface FamilyMe {
+  familyId: number // id of the family
+  familyName: string // name of the family
+  memberRole: string // role of the member
+  selfProfileId: number | null // id of the self profile
+  createdByUserId: number // id of the user who created the family
+}
+
+// Define the family member type
 export interface FamilyMember {
-  memberId: number
-  profileName: string
-  relationship: Relationship
-  ageGroup: AgeGroup
-  commonRequirements: RestrictionCode[]
-  restrictions: RestrictionCode[]
-  source: 'REGISTERED_USER' | 'DEPENDANT_PROFILE'
-  maskedEmail?: string
+  memberId: number // id of the member
+  profileId: number // id of the profile
+  linkedUserId?: number | null // null if there is no linked user (i.e. dependant profile)
+  profileName: string // name of the profile
+  relationship: Relationship // relationship of the profile
+  ageGroup: AgeGroup // age group of the profile
+  commonRequirements: RestrictionCode[] // common requirements of the profile
+  restrictions: RestrictionCode[] // restrictions of the profile
+  source: 'REGISTERED_USER' | 'DEPENDANT_PROFILE' // source of the profile
+  maskedEmail?: string // masked email of the user
+  memberRole?: string | null // role of the member
+  profileActive: boolean // true if the profile is active
 }
 
+// Define the family profile input type
 export interface FamilyProfileInput {
-  profileName: string
-  relationship: Relationship
-  ageGroup: AgeGroup
-  commonRequirements: RestrictionCode[]
-  restrictions: RestrictionCode[]
+  profileName: string // name of the profile
+  relationship: Relationship // relationship of the profile
+  ageGroup: AgeGroup // age group of the profile
+  commonRequirements: RestrictionCode[] // common requirements of the profile
+  restrictions: RestrictionCode[] // restrictions of the profile
 }
 
+// Define the active profile type (matches GET/PUT /families/me/active-profile)
 export interface ActiveProfile {
-  memberId: number
-  profileName: string
-  activatedAt: string
+  profileId: number // id of the profile
+  profileName: string // name of the profile
+  relationship?: string | null // relationship of the profile
+  familyId?: number | null // id of the family
+  isPrimary?: boolean // true if the profile is the primary profile
 }
 
+// Define the existing user search result type
 export interface ExistingUserSearchResult {
-  userId: number
-  displayName: string
-  maskedEmail: string
-  accountStatus: 'ACTIVE' | 'INACTIVE'
-  familyLinkStatus: 'NOT_LINKED' | 'ALREADY_LINKED' | 'PENDING'
+  userId?: number | null // id of the user
+  displayName?: string | null // display name of the user
+  maskedEmail: string // masked email of the user
+  accountStatus: 'ACTIVE' | 'INACTIVE' | 'NOT_REGISTERED' // account status of the user
+  familyLinkStatus: 'NOT_LINKED' | 'ALREADY_LINKED' | 'PENDING' // family link status of the user
 }
 
-export type Verdict = 'SAFE' | 'WARNING' | 'AVOID' | 'INCOMPLETE'
+// Define the invitation response type
+export interface InvitationResponse {
+  invitationId: number // id of the invitation
+  invitedEmail: string // email of the invited user
+  invitationToken: string // token of the invitation
+  inviteCode: string // code of the invitation
+  inviteUrl: string // url of the invitation
+  status: string // status of the invitation
+  expiresAt: string // timestamp of the expiration
+  inviteeRegistered: boolean // true if the invited user is registered
+}
+
+// Define the dependant profile response type
+export interface DependantProfileResponse {
+  profileId: number // id of the profile
+  profileName: string // name of the profile
+  relationship: string // relationship of the profile
+  familyId: number // id of the family
+}
+
+// scans.verdict (DB / assessment wire)
+export type ScanVerdict = 'SAFE' | 'WARNING' | 'UNSAFE'
+
+// UC6 matrix badge tones (maps DB severity_level for display; includes legacy AVOID)
+export type Verdict = ScanVerdict | 'AVOID' | 'INCOMPLETE'
+
 export type DataCompleteness = 'COMPLETE' | 'PARTIAL' | 'PRODUCT_NOT_FOUND'
 
+// Define the scan record type
 export interface ScanRecord {
-  scanId: number
-  product: string
-  brand: string
-  memberId: number
-  evaluatedProfile: string
-  verdict: Verdict
-  detectedIngredient: string
-  resolvedIngredient: string
-  matchedRestriction: string
-  explanation: string
-  dataCompleteness: DataCompleteness
-  dataSource: string
-  scannedAt: string
-  suggestedAlternative?: string
+  scanId: number // id of the scan
+  product: string // name of the product
+  brand: string // name of the brand
+  memberId: number // id of the member
+  evaluatedProfile: string // name of the evaluated profile
+  verdict: ScanVerdict // wire verdict from assessment / family scans API
+  detectedIngredient: string // name of the detected ingredient
+  resolvedIngredient: string // name of the resolved ingredient
+  matchedRestriction: string // name of the matched restriction
+  explanation: string // explanation of the scan
+  dataCompleteness: DataCompleteness // data completeness of the scan
+  dataSource: string // source of the scan
+  scannedAt: string // timestamp of the scan
+  suggestedAlternative?: string // suggested alternative of the scan
 }
 
+// Define the consumer trend response type
 export interface ConsumerTrendResponse {
-  period: { from: string; to: string }
-  verdictDistribution: Array<{ verdict: Verdict; count: number }>
-  flaggedIngredients: Array<{ resolvedIngredient: string; count: number }>
+  period: { from: string; to: string } // period of the trend (start and end dates)
+  verdictDistribution: Array<{ verdict: ScanVerdict; count: number }> // distribution of the verdicts
+  flaggedIngredients: Array<{ resolvedIngredient: string; count: number }> // distribution of the flagged ingredients
   productCategories?: Array<{
-    category: string
-    safeCount: number
-    warningCount: number
-    avoidCount: number
-    incompleteCount: number
+    category: string // category of the product
+    safeCount: number // count of the safe products
+    warningCount: number // count of the warning products
+    avoidCount: number // count of the avoid products
+    incompleteCount: number // count of the incomplete products
   }>
-  partial: boolean
+  partial: boolean // true if the trend is partial
 }
 
-export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING' | 'DISABLED'
-export interface UserAccessSummary {
-  userId: number
-  displayName: string
-  maskedEmail: string
-  roles: Role[]
-  accountStatus: AccountStatus
-  familyMembershipStatus?: 'NONE' | 'LINKED' | 'PENDING'
-  lastActiveAt?: string
+/**
+ * UC6 Setting up the DTO interfaces to match the backend payloads,
+ * {FamilyMeRestrictionDetail, FamilyMeRestrictionSum, FamilyRestrictionSumRes}
+ * from backend/family/dto
+ */
+
+// Define the family me restriction detail type
+export interface FamilyMeRestrictionDetail {
+  code: string, // code of the restriction
+  displayName: string, // display name of the restriction
+  severity: string // severity of the restriction
 }
 
-export interface AccessUpdate {
-  roles?: Role[]
-  accountStatus?: AccountStatus
+// Define the family me restriction sum type
+export interface FamilyMeRestrictionSum {
+  userId: number, // id of the user
+  profileId?: number | null, // null if there is no profile
+  name: string, // name of the profile
+  isActive: boolean, // true if the profile is active
+  restrictions: FamilyMeRestrictionDetail[] // restrictions of the profile
 }
 
-export interface AuditEntry {
-  auditId: number
-  actor: string
-  action: string
-  targetUserId: number
-  createdAt: string
+// Define the family restriction sum response type
+export interface FamilyRestrictionSumRes {
+  familyMembers: FamilyMeRestrictionSum[] // family members with their restrictions
 }

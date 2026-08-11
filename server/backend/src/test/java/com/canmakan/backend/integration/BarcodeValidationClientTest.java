@@ -342,7 +342,7 @@ class BarcodeValidationClientTest {
     private static ClientHarness clientHarness(
         int retryMaxAttempts,
         long retryBackoffMs,
-        BarcodeValidationClient.RetrySleeper retrySleeper
+        RetrySleeper retrySleeper
     ) {
         RestClient.Builder offBuilder = BarcodeValidationClient.configuredRestClientBuilder(
             "https://off.test/api/v3/product/",

@@ -1,71 +1,61 @@
 package sg.edu.nus.iss.canmakan
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import dagger.hilt.android.AndroidEntryPoint
-import sg.edu.nus.iss.canmakan.features.product.scan.ScannerScreen
-import sg.edu.nus.iss.canmakan.navigation.CanMakanNavGraph
-import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
+import javax.inject.Inject
+import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
+import sg.edu.nus.iss.canmakan.navigation.CanMakanApp
 import sg.edu.nus.iss.canmakan.shared.ui.theme.CanMakanTheme
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    @Inject
+    lateinit var pendingInvitationStore: PendingInvitationStore
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        captureInviteToken(intent)
         enableEdgeToEdge()
         setContent {
             CanMakanTheme {
-                CanMakanNavGraph()
+                CanMakanApp()
             }
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        captureInviteToken(intent)
+    }
 
-    /**
-     * Temporary solution to render the ScannerScreen directly, bypassing the NavGraph
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            CanMakanTheme {
+    private fun captureInviteToken(intent: Intent?) {
+        val token = extractInviteToken(intent?.data) ?: return
+        pendingInvitationStore.offer(token)
+    }
 
-                // 1. Create a temporary dummy profile to satisfy the ScannerScreen requirements
-                val dummyProfile = DietaryProfile(
-                    id = 1L,
-                    familyId = 1L,
-                    profileName = "Test User",
-                    relationship = "Self",
-                    initials = "TU",
-                    isPrimary = true
-                )
-
-                // 2. Render the ScannerScreen directly, bypassing the NavGraph
-                ScannerScreen(
-                    activeProfile = dummyProfile,
-                    activeRestrictions = listOf("Halal", "Peanut Allergy"), // Temporary dummy restrictions
-                    onMenuClick = { /* Do nothing temporarily */ },
-                    onScanClick = { /* Do nothing temporarily */ },
-                    onHistoryClick = { /* Do nothing temporarily */ }
-                )
-
+    companion object {
+        fun extractInviteToken(uri: Uri?): String? {
+            if (uri == null) return null
+            val path = uri.path.orEmpty()
+            // canmakan://invite/{token}  → host=invite, path=/{token}
+            // https://canmakan.local/invite/{token} → path=/invite/{token}
+            return when {
+                uri.scheme.equals("canmakan", ignoreCase = true) &&
+                    uri.host.equals("invite", ignoreCase = true) -> {
+                    path.trim('/').takeIf { it.isNotBlank() }
+                }
+                path.startsWith("/invite/") -> {
+                    path.removePrefix("/invite/").trim('/').takeIf { it.isNotBlank() }
+                }
+                else -> null
             }
         }
-
     }
-     **/
 }

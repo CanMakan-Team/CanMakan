@@ -63,14 +63,13 @@ class ScannerViewModelTest {
             )
         )
 
-        viewModel.processBarcode("3017620422003", profileId = 1L, userId = 7L)
+        viewModel.processBarcode("3017620422003", profileId = 1L)
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(ScanProcessState.SUCCESS, viewModel.processState.value)
         assertEquals(ScanVerdict.SAFE, viewModel.verdictDetail.value?.verdict)
         assertEquals("Nutella", viewModel.verdictDetail.value?.product?.productName)
         assertTrue(api.assessCalled)
-        assertEquals(7L, api.lastUserId)
     }
 
     @Test
@@ -155,18 +154,15 @@ class ScannerViewModelTest {
         var assessment: Response<AssessmentResponse> =
             Response.success(AssessmentResponse("SAFE", "ok"))
         var assessCalled = false
-        var lastUserId: Long? = null
 
         override suspend fun validateBarcode(request: ScanRequest): Response<ValidationResponse> {
             return validation
         }
 
         override suspend fun assessBarcode(
-            userId: Long?,
             request: AssessmentRequest
         ): Response<AssessmentResponse> {
             assessCalled = true
-            lastUserId = userId
             return assessment
         }
     }

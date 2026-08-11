@@ -18,7 +18,9 @@ import com.canmakan.backend.knowledgebase.mcp.server.CrossContaminationTool;
 import com.canmakan.backend.knowledgebase.mcp.server.DietaryRuleTool;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.knowledgebase.model.RestrictionCategory;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,6 +49,19 @@ class DietaryRuleEngineTest {
 
         when(crossContaminationTool.analyse(any(), any()))
                 .thenReturn(new CrossContaminationResult(false, List.of(), ""));
+
+        // The engine now resolves the whole label in one batched call; delegate that batch
+        // to the per-name resolve() stubs each test already sets up.
+        when(resolver.resolveAll(any())).thenAnswer(invocation -> {
+            List<String> names = invocation.getArgument(0);
+            Map<String, IngredientResolution> resolutions = new LinkedHashMap<>();
+            for (String name : names) {
+                if (name != null && !name.isBlank()) {
+                    resolutions.put(name, resolver.resolve(name));
+                }
+            }
+            return resolutions;
+        });
     }
 
     @Test

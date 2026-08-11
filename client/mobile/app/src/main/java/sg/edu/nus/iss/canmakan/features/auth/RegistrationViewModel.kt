@@ -15,6 +15,7 @@ import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResponse
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResult
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 
 enum class RegistrationStep {
     ACCOUNT_INFORMATION,
@@ -29,9 +30,12 @@ enum class ProfileSetupStatus {
 }
 
 data class RegistrationUiState(
+    val name: String = "",
     val email: String = "",
     val password: String = "",
     val confirmPassword: String = "",
+    val invitationToken: String? = null,
+    val nameError: String? = null,
     val emailError: String? = null,
     val passwordError: String? = null,
     val confirmPasswordError: String? = null,
@@ -48,7 +52,7 @@ data class RegistrationUiState(
     val profileSetupMessage: String? = null,
 ) {
     override fun toString(): String {
-        return "RegistrationUiState(email=$email, password=<redacted>, " +
+        return "RegistrationUiState(name=$name, email=$email, password=<redacted>, " +
             "confirmPassword=<redacted>, step=$step, isSubmitting=$isSubmitting, " +
             "accountCreated=${account != null}, profileSetupStatus=$profileSetupStatus)"
     }
@@ -58,6 +62,7 @@ data class RegistrationUiState(
 class RegistrationViewModel @Inject constructor(
     private val registrationRepository: RegistrationRepository,
     private val dietaryRestrictionRepository: DietaryRestrictionRepository,
+    private val activeProfileManager: ActiveProfileManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RegistrationUiState())
@@ -65,6 +70,21 @@ class RegistrationViewModel @Inject constructor(
 
     init {
         loadDietaryOptions()
+    }
+
+    fun setInvitationToken(token: String?) {
+        _uiState.value = _uiState.value.copy(
+            invitationToken = token?.trim()?.takeIf { it.isNotEmpty() },
+        )
+    }
+
+    fun updateName(name: String) {
+        _uiState.value = _uiState.value.copy(
+            name = name,
+            nameError = null,
+            registrationError = null,
+            registrationFailureType = null,
+        )
     }
 
     fun updateEmail(email: String) {
@@ -97,6 +117,14 @@ class RegistrationViewModel @Inject constructor(
 
     fun continueToDietaryProfile() {
         val state = _uiState.value
+        val normalizedName = state.name.trim()
+        val nameError = when {
+            normalizedName.isEmpty() -> "Name is required."
+            normalizedName.length < MIN_NAME_LENGTH -> "Name must be at least 3 characters."
+            normalizedName.length > MAX_NAME_LENGTH ->
+                "Name must be between 3 and 100 characters."
+            else -> null
+        }
         val normalizedEmail = state.email.trim()
         val emailError = when {
             normalizedEmail.isEmpty() -> "Email is required."
@@ -108,6 +136,9 @@ class RegistrationViewModel @Inject constructor(
             state.password.isBlank() -> "Password is required."
             state.password.length < MIN_PASSWORD_LENGTH ->
                 "Password must be at least 8 characters."
+            utf8ByteLength(state.password) > MAX_PASSWORD_UTF8_BYTES ->
+                "Password must not exceed 72 UTF-8 bytes."
+            !meetsRegistrationPasswordPolicy(state.password) -> PASSWORD_STRENGTH_MESSAGE
             else -> null
         }
         val confirmPasswordError = when {
@@ -117,12 +148,15 @@ class RegistrationViewModel @Inject constructor(
         }
 
         _uiState.value = state.copy(
+            nameError = nameError,
             emailError = emailError,
             passwordError = passwordError,
             confirmPasswordError = confirmPasswordError,
             registrationError = null,
             registrationFailureType = null,
-            step = if (emailError == null && passwordError == null && confirmPasswordError == null) {
+            step = if (nameError == null && emailError == null &&
+                passwordError == null && confirmPasswordError == null
+            ) {
                 RegistrationStep.OPTIONAL_DIETARY_PROFILE
             } else {
                 RegistrationStep.ACCOUNT_INFORMATION
@@ -180,8 +214,10 @@ class RegistrationViewModel @Inject constructor(
             )
 
             when (val result = registrationRepository.register(
+                name = state.name.trim(),
                 email = state.email.trim().lowercase(Locale.ROOT),
                 password = state.password,
+                invitationToken = state.invitationToken,
             )) {
                 is RegistrationResult.Success -> handleAccountCreated(result.account)
                 is RegistrationResult.Failure -> {
@@ -203,7 +239,8 @@ class RegistrationViewModel @Inject constructor(
         }
     }
 
-    private fun handleAccountCreated(account: RegistrationResponse) {
+    private suspend fun handleAccountCreated(account: RegistrationResponse) {
+        persistLocalProfile(account)
         val state = _uiState.value
         if (state.selectedRestrictionIds.isEmpty()) {
             _uiState.value = state.copy(
@@ -214,8 +251,31 @@ class RegistrationViewModel @Inject constructor(
                 account = account,
                 profileSetupStatus = ProfileSetupStatus.NOT_REQUESTED,
             )
+            return
+        }
+
+        // Attempt to persist the selected restrictions onto the profile that
+        // was just created alongside the account. Only fall back to the
+        // deferred message if this actually fails, e.g. a network error —
+        // not merely because restrictions were selected.
+        val selections = state.selectedRestrictionIds.associateWith { DEFAULT_SEVERITY_LEVEL }
+        val saved = try {
+            dietaryRestrictionRepository.saveDietaryRestrictionSelections(account.profileId, selections)
+        } catch (_: Exception) {
+            false
+        }
+
+        _uiState.value = if (saved) {
+            state.copy(
+                step = RegistrationStep.COMPLETE,
+                isSubmitting = false,
+                password = "",
+                confirmPassword = "",
+                account = account,
+                profileSetupStatus = ProfileSetupStatus.SELECTED,
+            )
         } else {
-            _uiState.value = state.copy(
+            state.copy(
                 isSubmitting = false,
                 password = "",
                 confirmPassword = "",
@@ -224,6 +284,11 @@ class RegistrationViewModel @Inject constructor(
                 profileSetupMessage = PROFILE_SETUP_DEFERRED_MESSAGE,
             )
         }
+    }
+
+    private fun persistLocalProfile(account: RegistrationResponse) {
+        // Registration does not establish UC19 auth; login owns the session.
+        activeProfileManager.switchProfile(account.profileId)
     }
 
     private fun loadDietaryOptions() {
@@ -252,7 +317,35 @@ class RegistrationViewModel @Inject constructor(
 
         private const val MAX_EMAIL_LENGTH = 255
         private const val MIN_PASSWORD_LENGTH = 8
+        private const val MAX_PASSWORD_UTF8_BYTES = 72
+        private const val MIN_NAME_LENGTH = 3
+        private const val MAX_NAME_LENGTH = 100
         private const val RELIGIOUS_CATEGORY = "RELIGIOUS"
+        private const val DEFAULT_SEVERITY_LEVEL = "STRICT_AVOID"
         private val EMAIL_PATTERN = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+        private const val PASSWORD_STRENGTH_MESSAGE =
+            "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character."
+
+        private fun utf8ByteLength(value: String): Int =
+            value.toByteArray(Charsets.UTF_8).size
+
+        private fun meetsRegistrationPasswordPolicy(password: String): Boolean {
+            if (password.length < MIN_PASSWORD_LENGTH) {
+                return false
+            }
+            var hasUpper = false
+            var hasLower = false
+            var hasDigit = false
+            var hasSpecial = false
+            for (character in password) {
+                when {
+                    character.isUpperCase() -> hasUpper = true
+                    character.isLowerCase() -> hasLower = true
+                    character.isDigit() -> hasDigit = true
+                    else -> hasSpecial = true
+                }
+            }
+            return hasUpper && hasLower && hasDigit && hasSpecial
+        }
     }
 }

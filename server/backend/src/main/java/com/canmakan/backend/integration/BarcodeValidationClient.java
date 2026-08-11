@@ -520,9 +520,4 @@ public class BarcodeValidationClient {
         }
         return baseUrl.trim();
     }
-
-    @FunctionalInterface
-    interface RetrySleeper {
-        void sleep(long backoffMs) throws InterruptedException;
-    }
 }

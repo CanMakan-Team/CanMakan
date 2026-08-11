@@ -100,7 +100,9 @@ cd server/backend
 .\mvnw.cmd spring-boot:run
 ```
 
-Local MySQL on `localhost:3306` is required (defaults: user `root`, empty password). API keys are optional for startup; see [`server/backend/README.md`](server/backend/README.md).
+Local MySQL on `localhost:3306` and a `JWT_SIGNING_SECRET` environment value are
+required (database defaults: user `root`, empty password). External API keys are
+optional for startup; see [`server/backend/README.md`](server/backend/README.md).
 
 The backend health endpoint is
 `http://localhost:8080/actuator/health`.
@@ -127,15 +129,16 @@ Continuous integration builds the backend, web app, and Android app on pushes an
 Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 
 - Runs on all pushes and pull requests
-- Builds backend, web, and mobile in a single job on `ubuntu-latest`
+- Path-filtered jobs on `ubuntu-latest` for backend, web, and mobile
 
 | Component | Directory | Build step |
 |-----------|-----------|------------|
 | Backend | `server/backend` | Maven (`mvn clean package -DskipTests`, Java 21) |
-| Web | `client/web` | `npm ci` + `npm run build` (Node 20) |
+| Web | `client/web` | `npm ci` + `npm run build` (Node 24) |
 | Mobile | `client/mobile` | Gradle `assembleDebug` |
 
-> Uses GitHub repository secrets for backend runtime configuration (database, API keys) <br>
+> Backend job injects all configurable env vars from `application.properties` via GitHub secrets (DB, JWT, CORS, invites, product APIs, OpenAI, Tavily, AI flags). <br>
+> Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`. Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`. <br>
 > Android SDK is provisioned via `android-actions/setup-android` <br>
 
 ### Dependabot

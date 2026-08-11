@@ -1,12 +1,19 @@
 import type {
   ActiveProfile,
-  AuditEntry,
   ConsumerTrendResponse,
   ExistingUserSearchResult,
   FamilyMember,
   ScanRecord,
-  UserAccessSummary,
 } from '../shared/api/types'
+
+/**
+ * Mock data for the family state
+ * With mock on you get: real JWT + real /me, but fake members/scans/admin
+ * With mock off you get: real JWT + real /me, real members/scans/admin
+ * 
+ * @author Amelia
+ * @author YangMaowei
+ */
 
 export interface MockFamilyState {
   members: FamilyMember[]
@@ -17,6 +24,8 @@ export const initialFamilyState: MockFamilyState = {
   members: [
     {
       memberId: 101,
+      profileId: 101,
+      linkedUserId: 101,
       profileName: 'Alicia',
       relationship: 'SELF',
       ageGroup: 'ADULT',
@@ -24,9 +33,13 @@ export const initialFamilyState: MockFamilyState = {
       restrictions: ['SHELLFISH_ALLERGY'],
       source: 'REGISTERED_USER',
       maskedEmail: 'a***@example.com',
+      memberRole: 'PRIMARY_ADMIN',
+      profileActive: true,
     },
     {
       memberId: 102,
+      profileId: 102,
+      linkedUserId: 102,
       profileName: 'Marcus',
       relationship: 'SPOUSE',
       ageGroup: 'ADULT',
@@ -34,21 +47,26 @@ export const initialFamilyState: MockFamilyState = {
       restrictions: ['LOW_SUGAR'],
       source: 'REGISTERED_USER',
       maskedEmail: 'm***@example.com',
+      memberRole: 'MEMBER',
+      profileActive: true,
     },
     {
       memberId: 103,
+      profileId: 103,
+      linkedUserId: null,
       profileName: 'Noah',
       relationship: 'CHILD',
       ageGroup: 'CHILD',
       commonRequirements: ['HALAL'],
       restrictions: ['PEANUT_ALLERGY', 'DAIRY_FREE'],
       source: 'DEPENDANT_PROFILE',
+      memberRole: null,
+      profileActive: true,
     },
   ],
   activeProfile: {
-    memberId: 101,
+    profileId: 101,
     profileName: 'Alicia',
-    activatedAt: '2026-07-29T08:30:00+08:00',
   },
 }
 
@@ -83,7 +101,7 @@ export const scanRecords: ScanRecord[] = [
     brand: 'Good Day',
     memberId: 103,
     evaluatedProfile: 'Noah',
-    verdict: 'AVOID',
+    verdict: 'UNSAFE',
     detectedIngredient: 'Peanut pieces',
     resolvedIngredient: 'Peanut',
     matchedRestriction: 'Peanut allergy',
@@ -133,7 +151,7 @@ export const scanRecords: ScanRecord[] = [
     brand: 'Unknown',
     memberId: 102,
     evaluatedProfile: 'Marcus',
-    verdict: 'INCOMPLETE',
+    verdict: 'WARNING',
     detectedIngredient: 'Ingredient data unavailable',
     resolvedIngredient: 'Not resolved',
     matchedRestriction: 'Assessment incomplete',
@@ -166,8 +184,7 @@ export const consumerTrends: ConsumerTrendResponse = {
   verdictDistribution: [
     { verdict: 'SAFE', count: 824 },
     { verdict: 'WARNING', count: 286 },
-    { verdict: 'AVOID', count: 154 },
-    { verdict: 'INCOMPLETE', count: 92 },
+    { verdict: 'UNSAFE', count: 154 },
   ],
   flaggedIngredients: [
     { resolvedIngredient: 'Peanut', count: 148 },
@@ -201,52 +218,3 @@ export const consumerTrends: ConsumerTrendResponse = {
   ],
   partial: true,
 }
-
-export const initialUsers: UserAccessSummary[] = [
-  {
-    userId: 9001,
-    displayName: 'System Administrator',
-    maskedEmail: 'a***@canmakan.demo',
-    roles: ['ROLE_SYSTEM_ADMIN'],
-    accountStatus: 'ACTIVE',
-    familyMembershipStatus: 'NONE',
-    lastActiveAt: '2026-07-29T09:12:00+08:00',
-  },
-  {
-    userId: 101,
-    displayName: 'Alicia Lim',
-    maskedEmail: 'a***@example.com',
-    roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
-    accountStatus: 'ACTIVE',
-    familyMembershipStatus: 'LINKED',
-    lastActiveAt: '2026-07-29T08:42:00+08:00',
-  },
-  {
-    userId: 205,
-    displayName: 'Jamie Tan',
-    maskedEmail: 'j***@example.com',
-    roles: ['ROLE_APP_USER'],
-    accountStatus: 'ACTIVE',
-    familyMembershipStatus: 'NONE',
-    lastActiveAt: '2026-07-27T14:20:00+08:00',
-  },
-  {
-    userId: 207,
-    displayName: 'Priya Nair',
-    maskedEmail: 'p***@example.com',
-    roles: ['ROLE_APP_USER'],
-    accountStatus: 'PENDING',
-    familyMembershipStatus: 'PENDING',
-  },
-  {
-    userId: 208,
-    displayName: 'Daniel Wong',
-    maskedEmail: 'd***@example.com',
-    roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
-    accountStatus: 'SUSPENDED',
-    familyMembershipStatus: 'LINKED',
-    lastActiveAt: '2026-07-12T16:05:00+08:00',
-  },
-]
-
-export const initialAudit: AuditEntry[] = []
