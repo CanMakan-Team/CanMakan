@@ -25,6 +25,20 @@ class FamilyProfileRepository @Inject constructor(
     }
 
     /**
+     * UC12 roster of linked members and dependants. Empty when the caller has no family.
+     */
+    suspend fun getFamilyMembers(): List<FamilyMemberRosterItem> {
+        val response = apiService.getFamilyMembers()
+        if (response.code() == 404) {
+            return emptyList()
+        }
+        if (!response.isSuccessful) {
+            throw HttpException(response)
+        }
+        return response.body().orEmpty()
+    }
+
+    /**
      * Creates a family circle. HTTP 409 (already a member) reloads `/me` instead of failing.
      */
     suspend fun createFamily(familyName: String): FamilyMeResponse {

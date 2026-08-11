@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,11 +28,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +46,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 // Content shown in the "Edit dietary requirements" bottom sheet.
 // Religious diet allows only one choice; allergies and specific diets
 // allow more than one to be picked at the same time.
+// D3: when viewing another adult's linked profile, options are read-only.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DietaryRestrictionSheet(
@@ -61,6 +59,7 @@ fun DietaryRestrictionSheet(
     val context = androidx.compose.ui.platform.LocalContext.current
     // read current UI state from ViewModel and rerun whenever state changes
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val allowEdit = uiState.allowRestrictionEdit
 
     Box(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -71,7 +70,7 @@ fun DietaryRestrictionSheet(
             ) {
                 Column {
                     Text(
-                        "Edit dietary restrictions",
+                        if (allowEdit) "Edit dietary restrictions" else "View dietary restrictions",
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
                     )
@@ -82,12 +81,22 @@ fun DietaryRestrictionSheet(
                 }
             }
 
+            uiState.restrictionEditHint?.let { hint ->
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = hint,
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
             Text("RELIGIOUS", color = TextSecondary, style = MaterialTheme.typography.titleSmall)
             Spacer(modifier = Modifier.height(8.dp))
             SingleChoiceRow(
                 options = uiState.religiousRestrictions,
-                selectedIds = uiState.selectedRestrictions.keys
+                selectedIds = uiState.selectedRestrictions.keys,
+                enabled = allowEdit,
             ) { selectedId -> viewModel.selectReligiousRestriction(selectedId) }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -95,7 +104,8 @@ fun DietaryRestrictionSheet(
             Spacer(modifier = Modifier.height(8.dp))
             MultiChoiceGrid(
                 options = uiState.allergenRestrictions,
-                selectedIds = uiState.selectedRestrictions.keys
+                selectedIds = uiState.selectedRestrictions.keys,
+                enabled = allowEdit,
             ) { selectedId -> viewModel.toggleDietaryRestriction(selectedId) }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -103,7 +113,8 @@ fun DietaryRestrictionSheet(
             Spacer(modifier = Modifier.height(8.dp))
             MultiChoiceGrid(
                 options = uiState.dietRestrictions,
-                selectedIds = uiState.selectedRestrictions.keys
+                selectedIds = uiState.selectedRestrictions.keys,
+                enabled = allowEdit,
             ) { selectedId -> viewModel.toggleDietaryRestriction(selectedId) }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -117,20 +128,26 @@ fun DietaryRestrictionSheet(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
-                    Text("Cancel")
+                    Text(if (allowEdit) "Cancel" else "Close")
                 }
-                Button(
-                    onClick = {
-                        viewModel.onSave {
-                            Toast.makeText(context, "Dietary restrictions saved successfully!", Toast.LENGTH_SHORT).show()
-                            onSave()
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
-                    enabled = !uiState.isLoading
-                ) {
-                    Text("Save")
+                if (allowEdit) {
+                    Button(
+                        onClick = {
+                            viewModel.onSave {
+                                Toast.makeText(
+                                    context,
+                                    "Dietary restrictions saved successfully!",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                onSave()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+                        enabled = !uiState.isLoading
+                    ) {
+                        Text("Save")
+                    }
                 }
             }
         }
@@ -153,13 +170,15 @@ fun DietaryRestrictionSheet(
 private fun SingleChoiceRow(
     options: List<DietaryRestriction>,
     selectedIds: Set<Long>,
+    enabled: Boolean,
     onToggle: (Long) -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        options.forEachIndexed { index, option ->
+        options.forEach { option ->
             SelectableOptionCard(
                 label = option.displayName,
                 isSelected = selectedIds.contains(option.id),
+                enabled = enabled,
                 modifier = Modifier.weight(1f)
             ) {
                 onToggle(option.id)
@@ -174,6 +193,7 @@ private fun SingleChoiceRow(
 private fun MultiChoiceGrid(
     options: List<DietaryRestriction>,
     selectedIds: Set<Long>,
+    enabled: Boolean,
     onToggle: (Long) -> Unit
 ) {
     val rows = options.chunked(2)
@@ -181,10 +201,10 @@ private fun MultiChoiceGrid(
         rows.forEach { rowOptions ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 rowOptions.forEach { option ->
-                    val index = options.indexOf(option)
                     SelectableOptionCard(
                         label = option.displayName,
                         isSelected = selectedIds.contains(option.id),
+                        enabled = enabled,
                         modifier = Modifier.weight(1f)
                     ) {
                         onToggle(option.id)
@@ -202,6 +222,7 @@ private fun MultiChoiceGrid(
 private fun SelectableOptionCard(
     label: String,
     isSelected: Boolean,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -210,7 +231,14 @@ private fun SelectableOptionCard(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(if (isSelected) LightGreenBackground else Color.White)
-            .clickable(onClick = onClick)
+            .alpha(if (enabled) 1f else 0.55f)
+            .then(
+                if (enabled) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                }
+            )
             .padding(12.dp)
     ) {
         if (isSelected) {
