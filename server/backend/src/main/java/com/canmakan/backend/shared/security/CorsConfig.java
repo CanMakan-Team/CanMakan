@@ -63,8 +63,8 @@ public class CorsConfig {
             return List.of();
         }
         return values.stream()
-            .filter(StringUtils::hasText)
-            .map(String::trim)
+            .filter(value -> StringUtils.hasText(value))
+            .map(value -> value.trim())
             .toList();
     }
 

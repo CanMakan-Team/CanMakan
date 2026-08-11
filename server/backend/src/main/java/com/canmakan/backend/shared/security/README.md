@@ -11,6 +11,8 @@ Implements authentication and authorization infrastructure used by the whole app
 - `AuthUserDetailsService` loads the account and current role in one query.
 - `AuthenticatedPrincipal` and `AuthUserDetails` keep persistence entities out
   of the Spring Security principal.
+- `AuthUserChecker.requireUserId` extracts the caller id from
+  `@AuthenticationPrincipal` (shared by family, dietary, and scan controllers).
 - `SecurityConfig` exposes the standard DAO authentication provider and manager
   using the same BCrypt encoder as UC18 registration.
 - `JwtService` issues HS256 access tokens containing only standard identity

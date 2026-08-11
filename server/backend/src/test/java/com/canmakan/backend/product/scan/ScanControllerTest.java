@@ -6,10 +6,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.canmakan.backend.family.FamilyAuthorizationService;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.integration.BarcodeValidationClient;
 import com.canmakan.backend.product.assessment.AssessmentOrchestrator;
@@ -43,12 +45,18 @@ class ScanControllerTest {
     private MockMvc mockMvc;
     private BarcodeValidationClient validationClient;
     private AssessmentOrchestrator orchestrator;
+    private ScanHistoryService scanHistoryService;
+    private FamilyAuthorizationService familyAuthorization;
 
     @BeforeEach
     void setUp() {
         validationClient = mock(BarcodeValidationClient.class);
         orchestrator = mock(AssessmentOrchestrator.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new ScanController(validationClient, orchestrator))
+        scanHistoryService = mock(ScanHistoryService.class);
+        familyAuthorization = mock(FamilyAuthorizationService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(
+                new ScanController(
+                    validationClient, orchestrator, scanHistoryService, familyAuthorization))
             .setControllerAdvice(new GlobalExceptionHandler())
             .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
             .build();
@@ -134,6 +142,58 @@ class ScanControllerTest {
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.message")
                 .value("Profile does not belong to your family circle."));
+    }
+
+    @Test
+    @DisplayName("UC4: GET /api/scan/history/{id} returns history rows for authorized profile")
+    void historyReturnsRows() throws Exception {
+        authenticateAs(7L);
+        when(scanHistoryService.getScanHistoryForProfile(1L)).thenReturn(List.of(
+            new ScanHistoryResponse(
+                10L,
+                1L,
+                "3017620422003",
+                new ScanHistoryResponse.ProductDto("Nutella", "Ferrero", "3017620422003"),
+                "2026-07-28T18:42:00",
+                "SAFE",
+                new ScanHistoryResponse.FindingsDto(List.of(), List.of()),
+                "ok")
+        ));
+
+        mockMvc.perform(get("/api/scan/history/1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].id").value(10))
+            .andExpect(jsonPath("$[0].verdict").value("SAFE"));
+
+        verify(familyAuthorization).assertProfileAuthorizedForScan(7L, 1L);
+        verify(scanHistoryService).getScanHistoryForProfile(1L);
+    }
+
+    @Test
+    @DisplayName("UC4: GET /api/scan/history/{id} without principal returns 401")
+    void historyRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/scan/history/1"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.message").value("Authenticated user was not found."));
+
+        verify(scanHistoryService, never()).getScanHistoryForProfile(any());
+    }
+
+    @Test
+    @DisplayName("UC4: GET /api/scan/history/{id} returns 403 for unauthorized profile")
+    void historyRejectsUnauthorizedProfile() throws Exception {
+        authenticateAs(7L);
+        org.mockito.Mockito.doThrow(new FamilyForbiddenException(
+                "Profile does not belong to your family circle."))
+            .when(familyAuthorization)
+            .assertProfileAuthorizedForScan(7L, 55L);
+
+        mockMvc.perform(get("/api/scan/history/55"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.message")
+                .value("Profile does not belong to your family circle."));
+
+        verify(scanHistoryService, never()).getScanHistoryForProfile(any());
     }
 
     private static void authenticateAs(long userId) {

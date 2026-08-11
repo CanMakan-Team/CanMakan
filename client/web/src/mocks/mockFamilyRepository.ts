@@ -118,6 +118,8 @@ export const mockFamilyRepository = {
     }
     const member: FamilyMember = {
       memberId: match.userId,
+      profileId: match.userId,
+      linkedUserId: match.userId,
       profileName: match.displayName,
       relationship: 'OTHER',
       ageGroup: 'UNSPECIFIED',
@@ -125,6 +127,8 @@ export const mockFamilyRepository = {
       restrictions: [],
       source: 'REGISTERED_USER',
       maskedEmail: match.maskedEmail,
+      memberRole: 'MEMBER',
+      profileActive: true,
     }
     state.members.push(member)
     writeState(state)
@@ -135,49 +139,118 @@ export const mockFamilyRepository = {
   async createProfile(input: FamilyProfileInput): Promise<FamilyMember> {
     await delay(650)
     const state = readState()
+    const id = Date.now()
     const member: FamilyMember = {
-      memberId: Date.now(),
+      memberId: id,
+      profileId: id,
+      linkedUserId: null,
       ...input,
       source: 'DEPENDANT_PROFILE',
+      memberRole: null,
+      profileActive: true,
     }
     state.members.push(member)
     writeState(state)
     return member
   },
 
-  // Update a dependant profile
+  async getProfiles() {
+    await delay(250)
+    return readState().members.map((member) => ({
+      id: member.profileId,
+      profileName: member.profileName,
+      familyId: 1,
+      relationship: member.relationship,
+      initials: member.profileName.slice(0, 2).toUpperCase(),
+      isPrimary: member.memberRole === 'PRIMARY_ADMIN',
+      active: member.profileActive,
+    }))
+  },
+
   async updateProfile(
-    memberId: number,
+    profileId: number,
     input: FamilyProfileInput,
   ): Promise<FamilyMember> {
     await delay(650)
     const state = readState()
-    const index = state.members.findIndex((member) => member.memberId === memberId)
+    const index = state.members.findIndex((member) => member.profileId === profileId)
     if (index < 0) throw new ApiError('The family profile could not be found.')
-    state.members[index] = { ...state.members[index], ...input }
-    if (state.activeProfile.memberId === memberId) {
+    state.members[index] = {
+      ...state.members[index],
+      profileName: input.profileName,
+      relationship: input.relationship,
+      ageGroup: input.ageGroup,
+      commonRequirements: input.commonRequirements,
+      restrictions: input.restrictions,
+    }
+    if (state.activeProfile.profileId === profileId) {
       state.activeProfile.profileName = input.profileName
     }
     writeState(state)
     return state.members[index]
   },
 
-  // Get the active profile
+  async setProfileActive(profileId: number, active: boolean) {
+    await delay(400)
+    const state = readState()
+    const member = state.members.find((candidate) => candidate.profileId === profileId)
+    if (!member) throw new ApiError('The family profile could not be found.')
+    member.profileActive = active
+    writeState(state)
+    return {
+      id: member.profileId,
+      profileName: member.profileName,
+      active: member.profileActive,
+    }
+  },
+
+  async removeMember(userId: number) {
+    await delay(400)
+    const state = readState()
+    const admins = state.members.filter(
+      (m) => m.memberRole === 'PRIMARY_ADMIN' && m.profileActive,
+    )
+    const target = state.members.find((m) => m.linkedUserId === userId)
+    if (!target) throw new ApiError('The family member could not be found.')
+    if (target.memberRole === 'PRIMARY_ADMIN' && admins.length <= 1) {
+      throw new ApiError('Cannot remove the last primary admin without an allowed transfer.')
+    }
+    state.members = state.members.filter((m) => m.linkedUserId !== userId)
+    if (state.activeProfile.profileId === target.profileId && state.members[0]) {
+      state.activeProfile = {
+        profileId: state.members[0].profileId,
+        profileName: state.members[0].profileName,
+      }
+    }
+    writeState(state)
+  },
+
+  async removeDependantProfile(profileId: number) {
+    await delay(400)
+    const state = readState()
+    const target = state.members.find(
+      (m) => m.profileId === profileId && m.source === 'DEPENDANT_PROFILE',
+    )
+    if (!target) throw new ApiError('The dependant profile could not be found.')
+    state.members = state.members.filter((m) => m.profileId !== profileId)
+    writeState(state)
+  },
+
   async getActiveProfile(): Promise<ActiveProfile> {
     await delay(250)
     return readState().activeProfile
   },
 
-  // Set the active profile
-  async setActiveProfile(memberId: number): Promise<ActiveProfile> {
+  async setActiveProfile(profileId: number): Promise<ActiveProfile> {
     await delay(500)
     const state = readState()
-    const member = state.members.find((candidate) => candidate.memberId === memberId)
+    const member = state.members.find(
+      (candidate) => candidate.profileId === profileId && candidate.profileActive,
+    )
     if (!member) throw new ApiError('The selected profile is unavailable.')
     state.activeProfile = {
-      memberId,
+      profileId,
       profileName: member.profileName,
-      activatedAt: new Date().toISOString(),
     }
     writeState(state)
     return state.activeProfile
