@@ -71,6 +71,8 @@ class DietaryRestrictionViewModelTest {
             repository,
             FamilyProfileRepository(familyApi),
         )
+        // Resolve D3 permission (no family → editable) so toggle/save tests can run.
+        activeProfileManager.switchProfile(1L)
         testDispatcher.scheduler.advanceUntilIdle()
     }
 
@@ -96,7 +98,7 @@ class DietaryRestrictionViewModelTest {
         assertEquals(2, uiState.allergenRestrictions.size)
         assertEquals(1, uiState.dietRestrictions.size)
         assertTrue(uiState.selectedRestrictions.containsKey(1L))
-        assertTrue(uiState.allowRestrictionEdit)
+        assertTrue(uiState.allowRestrictionEdit == true)
     }
 
     // Testing the selection of dietary restrictions
@@ -215,8 +217,8 @@ class DietaryRestrictionViewModelTest {
     }
 
     @Test
-    @DisplayName("UC1 M9: Locks the sheet for another adult's linked profile (D3)")
-    fun locksSheetForOtherAdultLinkedProfile() = runTest {
+    @DisplayName("UC1 M9: PRIMARY_ADMIN may edit another adult's linked profile (D3)")
+    fun allowsAdminToEditOtherAdultLinkedProfile() = runTest {
         familyApi.meResponse = Response.success(
             FamilyMeResponse(
                 familyId = 50L,
@@ -226,24 +228,27 @@ class DietaryRestrictionViewModelTest {
                 createdByUserId = 14L,
             ),
         )
-        familyApi.membersResponse = Response.success(
-            listOf(
-                FamilyMemberRosterItem(
-                    memberId = 14L,
-                    profileId = 77L,
-                    linkedUserId = 14L,
-                    profileName = "Wong",
-                    relationship = "SELF",
-                    source = "REGISTERED_USER",
-                ),
-                FamilyMemberRosterItem(
-                    memberId = 22L,
-                    profileId = 99L,
-                    linkedUserId = 22L,
-                    profileName = "Amanda",
-                    relationship = "SPOUSE",
-                    source = "REGISTERED_USER",
-                ),
+
+        activeProfileManager.switchProfile(99L)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.allowRestrictionEdit == true)
+        assertNull(viewModel.uiState.value.restrictionEditHint)
+
+        viewModel.toggleDietaryRestriction(20L)
+        assertTrue(viewModel.uiState.value.selectedRestrictions.containsKey(20L))
+    }
+
+    @Test
+    @DisplayName("UC1 M10: Non-admin cannot edit another adult's linked profile (D3)")
+    fun locksSheetForNonAdminOnOtherAdultLinkedProfile() = runTest {
+        familyApi.meResponse = Response.success(
+            FamilyMeResponse(
+                familyId = 50L,
+                familyName = "Wong Family",
+                memberRole = "MEMBER",
+                selfProfileId = 77L,
+                createdByUserId = 14L,
             ),
         )
 
@@ -251,7 +256,7 @@ class DietaryRestrictionViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         val uiState = viewModel.uiState.value
-        assertFalse(uiState.allowRestrictionEdit)
+        assertFalse(uiState.allowRestrictionEdit == true)
         assertEquals(RestrictionEditAuthorization.READ_ONLY_HINT, uiState.restrictionEditHint)
 
         viewModel.toggleDietaryRestriction(20L)

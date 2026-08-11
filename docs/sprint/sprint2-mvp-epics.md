@@ -97,7 +97,7 @@ flowchart TB
 **Tech:** Android Kotlin; Spring Boot REST; AWS RDS MySQL  
 **Current code state:** Partial — live catalog/PUT + mobile editor; JWT + D3 ownership authz shipped; severity fixed `STRICT_AVOID`
 
-- **Backend:** `DietaryProfileController` — live `GET /api/restrictions` and `GET|PUT /api/profiles/{profileId}/restrictions`; JWT required (`SecurityConfig`); GET uses `FamilyAuthorizationService.assertProfileAuthorizedForScan`; PUT uses D3 (`assertMayEditRestrictions`: self + unlinked dependants).
+- **Backend:** `DietaryProfileController` — live `GET /api/restrictions` and `GET|PUT /api/profiles/{profileId}/restrictions`; JWT required (`SecurityConfig`); GET uses `FamilyAuthorizationService.assertProfileAuthorizedForScan`; PUT uses D3 (`assertMayEditRestrictions`: self, or any family profile for PRIMARY_ADMIN).
 - **Mobile:** `DietaryRestrictionSheet` + ViewModel wired from the drawer; loads/saves against the live API for the active profile. Severity is fixed to `STRICT_AVOID` in the VM (no PREFERENCE / INTOLERANCE picker). Loading/error paths exist.
 - **Missing:** unknown-code → consistent HTTP 400 mapping; severity picker (AC4); empty-state polish (AC14). SELF bootstrap after registration is via **UC8** create-circle (register leaves `family_id` NULL until then).
 

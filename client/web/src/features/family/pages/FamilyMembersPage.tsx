@@ -251,6 +251,7 @@ export function FamilyMembersPage() {
       {isPrimaryAdmin && editingMember && (
         <EditFamilyProfileModal
           member={editingMember}
+          isPrimaryAdmin={isPrimaryAdmin}
           onClose={() => setEditingMember(null)}
           onSuccess={handleSuccess}
         />

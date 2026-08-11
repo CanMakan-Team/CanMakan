@@ -46,7 +46,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 // Content shown in the "Edit dietary requirements" bottom sheet.
 // Religious diet allows only one choice; allergies and specific diets
 // allow more than one to be picked at the same time.
-// D3: when viewing another adult's linked profile, options are read-only.
+// D3: non-admins viewing another member's profile see a read-only sheet.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DietaryRestrictionSheet(
@@ -59,7 +59,8 @@ fun DietaryRestrictionSheet(
     val context = androidx.compose.ui.platform.LocalContext.current
     // read current UI state from ViewModel and rerun whenever state changes
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val allowEdit = uiState.allowRestrictionEdit
+    // null while resolving → treat as view-only so dismiss shows "Close", not "Cancel"
+    val allowEdit = uiState.allowRestrictionEdit == true
 
     Box(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp)) {

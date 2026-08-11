@@ -36,6 +36,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DietaryRestrictionViewModel
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui.DietaryRestrictionSheet
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
 import sg.edu.nus.iss.canmakan.features.product.history.ScanHistoryViewModel
@@ -70,6 +71,7 @@ private const val ROUTE_INVITATIONS = "invitations"
 @Composable
 fun CanMakanNavGraph(
     navGraphViewModel: CanMakanNavGraphViewModel = hiltViewModel(),
+    dietaryRestrictionViewModel: DietaryRestrictionViewModel = hiltViewModel(),
     onSignOut: () -> Unit = {},
 ) {
     val navController = rememberNavController()
@@ -92,11 +94,19 @@ fun CanMakanNavGraph(
     val inviteClaimError by navGraphViewModel.inviteClaimError.collectAsStateWithLifecycle()
     val switchProfileError by navGraphViewModel.switchProfileError.collectAsStateWithLifecycle()
     val isSwitchingProfile by navGraphViewModel.isSwitchingProfile.collectAsStateWithLifecycle()
+    val dietaryRestrictionUiState by dietaryRestrictionViewModel.uiState.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
     val activeProfile = profiles.firstOrNull { it.id == currentProfileId }
         ?: profiles.firstOrNull()
+
+    val editDietaryButtonLabel =
+        if (dietaryRestrictionUiState.allowRestrictionEdit == true) {
+            "Edit dietary profile"
+        } else {
+            "View dietary profile"
+        }
 
     // If activeProfile is null, show a loading screen while profiles are being fetched
     if (activeProfile == null) {
@@ -146,6 +156,7 @@ fun CanMakanNavGraph(
                         closeDrawer()
                         showEditDietarySheet = true
                     },
+                    editDietaryButtonLabel = editDietaryButtonLabel,
                     onScannerClick = {
                         closeDrawer()
                         navController.navigate(ROUTE_SCANNER)
@@ -384,6 +395,7 @@ fun CanMakanNavGraph(
                 DietaryRestrictionSheet(
                     profileName = activeProfile.profileName,
                     profileRole = activeProfile.relationship,
+                    viewModel = dietaryRestrictionViewModel,
                     onCancel = { showEditDietarySheet = false },
                     onSave = {
                         showEditDietarySheet = false
