@@ -41,6 +41,7 @@ fun AddProfileToFamilyScreen(
     activeProfile: DietaryProfile?,
     activeRestrictions: List<String> = emptyList(),
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onBackClick: () -> Unit = {},
