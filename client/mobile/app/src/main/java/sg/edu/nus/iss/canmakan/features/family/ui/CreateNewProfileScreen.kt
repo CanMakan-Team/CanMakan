@@ -135,7 +135,7 @@ fun CreateNewProfileScreen(
             OutlinedTextField(
                 value = uiState.relationship,
                 onValueChange = viewModel::updateRelationship,
-                placeholder = { Text("e.g. CHILD, PARENT, OTHER") },
+                placeholder = { Text("e.g. Child, Parent, Other") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !uiState.isSubmitting,
