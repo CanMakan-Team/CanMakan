@@ -37,6 +37,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.RestrictionEditAuthorization
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui.DietaryRestrictionSheet
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
@@ -88,6 +89,8 @@ fun CanMakanNavGraph(
     val profiles by navGraphViewModel.profiles.collectAsStateWithLifecycle()
     val hasFamily by navGraphViewModel.hasFamily.collectAsStateWithLifecycle()
     val showManageFamilyActions by navGraphViewModel.showManageFamilyActions.collectAsStateWithLifecycle()
+    val selfProfileId by navGraphViewModel.selfProfileId.collectAsStateWithLifecycle()
+    val memberRole by navGraphViewModel.memberRole.collectAsStateWithLifecycle()
     val hasUserSession by navGraphViewModel.hasUserSession.collectAsStateWithLifecycle()
     val isLoading by navGraphViewModel.isLoading.collectAsStateWithLifecycle()
     val error by navGraphViewModel.error.collectAsStateWithLifecycle()
@@ -108,6 +111,22 @@ fun CanMakanNavGraph(
     val activeProfile = currentProfileId
         .takeIf { it > ActiveProfileManager.UNSET_PROFILE_ID }
         ?.let { profileId -> profiles.firstOrNull { it.id == profileId } }
+
+    val editDietaryButtonLabel = remember(activeProfile?.id, hasFamily, selfProfileId, memberRole) {
+        val profileId = activeProfile?.id
+        if (profileId == null) {
+            RestrictionEditAuthorization.EDIT_DIETARY_PROFILE_LABEL
+        } else {
+            RestrictionEditAuthorization.dietaryProfileButtonLabel(
+                RestrictionEditAuthorization.mayEditRestrictions(
+                    profileId = profileId,
+                    hasFamily = hasFamily,
+                    selfProfileId = selfProfileId,
+                    memberRole = memberRole,
+                )
+            )
+        }
+    }
 
     // Account/profile context is loaded before exposing profile-dependent actions. Once loading
     // completes, a missing profile is a valid shell state rather than a navigation gate.
@@ -153,6 +172,7 @@ fun CanMakanNavGraph(
                             showEditDietarySheet = true
                         }
                     },
+                    editDietaryButtonLabel = editDietaryButtonLabel,
                     onScannerClick = {
                         closeDrawer()
                         navController.navigate(ROUTE_SCANNER)
