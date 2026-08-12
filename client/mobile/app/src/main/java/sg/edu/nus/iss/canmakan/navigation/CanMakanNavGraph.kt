@@ -151,7 +151,10 @@ fun CanMakanNavGraph(
         if (refresh) {
             navGraphViewModel.refreshRestrictions()
         }
-        navigateToScannerHome()
+        // Only leave overlays (e.g. Notifications); stay put on Scanner to avoid camera restart.
+        if (currentRoute != ROUTE_SCANNER) {
+            navigateToScannerHome()
+        }
     }
 
     // ModalNavigationDrawer is used to open and close the drawer
