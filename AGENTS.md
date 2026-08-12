@@ -10,6 +10,9 @@ Before making changes:
 - Keep Spring Boot and Maven work under `server/backend`; Java 21 applies to this backend.
 - Do not overwrite the existing supplied mobile UI implementation without team approval.
 - Do not introduce new frameworks without documenting the reason.
+- Keep brand colors in `design-tokens/colors.json` and regenerate platform
+  theme files with `node design-tokens/generate.mjs` (do not hand-edit
+  generated `Color.kt` or `tokens.css`).
 - Never add credentials, passwords, secrets, or API keys.
 - Update documentation whenever architecture or APIs change.
 - Run the relevant tests before completing future coding tasks.

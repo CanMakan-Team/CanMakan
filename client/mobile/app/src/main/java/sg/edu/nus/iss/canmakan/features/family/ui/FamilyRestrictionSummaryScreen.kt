@@ -37,7 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -51,6 +50,11 @@ import java.util.Locale
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeRestrictionSum
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
+import sg.edu.nus.iss.canmakan.shared.ui.theme.AvatarBlue
+import sg.edu.nus.iss.canmakan.shared.ui.theme.AvatarOrange
+import sg.edu.nus.iss.canmakan.shared.ui.theme.AvatarPurple
+import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.shared.ui.theme.OnDark
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
@@ -199,7 +203,7 @@ private fun MatrixGrid(
                         ) {
                             Text(
                                 text = initials,
-                                color = Color.White,
+                                color = OnDark,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center,
@@ -259,14 +263,14 @@ private fun MatrixGrid(
                                     Icon(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = "Selected",
-                                        tint = Color(0xFF4CAF50),
+                                        tint = PrimaryGreen,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.Close,
                                         contentDescription = "Not Selected",
-                                        tint = Color(0xFFF44336),
+                                        tint = AvoidRed,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -335,7 +339,7 @@ private fun ProfileInfoDialog(
                 ) {
                     Text(
                         text = initials,
-                        color = Color.White,
+                        color = OnDark,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium,
                     )
@@ -395,9 +399,9 @@ private fun initialsFromName(name: String): String {
 private fun avatarColorFor(member: FamilyMeRestrictionSum): Color {
     val seed = member.profileId ?: member.userId
     return when ((seed % 4).toInt()) {
-        0 -> Color(0xFFD9752B)
-        1 -> Color(0xFF2B6FD9)
-        2 -> Color(0xFF8B4FD9)
+        0 -> AvatarOrange
+        1 -> AvatarBlue
+        2 -> AvatarPurple
         else -> PrimaryGreen
     }
 }

@@ -47,8 +47,14 @@ import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
 import sg.edu.nus.iss.canmakan.shared.ui.statusAccentColor
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.shared.ui.theme.CardWhite
+import sg.edu.nus.iss.canmakan.shared.ui.theme.InfoBlue
+import sg.edu.nus.iss.canmakan.shared.ui.theme.InfoBlueContainer
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
+import sg.edu.nus.iss.canmakan.shared.ui.theme.LightRedBackground
+import sg.edu.nus.iss.canmakan.shared.ui.theme.OnDark
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
+import sg.edu.nus.iss.canmakan.shared.ui.theme.SurfaceMuted
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 private enum class DetailTab { FLAGS, ALTERNATIVES }
@@ -117,7 +123,7 @@ fun ProductDetailScreen(
                         .background(accent),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(icon, contentDescription = label, tint = Color.White)
+                    Icon(icon, contentDescription = label, tint = OnDark)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(label, color = accent, fontWeight = FontWeight.Bold, fontSize = 25.sp)
@@ -160,7 +166,7 @@ fun ProductDetailScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFFEDEAE2))
+                    .background(SurfaceMuted)
             ) {
                 DetailTabButton(
                     label = "Flags & Details",
@@ -224,7 +230,7 @@ private fun DetailTabButton(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(24.dp))
-            .background(if (isSelected) Color.White else Color.Transparent)
+            .background(if (isSelected) CardWhite else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center
@@ -251,8 +257,8 @@ private fun FlagsAndDetailsTab(flags: List<ProductFlag>, profileName: String) {
         // Display each flag as a separate box
         flags.forEach { flag ->
             val isAllergen = flag.category.equals("ALLERGEN", ignoreCase = true)
-            val background = if (isAllergen) Color(0xFFFBE4E3) else Color(0xFFE3EBF7)
-            val labelColor = if (isAllergen) AvoidRed else Color(0xFF2B5FA8)
+            val background = if (isAllergen) LightRedBackground else InfoBlueContainer
+            val labelColor = if (isAllergen) AvoidRed else InfoBlue
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -309,7 +315,7 @@ private fun AlternativesTab(
                     .fillMaxWidth()
                     .padding(vertical = 6.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color.White)
+                    .background(CardWhite)
                     .padding(14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {

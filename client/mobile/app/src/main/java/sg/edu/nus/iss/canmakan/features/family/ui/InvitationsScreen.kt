@@ -27,7 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -187,7 +186,7 @@ private fun InvitationCard(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = "Invited by ${invitation.invitedByDisplayName}",
-            color = Color.Gray,
+            color = TextSecondary,
         )
         invitation.expiresAt?.let { expiresAt ->
             Spacer(modifier = Modifier.height(2.dp))
@@ -200,7 +199,7 @@ private fun InvitationCard(
                 color = if (invitation.expired) {
                     MaterialTheme.colorScheme.error
                 } else {
-                    Color.Gray
+                    TextSecondary
                 },
                 fontSize = 12.sp,
             )

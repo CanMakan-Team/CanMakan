@@ -32,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,8 +39,11 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DietaryRestrictionViewModel
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
+import sg.edu.nus.iss.canmakan.shared.ui.theme.BorderSubtle
+import sg.edu.nus.iss.canmakan.shared.ui.theme.CardWhite
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
+import sg.edu.nus.iss.canmakan.shared.ui.theme.TextPrimary
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 /** Fixed height so one-line and two-line labels share the same touch target. */
@@ -187,7 +189,7 @@ fun DietaryRestrictionSheet(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .background(Color.White.copy(alpha = 0.5f)),
+                    .background(CardWhite.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = PrimaryGreen)
@@ -269,10 +271,10 @@ private fun SelectableOptionCard(
         modifier = modifier
             .height(OptionCardHeight)
             .clip(shape)
-            .background(if (isSelected) LightGreenBackground else Color.White)
+            .background(if (isSelected) LightGreenBackground else CardWhite)
             .border(
                 width = 1.dp,
-                color = if (isSelected) PrimaryGreen else Color.LightGray,
+                color = if (isSelected) PrimaryGreen else BorderSubtle,
                 shape = shape,
             )
             .alpha(if (enabled) 1f else 0.55f)
@@ -295,7 +297,7 @@ private fun SelectableOptionCard(
         }
         Text(
             text = label,
-            color = if (isSelected) PrimaryGreen else Color.Black,
+            color = if (isSelected) PrimaryGreen else TextPrimary,
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,

@@ -10,6 +10,9 @@ dietary information.
 - Web: React with Vite using JavaScript
 - Backend: Spring Boot with Maven and Java 21
 
+Shared brand colors live under `design-tokens/` (JSON source → generated
+Compose `Color.kt` and web `tokens.css`). See `design-tokens/README.md`.
+
 The machine-learning, agentic AI, database, and deployment technology choices
 remain pending.
 
@@ -17,6 +20,11 @@ remain pending.
 
 ```text
 .
+|-- design-tokens/                  # Shared color tokens → Compose + CSS
+|   |-- colors.json
+|   |-- generate.mjs
+|   `-- README.md
+|
 |-- client/
 |   |-- mobile/                    # Android Kotlin + Jetpack Compose
 |   |   `-- app/src/main/java/sg/edu/nus/iss/canmakan/
@@ -47,7 +55,7 @@ remain pending.
 |           |   `-- analytics/
 |           |-- mocks/
 |           |-- pages/             # temporary login entry pages
-|           |-- styles/
+|           |-- styles/            # app.css + generated tokens.css
 |           `-- main.tsx
 |
 |-- server/

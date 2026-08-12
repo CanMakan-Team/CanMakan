@@ -275,7 +275,7 @@ fun ScannerScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = CardWhite),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -398,7 +398,7 @@ private fun ScanningOverlay() {
         val currentY = size.height * lineProgress
 
         drawLine(
-            color = Color.Red,
+            color = AvoidRed,
             start = Offset(0f, currentY),
             end = Offset(x = size.width, y = currentY),
             strokeWidth = 2.dp.toPx(),
@@ -439,12 +439,12 @@ fun ValidationOverlay(viewModel: ScannerViewModel) {
                     state == ScanProcessState.ASSESSING ||
                     state == ScanProcessState.FETCHING_ALTERNATIVES
                 ) {
-                    CircularProgressIndicator(color = Color.White)
+                    CircularProgressIndicator(color = OnDark)
                     Spacer(modifier = Modifier.height(16.dp))
                 }
                 Text(
                     text = stringResource(id = statusText),
-                    color = Color.White,
+                    color = OnDark,
                     fontWeight = FontWeight.Bold
                 )
             }

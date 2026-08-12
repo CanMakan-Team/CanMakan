@@ -38,7 +38,10 @@ export async function apiRequest<T>(
   headers.set('Accept', 'application/json')
   headers.set('ngrok-skip-browser-warning', 'true')
   if (options.body) headers.set('Content-Type', 'application/json')
-  if (session?.accessToken) {
+  // Do not attach a stale Bearer on login/register — it forces a stricter CORS preflight.
+  const isCredentialChallenge =
+    path.startsWith('/api/auth/login') || path.startsWith('/api/auth/register')
+  if (session?.accessToken && !isCredentialChallenge) {
     headers.set('Authorization', `Bearer ${session.accessToken}`)
   }
 

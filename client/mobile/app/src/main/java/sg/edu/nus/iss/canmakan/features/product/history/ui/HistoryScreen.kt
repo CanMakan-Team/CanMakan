@@ -26,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import sg.edu.nus.iss.canmakan.features.product.model.ScanHistoryEntry
@@ -39,6 +38,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
 import sg.edu.nus.iss.canmakan.shared.ui.StatusBadge
 import sg.edu.nus.iss.canmakan.shared.ui.statusAccentColor
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.shared.ui.theme.CardWhite
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 import sg.edu.nus.iss.canmakan.shared.ui.theme.WarningAmber
@@ -162,7 +162,7 @@ private fun ScanHistoryRow(entry: ScanHistoryEntry, onClick: () -> Unit) {
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
+            .background(CardWhite)
             .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {

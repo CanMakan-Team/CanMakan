@@ -39,7 +39,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -58,6 +57,8 @@ import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
 import sg.edu.nus.iss.canmakan.shared.ui.StatusBadge
 import sg.edu.nus.iss.canmakan.shared.ui.statusAccentColor
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.shared.ui.theme.CardWhite
+import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 import sg.edu.nus.iss.canmakan.shared.ui.theme.WarningAmber
 import sg.edu.nus.iss.canmakan.shared.util.toScanHistoryDisplayString
@@ -137,7 +138,7 @@ fun CreateNewProfileScreen(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Create a dependant profile without a login. Restrictions can be edited later.",
-                color = Color.Gray,
+                color = TextSecondary,
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -197,13 +198,13 @@ fun CreateNewProfileScreen(
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "Fields marked * are required.",
-                color = Color.Gray,
+                color = TextSecondary,
                 fontSize = 13.sp,
             )
 
             uiState.errorMessage?.let { message ->
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(text = message, color = Color.Red)
+                Text(text = message, color = AvoidRed)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -221,7 +222,7 @@ fun CreateNewProfileScreen(
                 }
                 Button(
                     onClick = viewModel::create,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E7A4C)),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
                     modifier = Modifier.weight(1f),
                     enabled = !uiState.isSubmitting,
                 ) {
@@ -238,7 +239,7 @@ private fun FormLabel(text: String, isRequired: Boolean) {
         Text(text = text, fontWeight = FontWeight.Medium)
         if (isRequired) {
             Spacer(modifier = Modifier.width(2.dp))
-            Text(text = "*", color = Color.Red)
+            Text(text = "*", color = AvoidRed)
         }
     }
 }
@@ -249,7 +250,7 @@ fun ScanHistoryRow(entry: ScanHistoryEntry, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
+            .background(CardWhite)
             .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
