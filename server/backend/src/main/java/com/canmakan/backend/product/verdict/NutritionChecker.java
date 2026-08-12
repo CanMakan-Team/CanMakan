@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
  * Applies the approved per-100g nutrition thresholds.
  *
  * @author YangMaowei
+ * @author XieHuayuan
  */
 @Component
 public final class NutritionChecker implements RestrictionChecker {
@@ -66,7 +67,7 @@ public final class NutritionChecker implements RestrictionChecker {
             List<Finding> hits
     ) {
         BigDecimal value = nutrition == null ? null : valueExtractor.apply(nutrition);
-        if (addMissingOrInvalid(code, nutrientName, value, "g per 100 g", hits)) {
+        if (isUnusable(value)) {
             return;
         }
 
@@ -84,7 +85,7 @@ public final class NutritionChecker implements RestrictionChecker {
     private void checkTransFat(Nutrition nutrition, List<Finding> hits) {
         String code = "LOW_TRANS_FAT";
         BigDecimal value = nutrition == null ? null : nutrition.transFatPer100g();
-        if (addMissingOrInvalid(code, "Trans fat", value, "g per 100 g", hits)) {
+        if (isUnusable(value)) {
             return;
         }
 
@@ -101,7 +102,7 @@ public final class NutritionChecker implements RestrictionChecker {
     private void checkSodium(Nutrition nutrition, List<Finding> hits) {
         String code = "LOW_SODIUM";
         BigDecimal value = nutrition == null ? null : nutrition.sodiumPer100g();
-        if (addMissingOrInvalid(code, "Sodium", value, "g per 100 g", hits)) {
+        if (isUnusable(value)) {
             return;
         }
 
@@ -116,31 +117,12 @@ public final class NutritionChecker implements RestrictionChecker {
         }
     }
 
-    private boolean addMissingOrInvalid(
-            String code,
-            String nutrientName,
-            BigDecimal value,
-            String unit,
-            List<Finding> hits
-    ) {
-        if (value == null) {
-            hits.add(new Finding(
-                    code,
-                    Finding.SUBJECT_NUTRITION,
-                    nutrientName + " data is unavailable for the " + code + " restriction (" + unit + ")."
-            ));
-            return true;
-        }
-        if (value.compareTo(BigDecimal.ZERO) < 0) {
-            hits.add(new Finding(
-                    code,
-                    Finding.SUBJECT_NUTRITION,
-                    nutrientName + " is " + format(value) + " " + unit
-                            + "; negative values are invalid for the " + code + " restriction."
-            ));
-            return true;
-        }
-        return false;
+    /**
+     * Soft nutrition preferences must not warn on missing or invalid data - only an actual
+     * exceedance produces a finding. Returns {@code true} when the value cannot be checked.
+     */
+    private static boolean isUnusable(BigDecimal value) {
+        return value == null || value.compareTo(BigDecimal.ZERO) < 0;
     }
 
     private String format(BigDecimal value) {
