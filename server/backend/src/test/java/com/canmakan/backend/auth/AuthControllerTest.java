@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -27,12 +28,15 @@ import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.shared.security.SystemRole;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
+import java.time.Duration;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
+import com.canmakan.backend.shared.security.CorsProperties;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -61,8 +65,22 @@ class AuthControllerTest {
                 .sameSite("Strict")
                 .maxAge(0)
                 .build());
+        CorsProperties corsProperties = new CorsProperties();
+        corsProperties.setAllowedOrigins(List.of("https://app.example.test"));
+        AuthSessionRequestGuard requestGuard = new AuthSessionRequestGuard(
+            corsProperties,
+            new RefreshTokenProperties(Duration.ofDays(7), "canmakan_refresh", false, "Lax")
+        );
         mockMvc = MockMvcBuilders
-            .standaloneSetup(new AuthController(authService, refreshCookieService))
+            .standaloneSetup(new AuthController(
+                authService,
+                refreshCookieService,
+                requestGuard
+            ))
+            .defaultRequest(get("/").header(
+                AuthSessionRequestGuard.SESSION_REQUEST_HEADER,
+                "1"
+            ))
             .setControllerAdvice(new AuthExceptionHandler())
             .build();
     }
@@ -72,6 +90,44 @@ class AuthControllerTest {
     class SessionLifecycle {
 
         @Test
+        void loginRejectsMissingSessionMutationHeader() throws Exception {
+            MockMvc unprotectedClient = sessionLifecycleMockMvcWithoutDefaults();
+
+            unprotectedClient.perform(post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"email\":\"user@example.com\",\"password\":\"Password1!\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message")
+                    .value("Authentication request origin could not be verified."));
+
+            verify(authService, never()).login(any());
+        }
+
+        @Test
+        void refreshRejectsUnauthorizedAndNullBrowserOrigins() throws Exception {
+            mockMvc.perform(post("/api/auth/refresh")
+                    .header("Origin", "https://evil.example"))
+                .andExpect(status().isForbidden());
+            mockMvc.perform(post("/api/auth/refresh")
+                    .header("Origin", "null"))
+                .andExpect(status().isForbidden());
+
+            verify(authService, never()).refresh(any());
+        }
+
+        @Test
+        void logoutAcceptsExactBrowserOriginAndNativeRequestWithoutOrigin() throws Exception {
+            when(refreshCookieService.readRefreshToken(any(HttpServletRequest.class)))
+                .thenReturn(Optional.empty());
+
+            mockMvc.perform(post("/api/auth/logout")
+                    .header("Origin", "https://app.example.test"))
+                .andExpect(status().isNoContent());
+            mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isNoContent());
+        }
+
+        @Test
         void validLoginReturnsOnlyAccessTokenAndSafeCurrentUser() throws Exception {
             when(authService.login(any(LoginRequest.class))).thenReturn(
                 new AuthenticationResult(
@@ -79,7 +135,7 @@ class AuthControllerTest {
                         "signed-access-token",
                         "Bearer",
                         900L,
-                        new CurrentUserResponse(12L, "user@example.com", SystemRole.USER)
+                        new CurrentUserResponse(12L, "user@example.com", SystemRole.USER, true)
                     ),
                     new IssuedRefreshToken("raw-refresh-token")
                 )
@@ -100,6 +156,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.user.userId").value(12))
                 .andExpect(jsonPath("$.user.email").value("user@example.com"))
                 .andExpect(jsonPath("$.user.role").value("USER"))
+                .andExpect(jsonPath("$.user.active").value(true))
                 .andExpect(jsonPath("$.password").doesNotExist())
                 .andExpect(jsonPath("$.passwordHash").doesNotExist())
                 .andExpect(jsonPath("$.refreshToken").doesNotExist())
@@ -171,7 +228,7 @@ class AuthControllerTest {
                         "new-access-token",
                         "Bearer",
                         900L,
-                        new CurrentUserResponse(12L, "user@example.com", SystemRole.ADMIN)
+                        new CurrentUserResponse(12L, "user@example.com", SystemRole.ADMIN, true)
                     ),
                     new IssuedRefreshToken("new-refresh-token")
                 )
@@ -461,5 +518,22 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("Registration could not be completed."))
                 .andExpect(content().string(not(containsString("do-not-expose"))));
         }
+    }
+
+    private MockMvc sessionLifecycleMockMvcWithoutDefaults() {
+        CorsProperties corsProperties = new CorsProperties();
+        corsProperties.setAllowedOrigins(List.of("https://app.example.test"));
+        AuthSessionRequestGuard requestGuard = new AuthSessionRequestGuard(
+            corsProperties,
+            new RefreshTokenProperties(Duration.ofDays(7), "canmakan_refresh", false, "Lax")
+        );
+        return MockMvcBuilders
+            .standaloneSetup(new AuthController(
+                authService,
+                refreshCookieService,
+                requestGuard
+            ))
+            .setControllerAdvice(new AuthExceptionHandler())
+            .build();
     }
 }

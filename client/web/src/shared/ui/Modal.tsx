@@ -50,7 +50,7 @@ export function Modal({
       >
         <header className="modal__header">
           <div>
-            <p className="eyebrow">CanMakan prototype</p>
+            <p className="eyebrow">CanMakan</p>
             <h2 id={labelledBy}>{title}</h2>
             {description && <p>{description}</p>}
           </div>

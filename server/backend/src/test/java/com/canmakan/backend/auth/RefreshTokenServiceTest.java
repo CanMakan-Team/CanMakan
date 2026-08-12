@@ -58,7 +58,8 @@ class RefreshTokenServiceTest {
         service = new RefreshTokenService(
             refreshTokenRepository,
             userDetailsService,
-            new RefreshTokenProperties(Duration.ofDays(7), "canmakan_refresh", true),
+            new RefreshTokenProperties(
+                Duration.ofDays(7), "canmakan_refresh", true, "None"),
             Clock.fixed(NOW, ZoneOffset.UTC),
             new FixedSecureRandom()
         );

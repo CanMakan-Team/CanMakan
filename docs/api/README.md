@@ -141,7 +141,8 @@ Success: `200 OK` with refresh cookie and body:
   "user": {
     "userId": 14,
     "email": "person@example.com",
-    "role": "USER"
+    "role": "USER",
+    "active": true
   }
 }
 ```
@@ -163,8 +164,12 @@ Web clients reject the wrong portal (e.g. `ADMIN` on `/family-login`) with a cli
 message and clear the session. A platform `USER` with no circle still enters `/family`
 and sees create-circle (`GET /api/families/me` → 404).
 
-Web clients store `canmakan.session` (including `accessToken` and portal roles) and
-send `Authorization: Bearer <accessToken>` on API calls.
+Web clients keep the access token and mapped portal roles in memory only. On
+startup they call `POST /api/auth/refresh` with the path-scoped HttpOnly cookie,
+then verify `GET /api/auth/me` before rendering a protected route. `/me` returns
+`userId`, `email`, `role`, and `active`. Web Locks serialise refresh-cookie
+mutations across tabs. A protected safe request may retry once after refresh;
+mutating requests and auth endpoints are never automatically replayed.
 
 Allowed headers include `Content-Type` and `Authorization`.
 
@@ -174,13 +179,21 @@ Browser web (Vite → Spring on `:8080`) is cross-origin. Backend
 `canmakan.cors.*` defaults allow:
 
 - Exact: `http://localhost:5173`, `http://127.0.0.1:5173`, preview `:4173`
-- Patterns: private LAN hosts (`10.*`, `192.168.*`, `172.*`) any port
+- Patterns: empty by default; local LAN browser testing must opt in explicitly
 
 Override at deploy time (comma-separated) without rebuilding:
 
 - `CANMAKAN_CORS_ALLOWED_ORIGINS` — exact web origins (e.g. `https://app.example.com`)
 - `CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS` — optional patterns; set empty to disable LAN wildcards in prod
-- `CANMAKAN_CORS_ALLOW_CREDENTIALS` / `CANMAKAN_CORS_MAX_AGE_SECONDS`
+- `CANMAKAN_CORS_ALLOW_CREDENTIALS` (default `true`) / `CANMAKAN_CORS_MAX_AGE_SECONDS`
+
+The default refresh cookie is `HttpOnly; SameSite=Lax`. Separately hosted HTTPS
+web and API deployments must explicitly choose `SameSite=None`, retain
+`Secure=true`, enable credentialed CORS, configure only exact HTTPS origins, and
+leave origin patterns empty. Login, refresh, and logout require the API's
+session-intent request header; browsers must pass its preflight and exact-origin
+check, while native clients send the same header without an Origin. Invalid
+`SameSite=None` deployment combinations fail startup validation.
 
 Allowed headers include `Content-Type` and `Authorization`.
 

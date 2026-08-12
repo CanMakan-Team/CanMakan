@@ -1752,31 +1752,6 @@ caption {
   margin-top: 1rem;
 }
 
-.family-test-page {
-  min-height: 100vh;
-  background: #f4f7f3;
-}
-
-.test-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem clamp(1rem, 4vw, 3rem);
-  color: #fff;
-  background: #101f2b;
-}
-
-.test-header .landing-brand {
-  margin: 0;
-}
-
-.test-content {
-  width: min(1050px, calc(100% - 2rem));
-  margin: 0 auto;
-  padding: 4rem 0;
-}
-
 .sr-live {
   min-height: 1.2rem;
   margin: 0.25rem 0;
@@ -1992,10 +1967,6 @@ caption {
     grid-column: auto;
   }
 
-  .test-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

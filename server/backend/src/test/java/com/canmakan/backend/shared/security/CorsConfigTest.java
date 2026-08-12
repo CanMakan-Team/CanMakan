@@ -46,9 +46,15 @@ class CorsConfigTest {
         mockMvc.perform(options("/api/auth/login")
                         .header(HttpHeaders.ORIGIN, "http://localhost:5173")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
-                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "content-type,x-user-id"))
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS,
+                            "content-type,x-canmakan-session-request"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173"))
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"))
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
+                        org.hamcrest.Matchers.containsString("x-canmakan-session-request")))
                 .andExpect(header().exists(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS));
     }
 
@@ -71,7 +77,9 @@ class CorsConfigTest {
                         .contentType("application/json")
                         .content("{}"))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173"));
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173"))
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
     }
 
     @Test

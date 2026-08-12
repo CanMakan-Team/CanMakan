@@ -1,4 +1,4 @@
-# CanMakan Web — Sprint 1 Evolutionary Prototype
+# CanMakan Web
 
 This React, TypeScript and Vite client contains two deliberately separate web
 portals:
@@ -53,7 +53,7 @@ Protected Family Admin routes:
 - `/family/members` — link, create, edit and active-profile flows
 - `/family/restrictions` — dynamic family restriction summary
 - `/family/history` — supplied scan-assessment history
-- `/family/account` — supporting mock-session information
+- `/family/account` — authoritative account, family-role and SELF-profile information
 
 Protected System Admin routes:
 
@@ -61,12 +61,10 @@ Protected System Admin routes:
 - `/system/trends` — anonymised Consumer Trends
 - `/system/users` — User Accounts & Access
 - `/system/future` — clearly labelled future/prototype-only concepts
-- `/family-test` — read-only Family Portal test access that preserves
-  `ROLE_SYSTEM_ADMIN`
 
 `ROLE_FAMILY_ADMIN` cannot navigate to System pages and
 `ROLE_SYSTEM_ADMIN` cannot use `/family` as a Family Admin. There is no
-Family/System role switch. The React guards improve prototype navigation only:
+Family/System role switch. The React guards improve navigation only:
 **Spring Security must enforce the same access rules on every production API
 endpoint.**
 
@@ -110,8 +108,9 @@ Mock repositories:
 - return anonymised Consumer Trends through `adminService`;
 - provide a controlled user-search error.
 
-Clear the `canmakan.mock.family` and `canmakan.session`
-local-storage keys to reset the prototype.
+Clear `canmakan.mock.family` to reset mock family data. Authentication access
+tokens and roles are memory-only; legacy `canmakan.session` data is removed and
+never trusted during restoration.
 
 ## Environment
 
@@ -152,10 +151,8 @@ npm run test
 npm run build
 ```
 
-`npm run test` runs typecheck then lint (no unit-test framework yet).
-
-No automated frontend test runner was present when this Sprint 1 prototype was
-implemented.
+`npm run verify` runs typecheck, ESLint, and the Vitest suite. `npm run build`
+also produces the Vite production bundle.
 
 ## Sprint 1 demo flow
 
@@ -179,8 +176,6 @@ System Admin Portal:
 3. Open **Consumer Trends** and inspect the anonymised charts and table values.
 4. Open **User Accounts & Access**, filter by email, role or status, then suspend or reactivate an account with a reason.
 5. Confirm the status feedback and refreshed filtered account list.
-6. Open **Family Portal — Test Access**, confirm the session remains
-   `ROLE_SYSTEM_ADMIN`, then return to the System portal.
 
 ## Implemented backend contracts (UC8 / UC18)
 
@@ -188,10 +183,19 @@ Auth (live DB, UC19 JWT):
 
 - `POST /api/auth/register` — name, email, password → user + SELF profile
 - `POST /api/auth/login` — email, password → `AuthResponse` (access JWT + user) + refresh cookie
+- `POST /api/auth/refresh` — rotates the HttpOnly refresh session and returns a new access response
 - `POST /api/auth/logout` — clears refresh cookie / session server-side
+- `GET /api/auth/me` — authoritative account id, email, platform role and active status
 
 Registration and authentication are separate: after successful registration,
-the browser returns to `/family-login` without issuing or storing an access token.
+the browser returns to `/family-login` without issuing an access token. On login,
+the access credential stays in memory; startup restoration uses the HttpOnly
+refresh cookie and verifies `/api/auth/me` before protected pages render.
+Cookie-changing login, refresh, and logout operations require Web Locks so all
+same-origin tabs share one mutation boundary. Cross-tab invalidation messages
+contain coordination metadata only; no credential or account data is persisted.
+Only safe GET/HEAD/OPTIONS requests may perform one automatic authentication
+recovery. Mutating requests are never replayed automatically.
 
 Family (caller id from Bearer JWT):
 

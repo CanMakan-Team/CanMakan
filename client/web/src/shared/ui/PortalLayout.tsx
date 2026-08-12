@@ -38,7 +38,7 @@ export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
     portal === 'family' ? 'Family Admin Portal' : 'System Administration'
 
   const signOut = () => {
-    logout()
+    void logout()
     navigate(portal === 'family' ? '/family-login' : '/system-admin-login')
   }
 
@@ -74,11 +74,6 @@ export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
           ))}
         </nav>
         <div className="sidebar__footer">
-          {portal === 'system' && (
-            <NavLink className="sidebar__test-link" to="/family-test">
-              Family Portal — Test Access
-            </NavLink>
-          )}
           <div className="sidebar__user">
             <span className="avatar" aria-hidden="true">
               {session?.displayName.slice(0, 1)}
@@ -124,12 +119,6 @@ export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
           </span>
         </header>
         <main id="main-content" className="content">
-          {session?.prototype && (
-            <div className="prototype-strip" role="note">
-              Demo Access — mock data only. Production authentication and RBAC
-              require Spring Security.
-            </div>
-          )}
           <Outlet />
         </main>
       </div>

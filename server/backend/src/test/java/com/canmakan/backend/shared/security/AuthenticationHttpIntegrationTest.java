@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.canmakan.backend.auth.AuthSessionRequestGuard;
 import com.canmakan.backend.auth.repository.RefreshTokenRepository;
 import com.canmakan.backend.dietaryprofile.dto.CreateSelfProfileRequest;
 import com.canmakan.backend.dietaryprofile.dto.SelfProfileResponse;
@@ -110,6 +111,7 @@ class AuthenticationHttpIntegrationTest {
             .andExpect(jsonPath("$.user.userId").value(12))
             .andExpect(jsonPath("$.user.email").value("user@example.com"))
             .andExpect(jsonPath("$.user.role").value("USER"))
+            .andExpect(jsonPath("$.user.active").value(true))
             .andExpect(jsonPath("$.user.passwordHash").doesNotExist())
             .andExpect(jsonPath("$.refreshToken").doesNotExist())
             .andReturn();
@@ -171,12 +173,14 @@ class AuthenticationHttpIntegrationTest {
     @Test
     void malformedLoginAndClientSuppliedRoleAreRejected() throws Exception {
         mockMvc.perform(post("/api/auth/login")
+                .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"not-an-email\",\"password\":\"\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("Invalid login request."));
 
         mockMvc.perform(post("/api/auth/login")
+                .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -195,6 +199,7 @@ class AuthenticationHttpIntegrationTest {
             .thenReturn(Optional.of(account(12L, "user@example.com", true, "USER")));
 
         mockMvc.perform(post("/api/auth/login")
+                .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer malformed-value")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"user@example.com\",\"password\":\""
@@ -469,6 +474,7 @@ class AuthenticationHttpIntegrationTest {
 
     private ResultActions login(String email, String password) throws Exception {
         return mockMvc.perform(post("/api/auth/login")
+            .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"));
     }

@@ -59,15 +59,17 @@ export type RestrictionCode =
 
 // Define the authenticated session type
 export interface AuthenticatedSession {
-  accessToken?: string // JWT access token
+  accessToken: string // short-lived access credential kept in memory only
   userId: number // id of the user
+  email: string // backend-authoritative account email
+  active: boolean // backend-authoritative account status
   displayName: string // display name of the user
   roles: Role[] // roles of the user
   portal: Portal // portal of the user
   prototype: boolean // true if the user is a prototype user
 }
 
-  /** POST /api/auth/register success body (UC18). */
+/** POST /api/auth/register success body (UC18). */
 export interface RegistrationResponse {
   userId: number // id of the user
   email: string // email of the user
@@ -83,7 +85,16 @@ export interface AuthLoginResponse {
     userId: number // id of the user
     email: string // email of the user
     role: 'USER' | 'ADMIN' // role of the user
+    active: boolean // active status reloaded by the backend
   }
+}
+
+/** GET /api/auth/me safe account identity. */
+export interface CurrentUserResponse {
+  userId: number
+  email: string
+  role: 'USER' | 'ADMIN'
+  active: boolean
 }
 
 /** Current family context from GET /api/families/me (UC8). */
