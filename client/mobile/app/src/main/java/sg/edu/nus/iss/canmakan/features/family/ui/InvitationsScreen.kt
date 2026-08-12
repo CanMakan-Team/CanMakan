@@ -93,11 +93,6 @@ fun InvitationsScreen(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Accept or decline pending family invitations.",
-                color = Color.Gray,
-            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
