@@ -187,10 +187,6 @@ fun CanMakanNavGraph(
                         closeDrawer()
                         navController.navigate(ROUTE_ADD_PROFILE)
                     },
-                    onInvitationsClick = {
-                        closeDrawer()
-                        navController.navigate(ROUTE_INVITATIONS)
-                    },
                 )
             }
         }
@@ -242,6 +238,7 @@ fun CanMakanNavGraph(
 
                     // Open the drawer when the menu button is clicked
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { navController.navigate(ROUTE_INVITATIONS) },
 
                     // Navigate to the history screen when the history button is clicked
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },

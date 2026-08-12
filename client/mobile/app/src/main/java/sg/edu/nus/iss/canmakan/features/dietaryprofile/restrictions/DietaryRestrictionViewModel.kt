@@ -139,22 +139,11 @@ class DietaryRestrictionViewModel @Inject constructor(
             if (!isCurrentLoad(owner, generation)) return null
             if (me == null) return EditAuthorization(allow = true, hint = null)
 
-            val allow = try {
-                val members = familyProfileRepository.getFamilyMembers()
-                if (!isCurrentLoad(owner, generation)) return null
-                RestrictionEditAuthorization.mayEditRestrictions(
-                    profileId = owner.profileId,
-                    hasFamily = true,
-                    me = me,
-                    members = members,
-                )
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                if (!isCurrentLoad(owner, generation)) return null
-                Timber.e(exception, "Error loading family members for restriction edit permission")
-                owner.profileId == me.selfProfileId
-            }
+            val allow = RestrictionEditAuthorization.mayEditRestrictions(
+                profileId = owner.profileId,
+                hasFamily = true,
+                me = me,
+            )
 
             EditAuthorization(
                 allow = allow,
@@ -197,7 +186,7 @@ class DietaryRestrictionViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(errorMessage = PROFILE_SETUP_REQUIRED_MESSAGE)
             return
         }
-        if (!_uiState.value.allowRestrictionEdit) return
+        if (_uiState.value.allowRestrictionEdit != true) return
 
         val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
         val isAlreadySelected = currentSelections.containsKey(restrictionId)
@@ -213,7 +202,7 @@ class DietaryRestrictionViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(errorMessage = PROFILE_SETUP_REQUIRED_MESSAGE)
             return
         }
-        if (!_uiState.value.allowRestrictionEdit) return
+        if (_uiState.value.allowRestrictionEdit != true) return
 
         val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
         if (currentSelections.containsKey(restrictionId)) {
@@ -230,7 +219,7 @@ class DietaryRestrictionViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(errorMessage = PROFILE_SETUP_REQUIRED_MESSAGE)
             return
         }
-        if (!_uiState.value.allowRestrictionEdit) {
+        if (_uiState.value.allowRestrictionEdit != true) {
             _uiState.value = _uiState.value.copy(
                 errorMessage = RestrictionEditAuthorization.READ_ONLY_HINT,
             )

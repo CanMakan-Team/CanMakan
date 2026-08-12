@@ -92,7 +92,7 @@ class DietaryRestrictionViewModelTest {
         assertEquals(2, uiState.allergenRestrictions.size)
         assertEquals(1, uiState.dietRestrictions.size)
         assertTrue(uiState.selectedRestrictions.containsKey(1L))
-        assertTrue(uiState.allowRestrictionEdit)
+        assertEquals(true, uiState.allowRestrictionEdit)
     }
 
     @Test
@@ -190,7 +190,7 @@ class DietaryRestrictionViewModelTest {
         assertNotNull(uiState.errorMessage)
         assertFalse(uiState.isLoading)
         assertTrue(uiState.religiousRestrictions.isEmpty())
-        assertFalse(uiState.allowRestrictionEdit)
+        assertEquals(false, uiState.allowRestrictionEdit)
     }
 
     @Test
@@ -219,7 +219,7 @@ class DietaryRestrictionViewModelTest {
 
         assertEquals(0, repository.saveCalls)
         assertTrue(viewModel.uiState.value.errorMessage?.contains("profile setup") == true)
-        assertFalse(viewModel.uiState.value.allowRestrictionEdit)
+        assertEquals(false, viewModel.uiState.value.allowRestrictionEdit)
     }
 
     @Test
@@ -242,7 +242,7 @@ class DietaryRestrictionViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(mapOf(21L to "STRICT_AVOID"), viewModel.uiState.value.selectedRestrictions)
-        assertTrue(viewModel.uiState.value.allowRestrictionEdit)
+        assertEquals(true, viewModel.uiState.value.allowRestrictionEdit)
     }
 
     @Test
@@ -316,13 +316,13 @@ class DietaryRestrictionViewModelTest {
     }
 
     @Test
-    @DisplayName("UC1 M9: Locks the sheet for another adult's linked profile (D3)")
+    @DisplayName("UC1 M9: Locks the sheet for a non-admin editing another adult's profile (D3)")
     fun locksSheetForOtherAdultLinkedProfile() = runTest {
         familyApi.meResponse = Response.success(
             FamilyMeResponse(
                 familyId = 50L,
                 familyName = "Wong Family",
-                memberRole = "PRIMARY_ADMIN",
+                memberRole = "MEMBER",
                 selfProfileId = 77L,
                 createdByUserId = TEST_USER_ID,
             ),
@@ -352,7 +352,7 @@ class DietaryRestrictionViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         val uiState = viewModel.uiState.value
-        assertFalse(uiState.allowRestrictionEdit)
+        assertEquals(false, uiState.allowRestrictionEdit)
         assertEquals(RestrictionEditAuthorization.READ_ONLY_HINT, uiState.restrictionEditHint)
 
         viewModel.toggleDietaryRestriction(20L)
