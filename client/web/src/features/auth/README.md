@@ -6,8 +6,8 @@ Authentication and session management.
 Handles live login/register, session context, and route protection against UC19 JWT login.
 
 ## Contains
-- Session context / provider (`loginWithCredentials`, `register`)
-- `authService` — live `POST /api/auth/register` and `/api/auth/login` (`AuthResponse`)
+- Session context / provider (`loginWithCredentials`, `register`, restore, logout)
+- `authService` — live register/login/refresh/logout and `/api/auth/me`
 - `useSession` hook
 - Protected route helpers
 - Access denied UI
@@ -42,6 +42,20 @@ Vitest suites live under `src/test/` (mirroring features/shared). Coverage inclu
 `FamilyRegisterPage`.
 
 ## Notes
-- `apiClient` sends `Authorization: Bearer <accessToken>` from session
+- The access token and mapped portal roles are memory-only. The browser does not
+  restore identity from `localStorage`.
+- On startup the provider uses the HttpOnly refresh cookie, then verifies the
+  account through `/api/auth/me` before a protected route renders.
+- `apiClient` includes credentials, sends the current in-memory access token,
+  and retries one safe GET/HEAD/OPTIONS request after a coordinated refresh.
+  POST/PUT/PATCH/DELETE requests are not replayed. Auth endpoints and `/me`
+  never enter recursive authentication recovery, and 403 is not expiry.
+- Web Locks serialise login, refresh, and logout across same-origin tabs for the
+  full HTTP response lifecycle. Browsers without Web Locks fail closed.
+- Logout clears local account-bound state immediately, waits for an overlapping
+  refresh, revokes the server session, and remains locally signed out on failure.
+- Explicit logout and account switching publish a credential-free
+  BroadcastChannel event, with a transient storage-event fallback, so other
+  open tabs discard their in-memory identity and account data.
 - Family/scan APIs no longer use `X-User-Id`
 - No prototype/demo one-click login

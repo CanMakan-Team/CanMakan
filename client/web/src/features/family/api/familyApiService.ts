@@ -12,6 +12,16 @@ import type {
   FamilyRestrictionSumRes,
 } from '../../../shared/api/types'
 
+export interface FamilyProfileSummary {
+  id: number
+  profileName: string
+  familyId: number | null
+  relationship: string
+  initials: string
+  isPrimary: boolean
+  active: boolean
+}
+
 /** Family service endpoints (UC8 / UC9 / UC6 / UC11 / UC12).
  *
  * @author Amelia
@@ -54,17 +64,11 @@ export const familyApiService = {
   getProfiles: () =>
     useMockApi
       ? mockFamilyRepository.getProfiles()
-      : apiRequest<
-          Array<{
-            id: number
-            profileName: string
-            familyId: number | null
-            relationship: string
-            initials: string
-            isPrimary: boolean
-            active: boolean
-          }>
-        >(familyEndpoints.profiles),
+      : apiRequest<FamilyProfileSummary[]>(familyEndpoints.profiles),
+
+  /** Account settings always uses server-authoritative profile data. */
+  getAccountProfiles: () =>
+    apiRequest<FamilyProfileSummary[]>(familyEndpoints.profiles),
 
   /** Search for an existing user by email. */
   searchExistingUser: (email: string) =>
