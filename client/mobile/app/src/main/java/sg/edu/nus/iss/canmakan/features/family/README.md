@@ -47,7 +47,10 @@ flowchart TD
 | --- | --- |
 | Register then claim | Invite landing → Register (token offered) → Login → `PostLoginContinuationViewModel` claim |
 | Deep link / login claim | `canmakan://invite/{token}` → `PendingInvitationStore` → Login offer → post-login claim |
-| Inbox accept / decline | Top-bar **Notifications** → `InvitationsScreen` |
+| Inbox accept / decline | Top-bar **Notifications** bell → notifications inbox (`InvitationsScreen`) |
+
+The inbox is account-wide (not admin-only): family invitations today, with room for
+profile-update notices later. It is not listed under Manage Family in the drawer.
 
 Full API contract and HTTP guards: `docs/api/families.md` (Invite → join workflow).
 

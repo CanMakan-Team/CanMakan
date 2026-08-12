@@ -61,7 +61,10 @@ fun AddProfileToFamilyScreen(
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(onMenuClick = onMenuClick)
+                AppTopBar(
+                    onMenuClick = onMenuClick,
+                    onNotificationsClick = onNotificationsClick,
+                )
                 activeProfile?.let { ActiveProfileChip(profile = it) }
             }
         },

@@ -62,7 +62,7 @@ private const val ROUTE_PRODUCT_DETAIL = "product_detail"
 private const val ROUTE_CREATE_FAMILY = "create_family"
 private const val ROUTE_CREATE_NEW = "create_new"
 private const val ROUTE_ADD_PROFILE = "add_profile"
-private const val ROUTE_INVITATIONS = "invitations"
+private const val ROUTE_NOTIFICATIONS = "notifications"
 
 /* The top-level screen. It wires together the navigation between the
  * three screens, the side drawer, and the edit dietary requirements sheet.
@@ -207,14 +207,16 @@ fun CanMakanNavGraph(
                         closeDrawer()
                         navController.navigate(ROUTE_ADD_PROFILE)
                     },
-                    onInvitationsClick = {
-                        closeDrawer()
-                        navController.navigate(ROUTE_INVITATIONS)
-                    },
                 )
             }
         }
     ) {
+        fun openNotifications() {
+            navController.navigate(ROUTE_NOTIFICATIONS) {
+                launchSingleTop = true
+            }
+        }
+
         Column {
             invitationClaimError?.let { message ->
                 Column(
@@ -262,6 +264,7 @@ fun CanMakanNavGraph(
 
                     // Open the drawer when the menu button is clicked
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
 
                     // Navigate to the history screen when the history button is clicked
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
@@ -296,6 +299,7 @@ fun CanMakanNavGraph(
                 FamilyRestrictionSummaryScreen(
                     uiState = uiState,
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
                     onNavigateToEditMembers = { navController.popBackStack() }
                 )
             }
@@ -310,6 +314,7 @@ fun CanMakanNavGraph(
                     requiresProfileSetup = scanHistoryUiState.requiresProfileSetup,
                     errorMessage = scanHistoryUiState.errorMessage,
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { },
                     onSetUpProfile = onRequestSelfProfileSetup,
@@ -333,6 +338,7 @@ fun CanMakanNavGraph(
                     requiresProfileSetup = recommendationHistoryUiState.requiresProfileSetup,
                     errorMessage = recommendationHistoryUiState.errorMessage,
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onSetUpProfile = onRequestSelfProfileSetup,
@@ -382,6 +388,7 @@ fun CanMakanNavGraph(
                         isSubmitting = isCreatingFamily,
                         errorMessage = createFamilyError,
                         onMenuClick = { openDrawer() },
+                        onNotificationsClick = { openNotifications() },
                         onScanClick = { navController.navigate(ROUTE_SCANNER) },
                         onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                         onBackClick = { navController.popBackStack() },
@@ -397,6 +404,7 @@ fun CanMakanNavGraph(
                 CreateNewProfileScreen(
                     activeProfile = activeProfile,
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },
@@ -411,6 +419,7 @@ fun CanMakanNavGraph(
                 AddProfileToFamilyScreen(
                     activeProfile = activeProfile,
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },
@@ -421,10 +430,11 @@ fun CanMakanNavGraph(
                     }
                 )
             }
-            composable(ROUTE_INVITATIONS) {
+            composable(ROUTE_NOTIFICATIONS) {
                 InvitationsScreen(
                     activeProfile = activeProfile,
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },

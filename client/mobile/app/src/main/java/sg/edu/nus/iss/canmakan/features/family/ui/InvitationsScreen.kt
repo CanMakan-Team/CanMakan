@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -39,7 +41,12 @@ import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
+import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
+/**
+ * Authenticated notifications inbox (top-bar bell).
+ * Currently surfaces family invitations; profile-update notices can share this screen later.
+ */
 @Composable
 fun InvitationsScreen(
     activeProfile: DietaryProfile?,
@@ -52,6 +59,7 @@ fun InvitationsScreen(
     viewModel: InvitationsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val hasInvitations = uiState.invitations.isNotEmpty()
 
     Scaffold(
         topBar = {
@@ -93,6 +101,11 @@ fun InvitationsScreen(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Family invitations and profile updates for your account.",
+                color = TextSecondary,
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -123,12 +136,34 @@ fun InvitationsScreen(
                     }
                 }
 
-                uiState.invitations.isEmpty() && uiState.errorMessage == null -> {
-                    Text(
-                        text = "No pending invitations.",
-                        color = Color.Gray,
-                        modifier = Modifier.padding(top = 24.dp),
-                    )
+                !hasInvitations && uiState.errorMessage == null -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        Text(
+                            text = "FAMILY INVITATIONS",
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "No pending family invitations.",
+                            color = Color.Gray,
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "PROFILE UPDATES",
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Profile update notices will appear here.",
+                            color = Color.Gray,
+                        )
+                    }
                 }
 
                 else -> {
@@ -136,6 +171,14 @@ fun InvitationsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
+                        item {
+                            Text(
+                                text = "FAMILY INVITATIONS",
+                                color = TextSecondary,
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
                         items(
                             items = uiState.invitations,
                             key = { it.invitationId },
@@ -151,6 +194,20 @@ fun InvitationsScreen(
                                 },
                             )
                             HorizontalDivider()
+                        }
+                        item {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "PROFILE UPDATES",
+                                color = TextSecondary,
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Profile update notices will appear here.",
+                                color = Color.Gray,
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
                     }
                 }

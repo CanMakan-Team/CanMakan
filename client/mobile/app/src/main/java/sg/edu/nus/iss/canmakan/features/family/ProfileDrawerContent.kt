@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Recommend
@@ -77,7 +76,6 @@ fun ProfileDrawerContent(
     onCreateFamilyCircleClick: () -> Unit,
     onCreateNewClick: () -> Unit,
     onAddProfileClick: () -> Unit,
-    onInvitationsClick: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -335,12 +333,6 @@ fun ProfileDrawerContent(
                 icon = Icons.Default.Group,
                 label = "Add Profile to Family",
                 onClick = onAddProfileClick,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            DrawerNavRow(
-                icon = Icons.Default.Mail,
-                label = "Pending Invitations",
-                onClick = onInvitationsClick,
             )
         }
         }
