@@ -1973,10 +1973,6 @@ caption {
     grid-column: auto;
   }
 
-  .test-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

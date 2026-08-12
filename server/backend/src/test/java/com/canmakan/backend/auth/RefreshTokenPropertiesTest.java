@@ -15,12 +15,14 @@ class RefreshTokenPropertiesTest {
         RefreshTokenProperties properties = new RefreshTokenProperties(
             Duration.ofDays(7),
             "canmakan_refresh",
-            true
+            true,
+            "None"
         );
 
         assertEquals(Duration.ofDays(7), properties.ttl());
         assertEquals("canmakan_refresh", properties.cookieName());
         assertTrue(properties.cookieSecure());
+        assertEquals("None", properties.cookieSameSite());
     }
 
     @Test
@@ -28,25 +30,38 @@ class RefreshTokenPropertiesTest {
         RefreshTokenProperties properties = new RefreshTokenProperties(
             Duration.ofMinutes(30),
             "refresh-token",
-            false
+            false,
+            "Strict"
         );
 
         assertFalse(properties.cookieSecure());
+        assertEquals("Strict", properties.cookieSameSite());
     }
 
     @Test
     void rejectsMissingOrUnsafeConfiguration() {
         assertThrows(
             IllegalArgumentException.class,
-            () -> new RefreshTokenProperties(null, "refresh", true)
+            () -> new RefreshTokenProperties(null, "refresh", true, "None")
         );
         assertThrows(
             IllegalArgumentException.class,
-            () -> new RefreshTokenProperties(Duration.ZERO, "refresh", true)
+            () -> new RefreshTokenProperties(Duration.ZERO, "refresh", true, "None")
         );
         assertThrows(
             IllegalArgumentException.class,
-            () -> new RefreshTokenProperties(Duration.ofDays(1), "refresh token", true)
+            () -> new RefreshTokenProperties(
+                Duration.ofDays(1), "refresh token", true, "None")
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new RefreshTokenProperties(
+                Duration.ofDays(1), "refresh", false, "None")
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new RefreshTokenProperties(
+                Duration.ofDays(1), "refresh", true, "invalid")
         );
     }
 }

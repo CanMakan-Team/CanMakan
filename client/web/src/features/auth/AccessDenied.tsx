@@ -20,8 +20,8 @@ export function AccessDenied() {
         <p className="eyebrow">Access denied</p>
         <h1>This portal is not available to your role.</h1>
         <p>
-          Family and System administration are intentionally separate. Backend
-          Spring Security must also enforce this restriction in production.
+          Family and system administration use separate permissions. Sign in
+          with an account that is authorised for this portal.
         </p>
         {session ? (
           <Link className="button button--primary" to={returnPath}>

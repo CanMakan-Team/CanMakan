@@ -3,7 +3,8 @@ import {
   adminEndpoints,
   adminService,
 } from '../../../features/admin/adminService'
-import { jsonResponse, SESSION_KEY, systemAdminSession } from '../../testUtils'
+import { configureApiAuthBridge } from '../../../shared/api/apiClient'
+import { jsonResponse } from '../../testUtils'
 
 const account = {
   userId: 21,
@@ -28,10 +29,11 @@ function lastRequest() {
 describe('adminService UC13 live account calls', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
-    localStorage.setItem(
-      SESSION_KEY,
-      JSON.stringify({ ...systemAdminSession(), roles: ['ROLE_SYSTEM_ADMIN'] }),
-    )
+    configureApiAuthBridge({
+      getAccessToken: () => 'admin-access-token',
+      refreshAccessToken: async () => null,
+      invalidate: () => undefined,
+    })
   })
 
   it('GETs /api/admin/users with no filters', async () => {

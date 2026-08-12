@@ -32,13 +32,14 @@ class AuthApiServiceContractTest {
 
     @Test
     fun everyAuthEndpointDisablesTheSharedGeneralRetry() {
-        listOf("login", "getCurrentUser").forEach { name ->
-            assertEquals(
-                listOf(NO_RETRY_HEADER),
-                method(name).getAnnotation(Headers::class.java).value.toList(),
-                name,
-            )
-        }
+        assertEquals(
+            listOf(NO_RETRY_HEADER, SESSION_REQUEST_HEADER),
+            method("login").getAnnotation(Headers::class.java).value.toList(),
+        )
+        assertEquals(
+            listOf(NO_RETRY_HEADER),
+            method("getCurrentUser").getAnnotation(Headers::class.java).value.toList(),
+        )
     }
 
     @Test
@@ -104,6 +105,7 @@ class AuthApiServiceContractTest {
 
     private companion object {
         const val NO_RETRY_HEADER = "X-CanMakan-No-Retry: true"
+        const val SESSION_REQUEST_HEADER = "X-CanMakan-Session-Request: 1"
     }
 }
 

@@ -128,13 +128,13 @@ class RecommendationServiceTest {
 
     @Test
     void returnsEmptyWhenNoSafeCandidatesInCategoryAndNoSubstituteProfile() {
-        CatalogProduct source = product("100", "Breakfast cereals", "Wheat flour", null);
-        CatalogProduct unsafe = product("300", "Breakfast cereals", "Barley malt", null);
+        CatalogProduct source = product("100", "Snacks", "Wheat flour", null);
+        CatalogProduct unsafe = product("300", "Snacks", "Barley malt", null);
 
         when(queryService.findByBarcode("100")).thenReturn(Optional.of(source));
         when(restrictionRuleLoader.load(1L)).thenReturn(List.of());
         when(queryService.findSameCategoryCandidates(source)).thenReturn(List.of(unsafe));
-        when(discoveryProfiles.forSourceCategory("Breakfast cereals")).thenReturn(Optional.empty());
+        when(discoveryProfiles.forSourceCategory("Snacks")).thenReturn(Optional.empty());
         when(catalogProductMapper.toProductData(unsafe)).thenReturn(productData("300"));
         when(ruleEngine.assess(anyList(), any(ProductData.class)))
                 .thenReturn(SafetyVerdict.unsafe("gluten", List.of()));
@@ -248,6 +248,60 @@ class RecommendationServiceTest {
         assertEquals("substitute_category", response.alternatives().getFirst().matchReason());
         verify(queryService).findSubstituteTagCandidates(source, wheatFloursProfile);
         verify(ranker).rankSubstituteTags(anyList(), any(), eq(wheatFloursProfile));
+    }
+
+    @Test
+    void fallsBackToGlutenFreeBreakfastCerealsWhenCategoryHasNoAcceptableCandidates() {
+        CatalogProduct source = product(
+                "0038527591039",
+                "Breakfast cereals",
+                "Whole Grain Oat Flour, Whole Wheat Flour",
+                "en:breakfast-cereals");
+        CatalogProduct otherCereal = product(
+                "4800361355872",
+                "Breakfast cereals",
+                "Whole Grain Wheat, Wheat Flour, Barley Malt Extract",
+                "en:breakfast-cereals");
+        CatalogProduct glutenFreeCereal = product(
+                "9315090200706",
+                "Breakfast cereals",
+                "rice flour, yellow corn flour, sorghum flour",
+                "Gluten free Breakfast cereals");
+        SubstituteDiscoveryProfile breakfastCerealsProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Breakfast cereals").orElseThrow();
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("GLUTEN", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID)
+        );
+
+        when(queryService.findByBarcode("0038527591039")).thenReturn(Optional.of(source));
+        when(restrictionRuleLoader.load(1L)).thenReturn(rules);
+        when(queryService.findSameCategoryCandidates(source)).thenReturn(List.of(otherCereal));
+        when(discoveryProfiles.forSourceCategory("Breakfast cereals"))
+                .thenReturn(Optional.of(breakfastCerealsProfile));
+        when(queryService.findSubstituteTagCandidates(source, breakfastCerealsProfile))
+                .thenReturn(List.of(glutenFreeCereal));
+        when(scanRepository.findByProfileIdOrderByScannedAtDesc(1L)).thenReturn(List.of());
+        when(catalogProductMapper.toProductData(otherCereal)).thenReturn(productData("4800361355872"));
+        when(catalogProductMapper.toProductData(glutenFreeCereal)).thenReturn(productData("9315090200706"));
+        when(ruleEngine.assess(eq(rules), any(ProductData.class)))
+                .thenReturn(SafetyVerdict.unsafe("gluten", List.of(new Finding("GLUTEN", "wheat", "gluten"))))
+                .thenReturn(SafetyVerdict.safe("ok", List.of()));
+        when(candidateFilter.isAcceptableAlternative(eq(rules), any(SafetyVerdict.class), any(CatalogProduct.class)))
+                .thenReturn(false)
+                .thenReturn(true);
+        when(ranker.rankSubstituteTags(anyList(), any(), eq(breakfastCerealsProfile))).thenReturn(List.of(
+                new AlternativeProductRanker.RankedAlternative(
+                        glutenFreeCereal, new BigDecimal("0.95"), "substitute_category")
+        ));
+
+        AlternativeProductResponse response = recommendationService.recommend(
+                new RecommendationRequest(1L, "0038527591039", 5L));
+
+        assertEquals(1, response.alternatives().size());
+        assertEquals("9315090200706", response.alternatives().getFirst().barcode());
+        assertEquals("substitute_category", response.alternatives().getFirst().matchReason());
+        verify(queryService).findSubstituteTagCandidates(source, breakfastCerealsProfile);
+        verify(ranker).rankSubstituteTags(anyList(), any(), eq(breakfastCerealsProfile));
     }
 
     private static CatalogProduct product(

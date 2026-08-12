@@ -5,7 +5,9 @@ import userEvent from '@testing-library/user-event'
 import { CredentialLoginForm } from '../../../shared/ui/CredentialLoginForm'
 import { SessionProvider } from '../../../features/auth/SessionProvider'
 import { authService } from '../../../features/auth/authService'
+import { authSessionStore } from '../../../features/auth/authSessionStore'
 import { familyApiService } from '../../../features/family/api/familyApiService'
+import { ApiError } from '../../../shared/api/apiErrors'
 
 /** Test suite for CredentialLoginForm.
  * 
@@ -16,6 +18,9 @@ vi.mock('../../../features/auth/authService', () => ({
   authService: {
     loginWithCredentials: vi.fn(),
     register: vi.fn(),
+    refreshSession: vi.fn(),
+    getCurrentUser: vi.fn(),
+    synchronizeCurrentUser: vi.fn(),
     logout: vi.fn(),
   },
 }))
@@ -54,8 +59,13 @@ function renderFamilyLogin(initialEntry = '/family-login') {
 
 describe('CredentialLoginForm', () => {
   beforeEach(() => {
+    authSessionStore.clear()
     vi.mocked(authService.loginWithCredentials).mockReset()
     vi.mocked(authService.logout).mockReset()
+    vi.mocked(authService.refreshSession).mockReset()
+    vi.mocked(authService.refreshSession).mockRejectedValue(
+      new ApiError('Authentication required.', 401),
+    )
     vi.mocked(familyApiService.claimInvitation).mockReset()
   })
 
@@ -94,6 +104,8 @@ describe('CredentialLoginForm', () => {
     vi.mocked(authService.loginWithCredentials).mockResolvedValue({
       accessToken: 'jwt',
       userId: 14,
+      email: 'person@example.com',
+      active: true,
       displayName: 'person',
       roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
       portal: 'FAMILY',
@@ -117,6 +129,8 @@ describe('CredentialLoginForm', () => {
     vi.mocked(authService.loginWithCredentials).mockResolvedValue({
       accessToken: 'jwt',
       userId: 14,
+      email: 'person@example.com',
+      active: true,
       displayName: 'person',
       roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
       portal: 'FAMILY',
@@ -146,6 +160,8 @@ describe('CredentialLoginForm', () => {
     vi.mocked(authService.loginWithCredentials).mockResolvedValue({
       accessToken: 'jwt',
       userId: 14,
+      email: 'person@example.com',
+      active: true,
       displayName: 'person',
       roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
       portal: 'FAMILY',
@@ -190,6 +206,8 @@ describe('CredentialLoginForm', () => {
     vi.mocked(authService.loginWithCredentials).mockResolvedValue({
       accessToken: 'jwt',
       userId: 14,
+      email: 'person@example.com',
+      active: true,
       displayName: 'person',
       roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
       portal: 'FAMILY',
@@ -224,6 +242,8 @@ describe('CredentialLoginForm', () => {
     vi.mocked(authService.loginWithCredentials).mockResolvedValue({
       accessToken: 'jwt',
       userId: 14,
+      email: 'person@example.com',
+      active: true,
       displayName: 'person',
       roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
       portal: 'FAMILY',
@@ -259,6 +279,8 @@ describe('CredentialLoginForm', () => {
     vi.mocked(authService.loginWithCredentials).mockResolvedValue({
       accessToken: 'jwt',
       userId: 1,
+      email: 'admin@example.com',
+      active: true,
       displayName: 'admin',
       roles: ['ROLE_SYSTEM_ADMIN'],
       portal: 'FAMILY',

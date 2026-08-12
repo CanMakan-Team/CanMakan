@@ -12,11 +12,14 @@ import type { CredentialLoginInput, RegisterInput } from './authService'
 export interface SessionContextValue {
   session: AuthenticatedSession | null
   loading: boolean
+  restoring: boolean
+  restorationError: string
+  retryRestoration: () => void
   loginWithCredentials: (
     input: CredentialLoginInput,
   ) => Promise<AuthenticatedSession>
   register: (input: RegisterInput) => Promise<RegistrationResponse>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 export const SessionContext = createContext<SessionContextValue | null>(null)

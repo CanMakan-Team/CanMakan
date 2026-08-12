@@ -18,17 +18,22 @@ function renderWithSession(
   session: AuthenticatedSession | null,
   initialPath: string,
   requiredRole: 'ROLE_FAMILY_ADMIN' | 'ROLE_SYSTEM_ADMIN',
+  state: Partial<SessionContextValue> = {},
 ) {
   const value: SessionContextValue = {
     session,
     loading: false,
+    restoring: false,
+    restorationError: '',
+    retryRestoration: () => undefined,
     loginWithCredentials: async () => {
       throw new Error('unused')
     },
     register: async () => {
       throw new Error('unused')
     },
-    logout: () => undefined,
+    logout: async () => undefined,
+    ...state,
   }
 
   return render(
@@ -75,5 +80,23 @@ describe('ProtectedRoute', () => {
   it('redirects unauthenticated system visitors to system login', () => {
     renderWithSession(null, '/system', 'ROLE_SYSTEM_ADMIN')
     expect(screen.getByText('System login')).toBeInTheDocument()
+  })
+
+  it('shows a visible loading state while a direct system visit restores', () => {
+    renderWithSession(null, '/system', 'ROLE_SYSTEM_ADMIN', { restoring: true })
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Restoring your secure session…',
+    )
+    expect(screen.queryByText('System login')).not.toBeInTheDocument()
+  })
+
+  it('shows a retryable error instead of a blank system page', () => {
+    renderWithSession(null, '/system', 'ROLE_SYSTEM_ADMIN', {
+      restorationError: 'The service is temporarily unavailable.',
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The service is temporarily unavailable.',
+    )
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 })

@@ -20,10 +20,10 @@ export function SystemAdminLoginPage() {
             ◫
           </span>
           <p className="eyebrow">System Administration Portal</p>
-          <h1 id="system-entry-title">Restricted administrative access.</h1>
+          <h1 id="system-entry-title">System administrator sign in.</h1>
           <p>
             This portal is limited to authorised CanMakan system administrators.
-            Access attempts must be protected and audited by backend security.
+            Sign in with your administrator account to continue.
           </p>
         </section>
 

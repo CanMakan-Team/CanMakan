@@ -115,7 +115,7 @@ export function CredentialLoginForm({
       })
       // If the authenticated user does not have the expected role, logout and set the error
       if (!authenticated.roles.includes(expectedRole)) {
-        logout()
+        void logout()
         setInvitationClaimStatus('idle')
         setError('This account cannot access this portal.')
         return
@@ -201,8 +201,8 @@ export function CredentialLoginForm({
         </p>
       ) : null}
       <p className="login-card__security">
-        Credentials are checked against the database. API calls use a Bearer
-        access token from this session.
+        Your sign-in details are handled securely and are not displayed after
+        you sign in.
       </p>
     </>
   )

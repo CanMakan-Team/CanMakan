@@ -47,7 +47,7 @@ export function SystemDashboardPage() {
           <p className="eyebrow">System overview</p>
           <h1>Administration Dashboard</h1>
           <p>
-            Sprint 1 oversight for anonymised consumer trends and account access.
+            Oversight for anonymised consumer trends and account access.
           </p>
         </div>
       </header>
@@ -70,13 +70,13 @@ export function SystemDashboardPage() {
         </article>
         <article className="summary-card">
           <span className="summary-card__icon" aria-hidden="true">◫</span>
-          <div><span>Sprint features</span><strong>2</strong></div>
+          <div><span>Available areas</span><strong>2</strong></div>
         </article>
       </section>
 
       <div className="dashboard-grid">
         <section className="panel">
-          <p className="eyebrow">Selected Feature 7</p>
+          <p className="eyebrow">Insights</p>
           <h2>Consumer Trends</h2>
           <p>
             Explore anonymised, aggregate verdict and ingredient information.
@@ -87,7 +87,7 @@ export function SystemDashboardPage() {
           </Link>
         </section>
         <section className="panel">
-          <p className="eyebrow">Selected UC13</p>
+          <p className="eyebrow">Account management</p>
           <h2>User Accounts & Access</h2>
           <p>
             Search existing accounts and manage Active or Suspended status.
@@ -101,8 +101,8 @@ export function SystemDashboardPage() {
       <div className="notice notice--neutral">
         <strong>Scope is intentionally focused</strong>
         <p>
-          Review queues, product data issues, aliases, system logs, health and AI
-          reasoning review remain labelled as future prototype features.
+          Additional administration areas will appear here when they become
+          available.
         </p>
       </div>
     </>

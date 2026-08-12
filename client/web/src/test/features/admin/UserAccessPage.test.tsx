@@ -47,13 +47,16 @@ function renderPage(currentUserId = 1) {
       roles: [...baseSession.roles],
     },
     loading: false,
+    restoring: false,
+    restorationError: '',
+    retryRestoration: () => undefined,
     loginWithCredentials: async () => {
       throw new Error('unused')
     },
     register: async () => {
       throw new Error('unused')
     },
-    logout: () => undefined,
+    logout: async () => undefined,
   }
 
   return render(

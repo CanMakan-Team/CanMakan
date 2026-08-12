@@ -3,7 +3,8 @@ import {
   familyApiService,
   familyEndpoints,
 } from '../../../../features/family/api/familyApiService'
-import { jsonResponse, SESSION_KEY } from '../../../testUtils'
+import { configureApiAuthBridge } from '../../../../shared/api/apiClient'
+import { jsonResponse } from '../../../testUtils'
 
 /** Test suite for familyApiService.
  * 
@@ -13,17 +14,11 @@ import { jsonResponse, SESSION_KEY } from '../../../testUtils'
 describe('familyApiService live UC8 calls', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
-    localStorage.setItem(
-      SESSION_KEY,
-      JSON.stringify({
-        accessToken: 'jwt',
-        userId: 14,
-        displayName: 'person',
-        roles: ['ROLE_FAMILY_ADMIN'],
-        portal: 'FAMILY',
-        prototype: false,
-      }),
-    )
+    configureApiAuthBridge({
+      getAccessToken: () => 'jwt',
+      refreshAccessToken: async () => null,
+      invalidate: () => undefined,
+    })
   })
 
   it('GETs /api/families/me with bearer token', async () => {

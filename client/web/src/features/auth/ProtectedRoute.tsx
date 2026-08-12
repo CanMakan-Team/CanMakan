@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import type { Role } from '../../shared/api/types'
+import { ErrorState, LoadingState } from '../../shared/ui/PageState'
 import { useSession } from './useSession'
 
 /** Protected route
@@ -9,12 +10,32 @@ import { useSession } from './useSession'
  */
 
 export function ProtectedRoute({ requiredRole }: { requiredRole: Role }) {
-  const { session } = useSession()
+  const {
+    session,
+    restoring,
+    restorationError,
+    retryRestoration,
+  } = useSession()
   const location = useLocation()
   const loginPath =
     requiredRole === 'ROLE_SYSTEM_ADMIN'
       ? '/system-admin-login'
       : '/family-login'
+
+  if (restoring) {
+    return <LoadingState label="Restoring your secure session…" />
+  }
+
+  if (restorationError) {
+    return (
+      <main className="centered-page">
+        <ErrorState
+          message={restorationError}
+          onRetry={retryRestoration}
+        />
+      </main>
+    )
+  }
 
   // if no session, redirect to login path
   if (!session) {

@@ -7,7 +7,6 @@ import { FamilyDashboardPage } from '../../features/family/pages/FamilyDashboard
 import { FamilyMembersPage } from '../../features/family/pages/FamilyMembersPage'
 import { FamilyRestrictionSummaryPage } from '../../features/family/pages/FamilyRestrictionSummaryPage'
 import { FamilyScanHistoryPage } from '../../features/family/pages/FamilyScanHistoryPage'
-import { FamilyTestPage } from '../../features/family/pages/FamilyTestPage'
 import { ConsumerTrendsPage } from '../../features/analytics/ConsumerTrendsPage'
 import { FutureFeaturesPage } from '../../features/admin/FutureFeaturesPage'
 import { SystemDashboardPage } from '../../features/admin/SystemDashboardPage'
@@ -17,6 +16,7 @@ import { FamilyLoginPage } from '../../pages/FamilyLoginPage'
 import { FamilyRegisterPage } from '../../pages/FamilyRegisterPage'
 import { SystemAdminLoginPage } from '../../pages/SystemAdminLoginPage'
 import { InviteLandingPage } from '../../features/family/pages/InviteLandingPage'
+import { NotFoundPage } from '../../pages/NotFoundPage'
 
 export function AppRoutes() {
   return (
@@ -50,10 +50,9 @@ export function AppRoutes() {
           <Route path="users" element={<UserAccessPage />} />
           <Route path="future" element={<FutureFeaturesPage />} />
         </Route>
-        <Route path="/family-test" element={<FamilyTestPage />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/family-login" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }

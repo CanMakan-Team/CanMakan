@@ -13,7 +13,7 @@ Public account registration plus login, refresh, logout, and `/me` against Sprin
 | `POST` | `/api/auth/login` | `email`, `password` → `AuthResponse` (access JWT + user) + refresh cookie |
 | `POST` | `/api/auth/refresh` | Rotate refresh cookie → new access JWT |
 | `POST` | `/api/auth/logout` | Revoke refresh session + clear cookie |
-| `GET` | `/api/auth/me` | Requires Bearer JWT |
+| `GET` | `/api/auth/me` | Requires Bearer JWT; returns `userId`, `email`, `role`, and `active` |
 
 Login and register are owned by `AuthController` / `AuthService` (single mapping for each path).
 
@@ -52,6 +52,13 @@ Web portals may map `USER` → family-portal access and `ADMIN` → system porta
 - `family` — UC8 create-circle / membership (JWT principal)
 
 Controller and service classes stay in `auth` (this package root).
+
+The refresh cookie is HttpOnly and path-scoped to `/api/auth`. Its Secure and
+SameSite attributes are deployment configuration; `SameSite=None` is accepted
+only with `Secure=true`, credentialed CORS, exact HTTPS origins, and no origin
+patterns. `Lax` is the default. Login, refresh, and logout require a non-secret
+session-intent request header. Browser requests additionally require an exact
+configured Origin; native requests may omit Origin but must retain the header.
 
 ## Ops note
 With `spring.sql.init.mode=always`, schema/seed reload wipes newly registered users on backend restart.
