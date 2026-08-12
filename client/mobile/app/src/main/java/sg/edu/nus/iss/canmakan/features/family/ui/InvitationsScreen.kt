@@ -42,8 +42,9 @@ import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
 
 @Composable
 fun InvitationsScreen(
-    activeProfile: DietaryProfile?,
+    activeProfile: DietaryProfile,
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onBackClick: () -> Unit = {},
@@ -55,8 +56,11 @@ fun InvitationsScreen(
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(onMenuClick = onMenuClick)
-                activeProfile?.let { ActiveProfileChip(profile = it) }
+                AppTopBar(
+                    onMenuClick = onMenuClick,
+                    onNotificationsClick = onNotificationsClick,
+                )
+                ActiveProfileChip(profile = activeProfile)
             }
         },
         bottomBar = {
@@ -85,14 +89,9 @@ fun InvitationsScreen(
             }
 
             Text(
-                text = "Family invitations",
+                text = "Notifications",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Accept or decline pending invitations to join a household.",
-                color = Color.Gray,
             )
 
             Spacer(modifier = Modifier.height(16.dp))
