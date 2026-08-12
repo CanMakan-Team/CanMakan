@@ -97,6 +97,28 @@ class AuthSessionStoreTest {
     }
 
     @Test
+    fun accountKeyIsStableForSameUserRefreshAndRenewedAcrossRealSessionBoundaries() {
+        val store = AuthSessionStore(FakeAuthSessionPersistence(), Gson())
+        assertTrue(store.saveSession(validSession()))
+        val originalKey = requireNotNull(store.accountKey.value)
+
+        assertTrue(store.saveSession(validSession(accessToken = "replacement-access-token")))
+        assertEquals(originalKey, store.accountKey.value)
+
+        assertTrue(store.saveSession(validSession(userId = 99L)))
+        val otherAccountKey = requireNotNull(store.accountKey.value)
+        assertTrue(otherAccountKey.sessionGeneration > originalKey.sessionGeneration)
+
+        store.clearSession()
+        assertNull(store.accountKey.value)
+        assertTrue(store.saveSession(validSession()))
+        val reloggedOriginalAccountKey = requireNotNull(store.accountKey.value)
+
+        assertTrue(reloggedOriginalAccountKey.sessionGeneration > otherAccountKey.sessionGeneration)
+        assertFalse(reloggedOriginalAccountKey == originalKey)
+    }
+
+    @Test
     fun metadataPersistenceFailureClearsTheSessionInsteadOfKeepingPartialState() {
         val persistence = FakeAuthSessionPersistence()
         val store = AuthSessionStore(persistence, Gson())

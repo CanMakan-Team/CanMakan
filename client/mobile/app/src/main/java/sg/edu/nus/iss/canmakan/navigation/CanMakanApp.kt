@@ -15,6 +15,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
@@ -26,6 +27,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import sg.edu.nus.iss.canmakan.features.auth.AppAuthState
 import sg.edu.nus.iss.canmakan.features.auth.AppAuthViewModel
+import sg.edu.nus.iss.canmakan.features.auth.onboarding.PostLoginContinuationState
+import sg.edu.nus.iss.canmakan.features.auth.onboarding.PostLoginContinuationViewModel
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.ui.AuthenticatedDietaryOnboardingRoute
 
 /** Root application composition. Auth and main NavControllers never share a back stack. */
 @Composable
@@ -34,7 +38,7 @@ fun CanMakanApp(
 ) {
     val state by authViewModel.state.collectAsStateWithLifecycle()
 
-    when (state) {
+    when (val currentState = state) {
         AppAuthState.Restoring -> AuthStatusScreen(
             title = "Restoring your session",
             message = "Checking your secure CanMakan session.",
@@ -51,8 +55,8 @@ fun CanMakanApp(
             AuthNavGraph(onLoginSuccess = authViewModel::onLoginSuccess)
         }
 
-        is AppAuthState.Authenticated -> key("main-flow") {
-            CanMakanNavGraph(onSignOut = authViewModel::signOut)
+        is AppAuthState.Authenticated -> key("main-flow-${currentState.user.userId}") {
+            PostLoginContinuation(onSignOut = authViewModel::signOut)
         }
 
         is AppAuthState.UnsupportedMobileAccount -> AuthStatusScreen(
@@ -78,6 +82,44 @@ fun CanMakanApp(
             onPrimaryAction = authViewModel::retryRestoration,
             secondaryActionLabel = "Sign Out",
             onSecondaryAction = authViewModel::signOut,
+        )
+    }
+}
+
+@Composable
+private fun PostLoginContinuation(
+    onSignOut: () -> Unit,
+    viewModel: PostLoginContinuationViewModel = hiltViewModel(),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.begin()
+    }
+
+    when (val continuation = state) {
+        PostLoginContinuationState.Checking -> AuthStatusScreen(
+            title = "Preparing your account",
+            message = "Checking your pending CanMakan setup.",
+            showProgress = true,
+        )
+
+        PostLoginContinuationState.DietarySetupRequired ->
+            AuthenticatedDietaryOnboardingRoute(
+                onResolved = viewModel::onDietarySetupResolved,
+            )
+
+        PostLoginContinuationState.ClaimingInvitation -> AuthStatusScreen(
+            title = "Joining your family",
+            message = "Accepting your pending family invitation.",
+            showProgress = true,
+        )
+
+        is PostLoginContinuationState.Ready -> CanMakanNavGraph(
+            onSignOut = onSignOut,
+            invitationClaimError = continuation.invitationError,
+            onRetryInvitationClaim = viewModel::retryInvitationClaim,
+            onRequestSelfProfileSetup = viewModel::requestDietarySetup,
         )
     }
 }

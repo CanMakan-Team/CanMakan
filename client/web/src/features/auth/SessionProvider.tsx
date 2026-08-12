@@ -48,19 +48,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Register and login
-  const registerAndLogin = async (input: RegisterInput) => {
+  // Registration remains separate from authentication.
+  const register = async (input: RegisterInput) => {
     setLoading(true)
     try {
-      await authService.register(input)
-      const authenticatedSession = await authService.loginWithCredentials({
-        email: input.email,
-        password: input.password,
-        portal: 'FAMILY',
-      })
-      persistSession(authenticatedSession)
-      setSession(authenticatedSession)
-      return authenticatedSession
+      return await authService.register(input)
     } finally {
       setLoading(false)
     }
@@ -79,7 +71,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         session,
         loading,
         loginWithCredentials,
-        registerAndLogin,
+        register,
         logout,
       }}
     >

@@ -9,17 +9,19 @@ data class VerdictDetail(
     val verdict: ScanVerdict,
     val explanation: String? = null,
     val flags: List<ProductFlag> = emptyList(),
-    val alternatives: List<AlternativeProduct> = emptyList()
+    val alternatives: List<AlternativeProduct> = emptyList(),
+    val alternativesError: String? = null
 ) {
     companion object {
-        fun fromHistoryEntry(entry: ScanHistoryEntry): VerdictDetail {
-
-            // Add flags per tier and for summary
+        fun fromHistoryEntry(
+            entry: ScanHistoryEntry,
+            alternatives: List<AlternativeProduct> = emptyList()
+        ): VerdictDetail {
             val flags = buildList {
-                entry.findingsJson.matchedRules.forEach { 
+                entry.findingsJson.matchedRules.forEach {
                     rule -> add(ProductFlag("RULE", rule))
                 }
-                entry.findingsJson.allergensFound.forEach { 
+                entry.findingsJson.allergensFound.forEach {
                     allergen -> add(ProductFlag("ALLERGEN", allergen))
                 }
                 entry.aiExplanation
@@ -31,7 +33,8 @@ data class VerdictDetail(
                 product = entry.product,
                 verdict = entry.verdict,
                 explanation = entry.aiExplanation,
-                flags = flags
+                flags = flags,
+                alternatives = alternatives
             )
         }
     }

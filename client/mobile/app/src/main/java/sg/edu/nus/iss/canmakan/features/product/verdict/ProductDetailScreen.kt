@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -64,13 +66,16 @@ fun ProductDetailScreen(
     alternatives: List<AlternativeProduct>,
     profileName: String,
     explanation: String? = null, // optional explanation for the verdict
+    alternativesError: String? = null,
     onBackClick: () -> Unit,
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(DetailTab.FLAGS) }
+    val showAlternativesTab = verdict != ScanVerdict.SAFE
     val accent = statusAccentColor(verdict)
     val (icon, label) = verdictPresentation(verdict)
+    val scrollState = rememberScrollState()
 
     Scaffold(
         bottomBar = {
@@ -84,8 +89,10 @@ fun ProductDetailScreen(
         Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp)
                 .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -119,12 +126,24 @@ fun ProductDetailScreen(
                     product.productName,
                     fontWeight = FontWeight.Bold,
                     fontSize = 30.sp,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 if (product.brand.isNotBlank()) {
-                    Text(product.brand, color = TextSecondary)
+                    Text(
+                        product.brand,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
-                Text(product.barcode, color = TextSecondary)
+                Text(
+                    product.barcode,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 if (!explanation.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -148,17 +167,37 @@ fun ProductDetailScreen(
                     isSelected = selectedTab == DetailTab.FLAGS,
                     modifier = Modifier.weight(1f)
                 ) { selectedTab = DetailTab.FLAGS }
-                DetailTabButton(
-                    label = "Alternatives",
-                    isSelected = selectedTab == DetailTab.ALTERNATIVES,
-                    modifier = Modifier.weight(1f)
-                ) { selectedTab = DetailTab.ALTERNATIVES }
+                if (showAlternativesTab) {
+                    DetailTabButton(
+                        label = "Alternatives",
+                        isSelected = selectedTab == DetailTab.ALTERNATIVES,
+                        modifier = Modifier.weight(1f)
+                    ) { selectedTab = DetailTab.ALTERNATIVES }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            when (selectedTab) {
-                DetailTab.FLAGS -> FlagsAndDetailsTab(flags = flags, profileName = profileName)
-                DetailTab.ALTERNATIVES -> AlternativesTab(alternatives = alternatives, profileName = profileName)
+            Box(modifier = Modifier.weight(1f)) {
+                when (selectedTab) {
+                    DetailTab.FLAGS -> Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        FlagsAndDetailsTab(flags = flags, profileName = profileName)
+                    }
+                    DetailTab.ALTERNATIVES -> Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        AlternativesTab(
+                            alternatives = alternatives,
+                            profileName = profileName,
+                            errorMessage = alternativesError
+                        )
+                    }
+                }
             }
         }
     }
@@ -238,10 +277,22 @@ private fun FlagsAndDetailsTab(flags: List<ProductFlag>, profileName: String) {
 
 // Tab 2: Shows the alternatives for the product
 @Composable
-private fun AlternativesTab(alternatives: List<AlternativeProduct>, profileName: String) {
+private fun AlternativesTab(
+    alternatives: List<AlternativeProduct>,
+    profileName: String,
+    errorMessage: String? = null
+) {
     Column {
         Text("Safe alternatives for $profileName", color = TextSecondary)
         Spacer(modifier = Modifier.height(8.dp))
+
+        if (!errorMessage.isNullOrBlank()) {
+            Text(
+                errorMessage,
+                color = AvoidRed
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         // Display a message if there are no alternatives
         if (alternatives.isEmpty()) {

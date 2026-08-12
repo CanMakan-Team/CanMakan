@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,7 +27,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -36,8 +36,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.RestrictionEditAuthorization
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui.DietaryRestrictionSheet
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.product.history.ScanHistoryViewModel
 import sg.edu.nus.iss.canmakan.features.product.history.ui.HistoryScreen
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
@@ -56,7 +58,7 @@ private const val ROUTE_PRODUCT_DETAIL = "product_detail"
 private const val ROUTE_CREATE_FAMILY = "create_family"
 private const val ROUTE_CREATE_NEW = "create_new"
 private const val ROUTE_ADD_PROFILE = "add_profile"
-private const val ROUTE_INVITATIONS = "invitations"
+private const val ROUTE_NOTIFICATIONS = "notifications"
 
 /* The top-level screen. It wires together the navigation between the
  * three screens, the side drawer, and the edit dietary requirements sheet.
@@ -68,6 +70,9 @@ private const val ROUTE_INVITATIONS = "invitations"
 fun CanMakanNavGraph(
     navGraphViewModel: CanMakanNavGraphViewModel = hiltViewModel(),
     onSignOut: () -> Unit = {},
+    invitationClaimError: String? = null,
+    onRetryInvitationClaim: () -> Unit = {},
+    onRequestSelfProfileSetup: () -> Unit = {},
 ) {
     val navController = rememberNavController()
 
@@ -80,34 +85,50 @@ fun CanMakanNavGraph(
     val profiles by navGraphViewModel.profiles.collectAsStateWithLifecycle()
     val hasFamily by navGraphViewModel.hasFamily.collectAsStateWithLifecycle()
     val showManageFamilyActions by navGraphViewModel.showManageFamilyActions.collectAsStateWithLifecycle()
+    val selfProfileId by navGraphViewModel.selfProfileId.collectAsStateWithLifecycle()
+    val memberRole by navGraphViewModel.memberRole.collectAsStateWithLifecycle()
     val hasUserSession by navGraphViewModel.hasUserSession.collectAsStateWithLifecycle()
     val isLoading by navGraphViewModel.isLoading.collectAsStateWithLifecycle()
     val error by navGraphViewModel.error.collectAsStateWithLifecycle()
     val pendingVerdict by navGraphViewModel.pendingVerdict.collectAsStateWithLifecycle()
     val isCreatingFamily by navGraphViewModel.isCreatingFamily.collectAsStateWithLifecycle()
     val createFamilyError by navGraphViewModel.createFamilyError.collectAsStateWithLifecycle()
-    val inviteClaimError by navGraphViewModel.inviteClaimError.collectAsStateWithLifecycle()
     val switchProfileError by navGraphViewModel.switchProfileError.collectAsStateWithLifecycle()
     val isSwitchingProfile by navGraphViewModel.isSwitchingProfile.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val activeProfile = profiles.firstOrNull { it.id == currentProfileId }
-        ?: profiles.firstOrNull()
+    // Re-entering after a retried invitation claim may reuse this activity-scoped ViewModel.
+    // Refresh so the newly joined family/profile is visible without restarting the app.
+    LaunchedEffect(Unit) {
+        navGraphViewModel.refreshRestrictions()
+    }
 
-    // If activeProfile is null, show a loading screen while profiles are being fetched
-    if (activeProfile == null) {
+    val activeProfile = currentProfileId
+        .takeIf { it > ActiveProfileManager.UNSET_PROFILE_ID }
+        ?.let { profileId -> profiles.firstOrNull { it.id == profileId } }
+
+    val editDietaryButtonLabel = remember(activeProfile?.id, hasFamily, selfProfileId, memberRole) {
+        val profileId = activeProfile?.id
+        if (profileId == null) {
+            RestrictionEditAuthorization.EDIT_DIETARY_PROFILE_LABEL
+        } else {
+            RestrictionEditAuthorization.dietaryProfileButtonLabel(
+                RestrictionEditAuthorization.mayEditRestrictions(
+                    profileId = profileId,
+                    hasFamily = hasFamily,
+                    selfProfileId = selfProfileId,
+                    memberRole = memberRole,
+                )
+            )
+        }
+    }
+
+    // Account/profile context is loaded before exposing profile-dependent actions. Once loading
+    // completes, a missing profile is a valid shell state rather than a navigation gate.
+    if (isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            if (isLoading) {
-                CircularProgressIndicator()
-            } else if (error != null) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = error!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
-                    Button(onClick = { navGraphViewModel.refreshRestrictions() }) {
-                        Text("Retry")
-                    }
-                }
-            }
+            CircularProgressIndicator()
         }
         return
     }
@@ -116,6 +137,22 @@ fun CanMakanNavGraph(
 
     fun openDrawer() = scope.launch { drawerState.open() }
     fun closeDrawer() = scope.launch { drawerState.close() }
+
+    /** Return to Scanner as the shell home, clearing overlays like Notifications. */
+    fun navigateToScannerHome() {
+        navController.navigate(ROUTE_SCANNER) {
+            launchSingleTop = true
+            popUpTo(ROUTE_SCANNER) { inclusive = false }
+        }
+    }
+
+    fun closeEditDietarySheet(refresh: Boolean = false) {
+        showEditDietarySheet = false
+        if (refresh) {
+            navGraphViewModel.refreshRestrictions()
+        }
+        navigateToScannerHome()
+    }
 
     // ModalNavigationDrawer is used to open and close the drawer
     ModalNavigationDrawer(
@@ -141,11 +178,16 @@ fun CanMakanNavGraph(
                     },
                     onEditDietaryClick = {
                         closeDrawer()
-                        showEditDietarySheet = true
+                        if (activeProfile == null) {
+                            onRequestSelfProfileSetup()
+                        } else {
+                            showEditDietarySheet = true
+                        }
                     },
+                    editDietaryButtonLabel = editDietaryButtonLabel,
                     onScannerClick = {
                         closeDrawer()
-                        navController.navigate(ROUTE_SCANNER)
+                        navigateToScannerHome()
                     },
                     onFamilyAllergySummaryClick = {
                         closeDrawer()
@@ -173,23 +215,40 @@ fun CanMakanNavGraph(
                         closeDrawer()
                         navController.navigate(ROUTE_ADD_PROFILE)
                     },
-                    onInvitationsClick = {
-                        closeDrawer()
-                        navController.navigate(ROUTE_INVITATIONS)
-                    },
                 )
             }
         }
     ) {
+        fun openNotifications() {
+            navController.navigate(ROUTE_NOTIFICATIONS) {
+                launchSingleTop = true
+            }
+        }
+
         Column {
-            inviteClaimError?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
+            invitationClaimError?.let { message ->
+                Column(
                     modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clickable { navGraphViewModel.clearInviteClaimError() },
-                )
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text(text = message, color = MaterialTheme.colorScheme.error)
+                    Button(onClick = onRetryInvitationClaim) {
+                        Text("Retry invitation")
+                    }
+                }
+            }
+            error?.let { message ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text(text = message, color = MaterialTheme.colorScheme.error)
+                    Button(onClick = navGraphViewModel::refreshRestrictions) {
+                        Text("Retry profile loading")
+                    }
+                }
             }
             switchProfileError?.let { message ->
                 Text(
@@ -201,7 +260,11 @@ fun CanMakanNavGraph(
                 )
             }
             // NavHost is used to switch between the three screens
-            NavHost(navController = navController, startDestination = ROUTE_SCANNER) {
+            NavHost(
+                navController = navController,
+                startDestination = ROUTE_SCANNER,
+                modifier = Modifier.weight(1f),
+            ) {
             composable(ROUTE_SCANNER) {
                 ScannerScreen(
                     activeProfile = activeProfile,
@@ -209,18 +272,22 @@ fun CanMakanNavGraph(
 
                     // Open the drawer when the menu button is clicked
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
 
                     // Navigate to the history screen when the history button is clicked
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
 
                     // Navigate to the history screen when the history button is clicked
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onSetUpProfile = onRequestSelfProfileSetup,
 
                     // Navigate to the product detail screen when a verdict is ready
                     onVerdictReady = { detail ->
-                        navGraphViewModel.setPendingVerdict(detail)
-                        navController.navigate(ROUTE_PRODUCT_DETAIL)
-                    }
+                        activeProfile?.id?.let { profileId ->
+                            navGraphViewModel.setPendingVerdict(profileId, detail)
+                            navController.navigate(ROUTE_PRODUCT_DETAIL)
+                        }
+                    },
                 )
             }
             /**
@@ -240,6 +307,7 @@ fun CanMakanNavGraph(
                 FamilyRestrictionSummaryScreen(
                     uiState = uiState,
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
                     onNavigateToEditMembers = { navController.popBackStack() }
                 )
             }
@@ -251,12 +319,19 @@ fun CanMakanNavGraph(
                     activeProfile = activeProfile,
                     entries = scanHistoryUiState.scanHistory,
                     isLoading = scanHistoryUiState.isLoading,
+                    requiresProfileSetup = scanHistoryUiState.requiresProfileSetup,
                     errorMessage = scanHistoryUiState.errorMessage,
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { },
+                    onSetUpProfile = onRequestSelfProfileSetup,
                     onEntryClick = { entry ->
-                        navGraphViewModel.setPendingVerdict(VerdictDetail.fromHistoryEntry(entry))
+                        val alternatives = scanHistoryUiState.alternativesByScanId[entry.id].orEmpty()
+                        navGraphViewModel.setPendingVerdict(
+                            profileId = entry.profileId,
+                            detail = VerdictDetail.fromHistoryEntry(entry, alternatives),
+                        )
                         navController.navigate(ROUTE_PRODUCT_DETAIL)
                     }
                 )
@@ -264,7 +339,7 @@ fun CanMakanNavGraph(
             composable(ROUTE_PRODUCT_DETAIL) {
                 val detail = pendingVerdict
                 // If there is no pending verdict, navigate back to the scanner screen
-                if (detail == null) {
+                if (detail == null || activeProfile == null) {
                     LaunchedEffect(Unit) {
                         navController.popBackStack()
                     }
@@ -278,6 +353,7 @@ fun CanMakanNavGraph(
                         alternatives = detail.alternatives,
                         profileName = activeProfile.profileName,
                         explanation = detail.explanation,
+                        alternativesError = detail.alternativesError,
                         onBackClick = { navController.popBackStack() },
                         onScanClick = { navController.navigate(ROUTE_SCANNER) },
                         onHistoryClick = { navController.navigate(ROUTE_HISTORY) }
@@ -295,6 +371,7 @@ fun CanMakanNavGraph(
                         isSubmitting = isCreatingFamily,
                         errorMessage = createFamilyError,
                         onMenuClick = { openDrawer() },
+                        onNotificationsClick = { openNotifications() },
                         onScanClick = { navController.navigate(ROUTE_SCANNER) },
                         onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                         onBackClick = { navController.popBackStack() },
@@ -310,12 +387,15 @@ fun CanMakanNavGraph(
                 CreateNewProfileScreen(
                     activeProfile = activeProfile,
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },
                     onCancelClick = { navController.popBackStack() },
                     onCreated = {
-                        navController.popBackStack()
+                        navController.navigate(ROUTE_SCANNER) {
+                            popUpTo(ROUTE_SCANNER) { inclusive = true }
+                        }
                         navGraphViewModel.refreshRestrictions()
                     },
                 )
@@ -324,6 +404,7 @@ fun CanMakanNavGraph(
                 AddProfileToFamilyScreen(
                     activeProfile = activeProfile,
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },
@@ -334,10 +415,12 @@ fun CanMakanNavGraph(
                     }
                 )
             }
-            composable(ROUTE_INVITATIONS) {
+            composable(ROUTE_NOTIFICATIONS) {
                 InvitationsScreen(
                     activeProfile = activeProfile,
+                    hasFamily = hasFamily,
                     onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },
@@ -351,18 +434,15 @@ fun CanMakanNavGraph(
         }
 
         // ModalBottomSheet is used to open and close the edit dietary requirements sheet
-        if (showEditDietarySheet) {
+        if (showEditDietarySheet && activeProfile != null) {
             ModalBottomSheet(
-                onDismissRequest = { showEditDietarySheet = false },
+                onDismissRequest = { closeEditDietarySheet() },
                 sheetState = editDietarySheetState) {
                 DietaryRestrictionSheet(
                     profileName = activeProfile.profileName,
                     profileRole = activeProfile.relationship,
-                    onCancel = { showEditDietarySheet = false },
-                    onSave = {
-                        showEditDietarySheet = false
-                        navGraphViewModel.refreshRestrictions()
-                    }
+                    onCancel = { closeEditDietarySheet() },
+                    onSave = { closeEditDietarySheet(refresh = true) },
                 )
             }
         }

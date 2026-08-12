@@ -1,7 +1,10 @@
 package com.canmakan.backend.product.recommendation;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
@@ -17,12 +20,20 @@ public class CatalogProductMapper {
             product.getBarcode(),
             ingredients,
             product.getIngredientsText(),
-            splitTags(product.getLabelsTags()),
+            mergeTags(product.getLabelsTags(), product.getAllergens()),
             splitTags(product.getTracesTags()),
             product.toNutrition(),
             !ingredients.isEmpty()
         );
     }
+
+    private List<String> mergeTags(String labelsTags, String allergensTags) {
+        Set<String> merged = new LinkedHashSet<>();
+        merged.addAll(splitTags(labelsTags));
+        merged.addAll(splitTags(allergensTags));
+        return new ArrayList<>(merged);
+    }
+
     private List<Ingredient> parseIngredients(String ingredientsText) {
         if (ingredientsText == null || ingredientsText.isBlank()) {
             return List.of();

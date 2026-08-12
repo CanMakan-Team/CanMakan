@@ -8,18 +8,14 @@ class ServerRegistrationRepository @Inject constructor(
 ) : RegistrationRepository {
 
     override suspend fun register(
-        name: String,
         email: String,
         password: String,
-        invitationToken: String?,
     ): RegistrationResult {
         return try {
             val response = registrationApiService.register(
                 RegistrationRequest(
-                    name = name,
                     email = email,
                     password = password,
-                    invitationToken = invitationToken,
                 )
             )
             val account = response.body()

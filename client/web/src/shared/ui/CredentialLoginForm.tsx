@@ -24,6 +24,8 @@ interface CredentialLoginFormProps {
   registerPath?: string
 }
 
+type InvitationClaimStatus = 'idle' | 'pending' | 'failed' | 'succeeded'
+
 export function CredentialLoginForm({
   portal,
   expectedRole,
@@ -37,12 +39,41 @@ export function CredentialLoginForm({
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [invitationClaimStatus, setInvitationClaimStatus] =
+    useState<InvitationClaimStatus>('idle')
   const { session, loginWithCredentials, logout, loading } = useSession()
   const navigate = useNavigate()
 
-  // If the session has the expected role, navigate to the destination
-  if (session?.roles.includes(expectedRole)) {
+  const authenticatedForPortal = session?.roles.includes(expectedRole) === true
+  const invitationClaimRequired = portal === 'FAMILY' && Boolean(invitationToken)
+
+  // A deep-link login must remain mounted until its authenticated claim finishes.
+  if (
+    authenticatedForPortal &&
+    (!invitationClaimRequired || invitationClaimStatus === 'succeeded')
+  ) {
     return <Navigate to={destination} replace />
+  }
+
+  const claimInvitation = async () => {
+    if (!invitationToken) return true
+    setInvitationClaimStatus('pending')
+    setError('')
+    try {
+      await familyApiService.claimInvitation(invitationToken)
+      setInvitationClaimStatus('succeeded')
+      return true
+    } catch (claimError) {
+      setInvitationClaimStatus('failed')
+      setError(getErrorMessage(claimError))
+      return false
+    }
+  }
+
+  const retryInvitationClaim = async () => {
+    if (await claimInvitation()) {
+      navigate(destination, { replace: true })
+    }
   }
 
   // Handle the submission of the form
@@ -71,6 +102,11 @@ export function CredentialLoginForm({
 
     // 4. Try to login with the credentials
     try {
+      if (invitationClaimRequired) {
+        // Set this before session installation so authenticated rendering cannot
+        // redirect while the claim request is still pending.
+        setInvitationClaimStatus('pending')
+      }
       // Login with the credentials
       const authenticated = await loginWithCredentials({
         email: trimmedEmail,
@@ -80,22 +116,19 @@ export function CredentialLoginForm({
       // If the authenticated user does not have the expected role, logout and set the error
       if (!authenticated.roles.includes(expectedRole)) {
         logout()
+        setInvitationClaimStatus('idle')
         setError('This account cannot access this portal.')
         return
       }
       // If the portal is family and there is an invitation token, claim the invitation
-      if (portal === 'FAMILY' && invitationToken) {
-        try {
-          await familyApiService.claimInvitation(invitationToken)
-        } catch (claimError) {
-          setError(getErrorMessage(claimError))
-          return
-        }
+      if (invitationClaimRequired && !(await claimInvitation())) {
+        return
       }
       // Navigate to the destination
       navigate(destination, { replace: true })
     } catch (caughtError) {
       // Set the error
+      setInvitationClaimStatus('idle')
       setError(getErrorMessage(caughtError))
     }
   }
@@ -109,38 +142,60 @@ export function CredentialLoginForm({
   // Render the component
   return (
     <>
-      <form onSubmit={(event) => void handleSubmit(event)} noValidate>
-        <label htmlFor={`${portal.toLowerCase()}-email`}>Email</label>
-        <input
-          id={`${portal.toLowerCase()}-email`}
-          type="email"
-          autoComplete="username"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          disabled={loading}
-        />
-        <PasswordField
-          id={`${portal.toLowerCase()}-password`}
-          label="Password"
-          autoComplete="current-password"
-          value={password}
-          onChange={setPassword}
-          disabled={loading}
-        />
-        {error && (
-          <p className="form-message form-message--error" role="alert">
-            {error}
-          </p>
-        )}
-        <button
-          className={`button ${buttonClassName} button--full`}
-          type="submit"
-          disabled={loading}
-        >
-          {loading ? 'Signing in…' : buttonLabel}
-        </button>
-      </form>
-      {resolvedRegisterPath ? (
+      {authenticatedForPortal && invitationClaimRequired ? (
+        <div className="invitation-claim-status">
+          {error && (
+            <p className="form-message form-message--error" role="alert">
+              {error}
+            </p>
+          )}
+          <button
+            className={`button ${buttonClassName} button--full`}
+            type="button"
+            disabled={invitationClaimStatus === 'pending'}
+            onClick={() => void retryInvitationClaim()}
+          >
+            {invitationClaimStatus === 'pending'
+              ? 'Claiming invitation…'
+              : invitationClaimStatus === 'failed'
+                ? 'Retry invitation claim'
+                : 'Claim invitation'}
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={(event) => void handleSubmit(event)} noValidate>
+          <label htmlFor={`${portal.toLowerCase()}-email`}>Email</label>
+          <input
+            id={`${portal.toLowerCase()}-email`}
+            type="email"
+            autoComplete="username"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            disabled={loading}
+          />
+          <PasswordField
+            id={`${portal.toLowerCase()}-password`}
+            label="Password"
+            autoComplete="current-password"
+            value={password}
+            onChange={setPassword}
+            disabled={loading}
+          />
+          {error && (
+            <p className="form-message form-message--error" role="alert">
+              {error}
+            </p>
+          )}
+          <button
+            className={`button ${buttonClassName} button--full`}
+            type="submit"
+            disabled={loading || invitationClaimStatus === 'pending'}
+          >
+            {loading ? 'Signing in…' : buttonLabel}
+          </button>
+        </form>
+      )}
+      {!authenticatedForPortal && resolvedRegisterPath ? (
         <p className="login-card__footer">
           New to CanMakan? <Link to={resolvedRegisterPath}>Create an account</Link>
         </p>

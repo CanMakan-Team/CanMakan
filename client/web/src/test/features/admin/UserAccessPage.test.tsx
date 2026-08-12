@@ -50,7 +50,7 @@ function renderPage(currentUserId = 1) {
     loginWithCredentials: async () => {
       throw new Error('unused')
     },
-    registerAndLogin: async () => {
+    register: async () => {
       throw new Error('unused')
     },
     logout: () => undefined,

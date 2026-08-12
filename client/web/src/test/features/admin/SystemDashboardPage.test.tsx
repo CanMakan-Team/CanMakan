@@ -3,26 +3,46 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { SystemDashboardPage } from '../../../features/admin/SystemDashboardPage'
 import { adminService } from '../../../features/admin/adminService'
+import { consumerTrendsApiService } from '../../../features/analytics/consumerTrendsApiService'
 
 vi.mock('../../../features/admin/adminService', () => ({
   adminService: {
-    getConsumerTrends: vi.fn(),
     getUsers: vi.fn(),
+  },
+}))
+
+vi.mock('../../../features/analytics/consumerTrendsApiService', () => ({
+  consumerTrendsApiService: {
+    getConsumerTrends: vi.fn(),
   },
 }))
 
 describe('SystemDashboardPage UC13 account summary', () => {
   beforeEach(() => {
-    vi.mocked(adminService.getConsumerTrends).mockReset()
+    vi.mocked(consumerTrendsApiService.getConsumerTrends).mockReset()
     vi.mocked(adminService.getUsers).mockReset()
   })
 
-  it('counts suspended accounts from active=false', async () => {
-    vi.mocked(adminService.getConsumerTrends).mockResolvedValue({
-      period: { from: '2026-08-01', to: '2026-08-10' },
-      verdictDistribution: [],
-      flaggedIngredients: [],
-      partial: false,
+  it('uses the current UC7 summary and counts suspended accounts', async () => {
+    vi.mocked(consumerTrendsApiService.getConsumerTrends).mockResolvedValue({
+      period: {
+        from: '2026-08-01',
+        to: '2026-08-10',
+        timezone: 'Asia/Singapore',
+      },
+      summary: {
+        totalScans: 17,
+        safeCount: 10,
+        warningCount: 5,
+        unsafeCount: 2,
+      },
+      dailyTrend: [],
+      topFlaggedIngredients: [],
+      dataQuality: {
+        partial: false,
+        skippedMalformedFindings: 0,
+      },
+      generatedAt: '2026-08-10T09:30:00Z',
     })
     vi.mocked(adminService.getUsers).mockResolvedValue([
       {
@@ -54,6 +74,8 @@ describe('SystemDashboardPage UC13 account summary', () => {
       </MemoryRouter>,
     )
 
+    const aggregateLabel = await screen.findByText('Aggregate assessments')
+    expect(aggregateLabel.parentElement).toHaveTextContent('17')
     const label = await screen.findByText('Suspended accounts')
     expect(label.parentElement).toHaveTextContent('2')
     expect(screen.queryByText('Pending access')).not.toBeInTheDocument()

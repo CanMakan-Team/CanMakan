@@ -19,6 +19,8 @@ import sg.edu.nus.iss.canmakan.features.auth.session.AuthLogoutAction
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthRestorationResult
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthRestorer
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
+import sg.edu.nus.iss.canmakan.features.auth.onboarding.PendingOnboardingStore
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 
 /** Token-free application authentication state. */
 sealed interface AppAuthState {
@@ -42,6 +44,8 @@ class AppAuthViewModel @Inject constructor(
     private val authRestorer: AuthRestorer,
     private val authSessionStore: AuthSessionStore,
     private val logoutAction: AuthLogoutAction,
+    private val pendingOnboardingStore: PendingOnboardingStore,
+    private val activeProfileManager: ActiveProfileManager,
     @AuthIoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
@@ -51,6 +55,8 @@ class AppAuthViewModel @Inject constructor(
     private var restorationValidated = false
     private var restoreJob: Job? = null
     private var logoutJob: Job? = null
+    private var accountBoundaryInitialized = false
+    private var observedAccountId: Long? = null
 
     init {
         observeSafeSession()
@@ -63,6 +69,7 @@ class AppAuthViewModel @Inject constructor(
 
     fun onLoginSuccess(user: AuthenticatedUser) {
         if (_state.value is AppAuthState.SigningOut) return
+        applyAccountBoundary(user)
         restorationValidated = true
         _state.value = stateFor(user)
     }
@@ -76,6 +83,7 @@ class AppAuthViewModel @Inject constructor(
         }
 
         restoreJob?.cancel()
+        clearAccountBoundState()
         restorationValidated = true
         _state.value = AppAuthState.SigningOut
         logoutJob = viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -109,8 +117,14 @@ class AppAuthViewModel @Inject constructor(
 
             restorationValidated = true
             _state.value = when (result) {
-                is AuthRestorationResult.Authenticated -> stateFor(result.user)
-                AuthRestorationResult.Unauthenticated -> AppAuthState.Unauthenticated
+                is AuthRestorationResult.Authenticated -> {
+                    applyAccountBoundary(result.user)
+                    stateFor(result.user)
+                }
+                AuthRestorationResult.Unauthenticated -> {
+                    applyAccountBoundary(null)
+                    AppAuthState.Unauthenticated
+                }
                 AuthRestorationResult.TemporarilyUnavailable ->
                     AppAuthState.TemporarilyUnavailable
 
@@ -122,6 +136,7 @@ class AppAuthViewModel @Inject constructor(
     private fun observeSafeSession() {
         viewModelScope.launch {
             authSessionStore.authenticatedUser.collect { user ->
+                applyAccountBoundary(user)
                 val currentState = _state.value
                 if (!restorationValidated ||
                     currentState is AppAuthState.Restoring ||
@@ -140,6 +155,30 @@ class AppAuthViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun applyAccountBoundary(user: AuthenticatedUser?) {
+        val nextAccountId = user?.userId
+        val accountChanged = !accountBoundaryInitialized || nextAccountId != observedAccountId
+        if (accountChanged) {
+            activeProfileManager.reset()
+        }
+
+        if (user != null) {
+            pendingOnboardingStore.peekForAccount(user.email)
+        } else if (accountBoundaryInitialized && observedAccountId != null) {
+            pendingOnboardingStore.clear()
+        }
+
+        observedAccountId = nextAccountId
+        accountBoundaryInitialized = true
+    }
+
+    private fun clearAccountBoundState() {
+        pendingOnboardingStore.clear()
+        activeProfileManager.reset()
+        observedAccountId = null
+        accountBoundaryInitialized = true
     }
 
     private fun stateFor(user: AuthenticatedUser): AppAuthState {

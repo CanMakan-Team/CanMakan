@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -38,9 +40,10 @@ import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
 
 @Composable
 fun AddProfileToFamilyScreen(
-    activeProfile: DietaryProfile,
+    activeProfile: DietaryProfile?,
     activeRestrictions: List<String> = emptyList(),
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onBackClick: () -> Unit = {},
@@ -58,8 +61,11 @@ fun AddProfileToFamilyScreen(
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(onMenuClick = onMenuClick)
-                ActiveProfileChip(profile = activeProfile)
+                AppTopBar(
+                    onMenuClick = onMenuClick,
+                    onNotificationsClick = onNotificationsClick,
+                )
+                activeProfile?.let { ActiveProfileChip(profile = it) }
             }
         },
         bottomBar = {
@@ -74,6 +80,7 @@ fun AddProfileToFamilyScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
                 .padding(20.dp)
         ) {
             Row(

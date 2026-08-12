@@ -4,7 +4,8 @@ param(
     [string] $BaseUrl = "http://localhost:8080",
     [string] $Barcode = "3017620422003",
     [long] $ProfileId = 1,
-    [long] $UserId = 1
+    [Parameter(Mandatory = $true)]
+    [string] $AccessToken
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,14 +54,18 @@ if (-not $validateJson.validFood) {
     throw "Barcode is not a valid food product; assess skipped."
 }
 
-Write-Step "Assess profileId=$ProfileId userId=$UserId"
+if ([string]::IsNullOrWhiteSpace($AccessToken)) {
+    throw "AccessToken is required"
+}
+
+Write-Step "Assess profileId=$ProfileId"
 $assessBody = @{ barcode = $Barcode; profileId = $ProfileId } | ConvertTo-Json
 try {
     $assess = Invoke-WebRequest `
         -Uri "$BaseUrl/api/scan/assess" `
         -Method POST `
         -ContentType "application/json" `
-        -Headers @{ "X-User-Id" = "$UserId" } `
+        -Headers @{ "Authorization" = "Bearer $($AccessToken.Trim())" } `
         -Body $assessBody `
         -UseBasicParsing
 } catch {

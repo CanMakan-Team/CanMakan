@@ -6,5 +6,11 @@ data class DietaryRestrictionSheetUiState(
     val dietRestrictions: List<DietaryRestriction> = emptyList(),
     val selectedRestrictions: Map<Long, String> = emptyMap(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    /**
+     * D3 edit permission for the active profile.
+     * null while permission is still being resolved (treat UI as view-only).
+     */
+    val allowRestrictionEdit: Boolean? = null,
+    val restrictionEditHint: String? = null,
 )

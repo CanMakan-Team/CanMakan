@@ -1,4 +1,5 @@
-import { apiRequest } from '../../shared/api/apiClient'
+import { mockAdminRepository } from '../../mocks/mockAdminRepository'
+import { apiRequest, useMockApi } from '../../shared/api/apiClient'
 import type {
   ConsumerTrendsQuery,
   ConsumerTrendsResponse,
@@ -22,6 +23,7 @@ export const consumerTrendsApiService = {
   getConsumerTrends(
     query: ConsumerTrendsQuery = {},
   ): Promise<ConsumerTrendsResponse> {
+    if (useMockApi) return mockAdminRepository.getConsumerTrends()
     return apiRequest<ConsumerTrendsResponse>(buildConsumerTrendsPath(query))
   },
 }

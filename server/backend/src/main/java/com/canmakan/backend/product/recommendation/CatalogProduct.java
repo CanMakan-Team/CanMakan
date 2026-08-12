@@ -40,8 +40,14 @@ public class CatalogProduct {
     @Column(name = "main_category_en")
     private String mainCategoryEn;
 
+    @Column(name = "category_tags", columnDefinition = "TEXT")
+    private String categoryTags;
+
     @Column(name = "ingredients_text", columnDefinition = "TEXT")
     private String ingredientsText;
+
+    @Column(name = "allergens", columnDefinition = "TEXT")
+    private String allergens;
 
     @Column(name = "labels_tags", columnDefinition = "TEXT")
     private String labelsTags;

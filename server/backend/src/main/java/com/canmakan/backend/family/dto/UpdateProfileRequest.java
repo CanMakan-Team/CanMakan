@@ -8,7 +8,7 @@ import java.util.List;
 /**
  * Request body for {@code PUT /api/families/me/profiles/{profileId}} (UC12).
  * Restriction lists use catalog codes; omit them to leave selections unchanged.
- * When present, D3 applies (self linked profile or unlinked dependants only).
+ * When present, D3 applies (self profile, or any family profile for PRIMARY_ADMIN).
  * 
  * @author Amelia Wong
  */

@@ -3,12 +3,20 @@ package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthAccountKey
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestrictionSheetUiState
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -16,123 +24,259 @@ import javax.inject.Inject
 class DietaryRestrictionViewModel @Inject constructor(
     private val activeProfileManager: ActiveProfileManager,
     private val dietaryRestrictionRepo: DietaryRestrictionRepository,
-): ViewModel() {
+    private val authSessionStore: AuthSessionStore,
+    private val familyProfileRepository: FamilyProfileRepository,
+) : ViewModel() {
 
-    // MutableStateFlow always holds a current value and can be updated (hence suitable for UI state)
-    // StateFlow is read-only to the UI, so UI can observe, but not change it
+    private data class Context(
+        val accountKey: AuthAccountKey?,
+        val owner: ActiveProfileManager.Selection?,
+    )
+
+    private data class EditAuthorization(
+        val allow: Boolean,
+        val hint: String?,
+    )
+
     private val _uiState = MutableStateFlow(DietaryRestrictionSheetUiState())
     val uiState: StateFlow<DietaryRestrictionSheetUiState> = _uiState
 
+    private var currentOwner: ActiveProfileManager.Selection? = null
+    private var loadJob: Job? = null
+    private var loadGeneration = 0L
+    private var saveJob: Job? = null
+    private var saveGeneration = 0L
+
     init {
         viewModelScope.launch {
-            // Load all restrictions once
-            loadDietaryRestrictions()
-            
-            // Then react to profile changes
-            activeProfileManager.currentProfileId.collect { profileId ->
-                if (profileId != ActiveProfileManager.UNSET_PROFILE_ID) {
-                    loadDietaryRestrictionsForProfile(profileId)
-                }
-            }
-        }
-    }
-
-    private suspend fun loadDietaryRestrictionsForProfile(profileId: Long) {
-        // Only set isLoading if we don't already have restrictions
-        try {
-            val savedDietaryRestrictions = dietaryRestrictionRepo.getDietaryRestrictionsForProfile(profileId)
-            _uiState.value = _uiState.value.copy(
-                selectedRestrictions = savedDietaryRestrictions,
-            )
-        } catch (e: Exception) {
-            Timber.e(e, "Error loading dietary restrictions for profile $profileId")
-            // We don't overwrite the main error message if it was already set by loadDietaryRestrictions
-            if (_uiState.value.errorMessage == null) {
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = "Unable to load saved restrictions. Please try again."
+            combine(
+                authSessionStore.accountKey,
+                activeProfileManager.selection,
+            ) { accountKey, selection ->
+                Context(
+                    accountKey = accountKey,
+                    owner = selection?.takeIf { it.accountKey == accountKey },
                 )
             }
+                .distinctUntilChanged()
+                .collect { context ->
+                    currentOwner = context.owner
+                    loadJob?.cancel()
+                    val generation = ++loadGeneration
+                    saveGeneration++
+                    saveJob?.cancel()
+                    _uiState.value = DietaryRestrictionSheetUiState(
+                        isLoading = context.owner != null,
+                        errorMessage = if (context.accountKey != null && context.owner == null) {
+                            PROFILE_SETUP_REQUIRED_MESSAGE
+                        } else {
+                            null
+                        },
+                        allowRestrictionEdit = false,
+                    )
+                    context.owner?.let { owner ->
+                        loadJob = viewModelScope.launch { loadForOwner(owner, generation) }
+                    }
+                }
         }
     }
 
-    suspend fun loadDietaryRestrictions() {
-        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-
+    private suspend fun loadForOwner(
+        owner: ActiveProfileManager.Selection,
+        generation: Long,
+    ) {
         try {
             val allDietaryRestrictions = dietaryRestrictionRepo.getAllDietaryRestrictions()
+            if (!isCurrentLoad(owner, generation)) return
+
+            val savedDietaryRestrictions =
+                dietaryRestrictionRepo.getDietaryRestrictionsForProfile(owner.profileId)
+            if (!isCurrentLoad(owner, generation)) return
+
+            val authorization = resolveEditAuthorization(owner, generation) ?: return
+            if (!isCurrentLoad(owner, generation)) return
 
             _uiState.value = _uiState.value.copy(
                 religiousRestrictions = allDietaryRestrictions.filter { it.category == "RELIGIOUS" },
                 allergenRestrictions = allDietaryRestrictions.filter { it.category == "ALLERGEN" },
-                dietRestrictions = allDietaryRestrictions.filter { it.category == "DIET" }
+                dietRestrictions = allDietaryRestrictions.filter { it.category == "DIET" },
+                selectedRestrictions = savedDietaryRestrictions,
+                isLoading = false,
+                errorMessage = null,
+                allowRestrictionEdit = authorization.allow,
+                restrictionEditHint = authorization.hint,
             )
-        } catch (e: Exception) {
-            Timber.e(e, "Error loading all dietary restrictions")
-            val message = when (e) {
-                is java.net.SocketTimeoutException -> "Connection timed out. Please check if the backend server is running at ${sg.edu.nus.iss.canmakan.BuildConfig.BASE_URL ?: "the configured API URL"}"
-                is java.net.ConnectException -> "Failed to connect to the server. Please check your network."
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            if (!isCurrentLoad(owner, generation)) return
+            Timber.e(exception, "Error loading dietary restrictions")
+            val message = when (exception) {
+                is java.net.SocketTimeoutException ->
+                    "Connection timed out. Please check the configured backend connection."
+                is java.net.ConnectException ->
+                    "Failed to connect to the server. Please check your network."
                 else -> "Unable to load dietary restrictions. Please try again."
             }
-            _uiState.value = _uiState.value.copy(errorMessage = message)
-        } finally {
-            _uiState.value = _uiState.value.copy(isLoading = false)
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                errorMessage = message,
+                allowRestrictionEdit = false,
+            )
         }
     }
-    // This function permits only 1 religious restriction to be selected at any time
-    fun selectReligiousRestriction(restrictionId: Long) {
-        val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
 
-        // 1. Check if the user is clicking the currently selected restriction
-        val isAlreadySelected = currentSelections.containsKey(restrictionId)
+    /**
+     * Resolves D3 edit permission for the exact account/profile load. Family lookup failures
+     * fail closed, while a missing family permits editing the caller's personal profile.
+     */
+    private suspend fun resolveEditAuthorization(
+        owner: ActiveProfileManager.Selection,
+        generation: Long,
+    ): EditAuthorization? {
+        return try {
+            val me = familyProfileRepository.getMyFamily()
+            if (!isCurrentLoad(owner, generation)) return null
+            if (me == null) return EditAuthorization(allow = true, hint = null)
 
-        // 2. Remove all religious restrictions (enforces the max 1 rule)
-        val religiousIds = _uiState.value.religiousRestrictions.map { it.id }
-        religiousIds.forEach {id -> currentSelections.remove(id)}
+            val allow = RestrictionEditAuthorization.mayEditRestrictions(
+                profileId = owner.profileId,
+                hasFamily = true,
+                me = me,
+            )
 
-        // 3. Only add the restriction if it wasn't already selected
-        if (!isAlreadySelected) {
-            currentSelections[restrictionId] = "STRICT_AVOID"
+            EditAuthorization(
+                allow = allow,
+                hint = if (allow) null else RestrictionEditAuthorization.READ_ONLY_HINT,
+            )
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            if (!isCurrentLoad(owner, generation)) return null
+            Timber.e(exception, "Error resolving restriction edit permission for profile ${owner.profileId}")
+            EditAuthorization(
+                allow = false,
+                hint = RestrictionEditAuthorization.READ_ONLY_HINT,
+            )
+        }
+    }
+
+    /** Explicit retry for the currently authenticated account and active profile. */
+    suspend fun loadDietaryRestrictions() {
+        val owner = currentValidOwner()
+        if (owner == null) {
+            _uiState.value = DietaryRestrictionSheetUiState(
+                errorMessage = PROFILE_SETUP_REQUIRED_MESSAGE,
+                allowRestrictionEdit = false,
+            )
+            return
         }
 
+        loadJob?.cancel()
+        val generation = ++loadGeneration
+        _uiState.value = DietaryRestrictionSheetUiState(
+            isLoading = true,
+            allowRestrictionEdit = false,
+        )
+        loadForOwner(owner, generation)
+    }
+
+    fun selectReligiousRestriction(restrictionId: Long) {
+        if (currentValidOwner() == null) {
+            _uiState.value = _uiState.value.copy(errorMessage = PROFILE_SETUP_REQUIRED_MESSAGE)
+            return
+        }
+        if (_uiState.value.allowRestrictionEdit != true) return
+
+        val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
+        val isAlreadySelected = currentSelections.containsKey(restrictionId)
+        _uiState.value.religiousRestrictions
+            .map { it.id }
+            .forEach(currentSelections::remove)
+        if (!isAlreadySelected) currentSelections[restrictionId] = "STRICT_AVOID"
         _uiState.value = _uiState.value.copy(selectedRestrictions = currentSelections)
     }
-    fun toggleDietaryRestriction(restrictionId: Long) {
-        val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
 
+    fun toggleDietaryRestriction(restrictionId: Long) {
+        if (currentValidOwner() == null) {
+            _uiState.value = _uiState.value.copy(errorMessage = PROFILE_SETUP_REQUIRED_MESSAGE)
+            return
+        }
+        if (_uiState.value.allowRestrictionEdit != true) return
+
+        val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
         if (currentSelections.containsKey(restrictionId)) {
             currentSelections.remove(restrictionId)
         } else {
             currentSelections[restrictionId] = "STRICT_AVOID"
         }
-
         _uiState.value = _uiState.value.copy(selectedRestrictions = currentSelections)
     }
-    
+
     fun onSave(onSuccess: () -> Unit = {}) {
-        viewModelScope.launch {
+        val owner = currentValidOwner()
+        if (owner == null) {
+            _uiState.value = _uiState.value.copy(errorMessage = PROFILE_SETUP_REQUIRED_MESSAGE)
+            return
+        }
+        if (_uiState.value.allowRestrictionEdit != true) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = RestrictionEditAuthorization.READ_ONLY_HINT,
+            )
+            return
+        }
+
+        val selections = _uiState.value.selectedRestrictions.toMap()
+        saveJob?.cancel()
+        val generation = ++saveGeneration
+        saveJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-
             try {
+                if (!isCurrentOwner(owner) || generation != saveGeneration) return@launch
                 val saved = dietaryRestrictionRepo.saveDietaryRestrictionSelections(
-                    profileId = activeProfileManager.currentProfileId.value,
-                    selections = _uiState.value.selectedRestrictions
+                    profileId = owner.profileId,
+                    selections = selections,
                 )
-
+                if (!isCurrentOwner(owner) || generation != saveGeneration) return@launch
                 if (saved) {
                     onSuccess()
                 } else {
                     _uiState.value = _uiState.value.copy(
-                        errorMessage = "Unable to save dietary restrictions. Please try again."
+                        errorMessage = "Unable to save dietary restrictions. Please try again.",
                     )
                 }
-            } catch (e: Exception) {
-                Timber.e(e, "Error saving dietary restrictions")
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                if (!isCurrentOwner(owner) || generation != saveGeneration) return@launch
+                Timber.e(exception, "Error saving dietary restrictions")
                 _uiState.value = _uiState.value.copy(
-                    errorMessage = "Unable to save dietary restrictions. Please try again."
+                    errorMessage = "Unable to save dietary restrictions. Please try again.",
                 )
             } finally {
-                _uiState.value = _uiState.value.copy(isLoading = false)
+                if (isCurrentOwner(owner) && generation == saveGeneration) {
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                }
             }
         }
+    }
+
+    private fun currentValidOwner(): ActiveProfileManager.Selection? {
+        val owner = currentOwner ?: return null
+        return owner.takeIf(::isCurrentOwner)
+    }
+
+    private fun isCurrentLoad(
+        owner: ActiveProfileManager.Selection,
+        generation: Long,
+    ): Boolean = generation == loadGeneration && isCurrentOwner(owner)
+
+    private fun isCurrentOwner(owner: ActiveProfileManager.Selection): Boolean =
+        authSessionStore.accountKey.value == owner.accountKey &&
+            activeProfileManager.isCurrent(owner.accountKey, owner.profileId)
+
+    private companion object {
+        const val PROFILE_SETUP_REQUIRED_MESSAGE =
+            "Complete profile setup before saving dietary restrictions."
     }
 }

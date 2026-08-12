@@ -8,6 +8,7 @@ class ServerScanHistoryRepository @Inject constructor (
     private val scanHistoryApiService: ScanHistoryApiService
 ): ScanHistoryRepository {
     override suspend fun getScanHistoryForProfile(profileId: Long): List<ScanHistoryEntry> {
+        require(profileId > 0) { "Scan history requires a positive profile id." }
         return scanHistoryApiService.getScanHistoryForProfile(profileId)
     }
 

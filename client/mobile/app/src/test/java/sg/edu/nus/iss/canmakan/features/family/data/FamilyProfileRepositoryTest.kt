@@ -113,6 +113,9 @@ class FamilyProfileRepositoryTest {
     ) : FamilyProfileApiService {
         override suspend fun getMyFamily(): Response<FamilyMeResponse> = meResponse
 
+        override suspend fun getFamilyMembers(): Response<List<FamilyMemberRosterItem>> =
+            Response.success(emptyList())
+
         override suspend fun createFamily(
             request: CreateFamilyRequestBody,
         ): Response<FamilyMeResponse> = createResponse

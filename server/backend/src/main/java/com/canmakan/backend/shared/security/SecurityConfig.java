@@ -11,6 +11,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -57,6 +58,7 @@ public class SecurityConfig {
             RestAuthenticationEntryPoint authenticationEntryPoint,
             RestAccessDeniedHandler accessDeniedHandler) throws Exception {
         http
+            .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.disable())
             .formLogin(formLogin -> formLogin.disable())
             .httpBasic(httpBasic -> httpBasic.disable())
@@ -68,6 +70,7 @@ public class SecurityConfig {
                 .authenticationEntryPoint(authenticationEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler))
             .authorizeHttpRequests(authorize -> authorize
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
@@ -78,6 +81,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/invitations/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/scan/assess").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/scan/history/**").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/profiles/me").hasRole("USER")
                 .requestMatchers("/api/profiles/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/restrictions").authenticated()
                 .requestMatchers("/actuator/health").permitAll()

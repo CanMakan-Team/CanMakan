@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { adminService } from './adminService'
+import { consumerTrendsApiService } from '../analytics/consumerTrendsApiService'
+import type { ConsumerTrendsResponse } from '../analytics/consumerTrendsTypes'
 import { getErrorMessage } from '../../shared/api/apiErrors'
-import type { ConsumerTrendResponse } from '../../shared/api/types'
 import type { AdminUser } from './models'
 import { ErrorState, LoadingState } from '../../shared/ui/PageState'
 
 export function SystemDashboardPage() {
-  const [trends, setTrends] = useState<ConsumerTrendResponse | null>(null)
+  const [trends, setTrends] = useState<ConsumerTrendsResponse | null>(null)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -17,7 +18,7 @@ export function SystemDashboardPage() {
     setError('')
     try {
       const [trendData, userData] = await Promise.all([
-        adminService.getConsumerTrends(),
+        consumerTrendsApiService.getConsumerTrends(),
         adminService.getUsers(),
       ])
       setTrends(trendData)
@@ -37,8 +38,7 @@ export function SystemDashboardPage() {
   if (loading) return <LoadingState label="Loading system dashboard…" />
   if (error) return <ErrorState message={error} onRetry={load} />
 
-  const totalAssessments =
-    trends?.verdictDistribution.reduce((sum, item) => sum + item.count, 0) ?? 0
+  const totalAssessments = trends?.summary.totalScans ?? 0
 
   return (
     <>

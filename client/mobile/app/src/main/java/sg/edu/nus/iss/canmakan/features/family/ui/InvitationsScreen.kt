@@ -39,11 +39,18 @@ import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
+import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
+/**
+ * Authenticated notifications inbox (top-bar bell).
+ * Currently lists family invitations; other notice types can share this screen later.
+ */
 @Composable
 fun InvitationsScreen(
-    activeProfile: DietaryProfile,
+    activeProfile: DietaryProfile?,
+    hasFamily: Boolean = false,
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onBackClick: () -> Unit = {},
@@ -51,12 +58,22 @@ fun InvitationsScreen(
     viewModel: InvitationsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val hasInvitations = uiState.invitations.isNotEmpty()
+    val subtitle = when {
+        !hasInvitations && uiState.errorMessage == null && !uiState.isLoading ->
+            "No notifications yet"
+        hasFamily -> "Updates and alerts for your family"
+        else -> "Updates and alerts for your account"
+    }
 
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(onMenuClick = onMenuClick)
-                ActiveProfileChip(profile = activeProfile)
+                AppTopBar(
+                    onMenuClick = onMenuClick,
+                    onNotificationsClick = onNotificationsClick,
+                )
+                activeProfile?.let { ActiveProfileChip(profile = it) }
             }
         },
         bottomBar = {
@@ -67,95 +84,89 @@ fun InvitationsScreen(
             )
         },
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(20.dp),
+                .padding(horizontal = 20.dp)
+                .padding(top = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clickable { onBackClick() }
-                    .padding(bottom = 24.dp),
-            ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Go back")
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Back")
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clickable { onBackClick() }
+                        .padding(bottom = 12.dp),
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Go back")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Back")
+                }
+
+                Text(
+                    text = "Notifications",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = subtitle,
+                    color = TextSecondary,
+                )
             }
 
-            Text(
-                text = "Family invitations",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Accept or decline pending invitations to join a household.",
-                color = Color.Gray,
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             uiState.errorMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { viewModel.clearError() }
-                        .padding(bottom = 12.dp),
-                )
-                OutlinedButton(onClick = viewModel::refresh) {
-                    Text("Retry")
+                item {
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.clearError() },
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(onClick = viewModel::refresh) {
+                        Text("Retry")
+                    }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
             }
 
             when {
                 uiState.isLoading -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 40.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-
-                uiState.invitations.isEmpty() && uiState.errorMessage == null -> {
-                    Text(
-                        text = "No pending invitations.",
-                        color = Color.Gray,
-                        modifier = Modifier.padding(top = 24.dp),
-                    )
-                }
-
-                else -> {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        items(
-                            items = uiState.invitations,
-                            key = { it.invitationId },
-                        ) { invitation ->
-                            InvitationCard(
-                                invitation = invitation,
-                                isActing = uiState.actingToken == invitation.invitationToken,
-                                onAccept = {
-                                    viewModel.accept(invitation.invitationToken, onAccepted)
-                                },
-                                onDecline = {
-                                    viewModel.decline(invitation.invitationToken)
-                                },
-                            )
-                            HorizontalDivider()
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 40.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator()
                         }
                     }
                 }
+
+                hasInvitations -> {
+                    items(
+                        items = uiState.invitations,
+                        key = { it.invitationId },
+                    ) { invitation ->
+                        InvitationCard(
+                            invitation = invitation,
+                            isActing = uiState.actingToken == invitation.invitationToken,
+                            onAccept = {
+                                viewModel.accept(invitation.invitationToken, onAccepted)
+                            },
+                            onDecline = {
+                                viewModel.decline(invitation.invitationToken)
+                            },
+                        )
+                        HorizontalDivider()
+                    }
+                }
             }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 }

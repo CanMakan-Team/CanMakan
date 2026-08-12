@@ -31,6 +31,7 @@ captures/
 *.ap_
 *.apk.d
 *.dex
+**/keystore_base64.txt
 
 # Java / Maven / Eclipse build output
 target/
@@ -111,7 +112,9 @@ out/
 !.vscode/extensions.json
 !.vscode/run-backend.ps1
 !.vscode/run-full-stack.ps1
+!.vscode/run-full-stack-mac.sh
 !.vscode/stop-process.ps1
+!.vscode/stop-process-mac.sh
 *.code-workspace
 
 # Cursor / local agent tooling noise

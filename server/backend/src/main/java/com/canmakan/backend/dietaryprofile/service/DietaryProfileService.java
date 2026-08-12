@@ -1,7 +1,10 @@
 package com.canmakan.backend.dietaryprofile.service;
 
+import com.canmakan.backend.dietaryprofile.dto.CreateSelfProfileRequest;
 import com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto;
 import com.canmakan.backend.dietaryprofile.dto.DietaryRestrictionDto;
+import com.canmakan.backend.dietaryprofile.dto.SelfProfileResponse;
+import com.canmakan.backend.dietaryprofile.exception.SelfProfileAlreadyExistsException;
 import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
 import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
 import com.canmakan.backend.dietaryprofile.model.ProfileRestriction;
@@ -9,13 +12,20 @@ import com.canmakan.backend.dietaryprofile.model.ProfileRestrictionId;
 import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
 import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
 import com.canmakan.backend.dietaryprofile.repository.ProfileRestrictionRepository;
+import com.canmakan.backend.product.verdict.RestrictionSeverity;
+import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
+import com.canmakan.backend.user.UserAccount;
+import com.canmakan.backend.user.UserAccountRepository;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,9 +38,61 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DietaryProfileService {
 
+    private static final String LINKED_USER_UNIQUE_CONSTRAINT =
+        "uq_dietary_profiles_linked_user";
+
     private final DietaryProfileRepository dietaryProfileRepository;
     private final DietaryRestrictionRepository dietaryRestrictionRepository;
     private final ProfileRestrictionRepository profileRestrictionRepository;
+    private final UserAccountRepository userAccountRepository;
+
+    /**
+     * Creates the authenticated account's standalone SELF profile and selections.
+     * This transaction is intentionally separate from public account registration.
+     */
+    @Transactional
+    public SelfProfileResponse createSelfProfile(
+            long userId, CreateSelfProfileRequest request) {
+        if (dietaryProfileRepository.findByLinkedUser_Id(userId).isPresent()) {
+            throw new SelfProfileAlreadyExistsException();
+        }
+
+        UserAccount account = userAccountRepository.findById(userId)
+            .orElseThrow(() -> new AuthenticatedUserNotFoundException(
+                "Authenticated user was not found."));
+        Map<Long, ResolvedRestriction> resolvedRestrictions =
+            resolveRestrictionSelections(request.restrictions(), true);
+
+        DietaryProfile profile = new DietaryProfile();
+        profile.setLinkedUser(account);
+        profile.setProfileName(request.profileName());
+        profile.setRelationship("SELF");
+        profile.setPrimary(true);
+
+        DietaryProfile savedProfile;
+        try {
+            savedProfile = dietaryProfileRepository.saveAndFlush(profile);
+        } catch (DataIntegrityViolationException exception) {
+            if (isLinkedUserUniqueViolation(exception)) {
+                throw new SelfProfileAlreadyExistsException(exception);
+            }
+            throw exception;
+        }
+
+        applyRestrictionSelections(savedProfile, resolvedRestrictions);
+        dietaryProfileRepository.saveAndFlush(savedProfile);
+
+        return new SelfProfileResponse(
+            savedProfile.getId(),
+            savedProfile.getProfileName(),
+            savedProfile.getRelationship(),
+            savedProfile.isActive(),
+            resolvedRestrictions.entrySet().stream().collect(Collectors.toUnmodifiableMap(
+                Map.Entry::getKey,
+                entry -> entry.getValue().severity()
+            ))
+        );
+    }
 
     public List<DietaryRestrictionDto> getAllDietaryRestrictions() {
         return dietaryRestrictionRepository.findAllOrderedByDisplayName().stream()
@@ -108,16 +170,40 @@ public class DietaryProfileService {
         DietaryProfile profile = dietaryProfileRepository.findById(profileId)
                 .orElseThrow(() -> new IllegalArgumentException("Profile not found: " + profileId));
 
+        Map<Long, ResolvedRestriction> resolvedRestrictions =
+            resolveRestrictionSelections(selections, false);
+
+        applyRestrictionSelections(profile, resolvedRestrictions);
+        dietaryProfileRepository.save(profile);
+    }
+
+    private Map<Long, ResolvedRestriction> resolveRestrictionSelections(
+            Map<Long, String> selections,
+            boolean validateForSelfSetup) {
         Map<Long, String> requestedSelections = selections == null ? Map.of() : selections;
-        Map<Long, DietaryRestriction> requestedRestrictions = new HashMap<>();
+        Map<Long, ResolvedRestriction> resolved = new HashMap<>();
 
-        for (Long restrictionId : requestedSelections.keySet()) {
+        for (Map.Entry<Long, String> entry : requestedSelections.entrySet()) {
+            Long restrictionId = entry.getKey();
+            if (restrictionId == null) {
+                throw new IllegalArgumentException("Restriction id is required.");
+            }
             DietaryRestriction restriction = dietaryRestrictionRepository.findById(restrictionId)
-                .orElseThrow(() -> new IllegalArgumentException("Restriction not found: " + restrictionId));
-            requestedRestrictions.put(restrictionId, restriction);
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "Restriction not found: " + restrictionId));
+            String severity = validateForSelfSetup
+                ? normalizeSelfSetupSeverity(entry.getValue())
+                : entry.getValue();
+            resolved.put(restrictionId, new ResolvedRestriction(restriction, severity));
         }
+        return resolved;
+    }
 
-        Set<Long> requestedIds = requestedSelections.keySet();
+    private void applyRestrictionSelections(
+            DietaryProfile profile,
+            Map<Long, ResolvedRestriction> requestedRestrictions) {
+        Set<Long> requestedIds = requestedRestrictions.keySet();
+
         Set<ProfileRestriction> profileRestrictions = profile.getProfileRestrictions();
         List<ProfileRestriction> restrictionsToRemove = profileRestrictions.stream()
             .filter(profileRestriction -> !requestedIds.contains(profileRestriction.getDietaryRestriction().getId()))
@@ -129,21 +215,65 @@ public class DietaryProfileService {
                 profileRestriction -> profileRestriction.getDietaryRestriction().getId(),
                 profileRestriction -> profileRestriction));
 
-        for (Map.Entry<Long, String> entry : requestedSelections.entrySet()) {
+        for (Map.Entry<Long, ResolvedRestriction> entry : requestedRestrictions.entrySet()) {
             ProfileRestriction existing = existingByRestrictionId.get(entry.getKey());
             if (existing != null) {
-                existing.setSeverityLevel(entry.getValue());
+                existing.setSeverityLevel(entry.getValue().severity());
                 continue;
             }
 
             ProfileRestriction profileRestriction = new ProfileRestriction();
-            profileRestriction.setId(new ProfileRestrictionId(profileId, entry.getKey()));
+            profileRestriction.setId(new ProfileRestrictionId(profile.getId(), entry.getKey()));
             profileRestriction.setDietaryProfile(profile);
-            profileRestriction.setDietaryRestriction(requestedRestrictions.get(entry.getKey()));
-            profileRestriction.setSeverityLevel(entry.getValue());
+            profileRestriction.setDietaryRestriction(entry.getValue().restriction());
+            profileRestriction.setSeverityLevel(entry.getValue().severity());
             profileRestrictions.add(profileRestriction);
         }
+    }
 
-        dietaryProfileRepository.save(profile);
+    private static String normalizeSelfSetupSeverity(String rawSeverity) {
+        if (rawSeverity == null || rawSeverity.isBlank()) {
+            throw new IllegalArgumentException("Restriction severity is required.");
+        }
+        String normalized = rawSeverity.strip().toUpperCase(Locale.ROOT);
+        if (normalized.length() > 20) {
+            throw new IllegalArgumentException(
+                "Restriction severity must not exceed 20 characters."
+            );
+        }
+        try {
+            return RestrictionSeverity.valueOf(normalized).name();
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException(
+                "Restriction severity must be STRICT_AVOID or INTOLERANCE.",
+                exception
+            );
+        }
+    }
+
+    private static boolean isLinkedUserUniqueViolation(Throwable exception) {
+        Throwable current = exception;
+        while (current != null) {
+            if (current instanceof ConstraintViolationException constraintViolation
+                    && containsLinkedUserConstraint(constraintViolation.getConstraintName())) {
+                return true;
+            }
+            if (containsLinkedUserConstraint(current.getMessage())) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static boolean containsLinkedUserConstraint(String value) {
+        return value != null
+            && value.toLowerCase(Locale.ROOT).contains(LINKED_USER_UNIQUE_CONSTRAINT);
+    }
+
+    private record ResolvedRestriction(
+        DietaryRestriction restriction,
+        String severity
+    ) {
     }
 }

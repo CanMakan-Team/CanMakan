@@ -1,10 +1,10 @@
 import type {
   ActiveProfile,
-  ConsumerTrendResponse,
   ExistingUserSearchResult,
   FamilyMember,
   ScanRecord,
 } from '../shared/api/types'
+import type { ConsumerTrendsResponse } from '../features/analytics/consumerTrendsTypes'
 
 /**
  * Mock data for the family state
@@ -30,7 +30,7 @@ export const initialFamilyState: MockFamilyState = {
       relationship: 'SELF',
       ageGroup: 'ADULT',
       commonRequirements: ['HALAL'],
-      restrictions: ['SHELLFISH_ALLERGY'],
+      restrictions: ['SHELLFISH'],
       source: 'REGISTERED_USER',
       maskedEmail: 'a***@example.com',
       memberRole: 'PRIMARY_ADMIN',
@@ -58,7 +58,7 @@ export const initialFamilyState: MockFamilyState = {
       relationship: 'CHILD',
       ageGroup: 'CHILD',
       commonRequirements: ['HALAL'],
-      restrictions: ['PEANUT_ALLERGY', 'DAIRY_FREE'],
+      restrictions: ['PEANUT', 'DAIRY'],
       source: 'DEPENDANT_PROFILE',
       memberRole: null,
       profileActive: true,
@@ -104,7 +104,7 @@ export const scanRecords: ScanRecord[] = [
     verdict: 'UNSAFE',
     detectedIngredient: 'Peanut pieces',
     resolvedIngredient: 'Peanut',
-    matchedRestriction: 'Peanut allergy',
+    matchedRestriction: 'Peanut Allergy',
     explanation:
       'The supplied assessment matched peanut to this profile’s peanut allergy.',
     dataCompleteness: 'COMPLETE',
@@ -137,7 +137,7 @@ export const scanRecords: ScanRecord[] = [
     verdict: 'WARNING',
     detectedIngredient: 'Milk solids',
     resolvedIngredient: 'Milk',
-    matchedRestriction: 'Dairy free',
+    matchedRestriction: 'Dairy Free',
     explanation:
       'The supplied assessment identified a dairy ingredient relevant to this profile.',
     dataCompleteness: 'PARTIAL',
@@ -170,7 +170,7 @@ export const scanRecords: ScanRecord[] = [
     verdict: 'WARNING',
     detectedIngredient: 'May contain shellfish (facility notice)',
     resolvedIngredient: 'Shellfish advisory',
-    matchedRestriction: 'Shellfish allergy',
+    matchedRestriction: 'Shellfish Allergy',
     explanation:
       'The supplied assessment flagged an advisory statement for this profile.',
     dataCompleteness: 'COMPLETE',
@@ -179,42 +179,51 @@ export const scanRecords: ScanRecord[] = [
   },
 ]
 
-export const consumerTrends: ConsumerTrendResponse = {
-  period: { from: '2026-07-01', to: '2026-07-29' },
-  verdictDistribution: [
-    { verdict: 'SAFE', count: 824 },
-    { verdict: 'WARNING', count: 286 },
-    { verdict: 'UNSAFE', count: 154 },
-  ],
-  flaggedIngredients: [
-    { resolvedIngredient: 'Peanut', count: 148 },
-    { resolvedIngredient: 'Milk', count: 131 },
-    { resolvedIngredient: 'Wheat / gluten', count: 96 },
-    { resolvedIngredient: 'Shellfish', count: 71 },
-    { resolvedIngredient: 'Egg', count: 58 },
-  ],
-  productCategories: [
+export const consumerTrends: ConsumerTrendsResponse = {
+  period: {
+    from: '2026-07-01',
+    to: '2026-07-29',
+    timezone: 'Asia/Singapore',
+  },
+  summary: {
+    totalScans: 1264,
+    safeCount: 824,
+    warningCount: 286,
+    unsafeCount: 154,
+  },
+  dailyTrend: [
     {
-      category: 'Snacks',
-      safeCount: 248,
-      warningCount: 91,
-      avoidCount: 68,
-      incompleteCount: 21,
+      date: '2026-07-27',
+      totalCount: 435,
+      safeCount: 280,
+      warningCount: 100,
+      unsafeCount: 55,
     },
     {
-      category: 'Beverages',
-      safeCount: 214,
-      warningCount: 43,
-      avoidCount: 18,
-      incompleteCount: 14,
+      date: '2026-07-28',
+      totalCount: 412,
+      safeCount: 270,
+      warningCount: 92,
+      unsafeCount: 50,
     },
     {
-      category: 'Ready meals',
-      safeCount: 173,
-      warningCount: 86,
-      avoidCount: 45,
-      incompleteCount: 32,
+      date: '2026-07-29',
+      totalCount: 417,
+      safeCount: 274,
+      warningCount: 94,
+      unsafeCount: 49,
     },
   ],
-  partial: true,
+  topFlaggedIngredients: [
+    { ingredientName: 'Peanut', flaggedCount: 148 },
+    { ingredientName: 'Milk', flaggedCount: 131 },
+    { ingredientName: 'Wheat / gluten', flaggedCount: 96 },
+    { ingredientName: 'Shellfish', flaggedCount: 71 },
+    { ingredientName: 'Egg', flaggedCount: 58 },
+  ],
+  dataQuality: {
+    partial: true,
+    skippedMalformedFindings: 3,
+  },
+  generatedAt: '2026-07-29T10:00:00+08:00',
 }

@@ -37,8 +37,10 @@ import sg.edu.nus.iss.canmakan.features.auth.session.PersistentRefreshCookieJar
 import sg.edu.nus.iss.canmakan.features.auth.session.RetrofitAuthRefreshClient
 import sg.edu.nus.iss.canmakan.features.auth.session.RetrofitAuthLogoutClient
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionApiService
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.SelfProfileApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryApiService
+import sg.edu.nus.iss.canmakan.features.product.recommendation.data.RecommendationHistoryApiService
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
 import sg.edu.nus.iss.canmakan.shared.util.BACKEND_LOCAL_DATE_TIME_FORMATTER
 import timber.log.Timber
@@ -306,6 +308,12 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideSelfProfileApiService(retrofit: Retrofit): SelfProfileApiService {
+        return retrofit.create(SelfProfileApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
     fun provideRegistrationApiService(retrofit: Retrofit): RegistrationApiService {
         return retrofit.create(RegistrationApiService::class.java)
     }
@@ -350,6 +358,12 @@ object NetworkModule {
     @Singleton
     fun provideScanHistoryApiService(retrofit: Retrofit): ScanHistoryApiService {
         return retrofit.create(ScanHistoryApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideRecommendationHistoryApiService(retrofit: Retrofit): RecommendationHistoryApiService {
+        return retrofit.create(RecommendationHistoryApiService::class.java)
     }
 
 }

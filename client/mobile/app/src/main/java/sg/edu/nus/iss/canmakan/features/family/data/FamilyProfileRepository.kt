@@ -2,6 +2,7 @@ package sg.edu.nus.iss.canmakan.features.family.data
 
 import retrofit2.HttpException
 import retrofit2.Response
+import kotlinx.coroutines.CancellationException
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import javax.inject.Inject
 
@@ -22,6 +23,20 @@ class FamilyProfileRepository @Inject constructor(
         }
         return response.body()
             ?: throw IllegalStateException("Empty body for GET /families/me")
+    }
+
+    /**
+     * UC12 roster of linked members and dependants. Empty when the caller has no family.
+     */
+    suspend fun getFamilyMembers(): List<FamilyMemberRosterItem> {
+        val response = apiService.getFamilyMembers()
+        if (response.code() == 404) {
+            return emptyList()
+        }
+        if (!response.isSuccessful) {
+            throw HttpException(response)
+        }
+        return response.body().orEmpty()
     }
 
     /**
@@ -56,6 +71,7 @@ class FamilyProfileRepository @Inject constructor(
     }
 
     suspend fun setActiveProfile(profileId: Long): ActiveProfileResponse {
+        require(profileId > 0) { "Active profile id must be positive." }
         val response = apiService.setActiveProfile(
             SetActiveProfileRequestBody(profileId = profileId),
         )
@@ -89,6 +105,8 @@ class FamilyProfileRepository @Inject constructor(
                     ),
                 )
             }
+        } catch (exception: CancellationException) {
+            throw exception
         } catch (e: Exception) {
             Result.failure(e)
         }
