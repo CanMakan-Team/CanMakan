@@ -320,32 +320,6 @@ fun CanMakanNavGraph(
                     }
                 )
             }
-            composable(ROUTE_RECOMMENDATION_HISTORY) {
-                val recommendationHistoryViewModel: RecommendationHistoryViewModel = hiltViewModel()
-                val recommendationHistoryUiState by recommendationHistoryViewModel.uiState.collectAsStateWithLifecycle()
-
-                RecommendationHistoryScreen(
-                    activeProfile = activeProfile,
-                    entries = recommendationHistoryUiState.entries,
-                    isLoading = recommendationHistoryUiState.isLoading,
-                    requiresProfileSetup = recommendationHistoryUiState.requiresProfileSetup,
-                    errorMessage = recommendationHistoryUiState.errorMessage,
-                    onMenuClick = { openDrawer() },
-                    onNotificationsClick = { openNotifications() },
-                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
-                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
-                    onSetUpProfile = onRequestSelfProfileSetup,
-                    onEntryClick = { entry ->
-                        activeProfile?.id?.let { profileId ->
-                            navGraphViewModel.setPendingVerdict(
-                                profileId = profileId,
-                                detail = VerdictDetail.fromRecommendationHistoryEntry(entry),
-                            )
-                            navController.navigate(ROUTE_PRODUCT_DETAIL)
-                        }
-                    }
-                )
-            }
             composable(ROUTE_PRODUCT_DETAIL) {
                 val detail = pendingVerdict
                 // If there is no pending verdict, navigate back to the scanner screen

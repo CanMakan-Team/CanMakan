@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -45,7 +43,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 /**
  * Authenticated notifications inbox (top-bar bell).
- * Currently surfaces family invitations; profile-update notices can share this screen later.
+ * Currently lists family invitations; other notice types can share this screen later.
  */
 @Composable
 fun InvitationsScreen(
@@ -79,139 +77,100 @@ fun InvitationsScreen(
             )
         },
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(20.dp),
+                .padding(horizontal = 20.dp)
+                .padding(top = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clickable { onBackClick() }
-                    .padding(bottom = 24.dp),
-            ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Go back")
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Back")
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clickable { onBackClick() }
+                        .padding(bottom = 12.dp),
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Go back")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Back")
+                }
+
+                Text(
+                    text = "Notifications",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Updates and alerts for your account.",
+                    color = TextSecondary,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
             }
 
-            Text(
-                text = "Notifications",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Family invitations and profile updates for your account.",
-                color = TextSecondary,
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             uiState.errorMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { viewModel.clearError() }
-                        .padding(bottom = 12.dp),
-                )
-                OutlinedButton(onClick = viewModel::refresh) {
-                    Text("Retry")
+                item {
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.clearError() },
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(onClick = viewModel::refresh) {
+                        Text("Retry")
+                    }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
             }
 
             when {
                 uiState.isLoading -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 40.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator()
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 40.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator()
+                        }
                     }
                 }
 
                 !hasInvitations && uiState.errorMessage == null -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
-                    ) {
+                    item {
                         Text(
-                            text = "FAMILY INVITATIONS",
-                            color = TextSecondary,
-                            style = MaterialTheme.typography.titleSmall,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "No pending family invitations.",
+                            text = "No notifications yet.",
                             color = Color.Gray,
-                        )
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Text(
-                            text = "PROFILE UPDATES",
-                            color = TextSecondary,
-                            style = MaterialTheme.typography.titleSmall,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Profile update notices will appear here.",
-                            color = Color.Gray,
+                            modifier = Modifier.padding(top = 12.dp),
                         )
                     }
                 }
 
                 else -> {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        item {
-                            Text(
-                                text = "FAMILY INVITATIONS",
-                                color = TextSecondary,
-                                style = MaterialTheme.typography.titleSmall,
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                        }
-                        items(
-                            items = uiState.invitations,
-                            key = { it.invitationId },
-                        ) { invitation ->
-                            InvitationCard(
-                                invitation = invitation,
-                                isActing = uiState.actingToken == invitation.invitationToken,
-                                onAccept = {
-                                    viewModel.accept(invitation.invitationToken, onAccepted)
-                                },
-                                onDecline = {
-                                    viewModel.decline(invitation.invitationToken)
-                                },
-                            )
-                            HorizontalDivider()
-                        }
-                        item {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "PROFILE UPDATES",
-                                color = TextSecondary,
-                                style = MaterialTheme.typography.titleSmall,
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Profile update notices will appear here.",
-                                color = Color.Gray,
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
+                    items(
+                        items = uiState.invitations,
+                        key = { it.invitationId },
+                    ) { invitation ->
+                        InvitationCard(
+                            invitation = invitation,
+                            isActing = uiState.actingToken == invitation.invitationToken,
+                            onAccept = {
+                                viewModel.accept(invitation.invitationToken, onAccepted)
+                            },
+                            onDecline = {
+                                viewModel.decline(invitation.invitationToken)
+                            },
+                        )
+                        HorizontalDivider()
                     }
                 }
             }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 }
