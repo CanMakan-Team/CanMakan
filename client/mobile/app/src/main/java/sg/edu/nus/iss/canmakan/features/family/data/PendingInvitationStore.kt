@@ -16,6 +16,7 @@ class PendingInvitationStore @Inject constructor() {
     private val _token = MutableStateFlow<String?>(null)
     val token: StateFlow<String?> = _token.asStateFlow()
 
+    @Synchronized
     fun offer(token: String?) {
         val trimmed = token?.trim().orEmpty()
         if (trimmed.isNotEmpty()) {
@@ -23,15 +24,26 @@ class PendingInvitationStore @Inject constructor() {
         }
     }
 
+    @Synchronized
     fun peek(): String? = _token.value
 
+    @Synchronized
     fun consume(): String? {
         val current = _token.value
         _token.value = null
         return current
     }
 
+    @Synchronized
     fun clear() {
         _token.value = null
+    }
+
+    /** Prevents completion of an old claim from clearing a newer deep-link token. */
+    @Synchronized
+    fun clearIfCurrent(expectedToken: String): Boolean {
+        if (_token.value != expectedToken) return false
+        _token.value = null
+        return true
     }
 }

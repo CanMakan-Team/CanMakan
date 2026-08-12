@@ -17,6 +17,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -77,22 +78,37 @@ import java.util.concurrent.Executors
  */
 @Composable
 fun ScannerScreen(
-    activeProfile: DietaryProfile,
+    activeProfile: DietaryProfile?,
     activeRestrictions: List<String>,
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
+    onSetUpProfile: () -> Unit = {},
     onVerdictReady: (VerdictDetail) -> Unit,
     viewModel: ScannerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null)}
+    var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
+    // Prevents re-firing the same code while it remains in the camera frame.
+    var lastProcessedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
     val processState by viewModel.processState.collectAsState()
     val verdictDetail by viewModel.verdictDetail.collectAsState()
+    val latestProcessState by rememberUpdatedState(processState)
+    val latestProfileId by rememberUpdatedState(activeProfile?.id)
+
+    val isProcessing = processState == ScanProcessState.VALIDATING ||
+        processState == ScanProcessState.ASSESSING ||
+        processState == ScanProcessState.FETCHING_ALTERNATIVES
+    val canAcceptNewScan = processState == ScanProcessState.IDLE ||
+        processState == ScanProcessState.INVALID ||
+        processState == ScanProcessState.ERROR
 
     LaunchedEffect(processState, verdictDetail) {
         if (processState == ScanProcessState.SUCCESS && verdictDetail != null) {
             onVerdictReady(verdictDetail!!)
+            scannedBarcode = null
+            lastProcessedBarcode = null
             viewModel.resetState()
         }
     }
@@ -122,8 +138,27 @@ fun ScannerScreen(
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(onMenuClick = onMenuClick)
-                ActiveProfileChip(profile = activeProfile)
+                AppTopBar(
+                    onMenuClick = onMenuClick,
+                    onNotificationsClick = onNotificationsClick,
+                )
+                activeProfile?.let { ActiveProfileChip(profile = it) } ?: run {
+                    // Show a setup prompt if no profile is active
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { onSetUpProfile() }
+                            .padding(12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Tap here to set up your dietary profile",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         },
         bottomBar = {
@@ -162,8 +197,20 @@ fun ScannerScreen(
                 if (hasCameraPermission) {
                     CameraPreview(
                         onBarcodeScanned = { barcode ->
-                            if (scannedBarcode != barcode) {
-                                scannedBarcode = barcode
+                            val state = latestProcessState
+                            val acceptScan = state == ScanProcessState.IDLE ||
+                                state == ScanProcessState.INVALID ||
+                                state == ScanProcessState.ERROR
+                            if (!acceptScan) return@CameraPreview
+                            if (barcode == lastProcessedBarcode) return@CameraPreview
+
+                            lastProcessedBarcode = barcode
+                            scannedBarcode = barcode
+                            latestProfileId?.let { profileId ->
+                                viewModel.processBarcode(
+                                    barcode = barcode,
+                                    profileId = profileId,
+                                )
                             }
                         }
                     )
@@ -178,19 +225,27 @@ fun ScannerScreen(
             }
             Spacer(modifier = Modifier.height(20.dp))
 
-            //! Visual Indicator of Barcode Scanning & Parsing to Numeric String Value.
+            // Status / retry control. Successful reads auto-process; tap only retries after failure.
+            val statusLabel = when {
+                isProcessing -> stringResource(id = R.string.scanner_checking)
+                processState == ScanProcessState.INVALID ||
+                    processState == ScanProcessState.ERROR ->
+                    stringResource(id = R.string.scanner_try_again)
+                else -> stringResource(id = R.string.scanner_ready)
+            }
             Button(
                 onClick = {
                     scannedBarcode?.let { barcode ->
-                        viewModel.processBarcode(
-                            barcode = barcode,
-                            profileId = activeProfile.id
-                        )
-                    } ?: onScanClick()
+                        activeProfile?.id?.let { profileId ->
+                            viewModel.processBarcode(
+                                barcode = barcode,
+                                profileId = profileId,
+                            )
+                        }
+                    }
                 },
-                enabled = processState == ScanProcessState.IDLE
-                    || processState == ScanProcessState.INVALID
-                    || processState == ScanProcessState.ERROR,
+                enabled = (processState == ScanProcessState.INVALID ||
+                    processState == ScanProcessState.ERROR) && scannedBarcode != null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -198,12 +253,20 @@ fun ScannerScreen(
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Text(
-                    text = scannedBarcode?.let { "Scanned: $it (Tap to Verify)" } ?: "Scan a Barcode",
+                    text = statusLabel,
                     fontWeight = FontWeight.Bold
                 )
             }
+            scannedBarcode?.takeIf { canAcceptNewScan || isProcessing }?.let { barcode ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = barcode,
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
+            }
             Spacer(modifier = Modifier.height(20.dp))
-            //! Visual Indicator of Barcode Scanning & Parsing to Numeric String Value. May be Removed in the Future.
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -213,7 +276,7 @@ fun ScannerScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "${stringResource(id = R.string.dietary_profile_restrictions).uppercase()} - ${activeProfile.profileName.uppercase()}",
+                        "${stringResource(id = R.string.dietary_profile_restrictions).uppercase()} - ${activeProfile?.profileName?.uppercase() ?: "NONE"}",
                         color = TextSecondary,
                         style = MaterialTheme.typography.labelMedium
                     )

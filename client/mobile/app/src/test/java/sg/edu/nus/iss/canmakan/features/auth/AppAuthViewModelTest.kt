@@ -19,11 +19,13 @@ import org.junit.jupiter.api.Test
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthRole
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedSession
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
+import sg.edu.nus.iss.canmakan.features.auth.onboarding.PendingOnboardingStore
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthLogoutAction
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthRestorationResult
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthRestorer
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionPersistence
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @DisplayName("UC19 7.7: root authentication lifecycle")
@@ -32,6 +34,8 @@ class AppAuthViewModelTest {
     private lateinit var store: AuthSessionStore
     private lateinit var restorer: FakeRestorer
     private lateinit var logoutAction: FakeLogoutAction
+    private lateinit var pendingOnboardingStore: PendingOnboardingStore
+    private lateinit var activeProfileManager: ActiveProfileManager
 
     @BeforeEach
     fun setUp() {
@@ -39,6 +43,8 @@ class AppAuthViewModelTest {
         store = AuthSessionStore(FakeSessionPersistence(), Gson())
         restorer = FakeRestorer()
         logoutAction = FakeLogoutAction(store)
+        pendingOnboardingStore = PendingOnboardingStore()
+        activeProfileManager = ActiveProfileManager()
     }
 
     @AfterEach
@@ -127,11 +133,15 @@ class AppAuthViewModelTest {
         val viewModel = viewModel()
         testDispatcher.scheduler.advanceUntilIdle()
         assertInstanceOf(AppAuthState.Authenticated::class.java, viewModel.state.value)
+        activeProfileManager.switchProfile(requireNotNull(store.accountKey.value), 77L)
+        pendingOnboardingStore.requestDietarySetup(USER.email)
 
         store.clearSession()
         testDispatcher.scheduler.runCurrent()
 
         assertEquals(AppAuthState.Unauthenticated, viewModel.state.value)
+        assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
+        assertNull(pendingOnboardingStore.peek())
     }
 
     @Test
@@ -204,8 +214,46 @@ class AppAuthViewModelTest {
         )
     }
 
+    @Test
+    fun logoutClearsPendingOnboardingAndResetsActiveProfile() {
+        store.saveSession(session(USER))
+        restorer.results.add(AuthRestorationResult.Authenticated(USER))
+        val viewModel = viewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+        activeProfileManager.switchProfile(requireNotNull(store.accountKey.value), 77L)
+        pendingOnboardingStore.requestDietarySetup(USER.email)
+
+        viewModel.signOut()
+
+        assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
+        assertNull(pendingOnboardingStore.peek())
+    }
+
+    @Test
+    fun authenticatedAccountChangeResetsOldActiveProfileAndRejectsOldOnboarding() {
+        store.saveSession(session(USER))
+        restorer.results.add(AuthRestorationResult.Authenticated(USER))
+        viewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+        activeProfileManager.switchProfile(requireNotNull(store.accountKey.value), 77L)
+        pendingOnboardingStore.requestDietarySetup(USER.email)
+
+        store.saveSession(session(ADMIN))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
+        assertNull(pendingOnboardingStore.peek())
+    }
+
     private fun viewModel(): AppAuthViewModel {
-        return AppAuthViewModel(restorer, store, logoutAction, testDispatcher)
+        return AppAuthViewModel(
+            restorer,
+            store,
+            logoutAction,
+            pendingOnboardingStore,
+            activeProfileManager,
+            testDispatcher,
+        )
     }
 
     private class FakeRestorer : AuthRestorer {

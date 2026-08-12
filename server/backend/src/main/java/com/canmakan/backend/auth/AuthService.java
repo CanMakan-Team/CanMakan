@@ -12,9 +12,6 @@ import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
 import com.canmakan.backend.auth.exception.RegistrationFailedException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
-import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
-import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
-import com.canmakan.backend.family.FamilyService;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.JwtService;
 import com.canmakan.backend.user.UserAccount;
@@ -47,11 +44,8 @@ public class AuthService {
 
     private static final String TOKEN_TYPE = "Bearer";
     static final String PUBLIC_REGISTRATION_ROLE = "USER";
-    static final String SELF_RELATIONSHIP = "SELF";
 
     private final UserAccountRepository userAccountRepository;
-    private final DietaryProfileRepository dietaryProfileRepository;
-    private final FamilyService familyService;
     private final PasswordEncoder passwordEncoder;
 
     private final AuthenticationManager authenticationManager;
@@ -133,27 +127,8 @@ public class AuthService {
 
             UserAccount savedAccount = userAccountRepository.saveAndFlush(account);
 
-            // The submitted name lives on the person's dietary profile, not the
-            // account itself. No family exists yet at this point, so the profile
-            // is created without one; joining or creating a family later (UC8)
-            // attaches this same profile rather than creating a second one.
-            DietaryProfile selfProfile = new DietaryProfile();
-            selfProfile.setLinkedUser(savedAccount);
-            selfProfile.setProfileName(request.name());
-            selfProfile.setRelationship(SELF_RELATIONSHIP);
-            DietaryProfile savedProfile = dietaryProfileRepository.saveAndFlush(selfProfile);
-
-            // UC9: join family when a matching PENDING invite exists for this email/token.
-            familyService.claimInvitationAfterRegistration(
-                savedAccount.getId(),
-                savedAccount.getEmail(),
-                request.invitationToken()
-            );
-
             return new RegistrationResponse(
                 savedAccount.getId(),
-                savedProfile.getId(),
-                savedProfile.getProfileName(),
                 savedAccount.getEmail(),
                 savedAccount.isActive()
             );

@@ -1,6 +1,5 @@
 package sg.edu.nus.iss.canmakan.features.product.history.ui
 
-import android.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,11 +14,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -49,21 +47,27 @@ import sg.edu.nus.iss.canmakan.shared.util.toScanHistoryDisplayString
 // Shows the list of previously scanned products for the active profile.
 @Composable
 fun HistoryScreen(
-    activeProfile: DietaryProfile,
+    activeProfile: DietaryProfile?,
     entries: List<ScanHistoryEntry>,
     isLoading: Boolean = false,
+    requiresProfileSetup: Boolean = false,
     errorMessage: String? = null,
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
+    onSetUpProfile: () -> Unit,
     onEntryClick: (ScanHistoryEntry) -> Unit
 ) {
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(onMenuClick = onMenuClick)
+                AppTopBar(
+                    onMenuClick = onMenuClick,
+                    onNotificationsClick = onNotificationsClick,
+                )
                 Spacer(modifier = Modifier.height(8.dp))
-                ActiveProfileChip(profile = activeProfile)
+                activeProfile?.let { ActiveProfileChip(profile = it) }
             }
         },
         bottomBar = {
@@ -74,7 +78,11 @@ fun HistoryScreen(
             )
         }
     ) { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+        ) {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
@@ -82,24 +90,59 @@ fun HistoryScreen(
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.headlineSmall
                 )
-                Text("Recent scans for ${activeProfile.profileName}", color = TextSecondary)
+                Text(
+                    if (activeProfile == null) {
+                        "Personalised history becomes available after profile setup."
+                    } else {
+                        "Recent scans for ${activeProfile.profileName}"
+                    },
+                    color = TextSecondary,
+                )
                 Spacer(modifier = Modifier.height(12.dp))
             }
             when {
+                requiresProfileSetup || activeProfile == null -> Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            text = "Set up your dietary profile to view personalised scan history.",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Button(onClick = onSetUpProfile) {
+                            Text("Set up profile")
+                        }
+                    }
+                }
                 isLoading -> Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator()
                 }
                 errorMessage != null -> Box(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(text = errorMessage, color = MaterialTheme.colorScheme.error)
                 }
                 else -> LazyColumn(
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(entries) { entry ->

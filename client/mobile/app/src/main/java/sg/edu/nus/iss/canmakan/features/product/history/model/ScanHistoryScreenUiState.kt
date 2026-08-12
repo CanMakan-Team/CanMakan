@@ -7,5 +7,6 @@ data class ScanHistoryScreenUiState(
     val scanHistory: List<ScanHistoryEntry> = emptyList(),
     val alternativesByScanId: Map<Long, List<AlternativeProduct>> = emptyMap(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val requiresProfileSetup: Boolean = false,
+    val errorMessage: String? = null,
 )

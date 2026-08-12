@@ -78,6 +78,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/invitations/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/scan/assess").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/scan/history/**").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/profiles/me").hasRole("USER")
                 .requestMatchers("/api/profiles/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/restrictions").authenticated()
                 .requestMatchers("/actuator/health").permitAll()

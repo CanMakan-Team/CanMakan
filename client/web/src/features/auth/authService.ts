@@ -15,10 +15,8 @@ export const authEndpoints = {
 } as const
 
 export type RegisterInput = {
-  name: string
   email: string
   password: string
-  invitationToken?: string
 }
 
 export type CredentialLoginInput = {
@@ -56,17 +54,12 @@ function toSession(
 
 export const authService = {
   register(input: RegisterInput): Promise<RegistrationResponse> {
-    const body: Record<string, string> = {
-      name: input.name,
-      email: input.email,
-      password: input.password,
-    }
-    if (input.invitationToken) {
-      body.invitationToken = input.invitationToken
-    }
     return apiRequest<RegistrationResponse>(authEndpoints.register, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        email: input.email,
+        password: input.password,
+      }),
     })
   },
 

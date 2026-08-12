@@ -21,6 +21,11 @@ showing either the Login/Registration flow or the consumer mobile flow. UC18
 registration remains account creation only and returns to Login without
 automatically authenticating the new account.
 
+An authenticated USER without a dietary profile enters the normal consumer
+shell. Scanner and History remain reachable and present in-context setup actions,
+while their profile-dependent network operations remain disabled until a positive,
+account-owned profile is active.
+
 ## Design Principles
 
 1. **Feature packages match backend & web names** for easier cross-platform reasoning.
