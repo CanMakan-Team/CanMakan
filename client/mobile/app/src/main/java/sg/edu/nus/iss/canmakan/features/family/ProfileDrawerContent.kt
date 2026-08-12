@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.Recommend
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -68,7 +67,6 @@ fun ProfileDrawerContent(
     onScannerClick: () -> Unit,
     onFamilyAllergySummaryClick: () -> Unit,
     onHistoryClick: () -> Unit,
-    onRecommendationHistoryClick: () -> Unit,
     onSignOutClick: () -> Unit,
     onCloseClick: () -> Unit,
     onCreateFamilyCircleClick: () -> Unit,
@@ -259,27 +257,6 @@ fun ProfileDrawerContent(
             },
             selected = isHistorySelected,
             onClick = onHistoryClick
-        )
-
-        val isRecommendationHistorySelected = currentRoute == "recommendation_history"
-        NavigationDrawerItem(
-            label = {
-                Text(
-                    text = "Recommendations",
-                    color = if (isRecommendationHistorySelected) Color.DarkGray else Color.White,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Normal
-                )
-            },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Recommend,
-                    contentDescription = "Recommendations",
-                    tint = if (isRecommendationHistorySelected) Color.DarkGray else Color.White
-                )
-            },
-            selected = isRecommendationHistorySelected,
-            onClick = onRecommendationHistoryClick
         )
 
         // (UC6) Only show Family Summary if the user belongs to a family

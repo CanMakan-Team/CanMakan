@@ -1,5 +1,6 @@
 package com.canmakan.backend.product.recommendation;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,11 +35,39 @@ public class SubstituteDiscoveryProfiles {
             List.of("en:oat-flour")
     );
 
-    private final Map<String, SubstituteDiscoveryProfile> profilesBySourceCategory = Map.of(
-            "Fresh milks", FRESH_MILKS,
-            "Wheat flours", WHEAT_FLOURS,
-            "White wheat flours", WHEAT_FLOURS
+    /**
+     * Cow-milk catalog {@code main_category_en} values that share the oat/dairy-substitute
+     * discovery profile when same-category candidates are all rejected (e.g. dairy intolerance).
+     */
+    private static final List<String> MILK_SOURCE_CATEGORIES = List.of(
+            "Fresh milks",
+            "Whole milk UHT",
+            "UHT milks",
+            "Whole milks",
+            "Skimmed milks",
+            "Milks",
+            "Pasteurised milks",
+            "Whole pasteurised milks",
+            "Cow milks",
+            "UHT Skimmed milks",
+            "Strawberry milks",
+            "Flavoured milks",
+            "Chocolate milks",
+            "Homogenized milks"
     );
+
+    private final Map<String, SubstituteDiscoveryProfile> profilesBySourceCategory =
+            buildProfilesBySourceCategory();
+
+    private static Map<String, SubstituteDiscoveryProfile> buildProfilesBySourceCategory() {
+        Map<String, SubstituteDiscoveryProfile> profiles = new HashMap<>();
+        for (String milkCategory : MILK_SOURCE_CATEGORIES) {
+            profiles.put(milkCategory, FRESH_MILKS);
+        }
+        profiles.put("Wheat flours", WHEAT_FLOURS);
+        profiles.put("White wheat flours", WHEAT_FLOURS);
+        return Map.copyOf(profiles);
+    }
 
     public Optional<SubstituteDiscoveryProfile> forSourceCategory(String sourceMainCategoryEn) {
         if (sourceMainCategoryEn == null || sourceMainCategoryEn.isBlank()) {
