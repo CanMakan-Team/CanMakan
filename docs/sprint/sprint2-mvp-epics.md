@@ -107,7 +107,9 @@ As an app user, I want to change my personal restrictions, allergens, and prefer
 
 ### Alignment
 
-Profile create after registration must respect `dietary_profiles.family_id NOT NULL` — prefer **UC8** bootstrap SELF profile unless owners approve a schema change.
+Account registration is profile-free. After explicit login, authenticated
+`POST /api/profiles/me` may create a standalone SELF profile because
+`dietary_profiles.family_id` is nullable; UC8/UC9 also bootstrap it when missing.
 
 ### Context
 
@@ -129,8 +131,8 @@ Profile create after registration must respect `dietary_profiles.family_id NOT N
 | [x] | 5 | User can remove a restriction from their authorized profile. |
 | [x] | 6 | `PUT /api/profiles/{profileId}/restrictions` persists changes and a subsequent GET returns the saved set. |
 | [x] | 7 | The next successful scan/assess for that profile uses the updated restrictions (not a stale set). |
-| [x] | 8 | After registration (or first authenticated session), the user obtains a usable SELF dietary profile via the approved path (UC8 bootstrap, or an explicit schema-approved alternative). |
-| [x] | 9 | Creating a profile does not invent an orphan row when `family_id` is NOT NULL (no silent family-less insert). *(register allows `family_id` NULL; UC8 attaches family)* |
+| [x] | 8 | Registration creates only the account; after explicit login, the user obtains a SELF profile via authenticated `/api/profiles/me` or UC8/UC9 bootstrap. |
+| [x] | 9 | Standalone SELF setup may use `family_id` NULL and remains a separate atomic transaction from the already committed account. |
 | [ ] | 10 | Unknown restriction codes are rejected with HTTP 400. |
 | [x] | 11 | Unauthorized profile access (other adult’s linked profile under default D3) returns HTTP 403. |
 | [x] | 12 | Unknown profile id returns HTTP 404 (or equivalent documented not-found). |
@@ -557,7 +559,7 @@ UC19 (JWT shipped for family routes) · UC18 (register new users to demo empty-s
 **Tech:** Android; React; Spring Boot; RDS  
 **Current code state:** Mostly complete — **UC9-S1–S4 shipped** (incl. deep-link polish + mobile login claim + live roster list)
 
-- **Product:** Invite via **shareable link/code** on **both** clients; mobile uses native share. Dependant-create API + web-primary dependant UI (mobile optional path also live). Unknown emails are valid invite targets. Join via register/login **auto-claim** (no UC10 inbox required for the happy path).
+- **Product:** Invite via **shareable link/code** on **both** clients; mobile uses native share. Dependant-create API + web-primary dependant UI (mobile optional path also live). Unknown emails are valid invite targets. Registration preserves the token for an authenticated post-login claim (no UC10 inbox required for the happy path).
 - **Web:** `LinkExistingUserModal` creates PENDING invites (copy link/code; optional mailto). `CreateFamilyProfileModal` posts live dependant profiles. `/invite/:token` → register/login + claim. `FamilyMembersPage` lists via live `GET /api/families/me/members`. Silent `members/link` removed from live `familyApiService`.
 - **Mobile:** `AddProfileToFamilyScreen` + share (`canmakan://invite/{token}` + web URL); manifest VIEW intent-filters + `singleTop`; invite landing offers register **or** sign-in; login claims `POST .../invitations/claim`; already-authed deep links claim via `PendingInvitationStore`. `CreateNewProfileScreen` posts live dependant profiles. Drawer manage CTAs when `PRIMARY_ADMIN`.
 - **Backend:** Spring Data repos; invite/claim/dependant; `GET /api/families/me/members` roster (linked + dependants).
@@ -575,7 +577,7 @@ As a Family Admin, I want to invite someone with a shareable link/code (and opti
 | [x] | 1 | PRIMARY_ADMIN can search an existing user by email (GET /api/families/me/user-search), including NOT_REGISTERED. |
 | [x] | 2 | PRIMARY_ADMIN can create a PENDING invitation (POST /api/families/me/invitations) for registered or unknown emails. |
 | [x] | 3 | Invitation is associated with the admin’s family circle. |
-| [x] | 4 | Invitee is **not** added to `family_members` at invite time; join happens on register/login claim (UC9 auto-claim) or UC10 inbox accept. |
+| [x] | 4 | Invitee is **not** added to `family_members` at invite time; join happens through authenticated post-login claim or UC10 inbox accept. |
 | [x] | 5 | Already-linked user returns HTTP 409 on invite. |
 | [x] | 6 | Non-admin (MEMBER) cannot invite (HTTP 403). |
 | [x] | 7 | Invalid email → 400; unknown but valid email is a valid invite target (NOT_REGISTERED), not a hard 404 block. |

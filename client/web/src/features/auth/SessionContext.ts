@@ -1,5 +1,8 @@
 import { createContext } from 'react'
-import type { AuthenticatedSession } from '../../shared/api/types'
+import type {
+  AuthenticatedSession,
+  RegistrationResponse,
+} from '../../shared/api/types'
 import type { CredentialLoginInput, RegisterInput } from './authService'
 
 /** Session context value
@@ -12,7 +15,7 @@ export interface SessionContextValue {
   loginWithCredentials: (
     input: CredentialLoginInput,
   ) => Promise<AuthenticatedSession>
-  registerAndLogin: (input: RegisterInput) => Promise<AuthenticatedSession>
+  register: (input: RegisterInput) => Promise<RegistrationResponse>
   logout: () => void
 }
 

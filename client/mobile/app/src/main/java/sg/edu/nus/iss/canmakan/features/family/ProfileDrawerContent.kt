@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Recommend
@@ -57,7 +58,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 fun ProfileDrawerContent(
     currentRoute: String?,
     profiles: List<DietaryProfile>,
-    activeProfile: DietaryProfile,
+    activeProfile: DietaryProfile?,
     hasFamily: Boolean,
     hasUserSession: Boolean,
     noFamilyMessage: String?,
@@ -75,6 +76,7 @@ fun ProfileDrawerContent(
     onCreateFamilyCircleClick: () -> Unit,
     onCreateNewClick: () -> Unit,
     onAddProfileClick: () -> Unit,
+    onInvitationsClick: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -110,18 +112,22 @@ fun ProfileDrawerContent(
         Text("ACTIVE PROFILE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
         Spacer(modifier = Modifier.height(8.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(10.dp)) {
-            InitialsAvatar(initials = activeProfile.initials, background = PrimaryGreen)
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(activeProfile.profileName, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    if(activeProfile.isPrimary) AdminTag()
+        activeProfile?.let { profile ->
+            Row(verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(10.dp)) {
+                InitialsAvatar(initials = profile.initials, background = PrimaryGreen)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(profile.profileName, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        if(profile.isPrimary) AdminTag()
+                    }
+                    Text(formatRelationshipLabel(profile.relationship), color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
                 }
-                Text(formatRelationshipLabel(activeProfile.relationship), color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
             }
+        } ?: run {
+            Text("No profile selected", color = DrawerTextMuted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(10.dp))
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -175,7 +181,7 @@ fun ProfileDrawerContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         profiles.forEach { profile ->
-            val isActive = profile.id == activeProfile.id
+            val isActive = profile.id == activeProfile?.id
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -328,6 +334,12 @@ fun ProfileDrawerContent(
                 icon = Icons.Default.Group,
                 label = "Add Profile to Family",
                 onClick = onAddProfileClick,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            DrawerNavRow(
+                icon = Icons.Default.Mail,
+                label = "Pending Invitations",
+                onClick = onInvitationsClick,
             )
         }
         }

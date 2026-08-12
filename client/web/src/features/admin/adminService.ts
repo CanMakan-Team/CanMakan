@@ -1,6 +1,4 @@
-import { mockAdminRepository } from '../../mocks/mockAdminRepository'
-import { apiRequest, useMockApi } from '../../shared/api/apiClient'
-import type { ConsumerTrendResponse } from '../../shared/api/types'
+import { apiRequest } from '../../shared/api/apiClient'
 import type {
   AdminUser,
   AdminUserFilters,
@@ -9,7 +7,6 @@ import type {
 } from './models'
 
 export const adminEndpoints = {
-  consumerTrends: '/api/admin/consumer-trends',
   users: '/api/admin/users',
 } as const
 
@@ -29,10 +26,6 @@ function buildUsersPath(filters: AdminUserFilters): string {
 }
 
 export const adminService = {
-  getConsumerTrends: () =>
-    useMockApi
-      ? mockAdminRepository.getConsumerTrends()
-      : apiRequest<ConsumerTrendResponse>(adminEndpoints.consumerTrends),
   getUsers: (filters: AdminUserFilters = {}) =>
     apiRequest<AdminUser[]>(buildUsersPath(filters)),
   updateAccountStatus: (

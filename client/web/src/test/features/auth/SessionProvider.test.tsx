@@ -20,7 +20,7 @@ vi.mock('../../../features/auth/authService', () => ({
 }))
 
 function SessionProbe() {
-  const { session, loading, loginWithCredentials, registerAndLogin, logout } =
+  const { session, loading, loginWithCredentials, register, logout } =
     useSession()
 
   return (
@@ -42,8 +42,7 @@ function SessionProbe() {
       <button
         type="button"
         onClick={() =>
-          void registerAndLogin({
-            name: 'Person Name',
+          void register({
             email: 'person@example.com',
             password: 'Password1!',
           })
@@ -92,24 +91,13 @@ describe('SessionProvider', () => {
     )
   })
 
-  it('registerAndLogin registers then logs in and stores session', async () => {
+  it('registers without logging in or storing a session', async () => {
     const user = userEvent.setup()
     vi.mocked(authService.register).mockResolvedValue({
       userId: 14,
-      profileId: 77,
-      name: 'Person Name',
       email: 'person@example.com',
       active: true,
     })
-    vi.mocked(authService.loginWithCredentials).mockResolvedValue({
-      accessToken: 'jwt',
-      userId: 14,
-      displayName: 'person',
-      roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
-      portal: 'FAMILY',
-      prototype: false,
-    })
-
     render(
       <SessionProvider>
         <SessionProbe />
@@ -120,16 +108,12 @@ describe('SessionProvider', () => {
 
     await waitFor(() => {
       expect(authService.register).toHaveBeenCalledWith({
-        name: 'Person Name',
         email: 'person@example.com',
         password: 'Password1!',
       })
-      expect(authService.loginWithCredentials).toHaveBeenCalledWith({
-        email: 'person@example.com',
-        password: 'Password1!',
-        portal: 'FAMILY',
-      })
-      expect(screen.getByTestId('session')).toHaveTextContent('person')
+      expect(authService.loginWithCredentials).not.toHaveBeenCalled()
+      expect(screen.getByTestId('session')).toHaveTextContent('none')
+      expect(localStorage.getItem(SESSION_KEY)).toBeNull()
     })
   })
 

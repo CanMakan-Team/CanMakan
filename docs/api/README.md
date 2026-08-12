@@ -19,7 +19,7 @@ See [`families.md`](families.md) for:
 - `POST /api/invitations/{token}/decline` — decline (DECLINED)
 - `POST /api/families/me/profiles` — dependant profile (`linked_user_id` NULL)
 - Bearer JWT / `@AuthenticationPrincipal` on family and invitation routes
-- Invite → join workflow diagram (register claim / deep-link claim / inbox accept)
+- Invite → join workflow diagram (register-login-claim / deep-link claim / inbox accept)
 
 ## UC18 user registration
 
@@ -29,29 +29,30 @@ Request:
 
 ```json
 {
-  "name": "Person Name",
   "email": "person@example.com",
-  "password": "a-password-of-at-least-8-characters",
-  "invitationToken": "optional-uc9-invite-token"
+  "password": "a-password-of-at-least-8-characters"
 }
 ```
 
-`invitationToken` is optional. When present (or when a single PENDING invite
-matches the email), registration auto-claims the invite: MEMBER membership,
-SELF profile attached to the family, invitation `ACCEPTED`.
+Two deprecated optional fields remain accepted temporarily for older clients:
+`name` and `invitationToken`. Neither has a registration side effect. `name` is
+not durable account state; the durable `profileName` belongs to authenticated
+SELF-profile setup. New clients preserve invitation tokens until explicit login
+and then call the authenticated UC9 claim endpoint.
 
 The backend normalizes email, hashes the password with BCrypt, assigns the
-existing `USER` role, creates an active standalone account, and creates a
-family-less SELF dietary profile (`family_id` NULL) named from `name` (then
-attaches it if an invite is claimed).
+existing `USER` role, and creates only an active account. It does not create a
+dietary profile, family membership, access token, refresh session, or login
+session.
+
+The current `users` schema has no name column. Legacy clients may still send an
+optional `name`, but registration does not store or return it.
 
 Success: `201 Created`
 
 ```json
 {
   "userId": 14,
-  "profileId": 77,
-  "name": "Person Name",
   "email": "person@example.com",
   "active": true
 }
@@ -63,8 +64,59 @@ Errors use `{"message":"..."}`:
 - `409 Conflict` when the normalized email already exists.
 - `500 Internal Server Error` with a generic message for unexpected failures.
 
-Registration does not issue a JWT or create a family circle. UC8 create-circle
-reuses the SELF profile when the user later creates a household.
+UC8 create-circle and UC9 invitation acceptance continue to create a missing
+SELF profile when needed.
+
+## Authenticated SELF profile setup
+
+`POST /api/profiles/me`
+
+Requires a Bearer JWT for a platform `USER`; `ADMIN` receives `403`. The caller
+identity is taken only from the authenticated principal. Supplying `userId` or
+other unsupported fields returns `400`.
+
+Request:
+
+```json
+{
+  "profileName": "Person Name",
+  "restrictions": {
+    "2": "STRICT_AVOID",
+    "5": "INTOLERANCE"
+  }
+}
+```
+
+`restrictions` is optional. Profile creation and all supplied restriction
+selections commit atomically in a transaction separate from account
+registration. Supported severity values are currently `STRICT_AVOID` and
+`INTOLERANCE`; other values, including `PREFERENCE`, return `400` until their
+engine semantics are implemented.
+
+Success: `201 Created`
+
+```json
+{
+  "profileId": 77,
+  "profileName": "Person Name",
+  "relationship": "SELF",
+  "active": true,
+  "restrictions": {
+    "2": "STRICT_AVOID",
+    "5": "INTOLERANCE"
+  }
+}
+```
+
+Errors use `{"message":"..."}`:
+
+- `400 Bad Request` for invalid names, restrictions, severities, or unsupported fields.
+- `401 Unauthorized` without a valid authenticated account.
+- `403 Forbidden` for a platform `ADMIN`.
+- `409 Conflict` when the caller already has a linked SELF profile.
+
+Failure of this endpoint rolls back only profile setup. The previously
+committed account remains valid.
 
 ## Login (UC19 JWT)
 
