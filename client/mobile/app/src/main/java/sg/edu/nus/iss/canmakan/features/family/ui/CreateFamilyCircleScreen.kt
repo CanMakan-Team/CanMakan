@@ -46,6 +46,7 @@ fun CreateFamilyCircleScreen(
     isSubmitting: Boolean,
     errorMessage: String?,
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onBackClick: () -> Unit,
