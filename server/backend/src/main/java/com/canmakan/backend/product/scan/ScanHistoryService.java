@@ -4,6 +4,7 @@ import com.canmakan.backend.product.model.ScanProduct;
 import com.canmakan.backend.product.verdict.Finding;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
@@ -14,8 +15,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Read side of "view scan verdicts": composes each saved {@link Scan} together
@@ -120,18 +121,74 @@ public class ScanHistoryService {
         );
     }
 
-    // Stopgap translation: findings_json is currently written by ScanService
-    // as a JSON array of Finding(restrictionCode, ingredientName, reason)
-    // objects, not the {matched_rules, allergens_found} shape the Android
-    // FindingsJson class expects. This mapper converts Finding[] into that
-    // shape so history rows remain readable on mobile.
+    // Stopgap translation: findings_json may be either
+    // 1) Finding[] written by ScanService (live engine path), or
+    // 2) legacy/seed {matched_rules, allergens_found} objects.
+    // Android FindingsJson expects shape (2); map both into FindingsDto.
     /**
      * Converts a String to a FindingsDto object.
      * @param findingsJson the String to convert
      * @return the FindingsDto object
      */
     private ScanHistoryResponse.FindingsDto toFindingsDto(String findingsJson) {
-        List<Finding> findings = parseFindings(findingsJson);
+        if (findingsJson == null || findingsJson.isBlank()) {
+            return new ScanHistoryResponse.FindingsDto(List.of(), List.of());
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(findingsJson);
+            // Hibernate JSON-on-String can double-encode; unwrap a JSON string node.
+            if (root != null && root.isTextual()) {
+                root = objectMapper.readTree(root.asText());
+            }
+            if (root == null || root.isNull()) {
+                return new ScanHistoryResponse.FindingsDto(List.of(), List.of());
+            }
+
+            if (root.isObject()) {
+                return findingsDtoFromLegacyObject(root);
+            }
+            if (root.isArray()) {
+                return findingsDtoFromFindingArray(root);
+            }
+            return new ScanHistoryResponse.FindingsDto(List.of(), List.of());
+        } catch (JsonProcessingException e) {
+            return new ScanHistoryResponse.FindingsDto(List.of(), List.of());
+        }
+    }
+
+    private ScanHistoryResponse.FindingsDto findingsDtoFromLegacyObject(JsonNode root) {
+        List<String> matchedRules = new ArrayList<>();
+        List<String> allergensFound = new ArrayList<>();
+
+        JsonNode rulesNode = root.get("matched_rules");
+        if (rulesNode != null && rulesNode.isArray()) {
+            for (JsonNode rule : rulesNode) {
+                if (rule != null && rule.isTextual()) {
+                    String value = rule.asText().trim();
+                    if (!value.isEmpty() && !matchedRules.contains(value)) {
+                        matchedRules.add(value);
+                    }
+                }
+            }
+        }
+
+        JsonNode allergensNode = root.get("allergens_found");
+        if (allergensNode != null && allergensNode.isArray()) {
+            for (JsonNode allergen : allergensNode) {
+                if (allergen != null && allergen.isTextual()) {
+                    addAllergenIfUseful(allergensFound, allergen.asText());
+                }
+            }
+        }
+
+        return new ScanHistoryResponse.FindingsDto(matchedRules, allergensFound);
+    }
+
+    private ScanHistoryResponse.FindingsDto findingsDtoFromFindingArray(JsonNode root)
+            throws JsonProcessingException {
+        List<Finding> findings = objectMapper.convertValue(root, new TypeReference<List<Finding>>() {
+        });
 
         List<String> matchedRules = new ArrayList<>();
         List<String> allergensFound = new ArrayList<>();
@@ -140,36 +197,30 @@ public class ScanHistoryService {
                 continue;
             }
             String restrictionCode = finding.restrictionCode();
-            if (restrictionCode != null && !matchedRules.contains(restrictionCode)) {
+            if (restrictionCode != null && !restrictionCode.isBlank()
+                    && !matchedRules.contains(restrictionCode)) {
                 matchedRules.add(restrictionCode);
             }
-            // Ingredient names from findings are the best available allergen signal
-            // until Finding gains an explicit allergen discriminator.
-            String ingredientName = finding.ingredientName();
-            if (ingredientName != null
-                    && !ingredientName.isBlank()
-                    && !allergensFound.contains(ingredientName)) {
-                allergensFound.add(ingredientName);
-            }
+            addAllergenIfUseful(allergensFound, finding.ingredientName());
         }
 
         return new ScanHistoryResponse.FindingsDto(matchedRules, allergensFound);
     }
 
-    /**
-     * Parses a String to a List of Finding objects.
-     * @param findingsJson the String to parse
-     * @return the List of Finding objects
-     */
-    private List<Finding> parseFindings(String findingsJson) {
-        if (findingsJson == null || findingsJson.isBlank()) {
-            return Collections.emptyList();
+    /** Skips blank names and Finding subject sentinels (unknown / label / nutrition). */
+    private static void addAllergenIfUseful(List<String> allergensFound, String ingredientName) {
+        if (ingredientName == null || ingredientName.isBlank()) {
+            return;
         }
-        try {
-            return objectMapper.readValue(findingsJson, new TypeReference<List<Finding>>() {
-            });
-        } catch (JsonProcessingException e) {
-            return Collections.emptyList();
+        String trimmed = ingredientName.trim();
+        String lower = trimmed.toLowerCase(Locale.ROOT);
+        if (Finding.SUBJECT_UNKNOWN.equals(lower)
+                || Finding.SUBJECT_LABEL.equals(lower)
+                || Finding.SUBJECT_NUTRITION.equals(lower)) {
+            return;
+        }
+        if (!allergensFound.contains(trimmed)) {
+            allergensFound.add(trimmed);
         }
     }
 }

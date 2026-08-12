@@ -168,9 +168,11 @@ class ScannerViewModelTest {
 
         val detail = viewModel.verdictDetail.value!!
         assertEquals(ScanVerdict.UNSAFE, detail.verdict)
-        assertEquals(1, detail.flags.size)
-        assertEquals("Dairy", detail.flags[0].category)
+        assertEquals(2, detail.flags.size)
+        assertEquals("Rule", detail.flags[0].category)
         assertEquals("Contains milk", detail.flags[0].label)
+        assertEquals("Allergen", detail.flags[1].category)
+        assertEquals("Milk", detail.flags[1].label)
         assertTrue(api.recommendationsCalled)
     }
 

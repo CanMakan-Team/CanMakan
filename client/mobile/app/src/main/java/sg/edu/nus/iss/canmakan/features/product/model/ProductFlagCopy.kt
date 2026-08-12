@@ -18,7 +18,8 @@ object ProductFlagCopy {
 
     /**
      * Short card header for a restriction / data-quality code.
-     * Example: INCOMPLETE_DATA → "Incomplete product data"
+     * Matched dietary rules use "Rule" (same pattern as "Allergen");
+     * data-quality codes keep a specific title.
      */
     fun titleForCode(code: String?): String {
         val normalized = code?.trim().orEmpty()
@@ -29,9 +30,20 @@ object ProductFlagCopy {
             "CROSS_CONTAMINATION" -> "Possible cross-contamination"
             "SUMMARY" -> "Summary"
             "INFO" -> "Info"
-            "RULE" -> "Dietary rule"
+            "RULE" -> "Rule"
             "ALLERGEN" -> "Allergen"
-            else -> humanizeCode(normalized)
+            else -> if (isDataQualityCode(normalized)) {
+                humanizeCode(normalized)
+            } else {
+                "Rule"
+            }
+        }
+    }
+
+    private fun isDataQualityCode(code: String): Boolean {
+        return when (code.trim().uppercase(Locale.US)) {
+            "INCOMPLETE_DATA", "UNRESOLVED", "CROSS_CONTAMINATION" -> true
+            else -> false
         }
     }
 
@@ -74,6 +86,10 @@ object ProductFlagCopy {
             ?: defaultBodyForCode(code)
             ?: listOfNotNull(
                 ingredientName?.takeUnless { isSubjectSentinel(it) },
+                // Fall back to a readable rule name when history-like codes have no reason.
+                humanizeCode(code).takeUnless {
+                    it.equals("Info", ignoreCase = true) || isDataQualityCode(code)
+                },
             ).joinToString(" · ")
                 .ifBlank { "Flagged by dietary rules" }
 
@@ -81,6 +97,45 @@ object ProductFlagCopy {
             category = titleForCode(code),
             label = body,
         )
+    }
+
+    /**
+     * Builds Flags-tab cards from a live assessment finding list.
+     * Rule and Allergen entries are each collapsed into a single card.
+     */
+    fun flagsFromFindings(
+        findings: List<Triple<String?, String?, String?>>,
+        summaryFallback: String? = null,
+    ): List<ProductFlag> {
+        val ruleOrDataFlags = mutableListOf<ProductFlag>()
+        val allergenLabels = linkedSetOf<String>()
+
+        findings.forEach { (restrictionCode, ingredientName, reason) ->
+            ruleOrDataFlags.add(flagFromFinding(restrictionCode, ingredientName, reason))
+            if (!isSubjectSentinel(ingredientName) &&
+                !isDataQualityCode(restrictionCode.orEmpty())
+            ) {
+                allergenLabels.add(humanizeCode(ingredientName!!.trim()))
+            }
+        }
+
+        val grouped = groupRuleAndAllergenFlags(ruleOrDataFlags).toMutableList()
+        if (allergenLabels.isNotEmpty() && grouped.none { it.category.equals("Allergen", ignoreCase = true) }) {
+            // Insert Allergen after Rule / data-quality cards, before Summary if any.
+            val summaryIndex = grouped.indexOfFirst { it.category.equals("Summary", ignoreCase = true) }
+            val allergenFlag = ProductFlag("Allergen", allergenLabels.joinToString(", "))
+            if (summaryIndex >= 0) {
+                grouped.add(summaryIndex, allergenFlag)
+            } else {
+                grouped.add(allergenFlag)
+            }
+        }
+
+        if (grouped.isNotEmpty()) return grouped
+        return summaryFallback
+            ?.takeIf { it.isNotBlank() }
+            ?.let { listOf(ProductFlag(titleForCode("SUMMARY"), it)) }
+            ?: emptyList()
     }
 
     fun flagsFromHistoryFindings(
@@ -93,40 +148,78 @@ object ProductFlagCopy {
         // also render an identical Summary card.
         var summaryUsedAsFindingBody = false
 
+        val ruleLabels = linkedSetOf<String>()
         matchedRules.forEach { rule ->
             val code = rule.trim()
             if (code.isEmpty()) return@forEach
-            val body = if (
-                !summaryUsedAsFindingBody &&
-                code.equals("INCOMPLETE_DATA", ignoreCase = true) &&
-                summaryText != null
-            ) {
-                summaryUsedAsFindingBody = true
-                summaryText
+            if (isDataQualityCode(code)) {
+                val body = if (
+                    !summaryUsedAsFindingBody &&
+                    code.equals("INCOMPLETE_DATA", ignoreCase = true) &&
+                    summaryText != null
+                ) {
+                    summaryUsedAsFindingBody = true
+                    summaryText
+                } else {
+                    defaultBodyForCode(code) ?: humanizeCode(code)
+                }
+                add(ProductFlag(category = titleForCode(code), label = body))
             } else {
-                defaultBodyForCode(code) ?: humanizeCode(code)
+                ruleLabels.add(humanizeCode(code))
             }
-            add(
-                ProductFlag(
-                    category = titleForCode(code),
-                    label = body,
-                )
-            )
         }
+        if (ruleLabels.isNotEmpty()) {
+            add(ProductFlag(category = "Rule", label = ruleLabels.joinToString(", ")))
+        }
+
+        val allergenLabels = linkedSetOf<String>()
         allergensFound.forEach { allergen ->
             if (isSubjectSentinel(allergen)) return@forEach
-            add(
-                ProductFlag(
-                    category = "Allergen",
-                    label = humanizeCode(allergen),
-                )
-            )
+            allergenLabels.add(humanizeCode(allergen))
         }
+        if (allergenLabels.isNotEmpty()) {
+            add(ProductFlag(category = "Allergen", label = allergenLabels.joinToString(", ")))
+        }
+
         if (summaryText != null &&
             !summaryUsedAsFindingBody &&
             none { flag -> textsRoughlyEqual(flag.label, summaryText) }
         ) {
             add(ProductFlag(category = "Summary", label = summaryText))
+        }
+    }
+
+    /**
+     * Collapses repeated Rule / Allergen cards into one card each, joining labels.
+     * Other categories (Incomplete product data, Summary, …) stay separate.
+     */
+    fun groupRuleAndAllergenFlags(flags: List<ProductFlag>): List<ProductFlag> {
+        val mergeCategories = setOf("Rule", "Allergen")
+        val mergedLabels = linkedMapOf<String, LinkedHashSet<String>>()
+        flags.forEach { flag ->
+            val category = flag.category?.takeIf { it.isNotBlank() } ?: return@forEach
+            val label = flag.label?.takeIf { it.isNotBlank() } ?: return@forEach
+            if (category in mergeCategories) {
+                mergedLabels.getOrPut(category) { linkedSetOf() }.add(label)
+            }
+        }
+
+        val emitted = mutableSetOf<String>()
+        return buildList {
+            flags.forEach { flag ->
+                val category = flag.category?.takeIf { it.isNotBlank() } ?: return@forEach
+                if (category in mergeCategories) {
+                    if (category !in emitted) {
+                        emitted.add(category)
+                        val labels = mergedLabels[category].orEmpty()
+                        if (labels.isNotEmpty()) {
+                            add(ProductFlag(category = category, label = labels.joinToString(", ")))
+                        }
+                    }
+                } else if (!flag.label.isNullOrBlank()) {
+                    add(flag)
+                }
+            }
         }
     }
 

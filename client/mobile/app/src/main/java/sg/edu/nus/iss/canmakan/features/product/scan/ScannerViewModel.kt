@@ -238,18 +238,12 @@ class ScannerViewModel @Inject constructor(
     ): VerdictDetail {
         val verdict = parseVerdict(response.verdict)
 
-        val flags = response.findings.map { finding ->
-            ProductFlagCopy.flagFromFinding(
-                restrictionCode = finding.restrictionCode,
-                ingredientName = finding.ingredientName,
-                reason = finding.reason,
-            )
-        }.ifEmpty {
-            response.explanation
-                ?.takeIf { it.isNotBlank() }
-                ?.let { listOf(ProductFlag(ProductFlagCopy.titleForCode("SUMMARY"), it)) }
-                ?: emptyList()
-        }
+        val flags = ProductFlagCopy.flagsFromFindings(
+            findings = response.findings.map { finding ->
+                Triple(finding.restrictionCode, finding.ingredientName, finding.reason)
+            },
+            summaryFallback = response.explanation,
+        )
 
         return VerdictDetail(
             product = Product(
