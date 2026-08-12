@@ -1,7 +1,5 @@
 package sg.edu.nus.iss.canmakan.features.product.model
 
-import sg.edu.nus.iss.canmakan.features.product.recommendation.model.RecommendationHistoryEntry
-
 /* In-memory payload passed from scan/history into the product detail screen.
  *
  * author Amelia
@@ -15,14 +13,15 @@ data class VerdictDetail(
     val alternativesError: String? = null
 ) {
     companion object {
-        fun fromHistoryEntry(entry: ScanHistoryEntry): VerdictDetail {
-
-            // Add flags per tier and for summary
+        fun fromHistoryEntry(
+            entry: ScanHistoryEntry,
+            alternatives: List<AlternativeProduct> = emptyList()
+        ): VerdictDetail {
             val flags = buildList {
-                entry.findingsJson.matchedRules.forEach { 
+                entry.findingsJson.matchedRules.forEach {
                     rule -> add(ProductFlag("RULE", rule))
                 }
-                entry.findingsJson.allergensFound.forEach { 
+                entry.findingsJson.allergensFound.forEach {
                     allergen -> add(ProductFlag("ALLERGEN", allergen))
                 }
                 entry.aiExplanation
@@ -34,15 +33,8 @@ data class VerdictDetail(
                 product = entry.product,
                 verdict = entry.verdict,
                 explanation = entry.aiExplanation,
-                flags = flags
-            )
-        }
-
-        fun fromRecommendationHistoryEntry(entry: RecommendationHistoryEntry): VerdictDetail {
-            return VerdictDetail(
-                product = entry.sourceProduct(),
-                verdict = entry.verdict(),
-                alternatives = entry.toAlternativeProducts()
+                flags = flags,
+                alternatives = alternatives
             )
         }
     }

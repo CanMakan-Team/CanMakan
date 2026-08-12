@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -160,13 +162,27 @@ fun ProductDetailScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            when (selectedTab) {
-                DetailTab.FLAGS -> FlagsAndDetailsTab(flags = flags, profileName = profileName)
-                DetailTab.ALTERNATIVES -> AlternativesTab(
-                    alternatives = alternatives,
-                    profileName = profileName,
-                    errorMessage = alternativesError
-                )
+            Box(modifier = Modifier.weight(1f)) {
+                when (selectedTab) {
+                    DetailTab.FLAGS -> Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        FlagsAndDetailsTab(flags = flags, profileName = profileName)
+                    }
+                    DetailTab.ALTERNATIVES -> Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        AlternativesTab(
+                            alternatives = alternatives,
+                            profileName = profileName,
+                            errorMessage = alternativesError
+                        )
+                    }
+                }
             }
         }
     }

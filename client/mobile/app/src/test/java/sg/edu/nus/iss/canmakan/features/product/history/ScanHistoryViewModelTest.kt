@@ -20,29 +20,27 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
-import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryRepository
 import sg.edu.nus.iss.canmakan.features.product.model.FindingsJson
 import sg.edu.nus.iss.canmakan.features.product.model.Product
 import sg.edu.nus.iss.canmakan.features.product.model.ScanHistoryEntry
 import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
+import sg.edu.nus.iss.canmakan.features.product.recommendation.data.RecommendationHistoryRepository
+import sg.edu.nus.iss.canmakan.features.product.recommendation.model.RecommendationHistoryAlternative
+import sg.edu.nus.iss.canmakan.features.product.recommendation.model.RecommendationHistoryEntry
 import sg.edu.nus.iss.canmakan.testing.signInTestUser
 import sg.edu.nus.iss.canmakan.testing.testAuthSessionStore
 
-/*
-    Mobile ViewModel test for View Scan History, reached via the History icon
-    in the bottom nav bar. Complements ServerScanHistoryRepositoryTest, which
-    covers the repository layer; this file covers the loading/error/empty UI
-    states ScanHistoryViewModel exposes to HistoryScreen (UC4-AC12, UC4-AC13).
- */
 class ScanHistoryViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var activeProfileManager: ActiveProfileManager
     private lateinit var sessionStore: AuthSessionStore
-    private lateinit var repository: FakeScanHistoryRepository
+    private lateinit var scanHistoryRepository: FakeScanHistoryRepository
+    private lateinit var recommendationHistoryRepository: FakeRecommendationHistoryRepository
     private lateinit var viewModel: ScanHistoryViewModel
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -51,8 +49,14 @@ class ScanHistoryViewModelTest {
         Dispatchers.setMain(testDispatcher)
         activeProfileManager = ActiveProfileManager()
         sessionStore = testAuthSessionStore().also { it.signInTestUser() }
-        repository = FakeScanHistoryRepository()
-        viewModel = ScanHistoryViewModel(activeProfileManager, repository, sessionStore)
+        scanHistoryRepository = FakeScanHistoryRepository()
+        recommendationHistoryRepository = FakeRecommendationHistoryRepository()
+        viewModel = ScanHistoryViewModel(
+            activeProfileManager,
+            scanHistoryRepository,
+            sessionStore,
+            recommendationHistoryRepository,
+        )
         testDispatcher.scheduler.advanceUntilIdle()
     }
 
@@ -62,47 +66,38 @@ class ScanHistoryViewModelTest {
         Dispatchers.resetMain()
     }
 
-    // UC4-AC2/AC11 (profile scoping): loading history for the active profile
-    // forwards that profile's id and surfaces its entries, not another
-    // profile's.
     @Test
     @DisplayName("UC4 V1: Loads scan history for the active profile")
     fun loadsScanHistoryForActiveProfile() = runTest {
         val entry = sampleEntry(profileId = 2L)
-        repository.entriesByProfile = mapOf(2L to listOf(entry))
+        scanHistoryRepository.entriesByProfile = mapOf(2L to listOf(entry))
 
         activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 2L)
         testDispatcher.scheduler.advanceUntilIdle()
 
         val uiState = viewModel.scanHistoryUiState.value
         assertEquals(listOf(entry), uiState.scanHistory)
-        assertEquals(2L, repository.lastRequestedProfileId)
+        assertEquals(2L, scanHistoryRepository.lastRequestedProfileId)
     }
 
-    // UC4-AC13: loading state is shown while the history loads. switchProfile
-    // itself is synchronous (just updates a StateFlow value); the ViewModel's
-    // collector picks it up on testDispatcher, so runCurrent() alone advances
-    // it far enough to observe the loading state before the gate is released.
     @Test
     @DisplayName("UC4 V2: Shows a loading state while scan history loads")
     fun showsLoadingStateWhileHistoryLoads() = runTest {
-        repository.gate = CompletableDeferred()
+        scanHistoryRepository.gate = CompletableDeferred()
 
         activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 3L)
         testDispatcher.scheduler.runCurrent()
         assertTrue(viewModel.scanHistoryUiState.value.isLoading)
 
-        repository.gate?.complete(Unit)
+        scanHistoryRepository.gate?.complete(Unit)
         testDispatcher.scheduler.advanceUntilIdle()
         assertFalse(viewModel.scanHistoryUiState.value.isLoading)
     }
 
-    // UC4-AC12: an empty result is surfaced as an empty list, not an error,
-    // so the screen can render its empty state rather than an error message.
     @Test
     @DisplayName("UC4 V3: Shows an empty state when the profile has no scan history")
     fun showsEmptyStateWhenNoScanHistory() = runTest {
-        repository.entriesByProfile = mapOf(4L to emptyList())
+        scanHistoryRepository.entriesByProfile = mapOf(4L to emptyList())
 
         activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 4L)
         testDispatcher.scheduler.advanceUntilIdle()
@@ -113,11 +108,10 @@ class ScanHistoryViewModelTest {
         assertNull(uiState.errorMessage)
     }
 
-    // UC4-AC13: a network failure surfaces as an error state, not a crash.
     @Test
     @DisplayName("UC4 V4: Shows an error state when scan history fails to load")
     fun showsErrorStateWhenHistoryLoadFails() = runTest {
-        repository.shouldThrow = true
+        scanHistoryRepository.shouldThrow = true
 
         activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 5L)
         testDispatcher.scheduler.advanceUntilIdle()
@@ -133,7 +127,7 @@ class ScanHistoryViewModelTest {
         activeProfileManager.reset()
         testDispatcher.scheduler.advanceUntilIdle()
 
-        assertNull(repository.lastRequestedProfileId)
+        assertNull(scanHistoryRepository.lastRequestedProfileId)
         assertTrue(viewModel.scanHistoryUiState.value.requiresProfileSetup)
         assertNull(viewModel.scanHistoryUiState.value.errorMessage)
     }
@@ -141,7 +135,7 @@ class ScanHistoryViewModelTest {
     @Test
     fun accountSwitchToProfilelessClearsOldHistoryWithoutAnotherRequest() = runTest {
         val oldEntry = sampleEntry(profileId = 2L)
-        repository.entriesByProfile = mapOf(2L to listOf(oldEntry))
+        scanHistoryRepository.entriesByProfile = mapOf(2L to listOf(oldEntry))
         activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 2L)
         testDispatcher.scheduler.advanceUntilIdle()
         assertEquals(listOf(oldEntry), viewModel.scanHistoryUiState.value.scanHistory)
@@ -152,16 +146,16 @@ class ScanHistoryViewModelTest {
 
         assertTrue(viewModel.scanHistoryUiState.value.requiresProfileSetup)
         assertTrue(viewModel.scanHistoryUiState.value.scanHistory.isEmpty())
-        assertEquals(2L, repository.lastRequestedProfileId)
+        assertEquals(2L, scanHistoryRepository.lastRequestedProfileId)
     }
 
     @Test
     fun accountSwitchLoadsOnlyNewOwnersHistoryAndIgnoresOldResult() = runTest {
         val oldEntry = sampleEntry(profileId = 2L)
         val newEntry = sampleEntry(profileId = 3L).copy(id = 2L, barcode = "new-account")
-        repository.entriesByProfile = mapOf(2L to listOf(oldEntry), 3L to listOf(newEntry))
-        repository.blockedProfileId = 2L
-        repository.profileGate = CompletableDeferred()
+        scanHistoryRepository.entriesByProfile = mapOf(2L to listOf(oldEntry), 3L to listOf(newEntry))
+        scanHistoryRepository.blockedProfileId = 2L
+        scanHistoryRepository.profileGate = CompletableDeferred()
 
         activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 2L)
         testDispatcher.scheduler.runCurrent()
@@ -172,15 +166,67 @@ class ScanHistoryViewModelTest {
 
         assertEquals(listOf(newEntry), viewModel.scanHistoryUiState.value.scanHistory)
 
-        repository.profileGate?.complete(Unit)
+        scanHistoryRepository.profileGate?.complete(Unit)
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(listOf(newEntry), viewModel.scanHistoryUiState.value.scanHistory)
-        assertEquals(3L, repository.lastRequestedProfileId)
+        assertEquals(3L, scanHistoryRepository.lastRequestedProfileId)
     }
 
-    private fun sampleEntry(profileId: Long) = ScanHistoryEntry(
-        id = 1L,
+    @Test
+    @DisplayName("UC17 V1: Builds alternatives map keyed by scan id")
+    fun buildsAlternativesMapFromRecommendationHistory() = runTest {
+        val entry = sampleEntry(profileId = 2L, scanId = 7L)
+        scanHistoryRepository.entriesByProfile = mapOf(2L to listOf(entry))
+        recommendationHistoryRepository.entriesByProfile = mapOf(
+            2L to listOf(
+                RecommendationHistoryEntry(
+                    scanId = 7L,
+                    sourceBarcode = entry.barcode,
+                    sourceProductName = entry.product.productName,
+                    sourceBrand = entry.product.brand,
+                    sourceVerdict = "UNSAFE",
+                    recommendedAt = "2026-01-05T09:00:00",
+                    alternatives = listOf(
+                        RecommendationHistoryAlternative(
+                            barcode = "7394376618253",
+                            productName = "Oatly Barista",
+                            brand = "Oatly",
+                            matchReason = "Dairy-free substitute",
+                            rankScore = 0.92,
+                            discoveryTier = "SAME_CATEGORY",
+                        )
+                    ),
+                )
+            ),
+        )
+
+        activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 2L)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val alternatives = viewModel.scanHistoryUiState.value.alternativesByScanId[7L].orEmpty()
+        assertEquals(1, alternatives.size)
+        assertEquals("Oatly Barista", alternatives[0].name)
+    }
+
+    @Test
+    @DisplayName("UC17 V2: Scan history still loads when recommendation history fails")
+    fun scanHistoryLoadsWhenRecommendationHistoryFails() = runTest {
+        val entry = sampleEntry(profileId = 6L)
+        scanHistoryRepository.entriesByProfile = mapOf(6L to listOf(entry))
+        recommendationHistoryRepository.shouldThrow = true
+
+        activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 6L)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val uiState = viewModel.scanHistoryUiState.value
+        assertEquals(listOf(entry), uiState.scanHistory)
+        assertTrue(uiState.alternativesByScanId.isEmpty())
+        assertNull(uiState.errorMessage)
+    }
+
+    private fun sampleEntry(profileId: Long, scanId: Long = 1L) = ScanHistoryEntry(
+        id = scanId,
         profileId = profileId,
         barcode = "95500539",
         product = Product("Sardines in tomato sauce", "Ayam Brand", "95500539"),
@@ -190,7 +236,6 @@ class ScanHistoryViewModelTest {
         aiExplanation = "This product contains no gluten ingredients or wheat derivatives.",
     )
 
-    // Fake repository for testing. Avoid using the real Retrofit-backed repo in tests.
     private class FakeScanHistoryRepository : ScanHistoryRepository {
         var entriesByProfile: Map<Long, List<ScanHistoryEntry>> = emptyMap()
         var lastRequestedProfileId: Long? = null
@@ -211,7 +256,15 @@ class ScanHistoryViewModelTest {
         }
     }
 
-    private companion object {
-        const val TEST_USER_ID = 14L
+    private class FakeRecommendationHistoryRepository : RecommendationHistoryRepository {
+        var entriesByProfile: Map<Long, List<RecommendationHistoryEntry>> = emptyMap()
+        var shouldThrow = false
+
+        override suspend fun getRecommendationHistoryForProfile(
+            profileId: Long,
+        ): List<RecommendationHistoryEntry> {
+            if (shouldThrow) throw IOException("network down")
+            return entriesByProfile[profileId] ?: emptyList()
+        }
     }
 }
