@@ -48,6 +48,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 @Composable
 fun InvitationsScreen(
     activeProfile: DietaryProfile?,
+    hasFamily: Boolean = false,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
@@ -58,6 +59,12 @@ fun InvitationsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val hasInvitations = uiState.invitations.isNotEmpty()
+    val subtitle = when {
+        !hasInvitations && uiState.errorMessage == null && !uiState.isLoading ->
+            "No notifications yet"
+        hasFamily -> "Updates and alerts for your family"
+        else -> "Updates and alerts for your account"
+    }
 
     Scaffold(
         topBar = {
@@ -104,10 +111,9 @@ fun InvitationsScreen(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Updates and alerts for your account.",
+                    text = subtitle,
                     color = TextSecondary,
                 )
-                Spacer(modifier = Modifier.height(4.dp))
             }
 
             uiState.errorMessage?.let { message ->
@@ -140,17 +146,7 @@ fun InvitationsScreen(
                     }
                 }
 
-                !hasInvitations && uiState.errorMessage == null -> {
-                    item {
-                        Text(
-                            text = "No notifications yet.",
-                            color = Color.Gray,
-                            modifier = Modifier.padding(top = 12.dp),
-                        )
-                    }
-                }
-
-                else -> {
+                hasInvitations -> {
                     items(
                         items = uiState.invitations,
                         key = { it.invitationId },

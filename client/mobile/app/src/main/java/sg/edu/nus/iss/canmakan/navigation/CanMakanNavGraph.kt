@@ -138,6 +138,22 @@ fun CanMakanNavGraph(
     fun openDrawer() = scope.launch { drawerState.open() }
     fun closeDrawer() = scope.launch { drawerState.close() }
 
+    /** Return to Scanner as the shell home, clearing overlays like Notifications. */
+    fun navigateToScannerHome() {
+        navController.navigate(ROUTE_SCANNER) {
+            launchSingleTop = true
+            popUpTo(ROUTE_SCANNER) { inclusive = false }
+        }
+    }
+
+    fun closeEditDietarySheet(refresh: Boolean = false) {
+        showEditDietarySheet = false
+        if (refresh) {
+            navGraphViewModel.refreshRestrictions()
+        }
+        navigateToScannerHome()
+    }
+
     // ModalNavigationDrawer is used to open and close the drawer
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -171,7 +187,7 @@ fun CanMakanNavGraph(
                     editDietaryButtonLabel = editDietaryButtonLabel,
                     onScannerClick = {
                         closeDrawer()
-                        navController.navigate(ROUTE_SCANNER)
+                        navigateToScannerHome()
                     },
                     onFamilyAllergySummaryClick = {
                         closeDrawer()
@@ -402,6 +418,7 @@ fun CanMakanNavGraph(
             composable(ROUTE_NOTIFICATIONS) {
                 InvitationsScreen(
                     activeProfile = activeProfile,
+                    hasFamily = hasFamily,
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
@@ -419,16 +436,13 @@ fun CanMakanNavGraph(
         // ModalBottomSheet is used to open and close the edit dietary requirements sheet
         if (showEditDietarySheet && activeProfile != null) {
             ModalBottomSheet(
-                onDismissRequest = { showEditDietarySheet = false },
+                onDismissRequest = { closeEditDietarySheet() },
                 sheetState = editDietarySheetState) {
                 DietaryRestrictionSheet(
                     profileName = activeProfile.profileName,
                     profileRole = activeProfile.relationship,
-                    onCancel = { showEditDietarySheet = false },
-                    onSave = {
-                        showEditDietarySheet = false
-                        navGraphViewModel.refreshRestrictions()
-                    }
+                    onCancel = { closeEditDietarySheet() },
+                    onSave = { closeEditDietarySheet(refresh = true) },
                 )
             }
         }
