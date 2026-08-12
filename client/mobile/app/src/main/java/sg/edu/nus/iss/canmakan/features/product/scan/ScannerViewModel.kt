@@ -12,13 +12,14 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import sg.edu.nus.iss.canmakan.features.auth.session.AuthAccountKey
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
+import sg.edu.nus.iss.canmakan.features.product.model.AlternativeProduct
 import sg.edu.nus.iss.canmakan.features.product.model.Product
 import sg.edu.nus.iss.canmakan.features.product.model.ProductFlag
 import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
+import sg.edu.nus.iss.canmakan.features.product.model.toUiModel
 import sg.edu.nus.iss.canmakan.shared.network.AssessmentRequest
 import sg.edu.nus.iss.canmakan.shared.network.AssessmentResponse
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
@@ -30,6 +31,7 @@ import javax.inject.Inject
  * IDLE: No barcode is being scanned.
  * VALIDATING: The barcode is being validated against the backend.
  * ASSESSING: The barcode is being assessed by the backend.
+ * FETCHING_ALTERNATIVES: Safer alternatives are being loaded for Warning/Unsafe verdicts.
  * SUCCESS: The barcode has been successfully scanned and processed.
  * INVALID: The barcode is not valid.
  * ERROR: An error occurred during the scanning process.
@@ -41,6 +43,7 @@ enum class ScanProcessState {
     IDLE,
     VALIDATING,
     ASSESSING,
+    FETCHING_ALTERNATIVES,
     SUCCESS,
     INVALID,
     ERROR
@@ -63,6 +66,7 @@ class ScannerViewModel @Inject constructor(
 
     private var scanJob: Job? = null
     private var scanOwner: ActiveProfileManager.Selection? = null
+    private var scanGeneration = 0L
 
     init {
         viewModelScope.launch {
@@ -87,15 +91,15 @@ class ScannerViewModel @Inject constructor(
         val owner = activeProfileManager.selection.value
             ?.takeIf { it.accountKey == accountKey && it.profileId == profileId }
         if (profileId <= 0 || owner == null) {
-            scanJob?.cancel()
-            scanJob = null
-            scanOwner = null
+            invalidateScan()
             _processState.value = ScanProcessState.ERROR
             _verdictDetail.value = null
-            _errorMessage.value = "Complete profile setup before scanning products."
+            _errorMessage.value = PROFILE_SETUP_REQUIRED_MESSAGE
             return
         }
+
         scanJob?.cancel()
+        val generation = ++scanGeneration
         scanOwner = owner
         _processState.value = ScanProcessState.VALIDATING
         _verdictDetail.value = null
@@ -103,11 +107,9 @@ class ScannerViewModel @Inject constructor(
 
         scanJob = viewModelScope.launch {
             try {
-                // 1. Validate the barcode against the backend.
                 val validation = apiService.validateBarcode(ScanRequest(barcode))
-                if (!isCurrentOwner(owner)) return@launch
+                if (!isCurrentOperation(owner, generation)) return@launch
 
-                // If the barcode is not valid, set the error message and return.
                 val validationBody = validation.body()
                 if (!validation.isSuccessful || validationBody == null) {
                     _processState.value = ScanProcessState.ERROR
@@ -115,23 +117,18 @@ class ScannerViewModel @Inject constructor(
                     return@launch
                 }
 
-                // If the validFood flag is false, set the error message and return.
                 if (!validationBody.validFood) {
                     _processState.value = ScanProcessState.INVALID
                     _errorMessage.value = validationBody.message
                     return@launch
                 }
 
-                // Set the process state to ASSESSING
                 _processState.value = ScanProcessState.ASSESSING
-
-                // 2. Send the barcode to the backend for assessment.
                 val assessment = apiService.assessBarcode(
-                    request = AssessmentRequest(barcode = barcode, profileId = profileId)
+                    request = AssessmentRequest(barcode = barcode, profileId = owner.profileId),
                 )
-                if (!isCurrentOwner(owner)) return@launch
+                if (!isCurrentOperation(owner, generation)) return@launch
 
-                // If the assessment is not successful, set the error message and return.
                 val assessmentBody = assessment.body()
                 if (!assessment.isSuccessful || assessmentBody == null) {
                     _processState.value = ScanProcessState.ERROR
@@ -139,43 +136,107 @@ class ScannerViewModel @Inject constructor(
                     return@launch
                 }
 
-                // If the assessment is successful, set the verdict detail and process state.
-                _verdictDetail.value = toVerdictDetail(assessmentBody, barcode)
+                val verdict = parseVerdict(assessmentBody.verdict)
+                val alternativesResult = if (verdict == ScanVerdict.SAFE) {
+                    AlternativesResult(emptyList(), null)
+                } else {
+                    _processState.value = ScanProcessState.FETCHING_ALTERNATIVES
+                    loadAlternatives(owner, barcode, assessmentBody.scanId)
+                }
+                if (!isCurrentOperation(owner, generation)) return@launch
+
+                _verdictDetail.value = toVerdictDetail(
+                    response = assessmentBody,
+                    fallbackBarcode = barcode,
+                    alternatives = alternativesResult.alternatives,
+                    alternativesError = alternativesResult.errorMessage,
+                )
                 _processState.value = ScanProcessState.SUCCESS
             } catch (exception: CancellationException) {
                 throw exception
-            } catch (e: Exception) {
-                if (!isCurrentOwner(owner)) return@launch
+            } catch (exception: Exception) {
+                if (!isCurrentOperation(owner, generation)) return@launch
                 _processState.value = ScanProcessState.ERROR
-                _errorMessage.value = e.message ?: "Product not found or network error"
+                _errorMessage.value = exception.message ?: "Product not found or network error"
             }
         }
     }
 
     fun resetState() {
-        scanJob?.cancel()
-        scanJob = null
-        scanOwner = null
+        invalidateScan()
         _processState.value = ScanProcessState.IDLE
         _verdictDetail.value = null
         _errorMessage.value = null
     }
 
-    private fun isCurrentOwner(owner: ActiveProfileManager.Selection): Boolean =
-        scanOwner == owner &&
+    private fun invalidateScan() {
+        scanGeneration++
+        scanJob?.cancel()
+        scanJob = null
+        scanOwner = null
+    }
+
+    private fun isCurrentOperation(
+        owner: ActiveProfileManager.Selection,
+        generation: Long,
+    ): Boolean =
+        generation == scanGeneration &&
+            scanOwner == owner &&
             authSessionStore.accountKey.value == owner.accountKey &&
             activeProfileManager.isCurrent(owner.accountKey, owner.profileId)
 
-    // Converts the assessment response to a verdict detail.
-    private fun toVerdictDetail(response: AssessmentResponse, fallbackBarcode: String): VerdictDetail {
+    private data class AlternativesResult(
+        val alternatives: List<AlternativeProduct>,
+        val errorMessage: String?,
+    )
 
-        // Convert the verdict string to an enum value.
-        val verdict = runCatching {
-            ScanVerdict.valueOf(response.verdict.uppercase())
+    private suspend fun loadAlternatives(
+        owner: ActiveProfileManager.Selection,
+        barcode: String,
+        scanId: Long?,
+    ): AlternativesResult {
+        return try {
+            val response = apiService.getRecommendations(
+                profileId = owner.profileId,
+                sourceBarcode = barcode,
+                scanId = scanId,
+            )
+            if (!response.isSuccessful || response.body() == null) {
+                AlternativesResult(
+                    alternatives = emptyList(),
+                    errorMessage = "Could not load alternatives",
+                )
+            } else {
+                AlternativesResult(
+                    alternatives = response.body()!!.alternatives.map { it.toUiModel() },
+                    errorMessage = null,
+                )
+            }
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (_: Exception) {
+            AlternativesResult(
+                alternatives = emptyList(),
+                errorMessage = "Could not load alternatives",
+            )
+        }
+    }
+
+    private fun parseVerdict(rawVerdict: String): ScanVerdict {
+        return runCatching {
+            ScanVerdict.valueOf(rawVerdict.uppercase())
         }.getOrDefault(ScanVerdict.WARNING)
+    }
 
-        // Create a list of product flags based on the assessment response.
-        // If no flags are found, use the explanation or a default flag.
+    // Converts the assessment response to a verdict detail.
+    private fun toVerdictDetail(
+        response: AssessmentResponse,
+        fallbackBarcode: String,
+        alternatives: List<AlternativeProduct>,
+        alternativesError: String?,
+    ): VerdictDetail {
+        val verdict = parseVerdict(response.verdict)
+
         val flags = response.findings.map { finding ->
             ProductFlag(
                 category = finding.restrictionCode?.takeIf { it.isNotBlank() } ?: "INFO",
@@ -183,7 +244,7 @@ class ScannerViewModel @Inject constructor(
                     ?.takeIf { it.isNotBlank() }
                     ?: listOfNotNull(finding.ingredientName, finding.restrictionCode)
                         .joinToString(" · ")
-                        .ifBlank { "Flagged by dietary rules" }
+                        .ifBlank { "Flagged by dietary rules" },
             )
         }.ifEmpty {
             response.explanation
@@ -196,11 +257,18 @@ class ScannerViewModel @Inject constructor(
             product = Product(
                 productName = response.productName?.takeIf { it.isNotBlank() } ?: "Unknown product",
                 brand = "",
-                barcode = response.barcode?.takeIf { it.isNotBlank() } ?: fallbackBarcode
+                barcode = response.barcode?.takeIf { it.isNotBlank() } ?: fallbackBarcode,
             ),
             verdict = verdict,
             explanation = response.explanation,
-            flags = flags
+            flags = flags,
+            alternatives = alternatives,
+            alternativesError = alternativesError,
         )
+    }
+
+    private companion object {
+        const val PROFILE_SETUP_REQUIRED_MESSAGE =
+            "Complete profile setup before scanning products."
     }
 }

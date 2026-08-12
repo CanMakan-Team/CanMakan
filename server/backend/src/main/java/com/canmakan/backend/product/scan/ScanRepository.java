@@ -30,7 +30,11 @@ public interface ScanRepository extends JpaRepository<Scan, Long> {
     List<Scan> findByProfileIdWithProductOrderByScannedAtDesc(@Param("profileId") Long profileId);
 
     /**
-     * Family-scoped history: scans for any of the given profiles, product joined.
+     * Scan history for a set of profiles (e.g. every profile in a family) with
+     * each scan's matching product loaded in the same query, most recent
+     * first. Used to build a family-wide scan history in a single round trip
+     * instead of one query per profile. Family-scoped history: scans for any
+     * of the given profiles, product joined.
      */
     @Query("""
         select s from Scan s left join fetch s.product

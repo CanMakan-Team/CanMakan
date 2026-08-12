@@ -16,6 +16,7 @@ import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestrictionSheetUiState
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -24,6 +25,7 @@ class DietaryRestrictionViewModel @Inject constructor(
     private val activeProfileManager: ActiveProfileManager,
     private val dietaryRestrictionRepo: DietaryRestrictionRepository,
     private val authSessionStore: AuthSessionStore,
+    private val familyProfileRepository: FamilyProfileRepository,
 ) : ViewModel() {
 
     private data class Context(
@@ -31,11 +33,17 @@ class DietaryRestrictionViewModel @Inject constructor(
         val owner: ActiveProfileManager.Selection?,
     )
 
+    private data class EditAuthorization(
+        val allow: Boolean,
+        val hint: String?,
+    )
+
     private val _uiState = MutableStateFlow(DietaryRestrictionSheetUiState())
     val uiState: StateFlow<DietaryRestrictionSheetUiState> = _uiState
 
     private var currentOwner: ActiveProfileManager.Selection? = null
     private var loadJob: Job? = null
+    private var loadGeneration = 0L
     private var saveJob: Job? = null
     private var saveGeneration = 0L
 
@@ -54,6 +62,7 @@ class DietaryRestrictionViewModel @Inject constructor(
                 .collect { context ->
                     currentOwner = context.owner
                     loadJob?.cancel()
+                    val generation = ++loadGeneration
                     saveGeneration++
                     saveJob?.cancel()
                     _uiState.value = DietaryRestrictionSheetUiState(
@@ -63,21 +72,29 @@ class DietaryRestrictionViewModel @Inject constructor(
                         } else {
                             null
                         },
+                        allowRestrictionEdit = false,
                     )
                     context.owner?.let { owner ->
-                        loadJob = viewModelScope.launch { loadForOwner(owner) }
+                        loadJob = viewModelScope.launch { loadForOwner(owner, generation) }
                     }
                 }
         }
     }
 
-    private suspend fun loadForOwner(owner: ActiveProfileManager.Selection) {
+    private suspend fun loadForOwner(
+        owner: ActiveProfileManager.Selection,
+        generation: Long,
+    ) {
         try {
             val allDietaryRestrictions = dietaryRestrictionRepo.getAllDietaryRestrictions()
-            if (!isCurrentOwner(owner)) return
+            if (!isCurrentLoad(owner, generation)) return
+
             val savedDietaryRestrictions =
                 dietaryRestrictionRepo.getDietaryRestrictionsForProfile(owner.profileId)
-            if (!isCurrentOwner(owner)) return
+            if (!isCurrentLoad(owner, generation)) return
+
+            val authorization = resolveEditAuthorization(owner, generation) ?: return
+            if (!isCurrentLoad(owner, generation)) return
 
             _uiState.value = _uiState.value.copy(
                 religiousRestrictions = allDietaryRestrictions.filter { it.category == "RELIGIOUS" },
@@ -86,11 +103,13 @@ class DietaryRestrictionViewModel @Inject constructor(
                 selectedRestrictions = savedDietaryRestrictions,
                 isLoading = false,
                 errorMessage = null,
+                allowRestrictionEdit = authorization.allow,
+                restrictionEditHint = authorization.hint,
             )
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: Exception) {
-            if (!isCurrentOwner(owner)) return
+            if (!isCurrentLoad(owner, generation)) return
             Timber.e(exception, "Error loading dietary restrictions")
             val message = when (exception) {
                 is java.net.SocketTimeoutException ->
@@ -102,6 +121,53 @@ class DietaryRestrictionViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 errorMessage = message,
+                allowRestrictionEdit = false,
+            )
+        }
+    }
+
+    /**
+     * Resolves D3 edit permission for the exact account/profile load. Family lookup failures
+     * fail closed, while a missing family permits editing the caller's personal profile.
+     */
+    private suspend fun resolveEditAuthorization(
+        owner: ActiveProfileManager.Selection,
+        generation: Long,
+    ): EditAuthorization? {
+        return try {
+            val me = familyProfileRepository.getMyFamily()
+            if (!isCurrentLoad(owner, generation)) return null
+            if (me == null) return EditAuthorization(allow = true, hint = null)
+
+            val allow = try {
+                val members = familyProfileRepository.getFamilyMembers()
+                if (!isCurrentLoad(owner, generation)) return null
+                RestrictionEditAuthorization.mayEditRestrictions(
+                    profileId = owner.profileId,
+                    hasFamily = true,
+                    me = me,
+                    members = members,
+                )
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                if (!isCurrentLoad(owner, generation)) return null
+                Timber.e(exception, "Error loading family members for restriction edit permission")
+                owner.profileId == me.selfProfileId
+            }
+
+            EditAuthorization(
+                allow = allow,
+                hint = if (allow) null else RestrictionEditAuthorization.READ_ONLY_HINT,
+            )
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            if (!isCurrentLoad(owner, generation)) return null
+            Timber.e(exception, "Error resolving restriction edit permission for profile ${owner.profileId}")
+            EditAuthorization(
+                allow = false,
+                hint = RestrictionEditAuthorization.READ_ONLY_HINT,
             )
         }
     }
@@ -112,11 +178,18 @@ class DietaryRestrictionViewModel @Inject constructor(
         if (owner == null) {
             _uiState.value = DietaryRestrictionSheetUiState(
                 errorMessage = PROFILE_SETUP_REQUIRED_MESSAGE,
+                allowRestrictionEdit = false,
             )
             return
         }
-        _uiState.value = DietaryRestrictionSheetUiState(isLoading = true)
-        loadForOwner(owner)
+
+        loadJob?.cancel()
+        val generation = ++loadGeneration
+        _uiState.value = DietaryRestrictionSheetUiState(
+            isLoading = true,
+            allowRestrictionEdit = false,
+        )
+        loadForOwner(owner, generation)
     }
 
     fun selectReligiousRestriction(restrictionId: Long) {
@@ -124,6 +197,8 @@ class DietaryRestrictionViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(errorMessage = PROFILE_SETUP_REQUIRED_MESSAGE)
             return
         }
+        if (!_uiState.value.allowRestrictionEdit) return
+
         val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
         val isAlreadySelected = currentSelections.containsKey(restrictionId)
         _uiState.value.religiousRestrictions
@@ -138,6 +213,8 @@ class DietaryRestrictionViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(errorMessage = PROFILE_SETUP_REQUIRED_MESSAGE)
             return
         }
+        if (!_uiState.value.allowRestrictionEdit) return
+
         val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
         if (currentSelections.containsKey(restrictionId)) {
             currentSelections.remove(restrictionId)
@@ -153,6 +230,13 @@ class DietaryRestrictionViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(errorMessage = PROFILE_SETUP_REQUIRED_MESSAGE)
             return
         }
+        if (!_uiState.value.allowRestrictionEdit) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = RestrictionEditAuthorization.READ_ONLY_HINT,
+            )
+            return
+        }
+
         val selections = _uiState.value.selectedRestrictions.toMap()
         saveJob?.cancel()
         val generation = ++saveGeneration
@@ -192,6 +276,11 @@ class DietaryRestrictionViewModel @Inject constructor(
         val owner = currentOwner ?: return null
         return owner.takeIf(::isCurrentOwner)
     }
+
+    private fun isCurrentLoad(
+        owner: ActiveProfileManager.Selection,
+        generation: Long,
+    ): Boolean = generation == loadGeneration && isCurrentOwner(owner)
 
     private fun isCurrentOwner(owner: ActiveProfileManager.Selection): Boolean =
         authSessionStore.accountKey.value == owner.accountKey &&

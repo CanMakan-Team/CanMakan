@@ -404,6 +404,7 @@ fun ValidationOverlay(viewModel: ScannerViewModel) {
         ScanProcessState.IDLE, ScanProcessState.SUCCESS -> Pair(Color.Transparent, 0)
         ScanProcessState.VALIDATING -> Pair(OpaqueBlack, R.string.validation_state_validating)
         ScanProcessState.ASSESSING -> Pair(OpaqueDarkGreen, R.string.validation_state_assessing)
+        ScanProcessState.FETCHING_ALTERNATIVES -> Pair(OpaqueDarkGreen, R.string.validation_state_fetching_alternatives)
         ScanProcessState.INVALID -> Pair(OpaqueDeepRed, R.string.validation_state_invalid)
         ScanProcessState.ERROR -> Pair(OpaqueDeepRed, R.string.validation_state_error)
     }
@@ -420,7 +421,10 @@ fun ValidationOverlay(viewModel: ScannerViewModel) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (state == ScanProcessState.VALIDATING || state == ScanProcessState.ASSESSING) {
+                if (state == ScanProcessState.VALIDATING ||
+                    state == ScanProcessState.ASSESSING ||
+                    state == ScanProcessState.FETCHING_ALTERNATIVES
+                ) {
                     CircularProgressIndicator(color = Color.White)
                     Spacer(modifier = Modifier.height(16.dp))
                 }

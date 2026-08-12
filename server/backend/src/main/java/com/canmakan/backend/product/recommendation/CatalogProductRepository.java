@@ -26,4 +26,21 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
             @Param("mainCategoryEn") String mainCategoryEn,
             @Param("excludeBarcode") String excludeBarcode
     );
+
+    /**
+     * Tier A tag-based substitute candidates: delimiter-safe match on {@code category_tags}.
+     */
+    @Query(value = """
+        select p from CatalogProduct p
+        where p.barcode <> :excludeBarcode
+          and p.ingredientsText is not null
+          and trim(p.ingredientsText) <> ''
+          and p.categoryTags is not null
+          and concat(',', p.categoryTags, ',') like concat('%,', :categoryTag, ',%')
+        order by coalesce(p.uniqueScansN, 0) desc, coalesce(p.completeness, 0) desc
+        """)
+    List<CatalogProduct> findCandidatesByCategoryTag(
+            @Param("categoryTag") String categoryTag,
+            @Param("excludeBarcode") String excludeBarcode
+    );
 }

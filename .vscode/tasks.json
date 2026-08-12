@@ -57,6 +57,26 @@
             "detail": "Opens npm run dev in an external PowerShell window (same as Run Full Stack)."
         },
         {
+            "label": "Run Web App (mac)",
+            "type": "shell",
+            "command": "npm",
+            "options": {
+                "cwd": "${workspaceFolder}/client/web"
+            },
+            "args": [
+                "run",
+                "dev"
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": [],
+            "detail": "Runs the Vite dev server on macOS/zsh (port 5173). Same command as 'Run Web App', matched by 'Stop Web App (mac)'."
+        },
+        {
             "label": "Run Backend",
             "type": "shell",
             "command": "powershell",
@@ -127,6 +147,17 @@
             "detail": "Opens backend, web, and mobile each in their own external PowerShell window."
         },
         {
+            "label": "Run FullStack (mac)",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/run-full-stack-mac.sh",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "Opens backend (local profile), web dev server, and mobile build each in their own Terminal.app window on macOS. Tracks PIDs in .vscode/fullstack.pids. macOS may prompt once to allow Terminal automation."
+        },
+        {
             "label": "Stop Backend",
             "type": "shell",
             "command": "powershell",
@@ -152,6 +183,20 @@
             "problemMatcher": []
         },
         {
+            "label": "Stop Backend (mac)",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/stop-process-mac.sh",
+            "args": [
+                "backend"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "Stops the backend on macOS/zsh: matches spring-boot:run/BackendApplication processes and frees port 8080."
+        },
+        {
             "label": "Stop Web App",
             "type": "shell",
             "command": "powershell",
@@ -175,6 +220,20 @@
                 "showReuseMessage": false
             },
             "problemMatcher": []
+        },
+        {
+            "label": "Stop Web App (mac)",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/stop-process-mac.sh",
+            "args": [
+                "web"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "Stops the web dev server on macOS/zsh: matches npm run dev/vite processes and frees ports 5173/4173."
         },
         {
             "label": "Stop Mobile Build",
@@ -225,6 +284,20 @@
                 "showReuseMessage": false
             },
             "problemMatcher": []
+        },
+        {
+            "label": "Stop FullStack (mac)",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/stop-process-mac.sh",
+            "args": [
+                "fullstack"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "Stops backend, web, and mobile processes started by 'Run FullStack (mac)': kills tracked PIDs from .vscode/fullstack.pids, then falls back to pattern/port matching."
         },
         {
             "label": "Run Backend Tests",

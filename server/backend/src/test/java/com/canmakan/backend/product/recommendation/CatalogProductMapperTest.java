@@ -21,10 +21,11 @@ class CatalogProductMapperTest {
     }
 
     @Test
-    void mapsIngredientsLabelsTracesAndCompletenessFlag() {
+    void mapsIngredientsLabelsTracesAllergensAndCompletenessFlag() {
         CatalogProduct product = baseProduct();
         product.setIngredientsText("Rice flour, Salt, Sugar");
         product.setLabelsTags(" en:halal, en:no-gluten, en:halal ");
+        product.setAllergens("en:milk");
         product.setTracesTags("en:milk, en:nuts");
 
         var productData = mapper.toProductData(product);
@@ -33,7 +34,7 @@ class CatalogProductMapperTest {
         assertEquals("Rice flour, Salt, Sugar", productData.ingredientsText());
         assertEquals(3, productData.ingredients().size());
         assertEquals("Rice flour", productData.ingredients().get(0).ingredientName());
-        assertEquals(List.of("en:halal", "en:no-gluten"), productData.labelTags());
+        assertEquals(List.of("en:halal", "en:no-gluten", "en:milk"), productData.labelTags());
         assertEquals(List.of("en:milk", "en:nuts"), productData.tracesTags());
         assertTrue(productData.dataComplete());
     }
