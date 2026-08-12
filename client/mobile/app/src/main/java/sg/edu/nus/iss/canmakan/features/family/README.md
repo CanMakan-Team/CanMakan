@@ -30,7 +30,7 @@ PRIMARY_ADMIN can open **Invite to Family** from the drawer (`showManageFamilyAc
 when `memberRole == PRIMARY_ADMIN`). `AddProfileToFamilyScreen` searches by email,
 creates a PENDING invitation, and opens the system share sheet with `inviteUrl` +
 `inviteCode`. Invitees can join via register/login claim (optional `invitationToken`)
-or from the **Family Invitations** inbox (`InvitationsScreen`): list pending,
+or from **Notifications** (bell in the top bar → `InvitationsScreen`): list pending,
 accept, or decline.
 
 ```mermaid
@@ -38,7 +38,7 @@ flowchart TD
   Admin[PRIMARY_ADMIN creates PENDING invite] --> Share[Share link/code or Resend email]
   Share --> PathA[New user: register with token]
   Share --> PathB[Existing user: open link then login/claim]
-  Share --> PathC[Already logged in: Family Invitations inbox]
+  Share --> PathC[Already logged in: Notifications inbox]
   PathA --> Join[MEMBER + SELF profile + ACCEPTED]
   PathB --> Join
   PathC --> Join
@@ -48,7 +48,7 @@ flowchart TD
 | --- | --- |
 | Register auto-claim | Invite landing → Register with token |
 | Deep link / login claim | `canmakan://invite/{token}` → landing → Sign in; already-authed via `PendingInvitationStore` |
-| Inbox accept / decline | Drawer **Family Invitations** → `InvitationsScreen` |
+| Inbox accept / decline | Top-bar **Notifications** → `InvitationsScreen` |
 
 Full API contract and HTTP guards: `docs/api/families.md` (Invite → join workflow).
 

@@ -64,28 +64,17 @@ class DietaryRestrictionViewModel @Inject constructor(
      * before a save that would return 403.
      */
     private suspend fun refreshRestrictionEditPermission(profileId: Long) {
+        _uiState.value = _uiState.value.copy(
+            allowRestrictionEdit = null,
+            restrictionEditHint = null,
+        )
         try {
             val me = familyProfileRepository.getMyFamily()
-            if (me == null) {
-                _uiState.value = _uiState.value.copy(
-                    allowRestrictionEdit = true,
-                    restrictionEditHint = null,
-                )
-                return
-            }
-            val allow = try {
-                val members = familyProfileRepository.getFamilyMembers()
-                RestrictionEditAuthorization.mayEditRestrictions(
-                    profileId = profileId,
-                    hasFamily = true,
-                    me = me,
-                    members = members,
-                )
-            } catch (e: Exception) {
-                Timber.e(e, "Error loading family members for restriction edit permission")
-                // Roster unavailable: allow only the self-linked profile.
-                profileId == me.selfProfileId
-            }
+            val allow = RestrictionEditAuthorization.mayEditRestrictions(
+                profileId = profileId,
+                hasFamily = me != null,
+                me = me,
+            )
             _uiState.value = _uiState.value.copy(
                 allowRestrictionEdit = allow,
                 restrictionEditHint = if (allow) {
@@ -129,9 +118,11 @@ class DietaryRestrictionViewModel @Inject constructor(
         }
     }
 
+    private fun canEditRestrictions(): Boolean = _uiState.value.allowRestrictionEdit == true
+
     // This function permits only 1 religious restriction to be selected at any time
     fun selectReligiousRestriction(restrictionId: Long) {
-        if (!_uiState.value.allowRestrictionEdit) return
+        if (!canEditRestrictions()) return
         val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
 
         // 1. Check if the user is clicking the currently selected restriction
@@ -150,7 +141,7 @@ class DietaryRestrictionViewModel @Inject constructor(
     }
 
     fun toggleDietaryRestriction(restrictionId: Long) {
-        if (!_uiState.value.allowRestrictionEdit) return
+        if (!canEditRestrictions()) return
         val currentSelections = _uiState.value.selectedRestrictions.toMutableMap()
 
         if (currentSelections.containsKey(restrictionId)) {
@@ -163,7 +154,7 @@ class DietaryRestrictionViewModel @Inject constructor(
     }
 
     fun onSave(onSuccess: () -> Unit = {}) {
-        if (!_uiState.value.allowRestrictionEdit) {
+        if (!canEditRestrictions()) {
             _uiState.value = _uiState.value.copy(
                 errorMessage = RestrictionEditAuthorization.READ_ONLY_HINT,
             )

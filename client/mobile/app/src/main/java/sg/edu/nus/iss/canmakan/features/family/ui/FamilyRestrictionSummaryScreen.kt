@@ -34,12 +34,16 @@ import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 fun FamilyRestrictionSummaryScreen(
     uiState: FamilyRestrictionSummaryUiState,
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onNavigateToEditMembers: () -> Unit
 ) {
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(onMenuClick = onMenuClick)
+                AppTopBar(
+                    onMenuClick = onMenuClick,
+                    onNotificationsClick = onNotificationsClick,
+                )
             }
         }
     ) { paddingValues ->

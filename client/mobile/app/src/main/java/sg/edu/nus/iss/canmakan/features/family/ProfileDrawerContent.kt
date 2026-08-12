@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
-import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.People
@@ -45,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import java.util.Locale
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.DrawerBackground
@@ -65,6 +65,7 @@ fun ProfileDrawerContent(
     isSwitchingProfile: Boolean = false,
     onProfileSelected: (DietaryProfile) -> Unit,
     onEditDietaryClick: () -> Unit,
+    editDietaryButtonLabel: String = "Edit dietary profile",
     onScannerClick: () -> Unit,
     onFamilyAllergySummaryClick: () -> Unit,
     onHistoryClick: () -> Unit,
@@ -74,7 +75,6 @@ fun ProfileDrawerContent(
     onCreateFamilyCircleClick: () -> Unit,
     onCreateNewClick: () -> Unit,
     onAddProfileClick: () -> Unit,
-    onInvitationsClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -120,13 +120,13 @@ fun ProfileDrawerContent(
                     Spacer(modifier = Modifier.width(6.dp))
                     if(activeProfile.isPrimary) AdminTag()
                 }
-                Text(activeProfile.relationship, color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
+                Text(formatRelationshipLabel(activeProfile.relationship), color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
         OutlinedButton(onClick = onEditDietaryClick, modifier = Modifier.fillMaxWidth()) {
-            Text("Edit dietary profile", color = DrawerTextMuted)
+            Text(editDietaryButtonLabel, color = DrawerTextMuted)
         }
 
         if (!hasFamily) {
@@ -193,7 +193,7 @@ fun ProfileDrawerContent(
                         Spacer(modifier = Modifier.width(6.dp))
                         if(profile.isPrimary) AdminTag()
                     }
-                    Text(profile.relationship, color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
+                    Text(formatRelationshipLabel(profile.relationship), color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
                 }
                 if (isActive) {
                     Box(
@@ -308,25 +308,13 @@ fun ProfileDrawerContent(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 8.dp),
-            thickness = 1.dp,
-            color = Color.DarkGray
-        )
-
-        if (hasUserSession) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Text("INVITATIONS", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
-            Spacer(modifier = Modifier.height(8.dp))
-            DrawerNavRow(
-                icon = Icons.Default.Email,
-                label = "Family Invitations",
-                onClick = onInvitationsClick,
-            )
-        }
-
         // Member create/link is UC9/UC12 — keep hidden until those APIs exist and the user has a family.
         if (showManageFamilyActions && hasFamily) {
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                thickness = 1.dp,
+                color = Color.DarkGray
+            )
             Spacer(modifier = Modifier.height(10.dp))
             Text("MANAGE FAMILY", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
             Spacer(modifier = Modifier.height(8.dp))
@@ -429,4 +417,17 @@ private fun avatarColorFor(profile: DietaryProfile): Color {
         2 -> Color(0xFF8B4FD9)
         else -> PrimaryGreen
     }
+}
+
+/** Display label for relationship codes */
+private fun formatRelationshipLabel(relationship: String): String {
+    val trimmed = relationship.trim()
+    if (trimmed.equals("DEPENDENT", ignoreCase = true)
+        || trimmed.equals("DEPENDANT", ignoreCase = true)
+    ) {
+        return "Dependant"
+    }
+    if (trimmed.isEmpty()) return trimmed
+    return trimmed.lowercase(Locale.getDefault())
+        .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
 }

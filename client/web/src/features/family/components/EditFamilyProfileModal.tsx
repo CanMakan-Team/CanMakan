@@ -13,9 +13,13 @@ import { ProfileForm } from './ProfileForm'
  * @author YangMaowei
  */
 
-/** D3: self linked profile or unlinked dependant only. */
-function mayEditRestrictions(member: FamilyMember, userId: number | undefined): boolean {
-  if (member.source === 'DEPENDANT_PROFILE') {
+/** D3: PRIMARY_ADMIN may edit any family member; others only their own profile. */
+function mayEditRestrictions(
+  member: FamilyMember,
+  userId: number | undefined,
+  isPrimaryAdmin: boolean,
+): boolean {
+  if (isPrimaryAdmin) {
     return true
   }
   return member.linkedUserId != null && member.linkedUserId === userId
@@ -23,15 +27,21 @@ function mayEditRestrictions(member: FamilyMember, userId: number | undefined): 
 
 export function EditFamilyProfileModal({
   member,
+  isPrimaryAdmin = false,
   onClose,
   onSuccess,
 }: {
   member: FamilyMember
+  isPrimaryAdmin?: boolean
   onClose: () => void
   onSuccess: (message: string) => void
 }) {
   const { session } = useSession()
-  const allowRestrictionEdit = mayEditRestrictions(member, session?.userId)
+  const allowRestrictionEdit = mayEditRestrictions(
+    member,
+    session?.userId,
+    isPrimaryAdmin,
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const initialValue: FamilyProfileInput = {
@@ -74,7 +84,7 @@ export function EditFamilyProfileModal({
         onSubmit={submit}
         onCancel={onClose}
         allowRestrictionEdit={allowRestrictionEdit}
-        restrictionEditHint="Restrictions for another adult’s linked profile can only be edited by that member."
+        restrictionEditHint="Only the family admin can edit another member's dietary restrictions."
       />
     </Modal>
   )
