@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
-import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.People
@@ -45,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import java.util.Locale
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.DrawerBackground
@@ -57,7 +57,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 fun ProfileDrawerContent(
     currentRoute: String?,
     profiles: List<DietaryProfile>,
-    activeProfile: DietaryProfile?,
+    activeProfile: DietaryProfile,
     hasFamily: Boolean,
     hasUserSession: Boolean,
     noFamilyMessage: String?,
@@ -65,6 +65,7 @@ fun ProfileDrawerContent(
     isSwitchingProfile: Boolean = false,
     onProfileSelected: (DietaryProfile) -> Unit,
     onEditDietaryClick: () -> Unit,
+    editDietaryButtonLabel: String = "Edit dietary profile",
     onScannerClick: () -> Unit,
     onFamilyAllergySummaryClick: () -> Unit,
     onHistoryClick: () -> Unit,
@@ -74,7 +75,6 @@ fun ProfileDrawerContent(
     onCreateFamilyCircleClick: () -> Unit,
     onCreateNewClick: () -> Unit,
     onAddProfileClick: () -> Unit,
-    onInvitationsClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -110,51 +110,23 @@ fun ProfileDrawerContent(
         Text("ACTIVE PROFILE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (activeProfile == null) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(10.dp),
-            ) {
-                InitialsAvatar(initials = "?", background = PrimaryGreen)
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        "Dietary profile not set up",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        "Set it up when you are ready",
-                        color = DrawerTextMuted,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
+        Row(verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(10.dp)) {
+            InitialsAvatar(initials = activeProfile.initials, background = PrimaryGreen)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(activeProfile.profileName, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    if(activeProfile.isPrimary) AdminTag()
                 }
-            }
-        } else {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(10.dp),
-            ) {
-                InitialsAvatar(initials = activeProfile.initials, background = PrimaryGreen)
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(activeProfile.profileName, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        if(activeProfile.isPrimary) AdminTag()
-                    }
-                    Text(activeProfile.relationship, color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
-                }
+                Text(formatRelationshipLabel(activeProfile.relationship), color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
         OutlinedButton(onClick = onEditDietaryClick, modifier = Modifier.fillMaxWidth()) {
-            Text(
-                if (activeProfile == null) "Set up dietary profile" else "Edit dietary restrictions",
-                color = DrawerTextMuted,
-            )
+            Text(editDietaryButtonLabel, color = DrawerTextMuted)
         }
 
         if (!hasFamily) {
@@ -191,11 +163,7 @@ fun ProfileDrawerContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(
-                "SWITCH PROFILE",
-                color = DrawerTextMuted,
-                style = MaterialTheme.typography.titleSmall,
-            )
+            Text("SWITCH PROFILE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
             if (isSwitchingProfile) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
@@ -206,17 +174,8 @@ fun ProfileDrawerContent(
         }
         Spacer(modifier = Modifier.height(8.dp))
 
-        val selectableProfiles = profiles.filter { it.id > ActiveProfileManager.UNSET_PROFILE_ID }
-        if (selectableProfiles.isEmpty()) {
-            Text(
-                "No dietary profiles yet.",
-                color = DrawerTextMuted,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(10.dp),
-            )
-        }
-        selectableProfiles.forEach { profile ->
-            val isActive = profile.id == activeProfile?.id
+        profiles.forEach { profile ->
+            val isActive = profile.id == activeProfile.id
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -234,7 +193,7 @@ fun ProfileDrawerContent(
                         Spacer(modifier = Modifier.width(6.dp))
                         if(profile.isPrimary) AdminTag()
                     }
-                    Text(profile.relationship, color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
+                    Text(formatRelationshipLabel(profile.relationship), color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
                 }
                 if (isActive) {
                     Box(
@@ -349,25 +308,13 @@ fun ProfileDrawerContent(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 8.dp),
-            thickness = 1.dp,
-            color = Color.DarkGray
-        )
-
-        if (hasUserSession) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Text("INVITATIONS", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
-            Spacer(modifier = Modifier.height(8.dp))
-            DrawerNavRow(
-                icon = Icons.Default.Email,
-                label = "Family Invitations",
-                onClick = onInvitationsClick,
-            )
-        }
-
         // Member create/link is UC9/UC12 — keep hidden until those APIs exist and the user has a family.
         if (showManageFamilyActions && hasFamily) {
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                thickness = 1.dp,
+                color = Color.DarkGray
+            )
             Spacer(modifier = Modifier.height(10.dp))
             Text("MANAGE FAMILY", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
             Spacer(modifier = Modifier.height(8.dp))
@@ -470,4 +417,17 @@ private fun avatarColorFor(profile: DietaryProfile): Color {
         2 -> Color(0xFF8B4FD9)
         else -> PrimaryGreen
     }
+}
+
+/** Display label for relationship codes */
+private fun formatRelationshipLabel(relationship: String): String {
+    val trimmed = relationship.trim()
+    if (trimmed.equals("DEPENDENT", ignoreCase = true)
+        || trimmed.equals("DEPENDANT", ignoreCase = true)
+    ) {
+        return "Dependant"
+    }
+    if (trimmed.isEmpty()) return trimmed
+    return trimmed.lowercase(Locale.getDefault())
+        .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
 }
