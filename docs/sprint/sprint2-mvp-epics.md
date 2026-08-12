@@ -922,32 +922,34 @@ Full table: [backlog §5 Enhanced](sprint2-jira-backlog.md#enhanced--nice-to-hav
 
 **Owner:** Chai Lee · **Package:** Enhanced · **Architecture:** Mobile Client  
 **Tech:** Android; Spring Boot; RDS  
-**Current code state:** Not started — no recommendation-history API/table; Alternatives tab is UC5 verdict-time shell only
+**Current code state:** **Complete (backend + mobile)** — live history API + list UI; UC5 writes `recommendation_logs` at verdict time.
 
-### User story
+- **Backend:** `GET /api/profiles/{profileId}/recommendation-history` (`RecommendationHistoryController` / `RecommendationHistoryService`) — JWT + `assertProfileAuthorizedForScan`; groups `recommendation_logs` by `scan_id`; enriches source product from catalog + timestamp/verdict from `scans`; nested alternatives (barcode, name, brand, match reason, rank score, discovery tier). Tests: `RecommendationHistoryControllerTest` (200, empty, 403), `RecommendationHistoryServiceTest`.
+- **Mobile:** drawer → **Recommendations** (`RecommendationHistoryScreen` + `RecommendationHistoryViewModel`); loads for active profile, reloads on profile switch; loading / empty / error states; row tap opens `ProductDetailScreen` with stored alternatives via `VerdictDetail.fromRecommendationHistoryEntry()`. Tests: `RecommendationHistoryViewModelTest` UC17 V1–V4.
+- **Schema:** `recommendation_logs` (written by UC5 `RecommendationLogService`); seed `10_recommendation_logs.sql`.
+- **Boundary:** Does not generate new alternatives at verdict time (UC5 owns that); no web history UI in this UC.
 
-As an app user, I want to list past product recommendations so I can revisit suggestions I was shown.
+### User stories
 
-### Alignment
-
-UC5 generates alternatives at verdict time. **UC17** persists/lists that history.
+1. List past recommendation sessions for the active dietary profile so I can revisit alternatives I was shown.  
+2. Open a history row to see the source product verdict context and the alternatives that were suggested.
 
 ### Acceptance criteria
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | Authenticated user can list past recommendations for an authorized profile. |
-| [ ] | 2 | Each history item includes enough context to identify the source product/time and suggested alternatives (as designed). |
-| [ ] | 3 | Empty history shows an empty state. |
-| [ ] | 4 | Unauthorized profile access returns 403. |
-| [ ] | 5 | Loading and error states are handled. |
+| [x] | 1 | Authenticated user can list past recommendations for an authorized profile via `GET /api/profiles/{profileId}/recommendation-history`. |
+| [x] | 2 | Each history item includes enough context to identify the source product/time and suggested alternatives (source name/brand/barcode, verdict, `recommendedAt`, ranked alternatives). |
+| [x] | 3 | Empty history shows an empty state. |
+| [x] | 4 | Unauthorized profile access returns 403. |
+| [x] | 5 | Loading and error states are handled. |
 | [x] | 6 | This UC does not generate new alternatives at verdict time (UC5 owns that). |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC17-S1** | 1–6 | Recommendation history API + list — **open** (AC6 boundary done) |
+| **UC17-S1** | 1–6 | Recommendation history API + mobile list UI — **done** |
 
 Full table: [backlog §5 Enhanced](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
