@@ -23,12 +23,9 @@ enum class RegistrationStep {
 }
 
 data class RegistrationUiState(
-    val name: String = "",
     val email: String = "",
     val password: String = "",
     val confirmPassword: String = "",
-    val invitationToken: String? = null,
-    val nameError: String? = null,
     val emailError: String? = null,
     val passwordError: String? = null,
     val confirmPasswordError: String? = null,
@@ -40,7 +37,7 @@ data class RegistrationUiState(
     val account: RegistrationResponse? = null,
 ) {
     override fun toString(): String {
-        return "RegistrationUiState(name=$name, email=$email, password=<redacted>, " +
+        return "RegistrationUiState(email=$email, password=<redacted>, " +
             "confirmPassword=<redacted>, step=$step, isSubmitting=$isSubmitting, " +
             "accountCreated=${account != null}, wantsDietarySetup=$wantsDietarySetup)"
     }
@@ -61,16 +58,6 @@ class RegistrationViewModel @Inject constructor(
         if (value != null) {
             pendingInvitationStore.offer(value)
         }
-        _uiState.value = _uiState.value.copy(invitationToken = value)
-    }
-
-    fun updateName(name: String) {
-        _uiState.value = _uiState.value.copy(
-            name = name,
-            nameError = null,
-            registrationError = null,
-            registrationFailureType = null,
-        )
     }
 
     fun updateEmail(email: String) {
@@ -103,14 +90,6 @@ class RegistrationViewModel @Inject constructor(
 
     fun continueToDietaryProfile() {
         val state = _uiState.value
-        val normalizedName = state.name.trim()
-        val nameError = when {
-            normalizedName.isEmpty() -> "Name is required."
-            normalizedName.length < MIN_NAME_LENGTH -> "Name must be at least 3 characters."
-            normalizedName.length > MAX_NAME_LENGTH ->
-                "Name must be between 3 and 100 characters."
-            else -> null
-        }
         val normalizedEmail = state.email.trim()
         val emailError = when {
             normalizedEmail.isEmpty() -> "Email is required."
@@ -134,14 +113,13 @@ class RegistrationViewModel @Inject constructor(
         }
 
         _uiState.value = state.copy(
-            nameError = nameError,
             emailError = emailError,
             passwordError = passwordError,
             confirmPasswordError = confirmPasswordError,
             registrationError = null,
             registrationFailureType = null,
-            step = if (nameError == null && emailError == null &&
-                passwordError == null && confirmPasswordError == null
+            step = if (emailError == null && passwordError == null &&
+                confirmPasswordError == null
             ) {
                 RegistrationStep.OPTIONAL_DIETARY_PROFILE
             } else {
@@ -180,10 +158,8 @@ class RegistrationViewModel @Inject constructor(
 
         viewModelScope.launch {
             when (val result = registrationRepository.register(
-                name = state.name.trim(),
                 email = state.email.trim().lowercase(Locale.ROOT),
                 password = state.password,
-                invitationToken = state.invitationToken,
             )) {
                 is RegistrationResult.Success -> handleAccountCreated(result.account)
                 is RegistrationResult.Failure -> {
@@ -202,7 +178,6 @@ class RegistrationViewModel @Inject constructor(
         val state = _uiState.value
         if (state.wantsDietarySetup) {
             pendingOnboardingStore.requestDietarySetup(
-                profileName = state.name,
                 accountEmail = account.email,
             )
         } else {
@@ -221,8 +196,6 @@ class RegistrationViewModel @Inject constructor(
         private const val MAX_EMAIL_LENGTH = 255
         private const val MIN_PASSWORD_LENGTH = 8
         private const val MAX_PASSWORD_UTF8_BYTES = 72
-        private const val MIN_NAME_LENGTH = 3
-        private const val MAX_NAME_LENGTH = 100
         private val EMAIL_PATTERN = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
         private const val PASSWORD_STRENGTH_MESSAGE =
             "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character."

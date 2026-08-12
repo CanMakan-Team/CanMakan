@@ -50,7 +50,7 @@ class AuthenticatedDietaryOnboardingViewModelTest {
         sessionStore = AuthSessionStore(sessionPersistence, Gson())
         sessionStore.saveSession(validSession())
         pendingStore = PendingOnboardingStore().also {
-            it.requestDietarySetup("Person Name", "person@example.com")
+            it.requestDietarySetup("person@example.com")
         }
         dietaryRepository = FakeDietaryRepository()
         selfProfileRepository = FakeSelfProfileRepository()
@@ -73,6 +73,7 @@ class AuthenticatedDietaryOnboardingViewModelTest {
 
         assertEquals(1, dietaryRepository.catalogCalls)
         assertEquals(3, viewModel.uiState.value.restrictions.size)
+        assertEquals("", viewModel.uiState.value.profileName)
     }
 
     @Test
@@ -94,6 +95,7 @@ class AuthenticatedDietaryOnboardingViewModelTest {
     fun successfulSetupUsesCatalogIdsSwitchesProfileAndKeepsSession() {
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
+        viewModel.updateProfileName("Person Name")
         viewModel.toggleRestriction(2L)
         viewModel.setSeverity(2L, ProfileRestrictionSeverity.INTOLERANCE)
 
@@ -116,13 +118,14 @@ class AuthenticatedDietaryOnboardingViewModelTest {
         selfProfileRepository.result = SelfProfileSetupResult.Failure("Try again")
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
+        viewModel.updateProfileName("Person Name")
         viewModel.toggleRestriction(2L)
 
         viewModel.createProfile()
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals("Try again", viewModel.uiState.value.errorMessage)
-        assertEquals("Person Name", pendingStore.peek()?.profileName)
+        assertEquals("person@example.com", pendingStore.peek()?.accountEmail)
         assertEquals(TEST_ACCESS_TOKEN, sessionStore.currentAccessToken())
         assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
         assertFalse(viewModel.uiState.value.resolved)
@@ -134,6 +137,7 @@ class AuthenticatedDietaryOnboardingViewModelTest {
         existingResolver.profileId = 88L
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
+        viewModel.updateProfileName("Person Name")
         viewModel.toggleRestriction(2L)
 
         viewModel.createProfile()
@@ -155,13 +159,14 @@ class AuthenticatedDietaryOnboardingViewModelTest {
         existingResolver.failure = IllegalStateException("not resolvable")
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
+        viewModel.updateProfileName("Person Name")
         viewModel.toggleRestriction(2L)
 
         viewModel.createProfile()
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
-        assertEquals("Person Name", pendingStore.peek()?.profileName)
+        assertEquals("person@example.com", pendingStore.peek()?.accountEmail)
         assertTrue(viewModel.uiState.value.errorMessage?.contains("could not be resolved") == true)
     }
 
@@ -184,13 +189,14 @@ class AuthenticatedDietaryOnboardingViewModelTest {
         dietaryRepository.saveResult = false
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
+        viewModel.updateProfileName("Person Name")
         viewModel.toggleRestriction(2L)
 
         viewModel.createProfile()
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
-        assertEquals("Person Name", pendingStore.peek()?.profileName)
+        assertEquals("person@example.com", pendingStore.peek()?.accountEmail)
         assertTrue(viewModel.uiState.value.errorMessage?.contains("could not be saved") == true)
     }
 
@@ -198,6 +204,7 @@ class AuthenticatedDietaryOnboardingViewModelTest {
     fun emptySelectionDoesNotCreateAnEmptyProfile() {
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
+        viewModel.updateProfileName("Person Name")
 
         viewModel.createProfile()
         dispatcher.scheduler.advanceUntilIdle()
@@ -208,7 +215,7 @@ class AuthenticatedDietaryOnboardingViewModelTest {
 
     @Test
     fun laterSetupAcceptsAnExplicitProfileNameBeforeCreate() {
-        pendingStore.requestDietarySetup("", "person@example.com")
+        pendingStore.requestDietarySetup("person@example.com")
         viewModel = newViewModel()
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
@@ -235,10 +242,11 @@ class AuthenticatedDietaryOnboardingViewModelTest {
 
         assertEquals(1, selfProfileRepository.calls)
 
-        pendingStore.requestDietarySetup("", "person@example.com")
+        pendingStore.requestDietarySetup("person@example.com")
         viewModel = newViewModel()
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
+        viewModel.updateProfileName("Person Name")
         viewModel.toggleRestriction(2L)
         viewModel.updateProfileName("b".repeat(101))
 
@@ -255,6 +263,7 @@ class AuthenticatedDietaryOnboardingViewModelTest {
         selfProfileRepository.ignoreCancellation = true
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
+        viewModel.updateProfileName("Person Name")
         viewModel.toggleRestriction(2L)
         viewModel.createProfile()
         dispatcher.scheduler.runCurrent()
@@ -274,21 +283,19 @@ class AuthenticatedDietaryOnboardingViewModelTest {
         selfProfileRepository.ignoreCancellation = true
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
+        viewModel.updateProfileName("Person Name")
         viewModel.toggleRestriction(2L)
         viewModel.createProfile()
         dispatcher.scheduler.runCurrent()
 
         sessionStore.saveSession(sessionFor(22L, "other@example.com"))
-        pendingStore.requestDietarySetup("Other Person", "other@example.com")
+        pendingStore.requestDietarySetup("other@example.com")
         dispatcher.scheduler.runCurrent()
         selfProfileRepository.gate?.complete(Unit)
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
-        assertEquals(
-            "Other Person",
-            pendingStore.peekForAccount("other@example.com")?.profileName,
-        )
+        assertEquals("other@example.com", pendingStore.peekForAccount("other@example.com")?.accountEmail)
     }
 
     @Test
@@ -297,19 +304,18 @@ class AuthenticatedDietaryOnboardingViewModelTest {
         selfProfileRepository.ignoreCancellation = true
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
+        viewModel.updateProfileName("Person Name")
         viewModel.toggleRestriction(2L)
         viewModel.createProfile()
         dispatcher.scheduler.runCurrent()
 
-        pendingStore.requestDietarySetup("New Same Account Setup", "person@example.com")
+        val oldRequestId = requireNotNull(pendingStore.peek()).requestId
+        pendingStore.requestDietarySetup("person@example.com")
         selfProfileRepository.gate?.complete(Unit)
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
-        assertEquals(
-            "New Same Account Setup",
-            pendingStore.peekForAccount("person@example.com")?.profileName,
-        )
+        assertTrue(pendingStore.peekForAccount("person@example.com")!!.requestId != oldRequestId)
     }
 
     @Test
@@ -319,19 +325,20 @@ class AuthenticatedDietaryOnboardingViewModelTest {
         existingResolver.ignoreCancellation = true
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
+        viewModel.updateProfileName("Person Name")
         viewModel.toggleRestriction(2L)
         viewModel.createProfile()
         dispatcher.scheduler.runCurrent()
 
         sessionStore.saveSession(sessionFor(22L, "other@example.com"))
-        pendingStore.requestDietarySetup("Other Person", "other@example.com")
+        pendingStore.requestDietarySetup("other@example.com")
         dispatcher.scheduler.runCurrent()
         existingResolver.gate?.complete(Unit)
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(0, dietaryRepository.saveCalls)
         assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
-        assertEquals("Other Person", pendingStore.peek()?.profileName)
+        assertEquals("other@example.com", pendingStore.peek()?.accountEmail)
     }
 
     private fun newViewModel() = AuthenticatedDietaryOnboardingViewModel(

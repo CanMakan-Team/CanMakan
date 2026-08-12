@@ -9,11 +9,10 @@ class PendingOnboardingStoreTest {
     @Test
     fun pendingIntentSurvivesNormalNavigationThroughSharedStoreInstance() {
         val store = PendingOnboardingStore()
-        store.requestDietarySetup("  Person Name  ", "  Person@Example.COM ")
+        store.requestDietarySetup("  Person@Example.COM ")
 
         val valueSeenAfterNavigation = store.peek()
 
-        assertEquals("Person Name", valueSeenAfterNavigation?.profileName)
         assertEquals("person@example.com", valueSeenAfterNavigation?.accountEmail)
     }
 
@@ -23,7 +22,7 @@ class PendingOnboardingStoreTest {
             .filterNot { it.isSynthetic || it.name.startsWith("$") }
             .map { it.name }
 
-        assertEquals(listOf("profileName", "accountEmail", "requestId"), fields)
+        assertEquals(listOf("accountEmail", "requestId"), fields)
         assertFalse(fields.any { it.contains("password", true) })
         assertFalse(fields.any { it.contains("token", true) })
         assertFalse(fields.any { it.contains("userId", true) })
@@ -32,7 +31,7 @@ class PendingOnboardingStoreTest {
     @Test
     fun clearRemovesPendingIntent() {
         val store = PendingOnboardingStore()
-        store.requestDietarySetup("Person Name", "person@example.com")
+        store.requestDietarySetup("person@example.com")
 
         store.clear()
 
@@ -40,29 +39,20 @@ class PendingOnboardingStoreTest {
     }
 
     @Test
-    fun laterAuthenticatedSetupMayStartWithAnEmptyEditableName() {
-        val store = PendingOnboardingStore()
-
-        store.requestDietarySetup("", "person@example.com")
-
-        assertEquals("", store.peek()?.profileName)
-    }
-
-    @Test
     fun matchingAccountCanReadPendingIntent() {
         val store = PendingOnboardingStore()
-        store.requestDietarySetup("Person Name", "person@example.com")
+        store.requestDietarySetup("person@example.com")
 
         assertEquals(
-            "Person Name",
-            store.peekForAccount(" PERSON@example.com ")?.profileName,
+            "person@example.com",
+            store.peekForAccount(" PERSON@example.com ")?.accountEmail,
         )
     }
 
     @Test
     fun differentAccountCannotReadAndInvalidatesPendingIntent() {
         val store = PendingOnboardingStore()
-        store.requestDietarySetup("Person Name", "person@example.com")
+        store.requestDietarySetup("person@example.com")
 
         assertNull(store.peekForAccount("other@example.com"))
         assertNull(store.peek())
@@ -71,22 +61,22 @@ class PendingOnboardingStoreTest {
     @Test
     fun staleAccountCannotClearNewerAccountsIntent() {
         val store = PendingOnboardingStore()
-        store.requestDietarySetup("New Person", "new@example.com")
+        store.requestDietarySetup("new@example.com")
 
         store.clearForAccount("old@example.com")
 
-        assertEquals("New Person", store.peekForAccount("new@example.com")?.profileName)
+        assertEquals("new@example.com", store.peekForAccount("new@example.com")?.accountEmail)
     }
 
     @Test
     fun staleSameAccountRequestCannotClearNewerIntent() {
         val store = PendingOnboardingStore()
-        store.requestDietarySetup("Old Setup", "person@example.com")
+        store.requestDietarySetup("person@example.com")
         val oldRequest = requireNotNull(store.peek())
-        store.requestDietarySetup("New Setup", "person@example.com")
+        store.requestDietarySetup("person@example.com")
 
         store.clearIfCurrent(oldRequest)
 
-        assertEquals("New Setup", store.peekForAccount("person@example.com")?.profileName)
+        assertFalse(store.peekForAccount("person@example.com")?.requestId == oldRequest.requestId)
     }
 }

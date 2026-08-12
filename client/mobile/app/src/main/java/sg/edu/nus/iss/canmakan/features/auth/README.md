@@ -15,17 +15,19 @@ User registration, authentication and session management.
 ## Notes
 - Uses security utilities from `core`
 - Does not own role/permission logic (handled by backend)
-- Registration uses the shared Retrofit/Hilt client. It retains the deprecated
-  `name` and `invitationToken` request fields only for compatibility; neither is
-  treated as registration-created account/profile state.
+- Registration uses the shared Retrofit/Hilt client and sends only `email` and
+  `password`. Deprecated compatibility fields such as `name` and
+  `invitationToken` are not part of the Android account contract. Invitation
+  tokens remain in the separate post-login claim flow.
 - Registration Screen 2 records only whether the user wants dietary setup after
   sign-in. It never loads the authenticated restriction catalog.
-- `PendingOnboardingStore` retains the intended profile name, normalized
-  registration email, and an opaque in-memory request version for normal
-  navigation. The email binds setup to the account that registered; the version
-  prevents old same-account work from clearing a newer intent. A different
-  authenticated email invalidates the intent. The store deliberately does not
-  survive process death and stores no
+- `PendingOnboardingStore` retains only the normalized registration email and an
+  opaque in-memory request version for normal navigation. The email binds the
+  setup intent to the account that registered; the version prevents old
+  same-account work from clearing a newer intent. The authenticated setup UI
+  collects the profile name after sign-in. A different authenticated email
+  invalidates the intent. The store deliberately does not survive process death
+  and stores no
   password, backend user id, access token, refresh token, or session material.
 - After UC19 Login persists the session, `PostLoginContinuationViewModel` routes
   requested dietary setup first and owns the one invitation-claim attempt. Both

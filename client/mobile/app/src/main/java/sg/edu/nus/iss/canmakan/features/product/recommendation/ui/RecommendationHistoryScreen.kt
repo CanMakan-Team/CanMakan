@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -40,13 +41,15 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 @Composable
 fun RecommendationHistoryScreen(
-    activeProfile: DietaryProfile,
+    activeProfile: DietaryProfile?,
     entries: List<RecommendationHistoryEntry>,
     isLoading: Boolean = false,
+    requiresProfileSetup: Boolean = false,
     errorMessage: String? = null,
     onMenuClick: () -> Unit,
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
+    onSetUpProfile: () -> Unit,
     onEntryClick: (RecommendationHistoryEntry) -> Unit
 ) {
     Scaffold(
@@ -54,7 +57,7 @@ fun RecommendationHistoryScreen(
             Column {
                 AppTopBar(onMenuClick = onMenuClick)
                 Spacer(modifier = Modifier.height(8.dp))
-                ActiveProfileChip(profile = activeProfile)
+                activeProfile?.let { ActiveProfileChip(profile = it) }
             }
         },
         bottomBar = {
@@ -74,12 +77,30 @@ fun RecommendationHistoryScreen(
                     style = MaterialTheme.typography.headlineSmall
                 )
                 Text(
-                    "Past alternatives shown for ${activeProfile.profileName}",
+                    if (activeProfile == null) {
+                        "Personalised recommendations become available after profile setup."
+                    } else {
+                        "Past alternatives shown for ${activeProfile.profileName}"
+                    },
                     color = TextSecondary
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
             when {
+                requiresProfileSetup || activeProfile == null -> Box(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text("Set up your dietary profile to view personalised recommendations.")
+                        Button(onClick = onSetUpProfile) {
+                            Text("Set up profile")
+                        }
+                    }
+                }
                 isLoading -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center

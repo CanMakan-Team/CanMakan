@@ -310,13 +310,20 @@ fun CanMakanNavGraph(
                     activeProfile = activeProfile,
                     entries = recommendationHistoryUiState.entries,
                     isLoading = recommendationHistoryUiState.isLoading,
+                    requiresProfileSetup = recommendationHistoryUiState.requiresProfileSetup,
                     errorMessage = recommendationHistoryUiState.errorMessage,
                     onMenuClick = { openDrawer() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onSetUpProfile = onRequestSelfProfileSetup,
                     onEntryClick = { entry ->
-                        navGraphViewModel.setPendingVerdict(VerdictDetail.fromRecommendationHistoryEntry(entry))
-                        navController.navigate(ROUTE_PRODUCT_DETAIL)
+                        activeProfile?.id?.let { profileId ->
+                            navGraphViewModel.setPendingVerdict(
+                                profileId = profileId,
+                                detail = VerdictDetail.fromRecommendationHistoryEntry(entry),
+                            )
+                            navController.navigate(ROUTE_PRODUCT_DETAIL)
+                        }
                     }
                 )
             }

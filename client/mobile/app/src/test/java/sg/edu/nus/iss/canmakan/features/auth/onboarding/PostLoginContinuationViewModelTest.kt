@@ -63,7 +63,7 @@ class PostLoginContinuationViewModelTest {
 
     @Test
     fun onboardingFailureThenDeferContinuesToInvitationClaim() {
-        pendingOnboardingStore.requestDietarySetup("Person Name", "person@example.com")
+        pendingOnboardingStore.requestDietarySetup("person@example.com")
         pendingInvitationStore.offer("invite-token")
 
         viewModel.begin()
@@ -169,13 +169,12 @@ class PostLoginContinuationViewModelTest {
         viewModel.requestDietarySetup()
 
         assertEquals(PostLoginContinuationState.DietarySetupRequired, viewModel.state.value)
-        assertEquals("", pendingOnboardingStore.peek()?.profileName)
         assertEquals("person@example.com", pendingOnboardingStore.peek()?.accountEmail)
     }
 
     @Test
     fun anotherAccountCannotConsumeRegisteredAccountsOnboarding() {
-        pendingOnboardingStore.requestDietarySetup("Person Name", "owner@example.com")
+        pendingOnboardingStore.requestDietarySetup("owner@example.com")
 
         viewModel.begin()
         dispatcher.scheduler.advanceUntilIdle()

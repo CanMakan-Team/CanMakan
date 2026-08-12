@@ -61,7 +61,6 @@ class RegistrationViewModelTest {
 
     @Test
     fun accountValidationStillRejectsInvalidEmailAndPassword() {
-        viewModel.updateName("Person Name")
         viewModel.updateEmail("not-an-email")
         viewModel.updatePassword("weak")
         viewModel.updateConfirmPassword("different")
@@ -97,21 +96,26 @@ class RegistrationViewModelTest {
     }
 
     @Test
-    fun requestingDietarySetupStoresOnlyNormalizedProfileNameAfterAccountCreation() {
-        enterValidAccountInformation(name = "  Person Name  ")
+    fun requestingDietarySetupStoresOnlyAccountBoundIntentAfterAccountCreation() {
+        enterValidAccountInformation()
         viewModel.setDietarySetupRequested(true)
 
         viewModel.createAccount()
         testDispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals("Person Name", pendingOnboardingStore.peek()?.profileName)
         assertEquals("person@example.com", pendingOnboardingStore.peek()?.accountEmail)
+        assertEquals(
+            listOf("accountEmail", "requestId"),
+            pendingOnboardingStore.peek()!!::class.java.declaredFields
+                .filterNot { it.isSynthetic || it.name.startsWith("$") }
+                .map { it.name },
+        )
         assertTrue(viewModel.uiState.value.wantsDietarySetup)
     }
 
     @Test
     fun skippingDietarySetupCreatesNoPendingProfileIntent() {
-        pendingOnboardingStore.requestDietarySetup("Stale Name", "stale@example.com")
+        pendingOnboardingStore.requestDietarySetup("stale@example.com")
         enterValidAccountInformation()
         viewModel.setDietarySetupRequested(false)
 
@@ -122,7 +126,7 @@ class RegistrationViewModelTest {
     }
 
     @Test
-    fun invitationTokenIsRetainedForLoginAndCompatibilityRequest() {
+    fun invitationTokenIsRetainedForLoginButExcludedFromRegistrationRequest() {
         viewModel.setInvitationToken("  invite-token  ")
         enterValidAccountInformation()
 
@@ -130,13 +134,12 @@ class RegistrationViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals("invite-token", pendingInvitationStore.peek())
-        assertEquals("invite-token", repository.lastInvitationToken)
+        assertEquals(1, repository.callCount)
     }
 
     @Test
-    fun requestNormalizesNameAndEmailButPreservesPasswordExactly() {
+    fun requestNormalizesEmailButPreservesPasswordExactly() {
         val password = "  KeepCase Password1!  "
-        viewModel.updateName("  Person Name  ")
         viewModel.updateEmail("  Person@Example.COM  ")
         viewModel.updatePassword(password)
         viewModel.updateConfirmPassword(password)
@@ -145,7 +148,6 @@ class RegistrationViewModelTest {
         viewModel.createAccount()
         testDispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals("Person Name", repository.lastName)
         assertEquals("person@example.com", repository.lastEmail)
         assertEquals(password, repository.lastPassword)
     }
@@ -192,8 +194,7 @@ class RegistrationViewModelTest {
         assertTrue(rendered.contains("password=<redacted>"))
     }
 
-    private fun enterValidAccountInformation(name: String = "Person Name") {
-        viewModel.updateName(name)
+    private fun enterValidAccountInformation() {
         viewModel.updateEmail("  Person@Example.COM  ")
         viewModel.updatePassword("Password1!")
         viewModel.updateConfirmPassword("Password1!")
@@ -206,22 +207,16 @@ class RegistrationViewModelTest {
         )
         var gate: CompletableDeferred<Unit>? = null
         var callCount = 0
-        var lastName: String? = null
         var lastEmail: String? = null
         var lastPassword: String? = null
-        var lastInvitationToken: String? = null
 
         override suspend fun register(
-            name: String,
             email: String,
             password: String,
-            invitationToken: String?,
         ): RegistrationResult {
             callCount++
-            lastName = name
             lastEmail = email
             lastPassword = password
-            lastInvitationToken = invitationToken
             gate?.await()
             return result
         }

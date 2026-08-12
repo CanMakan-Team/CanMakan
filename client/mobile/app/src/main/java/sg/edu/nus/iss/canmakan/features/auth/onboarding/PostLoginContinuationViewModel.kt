@@ -93,7 +93,7 @@ class PostLoginContinuationViewModel @Inject constructor(
     fun requestDietarySetup() {
         val user = currentUser() ?: return
         bindTo(user)
-        pendingOnboardingStore.requestDietarySetup("", user.email)
+        pendingOnboardingStore.requestDietarySetup(user.email)
         _state.value = PostLoginContinuationState.DietarySetupRequired
     }
 

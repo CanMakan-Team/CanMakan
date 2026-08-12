@@ -89,9 +89,7 @@ class AuthenticatedDietaryOnboardingViewModel @Inject constructor(
             return
         }
         bindTo(user, pending)
-        _uiState.value = AuthenticatedDietaryOnboardingUiState(
-            profileName = pending.profileName,
-        )
+        _uiState.value = AuthenticatedDietaryOnboardingUiState()
         loadRestrictions(user)
     }
 

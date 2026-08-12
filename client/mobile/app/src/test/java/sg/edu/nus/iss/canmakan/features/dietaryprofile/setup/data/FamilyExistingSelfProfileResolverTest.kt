@@ -14,6 +14,7 @@ import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.CreateInvitationRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.DependantProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeResponse
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyMemberRosterItem
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileResponse
@@ -94,6 +95,9 @@ class FamilyExistingSelfProfileResolverTest {
         var activeProfileCalls = 0
 
         override suspend fun getMyFamily(): Response<FamilyMeResponse> = familyResponse
+
+        override suspend fun getFamilyMembers(): Response<List<FamilyMemberRosterItem>> =
+            error("unused")
 
         override suspend fun getActiveProfile(): Response<ActiveProfileResponse> {
             activeProfileCalls++

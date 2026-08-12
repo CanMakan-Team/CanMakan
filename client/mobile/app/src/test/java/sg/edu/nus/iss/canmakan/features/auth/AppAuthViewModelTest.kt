@@ -134,7 +134,7 @@ class AppAuthViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
         assertInstanceOf(AppAuthState.Authenticated::class.java, viewModel.state.value)
         activeProfileManager.switchProfile(requireNotNull(store.accountKey.value), 77L)
-        pendingOnboardingStore.requestDietarySetup("Person", USER.email)
+        pendingOnboardingStore.requestDietarySetup(USER.email)
 
         store.clearSession()
         testDispatcher.scheduler.runCurrent()
@@ -221,7 +221,7 @@ class AppAuthViewModelTest {
         val viewModel = viewModel()
         testDispatcher.scheduler.advanceUntilIdle()
         activeProfileManager.switchProfile(requireNotNull(store.accountKey.value), 77L)
-        pendingOnboardingStore.requestDietarySetup("Person", USER.email)
+        pendingOnboardingStore.requestDietarySetup(USER.email)
 
         viewModel.signOut()
 
@@ -236,7 +236,7 @@ class AppAuthViewModelTest {
         viewModel()
         testDispatcher.scheduler.advanceUntilIdle()
         activeProfileManager.switchProfile(requireNotNull(store.accountKey.value), 77L)
-        pendingOnboardingStore.requestDietarySetup("Old Person", USER.email)
+        pendingOnboardingStore.requestDietarySetup(USER.email)
 
         store.saveSession(session(ADMIN))
         testDispatcher.scheduler.advanceUntilIdle()

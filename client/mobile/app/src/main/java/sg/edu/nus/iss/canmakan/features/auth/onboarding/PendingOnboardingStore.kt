@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.asStateFlow
  * registration-to-login navigation, but not process death; users can configure a profile later.
  */
 data class PendingDietaryOnboarding(
-    val profileName: String,
     val accountEmail: String,
     val requestId: Long,
 )
@@ -27,11 +26,10 @@ class PendingOnboardingStore @Inject constructor() {
         _dietaryOnboarding.asStateFlow()
 
     @Synchronized
-    fun requestDietarySetup(profileName: String, accountEmail: String) {
+    fun requestDietarySetup(accountEmail: String) {
         val normalizedEmail = normalizeEmail(accountEmail)
         require(normalizedEmail.isNotEmpty()) { "Pending onboarding requires an account email." }
         _dietaryOnboarding.value = PendingDietaryOnboarding(
-            profileName = profileName.trim(),
             accountEmail = normalizedEmail,
             requestId = nextRequestId++,
         )

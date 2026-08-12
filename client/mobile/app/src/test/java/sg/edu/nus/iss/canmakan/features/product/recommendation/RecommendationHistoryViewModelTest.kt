@@ -4,10 +4,12 @@ import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -18,15 +20,19 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.product.recommendation.data.RecommendationHistoryRepository
 import sg.edu.nus.iss.canmakan.features.product.recommendation.model.RecommendationHistoryAlternative
 import sg.edu.nus.iss.canmakan.features.product.recommendation.model.RecommendationHistoryEntry
+import sg.edu.nus.iss.canmakan.testing.signInTestUser
+import sg.edu.nus.iss.canmakan.testing.testAuthSessionStore
 
 class RecommendationHistoryViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var activeProfileManager: ActiveProfileManager
+    private lateinit var sessionStore: AuthSessionStore
     private lateinit var repository: FakeRecommendationHistoryRepository
     private lateinit var viewModel: RecommendationHistoryViewModel
 
@@ -35,8 +41,9 @@ class RecommendationHistoryViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         activeProfileManager = ActiveProfileManager()
+        sessionStore = testAuthSessionStore().also { it.signInTestUser() }
         repository = FakeRecommendationHistoryRepository()
-        viewModel = RecommendationHistoryViewModel(activeProfileManager, repository)
+        viewModel = RecommendationHistoryViewModel(activeProfileManager, repository, sessionStore)
         testDispatcher.scheduler.advanceUntilIdle()
     }
 
@@ -52,7 +59,7 @@ class RecommendationHistoryViewModelTest {
         val entry = sampleEntry()
         repository.entriesByProfile = mapOf(2L to listOf(entry))
 
-        activeProfileManager.switchProfile(2L)
+        activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 2L)
         testDispatcher.scheduler.advanceUntilIdle()
 
         val uiState = viewModel.uiState.value
@@ -65,7 +72,7 @@ class RecommendationHistoryViewModelTest {
     fun showsLoadingStateWhileHistoryLoads() = runTest {
         repository.gate = CompletableDeferred()
 
-        activeProfileManager.switchProfile(3L)
+        activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 3L)
         testDispatcher.scheduler.runCurrent()
         assertTrue(viewModel.uiState.value.isLoading)
 
@@ -79,7 +86,7 @@ class RecommendationHistoryViewModelTest {
     fun showsEmptyStateWhenNoRecommendationHistory() = runTest {
         repository.entriesByProfile = mapOf(4L to emptyList())
 
-        activeProfileManager.switchProfile(4L)
+        activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 4L)
         testDispatcher.scheduler.advanceUntilIdle()
 
         val uiState = viewModel.uiState.value
@@ -93,13 +100,63 @@ class RecommendationHistoryViewModelTest {
     fun showsErrorStateWhenHistoryLoadFails() = runTest {
         repository.shouldThrow = true
 
-        activeProfileManager.switchProfile(5L)
+        activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 5L)
         testDispatcher.scheduler.advanceUntilIdle()
 
         val uiState = viewModel.uiState.value
         assertNotNull(uiState.errorMessage)
         assertFalse(uiState.isLoading)
         assertTrue(uiState.entries.isEmpty())
+    }
+
+    @Test
+    fun profilelessStateMakesNoRequestAndRequiresSetup() = runTest {
+        activeProfileManager.reset()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(repository.lastRequestedProfileId)
+        assertTrue(viewModel.uiState.value.requiresProfileSetup)
+        assertTrue(viewModel.uiState.value.entries.isEmpty())
+    }
+
+    @Test
+    fun accountSwitchToProfilelessClearsPreviousRecommendations() = runTest {
+        val oldEntry = sampleEntry()
+        repository.entriesByProfile = mapOf(2L to listOf(oldEntry))
+        activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 2L)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(listOf(oldEntry), viewModel.uiState.value.entries)
+
+        sessionStore.signInTestUser(22L, "profileless@example.com")
+        activeProfileManager.reset()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.requiresProfileSetup)
+        assertTrue(viewModel.uiState.value.entries.isEmpty())
+        assertEquals(2L, repository.lastRequestedProfileId)
+    }
+
+    @Test
+    fun cancellationIgnoringOldAccountResultCannotReplaceNewRecommendations() = runTest {
+        val oldEntry = sampleEntry()
+        val newEntry = sampleEntry().copy(scanId = 3L, sourceBarcode = "new-account")
+        repository.entriesByProfile = mapOf(2L to listOf(oldEntry), 3L to listOf(newEntry))
+        repository.blockedProfileId = 2L
+        repository.profileGate = CompletableDeferred()
+
+        activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 2L)
+        testDispatcher.scheduler.runCurrent()
+
+        sessionStore.signInTestUser(22L, "other@example.com")
+        activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 3L)
+        testDispatcher.scheduler.runCurrent()
+        assertEquals(listOf(newEntry), viewModel.uiState.value.entries)
+
+        repository.profileGate?.complete(Unit)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(listOf(newEntry), viewModel.uiState.value.entries)
+        assertEquals(3L, repository.lastRequestedProfileId)
     }
 
     private fun sampleEntry() = RecommendationHistoryEntry(
@@ -126,14 +183,20 @@ class RecommendationHistoryViewModelTest {
         var lastRequestedProfileId: Long? = null
         var gate: CompletableDeferred<Unit>? = null
         var shouldThrow = false
+        var blockedProfileId: Long? = null
+        var profileGate: CompletableDeferred<Unit>? = null
 
         override suspend fun getRecommendationHistoryForProfile(
             profileId: Long
         ): List<RecommendationHistoryEntry> {
-            gate?.await()
+            val result = entriesByProfile[profileId] ?: emptyList()
             lastRequestedProfileId = profileId
+            gate?.await()
+            if (profileId == blockedProfileId) {
+                withContext(NonCancellable) { profileGate?.await() }
+            }
             if (shouldThrow) throw IOException("network down")
-            return entriesByProfile[profileId] ?: emptyList()
+            return result
         }
     }
 }
