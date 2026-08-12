@@ -87,13 +87,26 @@ fun ScannerScreen(
     viewModel: ScannerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null)}
+    var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
+    // Prevents re-firing the same code while it remains in the camera frame.
+    var lastProcessedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
     val processState by viewModel.processState.collectAsState()
     val verdictDetail by viewModel.verdictDetail.collectAsState()
+    val latestProcessState by rememberUpdatedState(processState)
+    val latestProfileId by rememberUpdatedState(activeProfile.id)
+
+    val isProcessing = processState == ScanProcessState.VALIDATING ||
+        processState == ScanProcessState.ASSESSING ||
+        processState == ScanProcessState.FETCHING_ALTERNATIVES
+    val canAcceptNewScan = processState == ScanProcessState.IDLE ||
+        processState == ScanProcessState.INVALID ||
+        processState == ScanProcessState.ERROR
 
     LaunchedEffect(processState, verdictDetail) {
         if (processState == ScanProcessState.SUCCESS && verdictDetail != null) {
             onVerdictReady(verdictDetail!!)
+            scannedBarcode = null
+            lastProcessedBarcode = null
             viewModel.resetState()
         }
     }
@@ -166,9 +179,19 @@ fun ScannerScreen(
                 if (hasCameraPermission) {
                     CameraPreview(
                         onBarcodeScanned = { barcode ->
-                            if (scannedBarcode != barcode) {
-                                scannedBarcode = barcode
-                            }
+                            val state = latestProcessState
+                            val acceptScan = state == ScanProcessState.IDLE ||
+                                state == ScanProcessState.INVALID ||
+                                state == ScanProcessState.ERROR
+                            if (!acceptScan) return@CameraPreview
+                            if (barcode == lastProcessedBarcode) return@CameraPreview
+
+                            lastProcessedBarcode = barcode
+                            scannedBarcode = barcode
+                            viewModel.processBarcode(
+                                barcode = barcode,
+                                profileId = latestProfileId,
+                            )
                         }
                     )
                     ValidationOverlay(viewModel = viewModel)
@@ -182,19 +205,25 @@ fun ScannerScreen(
             }
             Spacer(modifier = Modifier.height(20.dp))
 
-            //! Visual Indicator of Barcode Scanning & Parsing to Numeric String Value.
+            // Status / retry control. Successful reads auto-process; tap only retries after failure.
+            val statusLabel = when {
+                isProcessing -> stringResource(id = R.string.scanner_checking)
+                processState == ScanProcessState.INVALID ||
+                    processState == ScanProcessState.ERROR ->
+                    stringResource(id = R.string.scanner_try_again)
+                else -> stringResource(id = R.string.scanner_ready)
+            }
             Button(
                 onClick = {
                     scannedBarcode?.let { barcode ->
                         viewModel.processBarcode(
                             barcode = barcode,
-                            profileId = activeProfile.id
+                            profileId = activeProfile.id,
                         )
-                    } ?: onScanClick()
+                    }
                 },
-                enabled = processState == ScanProcessState.IDLE
-                    || processState == ScanProcessState.INVALID
-                    || processState == ScanProcessState.ERROR,
+                enabled = (processState == ScanProcessState.INVALID ||
+                    processState == ScanProcessState.ERROR) && scannedBarcode != null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -202,12 +231,20 @@ fun ScannerScreen(
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Text(
-                    text = scannedBarcode?.let { "Scanned: $it (Tap to Verify)" } ?: "Scan a Barcode",
+                    text = statusLabel,
                     fontWeight = FontWeight.Bold
                 )
             }
+            scannedBarcode?.takeIf { canAcceptNewScan || isProcessing }?.let { barcode ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = barcode,
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
+            }
             Spacer(modifier = Modifier.height(20.dp))
-            //! Visual Indicator of Barcode Scanning & Parsing to Numeric String Value. May be Removed in the Future.
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
