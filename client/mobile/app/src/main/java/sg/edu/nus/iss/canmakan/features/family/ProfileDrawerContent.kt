@@ -419,7 +419,7 @@ private fun avatarColorFor(profile: DietaryProfile): Color {
     }
 }
 
-/** Display label for relationship codes (prefer British "dependant"). */
+/** Display label for relationship codes */
 private fun formatRelationshipLabel(relationship: String): String {
     val trimmed = relationship.trim()
     if (trimmed.equals("DEPENDENT", ignoreCase = true)

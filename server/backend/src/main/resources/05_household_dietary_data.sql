@@ -33,18 +33,18 @@ INSERT INTO dietary_profiles (id, family_id, linked_user_id, profile_name, relat
 -- Tan Family Profiles
 (1, 1, 4, 'Sarah Tan', 'SELF', 1, 'https://api.dicebear.com/7.x/avatars/sarah.svg', NOW(), NOW()),
 (2, 1, 5, 'Michael Tan', 'SPOUSE', 0, 'https://api.dicebear.com/7.x/avatars/michael.svg', NOW(), NOW()),
-(3, 1, 6, 'Emily Tan', 'DEPENDENT', 0, 'https://api.dicebear.com/7.x/avatars/emily.svg', NOW(), NOW()),
+(3, 1, 6, 'Emily Tan', 'DEPENDANT', 0, 'https://api.dicebear.com/7.x/avatars/emily.svg', NOW(), NOW()),
 
 -- Lim Family Profiles
 (4, 2, 7, 'David Lim', 'SELF', 1, 'https://api.dicebear.com/7.x/avatars/david.svg', NOW(), NOW()),
 (5, 2, 8, 'Jessica Lim', 'SPOUSE', 0, 'https://api.dicebear.com/7.x/avatars/jessica.svg', NOW(), NOW()),
-(6, 2, 9, 'Daniel Lim', 'DEPENDENT', 0, 'https://api.dicebear.com/7.x/avatars/daniel.svg', NOW(), NOW()),
-(7, 2, 10, 'Amanda Lim', 'DEPENDENT', 0, 'https://api.dicebear.com/7.x/avatars/amanda.svg', NOW(), NOW()),
+(6, 2, 9, 'Daniel Lim', 'DEPENDANT', 0, 'https://api.dicebear.com/7.x/avatars/daniel.svg', NOW(), NOW()),
+(7, 2, 10, 'Amanda Lim', 'DEPENDANT', 0, 'https://api.dicebear.com/7.x/avatars/amanda.svg', NOW(), NOW()),
 
 -- Wong Family Profiles
 (8, 3, 11, 'James Wong', 'SELF', 1, 'https://api.dicebear.com/7.x/avatars/james.svg', NOW(), NOW()),
 (9, 3, 12, 'Olivia Wong', 'SPOUSE', 0, 'https://api.dicebear.com/7.x/avatars/olivia.svg', NOW(), NOW()),
-(10, 3, 13, 'Robert Wong', 'DEPENDENT', 0, 'https://api.dicebear.com/7.x/avatars/robert.svg', NOW(), NOW());
+(10, 3, 13, 'Robert Wong', 'DEPENDANT', 0, 'https://api.dicebear.com/7.x/avatars/robert.svg', NOW(), NOW());
 
 -- =============================================
 --  DIETARY RESTRICTIONS (Reference Data)
@@ -69,7 +69,7 @@ INSERT INTO dietary_restrictions (id, code, display_name, category, description)
 (13, 'LOW_TRANS_FAT', 'Low Trans Fat', 'DIET', 'Checks trans fat per 100 g'),
 (14, 'LOW_SODIUM', 'Low Salt', 'DIET', 'Checks sodium per 100 g'),
 -- Code renamed from 'HINDU' to 'KOSHER' to match the display name: confirmed
--- zero dependents (no ingredient_restrictions rows reference id 15, and
+-- nothing depends on this id (no ingredient_restrictions rows reference id 15, and
 -- ReligiousChecker only ever matches the HALAL code, ignoring everything
 -- else), so this is a safe rename rather than a DAIRY-style alias situation.
 (15, 'KOSHER', 'Kosher', 'RELIGIOUS', 'Requires kosher-certified ingredients; forbids pork and shellfish, and does not mix meat with dairy'),
