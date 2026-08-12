@@ -95,7 +95,10 @@ example, supply the deployment-managed value without storing it in the project:
 
 Release configuration fails closed when the value is missing, malformed, uses
 HTTP, or lacks the Retrofit-required trailing slash.
-`client/mobile/local.properties` (or pass `-PBASE_URL=...` when building). See
-`local.properties.example`. The backend listens on `0.0.0.0:8080` so emulator
-(`10.0.2.2`) and LAN devices can reach it. Native Retrofit does not use browser
-CORS; cleartext HTTP to local hosts is allowed via `network_security_config.xml`.
+See `local.properties.example`. The backend listens on `0.0.0.0:8080` so the
+debug build can reach emulator (`10.0.2.2`) and LAN endpoints. Native Retrofit
+does not use browser CORS. The main/release network-security configuration
+blocks cleartext globally; only the debug resource permits local HTTP.
+Android login, refresh, and logout requests also send the backend's non-secret
+session-intent header. Native calls do not need an Origin header and are not
+identified by User-Agent.
