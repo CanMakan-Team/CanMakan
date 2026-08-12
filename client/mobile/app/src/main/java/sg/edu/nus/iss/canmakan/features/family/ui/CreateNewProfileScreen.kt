@@ -53,6 +53,7 @@ import sg.edu.nus.iss.canmakan.shared.util.toScanHistoryDisplayString
 fun CreateNewProfileScreen(
     activeProfile: DietaryProfile,
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onBackClick: () -> Unit = {},
@@ -71,7 +72,10 @@ fun CreateNewProfileScreen(
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(onMenuClick = onMenuClick)
+                AppTopBar(
+                    onMenuClick = onMenuClick,
+                    onNotificationsClick = onNotificationsClick,
+                )
                 ActiveProfileChip(profile = activeProfile)
             }
         },

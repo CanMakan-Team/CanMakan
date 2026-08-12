@@ -54,6 +54,7 @@ fun HistoryScreen(
     isLoading: Boolean = false,
     errorMessage: String? = null,
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onEntryClick: (ScanHistoryEntry) -> Unit
@@ -61,7 +62,10 @@ fun HistoryScreen(
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(onMenuClick = onMenuClick)
+                AppTopBar(
+                    onMenuClick = onMenuClick,
+                    onNotificationsClick = onNotificationsClick,
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 ActiveProfileChip(profile = activeProfile)
             }

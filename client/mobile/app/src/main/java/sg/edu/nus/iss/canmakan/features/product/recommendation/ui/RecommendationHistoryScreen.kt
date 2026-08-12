@@ -45,6 +45,7 @@ fun RecommendationHistoryScreen(
     isLoading: Boolean = false,
     errorMessage: String? = null,
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onEntryClick: (RecommendationHistoryEntry) -> Unit
@@ -52,7 +53,10 @@ fun RecommendationHistoryScreen(
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(onMenuClick = onMenuClick)
+                AppTopBar(
+                    onMenuClick = onMenuClick,
+                    onNotificationsClick = onNotificationsClick,
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 ActiveProfileChip(profile = activeProfile)
             }

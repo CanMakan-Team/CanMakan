@@ -34,7 +34,10 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextPrimary
 // Top row with the menu button, the app name, and the notification bell.
 // This is reused at the top of both the Scanner and History screens.
 @Composable
-fun AppTopBar(onMenuClick: () -> Unit) {
+fun AppTopBar(
+    onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -57,7 +60,7 @@ fun AppTopBar(onMenuClick: () -> Unit) {
             Text("CanMakan", fontWeight = FontWeight.Bold, color = TextPrimary)
         }
         Box {
-            IconButton(onClick = { }) {
+            IconButton(onClick = onNotificationsClick) {
                 Icon(Icons.Default.Notifications, contentDescription = "Notifications")
             }
             Box(

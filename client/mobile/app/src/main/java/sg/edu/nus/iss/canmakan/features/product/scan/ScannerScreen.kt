@@ -80,6 +80,7 @@ fun ScannerScreen(
     activeProfile: DietaryProfile,
     activeRestrictions: List<String>,
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onVerdictReady: (VerdictDetail) -> Unit,
@@ -122,7 +123,10 @@ fun ScannerScreen(
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(onMenuClick = onMenuClick)
+                AppTopBar(
+                    onMenuClick = onMenuClick,
+                    onNotificationsClick = onNotificationsClick,
+                )
                 ActiveProfileChip(profile = activeProfile)
             }
         },
