@@ -26,7 +26,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -359,7 +358,9 @@ fun CanMakanNavGraph(
                     onBackClick = { navController.popBackStack() },
                     onCancelClick = { navController.popBackStack() },
                     onCreated = {
-                        navController.popBackStack()
+                        navController.navigate(ROUTE_SCANNER) {
+                            popUpTo(ROUTE_SCANNER) { inclusive = true }
+                        }
                         navGraphViewModel.refreshRestrictions()
                     },
                 )

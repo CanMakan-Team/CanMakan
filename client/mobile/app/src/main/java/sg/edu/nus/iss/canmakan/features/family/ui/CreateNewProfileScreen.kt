@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.features.family.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +18,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -25,15 +31,21 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
+import sg.edu.nus.iss.canmakan.features.family.model.RelationshipToAdmin
 import sg.edu.nus.iss.canmakan.features.product.model.ScanHistoryEntry
 import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
@@ -49,6 +61,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.WarningAmber
 import sg.edu.nus.iss.canmakan.shared.util.toScanHistoryDisplayString
 
 /** Creates a dependant dietary profile (no login) via POST /families/me/profiles. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateNewProfileScreen(
     activeProfile: DietaryProfile,
@@ -62,10 +75,19 @@ fun CreateNewProfileScreen(
     viewModel: CreateNewProfileViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     LaunchedEffect(uiState.created) {
         if (uiState.created) {
+            Toast.makeText(context, "New family member created successfully.", Toast.LENGTH_SHORT).show()
+            delay(1500)
             onCreated()
+        }
+    }
+
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -132,14 +154,42 @@ fun CreateNewProfileScreen(
 
             FormLabel(text = "Relationship to Admin", isRequired = true)
             Spacer(modifier = Modifier.height(6.dp))
-            OutlinedTextField(
-                value = uiState.relationship,
-                onValueChange = viewModel::updateRelationship,
-                placeholder = { Text("e.g. Child, Parent, Other") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !uiState.isSubmitting,
-            )
+            var relationshipMenuExpanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = relationshipMenuExpanded,
+                onExpandedChange = { expanded ->
+                    relationshipMenuExpanded = expanded && !uiState.isSubmitting
+                },
+            ) {
+                OutlinedTextField(
+                    value = uiState.relationship?.displayName.orEmpty(),
+                    onValueChange = {},
+                    readOnly = true,
+                    placeholder = { Text("Select relationship") },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = relationshipMenuExpanded)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = !uiState.isSubmitting),
+                    singleLine = true,
+                    enabled = !uiState.isSubmitting,
+                )
+                ExposedDropdownMenu(
+                    expanded = relationshipMenuExpanded,
+                    onDismissRequest = { relationshipMenuExpanded = false },
+                ) {
+                    RelationshipToAdmin.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.displayName) },
+                            onClick = {
+                                viewModel.updateRelationship(option)
+                                relationshipMenuExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
             Text(
