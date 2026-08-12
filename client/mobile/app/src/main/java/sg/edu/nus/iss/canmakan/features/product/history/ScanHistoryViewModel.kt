@@ -7,7 +7,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -16,6 +15,8 @@ import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryRepository
 import sg.edu.nus.iss.canmakan.features.product.history.model.ScanHistoryScreenUiState
+import sg.edu.nus.iss.canmakan.features.product.model.AlternativeProduct
+import sg.edu.nus.iss.canmakan.features.product.recommendation.data.RecommendationHistoryRepository
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -24,6 +25,7 @@ class ScanHistoryViewModel @Inject constructor(
     private val activeProfileManager: ActiveProfileManager,
     private val scanHistoryRepo: ScanHistoryRepository,
     private val authSessionStore: AuthSessionStore,
+    private val recommendationHistoryRepository: RecommendationHistoryRepository,
 ) : ViewModel() {
 
     private data class Context(
@@ -63,7 +65,12 @@ class ScanHistoryViewModel @Inject constructor(
         try {
             val history = scanHistoryRepo.getScanHistoryForProfile(owner.profileId)
             if (!isCurrentOwner(owner)) return
-            _scanHistoryUiState.value = ScanHistoryScreenUiState(scanHistory = history)
+            val alternativesByScanId = loadAlternativesByScanId(owner.profileId)
+            if (!isCurrentOwner(owner)) return
+            _scanHistoryUiState.value = ScanHistoryScreenUiState(
+                scanHistory = history,
+                alternativesByScanId = alternativesByScanId,
+            )
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: Exception) {
@@ -76,7 +83,29 @@ class ScanHistoryViewModel @Inject constructor(
                     "Failed to connect to the server. Please check your network."
                 else -> "Unable to load scan history. Please try again."
             }
-            _scanHistoryUiState.value = ScanHistoryScreenUiState(errorMessage = message)
+            _scanHistoryUiState.value = ScanHistoryScreenUiState(
+                errorMessage = message,
+                alternativesByScanId = emptyMap(),
+            )
+        } finally {
+            if (isCurrentOwner(owner)) {
+                _scanHistoryUiState.value = _scanHistoryUiState.value.copy(isLoading = false)
+            }
+        }
+    }
+
+    private suspend fun loadAlternativesByScanId(profileId: Long): Map<Long, List<AlternativeProduct>> {
+        return try {
+            recommendationHistoryRepository.getRecommendationHistoryForProfile(profileId)
+                .mapNotNull { entry ->
+                    entry.scanId?.let { scanId ->
+                        scanId to entry.toAlternativeProducts()
+                    }
+                }
+                .toMap()
+        } catch (exception: Exception) {
+            Timber.e(exception, "Error loading recommendation history for profile $profileId")
+            emptyMap()
         }
     }
 

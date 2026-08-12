@@ -177,13 +177,27 @@ fun ProductDetailScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            when (selectedTab) {
-                DetailTab.FLAGS -> FlagsAndDetailsTab(flags = flags, profileName = profileName)
-                DetailTab.ALTERNATIVES -> AlternativesTab(
-                    alternatives = alternatives,
-                    profileName = profileName,
-                    errorMessage = alternativesError
-                )
+            Box(modifier = Modifier.weight(1f)) {
+                when (selectedTab) {
+                    DetailTab.FLAGS -> Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        FlagsAndDetailsTab(flags = flags, profileName = profileName)
+                    }
+                    DetailTab.ALTERNATIVES -> Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        AlternativesTab(
+                            alternatives = alternatives,
+                            profileName = profileName,
+                            errorMessage = alternativesError
+                        )
+                    }
+                }
             }
         }
     }

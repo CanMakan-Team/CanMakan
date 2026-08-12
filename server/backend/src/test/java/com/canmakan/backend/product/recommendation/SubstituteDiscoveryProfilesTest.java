@@ -41,6 +41,33 @@ class SubstituteDiscoveryProfilesTest {
     }
 
     @Test
+    void cowMilkCategoriesShareFreshMilksSubstituteProfile() {
+        SubstituteDiscoveryProfile freshMilks = profiles.forSourceCategory("Fresh milks").orElseThrow();
+        List<String> milkCategories = List.of(
+                "Whole milk UHT",
+                "UHT milks",
+                "Whole milks",
+                "Skimmed milks",
+                "Milks",
+                "Pasteurised milks",
+                "Whole pasteurised milks",
+                "Cow milks",
+                "UHT Skimmed milks",
+                "Strawberry milks",
+                "Flavoured milks",
+                "Chocolate milks",
+                "Homogenized milks"
+        );
+
+        for (String category : milkCategories) {
+            assertEquals(
+                    freshMilks,
+                    profiles.forSourceCategory(category).orElseThrow(),
+                    "Expected substitute profile for " + category);
+        }
+    }
+
+    @Test
     void unknownSourceCategoryReturnsEmpty() {
         assertTrue(profiles.forSourceCategory("Breakfast cereals").isEmpty());
         assertTrue(profiles.forSourceCategory(null).isEmpty());

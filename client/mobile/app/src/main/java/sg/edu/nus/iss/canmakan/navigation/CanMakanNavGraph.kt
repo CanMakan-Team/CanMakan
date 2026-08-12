@@ -27,7 +27,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -43,8 +42,6 @@ import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.product.history.ScanHistoryViewModel
 import sg.edu.nus.iss.canmakan.features.product.history.ui.HistoryScreen
-import sg.edu.nus.iss.canmakan.features.product.recommendation.RecommendationHistoryViewModel
-import sg.edu.nus.iss.canmakan.features.product.recommendation.ui.RecommendationHistoryScreen
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.features.product.scan.ScannerScreen
 import sg.edu.nus.iss.canmakan.features.product.verdict.ProductDetailScreen
@@ -57,7 +54,6 @@ import sg.edu.nus.iss.canmakan.features.family.ui.InvitationsScreen
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
-private const val ROUTE_RECOMMENDATION_HISTORY = "recommendation_history"
 private const val ROUTE_PRODUCT_DETAIL = "product_detail"
 private const val ROUTE_CREATE_FAMILY = "create_family"
 private const val ROUTE_CREATE_NEW = "create_new"
@@ -184,10 +180,6 @@ fun CanMakanNavGraph(
                     onHistoryClick = {
                         closeDrawer()
                         navController.navigate(ROUTE_HISTORY)
-                    },
-                    onRecommendationHistoryClick = {
-                        closeDrawer()
-                        navController.navigate(ROUTE_RECOMMENDATION_HISTORY)
                     },
                     onSignOutClick = {
                         closeDrawer()
@@ -319,9 +311,10 @@ fun CanMakanNavGraph(
                     onHistoryClick = { },
                     onSetUpProfile = onRequestSelfProfileSetup,
                     onEntryClick = { entry ->
+                        val alternatives = scanHistoryUiState.alternativesByScanId[entry.id].orEmpty()
                         navGraphViewModel.setPendingVerdict(
                             profileId = entry.profileId,
-                            detail = VerdictDetail.fromHistoryEntry(entry),
+                            detail = VerdictDetail.fromHistoryEntry(entry, alternatives),
                         )
                         navController.navigate(ROUTE_PRODUCT_DETAIL)
                     }
@@ -410,7 +403,9 @@ fun CanMakanNavGraph(
                     onBackClick = { navController.popBackStack() },
                     onCancelClick = { navController.popBackStack() },
                     onCreated = {
-                        navController.popBackStack()
+                        navController.navigate(ROUTE_SCANNER) {
+                            popUpTo(ROUTE_SCANNER) { inclusive = true }
+                        }
                         navGraphViewModel.refreshRestrictions()
                     },
                 )
