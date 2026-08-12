@@ -77,32 +77,36 @@ import java.util.concurrent.Executors
  */
 @Composable
 fun ScannerScreen(
-    activeProfile: DietaryProfile?,
+    activeProfile: DietaryProfile,
     activeRestrictions: List<String>,
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
-    onSetUpProfile: () -> Unit,
     onVerdictReady: (VerdictDetail) -> Unit,
     viewModel: ScannerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null)}
+    var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
+    // Prevents re-firing the same code while it remains in the camera frame.
+    var lastProcessedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
     val processState by viewModel.processState.collectAsState()
     val verdictDetail by viewModel.verdictDetail.collectAsState()
-    val activeProfileId = activeProfile?.id?.takeIf { it > 0 }
-    val hasActiveProfile = activeProfileId != null
+    val latestProcessState by rememberUpdatedState(processState)
+    val latestProfileId by rememberUpdatedState(activeProfile.id)
 
-    LaunchedEffect(activeProfileId) {
-        if (activeProfileId == null) {
-            scannedBarcode = null
-            viewModel.resetState()
-        }
-    }
+    val isProcessing = processState == ScanProcessState.VALIDATING ||
+        processState == ScanProcessState.ASSESSING ||
+        processState == ScanProcessState.FETCHING_ALTERNATIVES
+    val canAcceptNewScan = processState == ScanProcessState.IDLE ||
+        processState == ScanProcessState.INVALID ||
+        processState == ScanProcessState.ERROR
 
     LaunchedEffect(processState, verdictDetail) {
         if (processState == ScanProcessState.SUCCESS && verdictDetail != null) {
             onVerdictReady(verdictDetail!!)
+            scannedBarcode = null
+            lastProcessedBarcode = null
             viewModel.resetState()
         }
     }
@@ -122,8 +126,8 @@ fun ScannerScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted -> hasCameraPermission = granted }
 
-    LaunchedEffect(hasActiveProfile) {
-        if (hasActiveProfile && !hasCameraPermission) {
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) {
             permissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
@@ -132,8 +136,11 @@ fun ScannerScreen(
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(onMenuClick = onMenuClick)
-                activeProfile?.let { ActiveProfileChip(profile = it) }
+                AppTopBar(
+                    onMenuClick = onMenuClick,
+                    onNotificationsClick = onNotificationsClick,
+                )
+                ActiveProfileChip(profile = activeProfile)
             }
         },
         bottomBar = {
@@ -157,11 +164,7 @@ fun ScannerScreen(
                 style = MaterialTheme.typography.headlineSmall
             )
             Text(
-                text = if (hasActiveProfile) {
-                    stringResource(id = R.string.scanner_instructions)
-                } else {
-                    "Set up a dietary profile to receive personalised scan results."
-                },
+                text = stringResource(id = R.string.scanner_instructions),
                 color = TextSecondary,
                 style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
@@ -173,29 +176,22 @@ fun ScannerScreen(
                     .clip(RoundedCornerShape(20.dp))
                     .background(DepressedBlue)
             ) {
-                if (!hasActiveProfile) {
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text(
-                            text = "Personalised scanning needs a dietary profile.",
-                            color = MutedBlue,
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        Button(onClick = onSetUpProfile) {
-                            Text("Set up profile")
-                        }
-                    }
-                } else if (hasCameraPermission) {
+                if (hasCameraPermission) {
                     CameraPreview(
                         onBarcodeScanned = { barcode ->
-                            if (scannedBarcode != barcode) {
-                                scannedBarcode = barcode
-                            }
+                            val state = latestProcessState
+                            val acceptScan = state == ScanProcessState.IDLE ||
+                                state == ScanProcessState.INVALID ||
+                                state == ScanProcessState.ERROR
+                            if (!acceptScan) return@CameraPreview
+                            if (barcode == lastProcessedBarcode) return@CameraPreview
+
+                            lastProcessedBarcode = barcode
+                            scannedBarcode = barcode
+                            viewModel.processBarcode(
+                                barcode = barcode,
+                                profileId = latestProfileId,
+                            )
                         }
                     )
                     ValidationOverlay(viewModel = viewModel)
@@ -209,24 +205,25 @@ fun ScannerScreen(
             }
             Spacer(modifier = Modifier.height(20.dp))
 
-            //! Visual Indicator of Barcode Scanning & Parsing to Numeric String Value.
+            // Status / retry control. Successful reads auto-process; tap only retries after failure.
+            val statusLabel = when {
+                isProcessing -> stringResource(id = R.string.scanner_checking)
+                processState == ScanProcessState.INVALID ||
+                    processState == ScanProcessState.ERROR ->
+                    stringResource(id = R.string.scanner_try_again)
+                else -> stringResource(id = R.string.scanner_ready)
+            }
             Button(
                 onClick = {
-                    val profileId = activeProfileId
-                    if (profileId != null) {
-                        scannedBarcode?.let { barcode ->
-                            viewModel.processBarcode(
-                                barcode = barcode,
-                                profileId = profileId,
-                            )
-                        } ?: onScanClick()
+                    scannedBarcode?.let { barcode ->
+                        viewModel.processBarcode(
+                            barcode = barcode,
+                            profileId = activeProfile.id,
+                        )
                     }
                 },
-                enabled = hasActiveProfile && (
-                    processState == ScanProcessState.IDLE ||
-                        processState == ScanProcessState.INVALID ||
-                        processState == ScanProcessState.ERROR
-                    ),
+                enabled = (processState == ScanProcessState.INVALID ||
+                    processState == ScanProcessState.ERROR) && scannedBarcode != null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -234,16 +231,20 @@ fun ScannerScreen(
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Text(
-                    text = if (hasActiveProfile) {
-                        scannedBarcode?.let { "Scanned: $it (Tap to Verify)" } ?: "Scan a Barcode"
-                    } else {
-                        "Dietary profile required"
-                    },
+                    text = statusLabel,
                     fontWeight = FontWeight.Bold
                 )
             }
+            scannedBarcode?.takeIf { canAcceptNewScan || isProcessing }?.let { barcode ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = barcode,
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
+            }
             Spacer(modifier = Modifier.height(20.dp))
-            //! Visual Indicator of Barcode Scanning & Parsing to Numeric String Value. May be Removed in the Future.
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -252,31 +253,18 @@ fun ScannerScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    if (activeProfile == null) {
-                        Text(
-                            "YOUR DIETARY PROFILE",
-                            color = TextSecondary,
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            "No profile is active. You can still explore the app and set one up later.",
-                            color = TextSecondary,
-                        )
-                    } else {
-                        Text(
-                            "${stringResource(id = R.string.dietary_profile_restrictions).uppercase()} - ${activeProfile.profileName.uppercase()}",
-                            color = TextSecondary,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        FlowRow (
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            activeRestrictions.forEach { restriction ->
-                                RestrictPill(text = restriction)
-                            }
+                    Text(
+                        "${stringResource(id = R.string.dietary_profile_restrictions).uppercase()} - ${activeProfile.profileName.uppercase()}",
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FlowRow (
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        activeRestrictions.forEach { restriction ->
+                            RestrictPill(text = restriction)
                         }
                     }
                 }
