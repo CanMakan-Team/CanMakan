@@ -27,7 +27,9 @@ Failure keeps setup retryable. Every async completion rechecks the initiating
 authenticated account before saving, switching, clearing, or continuing.
 
 If setup was previously deferred and no active profile exists, the drawer's
-dietary action reopens this authenticated flow and asks for a profile name.
+dietary action and the Scanner/History setup actions reopen this one authenticated
+flow and ask for a profile name. Deferral leaves the normal authenticated shell
+available; it does not create a placeholder or empty backend profile.
 Restriction reads and writes that require a profile reject nonpositive ids.
 The restriction editor is scoped to the exact `(authenticated account/session,
 active profileId)` pair. Logout, account switch, profile switch, and an unset

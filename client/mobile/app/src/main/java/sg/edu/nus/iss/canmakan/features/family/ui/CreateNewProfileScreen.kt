@@ -51,7 +51,7 @@ import sg.edu.nus.iss.canmakan.shared.util.toScanHistoryDisplayString
 /** Creates a dependant dietary profile (no login) via POST /families/me/profiles. */
 @Composable
 fun CreateNewProfileScreen(
-    activeProfile: DietaryProfile,
+    activeProfile: DietaryProfile?,
     onMenuClick: () -> Unit,
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
@@ -72,7 +72,7 @@ fun CreateNewProfileScreen(
         topBar = {
             Column {
                 AppTopBar(onMenuClick = onMenuClick)
-                ActiveProfileChip(profile = activeProfile)
+                activeProfile?.let { ActiveProfileChip(profile = it) }
             }
         },
         bottomBar = {

@@ -75,6 +75,11 @@ creation results are account-owned. Account changes clear their cached UI state
 immediately, and stale callbacks cannot update the new account or invoke success
 navigation.
 
+The drawer represents a missing active profile explicitly instead of displaying
+an ID-0 `Personal` profile. Family creation and Family Invitations remain visible
+to an authenticated profile-less user because those backend flows can bootstrap
+or attach the caller's SELF profile.
+
 ## Manage members (UC12)
 
 Full roster admin is **web-primary**; mobile manage stays limited to invite (UC9)

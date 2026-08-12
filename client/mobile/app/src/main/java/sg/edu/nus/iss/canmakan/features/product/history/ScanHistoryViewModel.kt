@@ -49,11 +49,7 @@ class ScanHistoryViewModel @Inject constructor(
                     val owner = context.owner
                     if (owner == null) {
                         _scanHistoryUiState.value = ScanHistoryScreenUiState(
-                            errorMessage = if (context.accountKey != null) {
-                                "Complete profile setup before viewing scan history."
-                            } else {
-                                null
-                            },
+                            requiresProfileSetup = context.accountKey != null,
                         )
                     } else {
                         loadJob = viewModelScope.launch { loadScanHistoryForProfile(owner) }

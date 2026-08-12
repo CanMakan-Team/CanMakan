@@ -173,6 +173,29 @@ class ScannerViewModelTest {
     }
 
     @Test
+    fun accountSwitchToProfilelessClearsOldVerdictAndCannotStartAnotherRequest() = runTest {
+        viewModel.processBarcode("3017620422003", profileId = 1L)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(ScanProcessState.SUCCESS, viewModel.processState.value)
+        val validationCalls = api.validationCalls
+        val assessmentCalls = api.assessmentCalls
+
+        sessionStore.signInTestUser(22L, "profileless@example.com")
+        activeProfileManager.reset()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(ScanProcessState.IDLE, viewModel.processState.value)
+        assertNull(viewModel.verdictDetail.value)
+
+        viewModel.processBarcode("3017620422003", profileId = 0L)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(validationCalls, api.validationCalls)
+        assertEquals(assessmentCalls, api.assessmentCalls)
+        assertNull(viewModel.verdictDetail.value)
+    }
+
+    @Test
     fun accountSwitchDuringValidationCancelsScanAndNeverAssessesOldProfile() = runTest {
         api.validationGate = CompletableDeferred()
         api.ignoreValidationCancellation = true
@@ -200,11 +223,14 @@ class ScannerViewModelTest {
             Response.success(AssessmentResponse("SAFE", "ok"))
         var validateCalled = false
         var assessCalled = false
+        var validationCalls = 0
+        var assessmentCalls = 0
         var validationGate: CompletableDeferred<Unit>? = null
         var ignoreValidationCancellation = false
 
         override suspend fun validateBarcode(request: ScanRequest): Response<ValidationResponse> {
             validateCalled = true
+            validationCalls++
             if (ignoreValidationCancellation) {
                 withContext(NonCancellable) { validationGate?.await() }
             } else {
@@ -217,6 +243,7 @@ class ScannerViewModelTest {
             request: AssessmentRequest
         ): Response<AssessmentResponse> {
             assessCalled = true
+            assessmentCalls++
             return assessment
         }
     }

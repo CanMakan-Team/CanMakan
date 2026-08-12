@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +15,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthAccountKey
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
@@ -146,7 +144,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private fun clearAccountScopedState(hasSession: Boolean) {
         _hasUserSession.value = hasSession
         _activeRestrictions.value = emptyList()
-        _profiles.value = listOf(personalPlaceholder())
+        _profiles.value = emptyList()
         _hasFamily.value = false
         _familyName.value = null
         _showManageFamilyActions.value = false
@@ -194,7 +192,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
                     activeProfileManager.selection.value
                         ?.takeIf { it.accountKey == accountKey }
                         ?.let { activeProfileManager.reset() }
-                    _profiles.value = listOf(personalPlaceholder())
+                    _profiles.value = emptyList()
                     return
                 }
 
@@ -230,7 +228,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
                 _hasFamily.value = false
                 _familyName.value = null
                 _showManageFamilyActions.value = false
-                _profiles.value = listOf(personalPlaceholder())
+                _profiles.value = emptyList()
             } finally {
                 if (isCurrentAccount(accountKey)) _isLoading.value = false
             }
@@ -245,11 +243,9 @@ class CanMakanNavGraphViewModel @Inject constructor(
                 dietaryRestrictionRepo.getDietaryRestrictionsForProfile(owner.profileId)
             if (!isCurrentOwner(owner)) return
 
-            val restrictionNames = withContext(Dispatchers.Default) {
-                allRestrictions
-                    .filter { profileSelections.containsKey(it.id) }
-                    .map { it.displayName }
-            }
+            val restrictionNames = allRestrictions
+                .filter { profileSelections.containsKey(it.id) }
+                .map { it.displayName }
             if (!isCurrentOwner(owner)) return
             _activeRestrictions.value = restrictionNames
         } catch (exception: CancellationException) {
@@ -305,15 +301,6 @@ class CanMakanNavGraphViewModel @Inject constructor(
             isPrimary = active.isPrimary ?: false,
         )
     }
-
-    private fun personalPlaceholder() = DietaryProfile(
-        id = ActiveProfileManager.UNSET_PROFILE_ID,
-        familyId = 0L,
-        profileName = "Personal",
-        relationship = "Self",
-        initials = "P",
-        isPrimary = true,
-    )
 
     fun switchProfile(profileId: Long) {
         if (profileId <= 0) {

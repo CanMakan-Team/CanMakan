@@ -14,7 +14,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -52,7 +51,6 @@ import sg.edu.nus.iss.canmakan.features.family.ui.CreateNewProfileScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryViewModel
 import sg.edu.nus.iss.canmakan.features.family.ui.InvitationsScreen
-import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
@@ -104,21 +102,15 @@ fun CanMakanNavGraph(
         navGraphViewModel.refreshRestrictions()
     }
 
-    val activeProfile = profiles.firstOrNull { it.id == currentProfileId }
+    val activeProfile = currentProfileId
+        .takeIf { it > ActiveProfileManager.UNSET_PROFILE_ID }
+        ?.let { profileId -> profiles.firstOrNull { it.id == profileId } }
 
-    // If activeProfile is null, show a loading screen while profiles are being fetched
-    if (activeProfile == null) {
+    // Account/profile context is loaded before exposing profile-dependent actions. Once loading
+    // completes, a missing profile is a valid shell state rather than a navigation gate.
+    if (isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            if (isLoading) {
-                CircularProgressIndicator()
-            } else if (error != null) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = error!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
-                    Button(onClick = { navGraphViewModel.refreshRestrictions() }) {
-                        Text("Retry")
-                    }
-                }
-            }
+            CircularProgressIndicator()
         }
         return
     }
@@ -152,7 +144,7 @@ fun CanMakanNavGraph(
                     },
                     onEditDietaryClick = {
                         closeDrawer()
-                        if (currentProfileId <= ActiveProfileManager.UNSET_PROFILE_ID) {
+                        if (activeProfile == null) {
                             onRequestSelfProfileSetup()
                         } else {
                             showEditDietarySheet = true
@@ -209,6 +201,18 @@ fun CanMakanNavGraph(
                     }
                 }
             }
+            error?.let { message ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text(text = message, color = MaterialTheme.colorScheme.error)
+                    Button(onClick = navGraphViewModel::refreshRestrictions) {
+                        Text("Retry profile loading")
+                    }
+                }
+            }
             switchProfileError?.let { message ->
                 Text(
                     text = message,
@@ -219,34 +223,34 @@ fun CanMakanNavGraph(
                 )
             }
             // NavHost is used to switch between the three screens
-            NavHost(navController = navController, startDestination = ROUTE_SCANNER) {
+            NavHost(
+                navController = navController,
+                startDestination = ROUTE_SCANNER,
+                modifier = Modifier.weight(1f),
+            ) {
             composable(ROUTE_SCANNER) {
-                if (currentProfileId <= ActiveProfileManager.UNSET_PROFILE_ID) {
-                    ProfileRequiredScreen(
-                        onMenuClick = { openDrawer() },
-                        onSetUpProfile = onRequestSelfProfileSetup,
-                    )
-                } else {
-                    ScannerScreen(
-                        activeProfile = activeProfile,
-                        activeRestrictions = activeRestrictions,
+                ScannerScreen(
+                    activeProfile = activeProfile,
+                    activeRestrictions = activeRestrictions,
 
-                        // Open the drawer when the menu button is clicked
-                        onMenuClick = { openDrawer() },
+                    // Open the drawer when the menu button is clicked
+                    onMenuClick = { openDrawer() },
 
-                        // Navigate to the history screen when the history button is clicked
-                        onScanClick = { navController.navigate(ROUTE_SCANNER) },
+                    // Navigate to the history screen when the history button is clicked
+                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
 
-                        // Navigate to the history screen when the history button is clicked
-                        onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    // Navigate to the history screen when the history button is clicked
+                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onSetUpProfile = onRequestSelfProfileSetup,
 
-                        // Navigate to the product detail screen when a verdict is ready
-                        onVerdictReady = { detail ->
-                            navGraphViewModel.setPendingVerdict(currentProfileId, detail)
+                    // Navigate to the product detail screen when a verdict is ready
+                    onVerdictReady = { detail ->
+                        activeProfile?.id?.let { profileId ->
+                            navGraphViewModel.setPendingVerdict(profileId, detail)
                             navController.navigate(ROUTE_PRODUCT_DETAIL)
                         }
-                    )
-                }
+                    },
+                )
             }
             /**
              * (UC6) Navigate to the Family Allergy Matrix Screen
@@ -269,37 +273,32 @@ fun CanMakanNavGraph(
                 )
             }
             composable(ROUTE_HISTORY) {
-                if (currentProfileId <= ActiveProfileManager.UNSET_PROFILE_ID) {
-                    ProfileRequiredScreen(
-                        onMenuClick = { openDrawer() },
-                        onSetUpProfile = onRequestSelfProfileSetup,
-                    )
-                } else {
-                    val scanHistoryViewModel: ScanHistoryViewModel = hiltViewModel()
-                    val scanHistoryUiState by scanHistoryViewModel.scanHistoryUiState.collectAsStateWithLifecycle()
+                val scanHistoryViewModel: ScanHistoryViewModel = hiltViewModel()
+                val scanHistoryUiState by scanHistoryViewModel.scanHistoryUiState.collectAsStateWithLifecycle()
 
-                    HistoryScreen(
-                        activeProfile = activeProfile,
-                        entries = scanHistoryUiState.scanHistory,
-                        isLoading = scanHistoryUiState.isLoading,
-                        errorMessage = scanHistoryUiState.errorMessage,
-                        onMenuClick = { openDrawer() },
-                        onScanClick = { navController.navigate(ROUTE_SCANNER) },
-                        onHistoryClick = { },
-                        onEntryClick = { entry ->
-                            navGraphViewModel.setPendingVerdict(
-                                profileId = entry.profileId,
-                                detail = VerdictDetail.fromHistoryEntry(entry),
-                            )
-                            navController.navigate(ROUTE_PRODUCT_DETAIL)
-                        }
-                    )
-                }
+                HistoryScreen(
+                    activeProfile = activeProfile,
+                    entries = scanHistoryUiState.scanHistory,
+                    isLoading = scanHistoryUiState.isLoading,
+                    requiresProfileSetup = scanHistoryUiState.requiresProfileSetup,
+                    errorMessage = scanHistoryUiState.errorMessage,
+                    onMenuClick = { openDrawer() },
+                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
+                    onHistoryClick = { },
+                    onSetUpProfile = onRequestSelfProfileSetup,
+                    onEntryClick = { entry ->
+                        navGraphViewModel.setPendingVerdict(
+                            profileId = entry.profileId,
+                            detail = VerdictDetail.fromHistoryEntry(entry),
+                        )
+                        navController.navigate(ROUTE_PRODUCT_DETAIL)
+                    }
+                )
             }
             composable(ROUTE_PRODUCT_DETAIL) {
                 val detail = pendingVerdict
                 // If there is no pending verdict, navigate back to the scanner screen
-                if (detail == null) {
+                if (detail == null || activeProfile == null) {
                     LaunchedEffect(Unit) {
                         navController.popBackStack()
                     }
@@ -386,7 +385,7 @@ fun CanMakanNavGraph(
         }
 
         // ModalBottomSheet is used to open and close the edit dietary requirements sheet
-        if (showEditDietarySheet) {
+        if (showEditDietarySheet && activeProfile != null) {
             ModalBottomSheet(
                 onDismissRequest = { showEditDietarySheet = false },
                 sheetState = editDietarySheetState) {
@@ -399,36 +398,6 @@ fun CanMakanNavGraph(
                         navGraphViewModel.refreshRestrictions()
                     }
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProfileRequiredScreen(
-    onMenuClick: () -> Unit,
-    onSetUpProfile: () -> Unit,
-) {
-    Scaffold(topBar = { AppTopBar(onMenuClick = onMenuClick) }) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(24.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "Complete your dietary profile",
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-                Text(
-                    text = "Set up a SELF profile before scanning products or viewing scan history.",
-                    modifier = Modifier.padding(vertical = 16.dp),
-                )
-                Button(onClick = onSetUpProfile) {
-                    Text("Set up profile")
-                }
             }
         }
     }

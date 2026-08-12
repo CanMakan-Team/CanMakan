@@ -134,7 +134,25 @@ class ScanHistoryViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertNull(repository.lastRequestedProfileId)
-        assertTrue(viewModel.scanHistoryUiState.value.errorMessage?.contains("profile setup") == true)
+        assertTrue(viewModel.scanHistoryUiState.value.requiresProfileSetup)
+        assertNull(viewModel.scanHistoryUiState.value.errorMessage)
+    }
+
+    @Test
+    fun accountSwitchToProfilelessClearsOldHistoryWithoutAnotherRequest() = runTest {
+        val oldEntry = sampleEntry(profileId = 2L)
+        repository.entriesByProfile = mapOf(2L to listOf(oldEntry))
+        activeProfileManager.switchProfile(requireNotNull(sessionStore.accountKey.value), 2L)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(listOf(oldEntry), viewModel.scanHistoryUiState.value.scanHistory)
+
+        sessionStore.signInTestUser(22L, "profileless@example.com")
+        activeProfileManager.reset()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.scanHistoryUiState.value.requiresProfileSetup)
+        assertTrue(viewModel.scanHistoryUiState.value.scanHistory.isEmpty())
+        assertEquals(2L, repository.lastRequestedProfileId)
     }
 
     @Test

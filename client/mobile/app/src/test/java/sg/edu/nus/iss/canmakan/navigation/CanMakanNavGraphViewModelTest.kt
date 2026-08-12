@@ -81,8 +81,7 @@ class CanMakanNavGraphViewModelTest {
         assertFalse(viewModel.hasFamily.value)
         assertNull(viewModel.familyName.value)
         assertEquals(0, familyApi.meCalls)
-        assertEquals(1, viewModel.profiles.value.size)
-        assertEquals("Personal", viewModel.profiles.value.single().profileName)
+        assertTrue(viewModel.profiles.value.isEmpty())
     }
 
     @Test
@@ -113,6 +112,29 @@ class CanMakanNavGraphViewModelTest {
         assertEquals(42L, viewModel.profiles.value.single().id)
         assertEquals("Wong", viewModel.profiles.value.single().profileName)
         assertEquals(42L, activeProfileManager.currentProfileId.value)
+    }
+
+    @Test
+    fun authenticatedUserWithoutProfileKeepsExplicitProfilelessShellState() {
+        familyApi.meResponse = Response.error(
+            404,
+            "{}".toResponseBody("application/json".toMediaType()),
+        )
+        familyApi.activeProfileResponse = Response.error(
+            404,
+            "{}".toResponseBody("application/json".toMediaType()),
+        )
+
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.hasUserSession.value)
+        assertFalse(viewModel.hasFamily.value)
+        assertTrue(viewModel.profiles.value.isEmpty())
+        assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, viewModel.currentProfileId.value)
+        assertNull(activeProfileManager.selection.value)
+        assertFalse(viewModel.isLoading.value)
+        assertNull(viewModel.error.value)
     }
 
     @Test
@@ -156,7 +178,7 @@ class CanMakanNavGraphViewModelTest {
         assertFalse(viewModel.hasFamily.value)
         assertNull(viewModel.familyName.value)
         assertEquals(meCallsAfterLogin, familyApi.meCalls)
-        assertEquals("Personal", viewModel.profiles.value.single().profileName)
+        assertTrue(viewModel.profiles.value.isEmpty())
         assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
     }
 
@@ -324,7 +346,7 @@ class CanMakanNavGraphViewModelTest {
         testDispatcher.scheduler.runCurrent()
 
         assertFalse(viewModel.hasFamily.value)
-        assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, viewModel.profiles.value.single().id)
+        assertTrue(viewModel.profiles.value.isEmpty())
         assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
 
         familyApi.meGate?.complete(Unit)
@@ -389,6 +411,95 @@ class CanMakanNavGraphViewModelTest {
             activeProfileManager.selection.value,
         )
         assertEquals(99L, activeProfileManager.currentProfileId.value)
+    }
+
+    @Test
+    fun validProfileAccountToProfilelessAccountNeverExposesOldProfile() {
+        familyApi.meResponse = Response.error(
+            404,
+            "{}".toResponseBody("application/json".toMediaType()),
+        )
+        familyApi.activeProfileResponse = Response.success(activeResponse(77L, "Old Account"))
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(77L, activeProfileManager.currentProfileId.value)
+
+        familyApi.activeProfileResponse = Response.error(
+            404,
+            "{}".toResponseBody("application/json".toMediaType()),
+        )
+        assertTrue(sessionStore.saveSession(sessionFor(22L, "profileless@example.com")))
+        testDispatcher.scheduler.runCurrent()
+
+        assertTrue(viewModel.profiles.value.isEmpty())
+        assertNull(activeProfileManager.selection.value)
+        assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, viewModel.currentProfileId.value)
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.profiles.value.isEmpty())
+        assertNull(activeProfileManager.selection.value)
+        assertFalse(viewModel.isLoading.value)
+    }
+
+    @Test
+    fun restoredAuthenticatedSessionWithoutProfileDoesNotInventOne() {
+        val persistence = FakeAuthSessionPersistence()
+        val persistedStore = AuthSessionStore(persistence, Gson())
+        assertTrue(persistedStore.saveSession(validSession()))
+
+        val restoredStore = AuthSessionStore(persistence, Gson())
+        val restoredManager = ActiveProfileManager()
+        val restoredApi = RecordingFamilyProfileApiService().apply {
+            meResponse = Response.error(
+                404,
+                "{}".toResponseBody("application/json".toMediaType()),
+            )
+            activeProfileResponse = Response.error(
+                404,
+                "{}".toResponseBody("application/json".toMediaType()),
+            )
+        }
+        val restoredViewModel = CanMakanNavGraphViewModel(
+            activeProfileManager = restoredManager,
+            dietaryRestrictionRepo = FakeDietaryRestrictionRepository(),
+            familyProfileRepository = FamilyProfileRepository(restoredApi),
+            authSessionStore = restoredStore,
+        )
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(14L, restoredStore.accountKey.value?.userId)
+        assertTrue(restoredViewModel.hasUserSession.value)
+        assertTrue(restoredViewModel.profiles.value.isEmpty())
+        assertNull(restoredManager.selection.value)
+        assertFalse(restoredViewModel.isLoading.value)
+    }
+
+    @Test
+    fun laterProfileSetupMovesProfilelessShellToValidProfileWithoutLoop() {
+        familyApi.meResponse = Response.error(
+            404,
+            "{}".toResponseBody("application/json".toMediaType()),
+        )
+        familyApi.activeProfileResponse = Response.error(
+            404,
+            "{}".toResponseBody("application/json".toMediaType()),
+        )
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.profiles.value.isEmpty())
+
+        val accountKey = requireNotNull(sessionStore.accountKey.value)
+        activeProfileManager.switchProfile(accountKey, 42L)
+        familyApi.activeProfileResponse = Response.success(activeResponse(42L, "Person"))
+        viewModel.refreshRestrictions()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(42L, viewModel.currentProfileId.value)
+        assertEquals(42L, viewModel.profiles.value.single().id)
+        assertEquals("Person", viewModel.profiles.value.single().profileName)
+        assertNull(viewModel.error.value)
     }
 
     @Test

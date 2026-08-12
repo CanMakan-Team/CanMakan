@@ -56,7 +56,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 fun ProfileDrawerContent(
     currentRoute: String?,
     profiles: List<DietaryProfile>,
-    activeProfile: DietaryProfile,
+    activeProfile: DietaryProfile?,
     hasFamily: Boolean,
     hasUserSession: Boolean,
     noFamilyMessage: String?,
@@ -108,23 +108,51 @@ fun ProfileDrawerContent(
         Text("ACTIVE PROFILE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
         Spacer(modifier = Modifier.height(8.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(10.dp)) {
-            InitialsAvatar(initials = activeProfile.initials, background = PrimaryGreen)
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(activeProfile.profileName, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    if(activeProfile.isPrimary) AdminTag()
+        if (activeProfile == null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(10.dp),
+            ) {
+                InitialsAvatar(initials = "?", background = PrimaryGreen)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        "Dietary profile not set up",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        "Set it up when you are ready",
+                        color = DrawerTextMuted,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
                 }
-                Text(activeProfile.relationship, color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
+            }
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(10.dp),
+            ) {
+                InitialsAvatar(initials = activeProfile.initials, background = PrimaryGreen)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(activeProfile.profileName, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        if(activeProfile.isPrimary) AdminTag()
+                    }
+                    Text(activeProfile.relationship, color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
         OutlinedButton(onClick = onEditDietaryClick, modifier = Modifier.fillMaxWidth()) {
-            Text("Edit dietary restrictions", color = DrawerTextMuted)
+            Text(
+                if (activeProfile == null) "Set up dietary profile" else "Edit dietary restrictions",
+                color = DrawerTextMuted,
+            )
         }
 
         if (!hasFamily) {
@@ -161,7 +189,11 @@ fun ProfileDrawerContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("SWITCH PROFILE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+            Text(
+                "SWITCH PROFILE",
+                color = DrawerTextMuted,
+                style = MaterialTheme.typography.titleSmall,
+            )
             if (isSwitchingProfile) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
@@ -172,8 +204,17 @@ fun ProfileDrawerContent(
         }
         Spacer(modifier = Modifier.height(8.dp))
 
-        profiles.forEach { profile ->
-            val isActive = profile.id == activeProfile.id
+        val selectableProfiles = profiles.filter { it.id > ActiveProfileManager.UNSET_PROFILE_ID }
+        if (selectableProfiles.isEmpty()) {
+            Text(
+                "No dietary profiles yet.",
+                color = DrawerTextMuted,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(10.dp),
+            )
+        }
+        selectableProfiles.forEach { profile ->
+            val isActive = profile.id == activeProfile?.id
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier

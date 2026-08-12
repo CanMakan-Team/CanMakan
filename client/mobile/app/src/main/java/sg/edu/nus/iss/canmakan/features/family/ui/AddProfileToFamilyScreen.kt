@@ -38,7 +38,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
 
 @Composable
 fun AddProfileToFamilyScreen(
-    activeProfile: DietaryProfile,
+    activeProfile: DietaryProfile?,
     activeRestrictions: List<String> = emptyList(),
     onMenuClick: () -> Unit,
     onScanClick: () -> Unit,
@@ -59,7 +59,7 @@ fun AddProfileToFamilyScreen(
         topBar = {
             Column {
                 AppTopBar(onMenuClick = onMenuClick)
-                ActiveProfileChip(profile = activeProfile)
+                activeProfile?.let { ActiveProfileChip(profile = it) }
             }
         },
         bottomBar = {

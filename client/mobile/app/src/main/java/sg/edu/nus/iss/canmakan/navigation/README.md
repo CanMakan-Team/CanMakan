@@ -33,11 +33,13 @@ hard account boundaries. It clears family/profile/drawer state immediately,
 cancels old work, and applies remote results only when the initiating account
 and (where applicable) the account-owned active profile are still current.
 
-A USER may temporarily have no profile. Scanner and history routes then show a
-profile-setup CTA instead of creating their profile-dependent ViewModels; the
-scanner, history, and restriction layers also reject nonpositive ids. Family
-creation and invitation routes remain available because they can create or
-attach the caller's SELF profile.
+A USER may temporarily have no profile. The authenticated shell, drawer, Scanner,
+History, family creation, and invitation routes remain available. Scanner and
+History render their normal page chrome with in-context profile-setup actions;
+their ViewModels and repositories still reject or avoid nonpositive IDs. The
+drawer exposes the same authenticated setup flow and never fabricates an ID-0
+profile. Family creation and invitation remain available because they can create
+or attach the caller's SELF profile.
 
 ## Does not contain
 - Feature screens or ViewModels
