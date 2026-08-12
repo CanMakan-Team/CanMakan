@@ -3,27 +3,36 @@ package sg.edu.nus.iss.canmakan.navigation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthAccountKey
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
-import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
 import sg.edu.nus.iss.canmakan.features.family.data.ActiveProfileResponse
+import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
-import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import timber.log.Timber
 import javax.inject.Inject
 
 /**
- * ViewModel for CanMakanNavGraph — active profile, family membership via /families/me,
- * and drawer-facing family state. Session identity comes from [AuthSessionStore] (UC19).
+ * Activity-owned state for the authenticated navigation shell.
+ *
+ * Every remote result is tied to the authenticated account that initiated it. Profile-specific
+ * results are additionally tied to [ActiveProfileManager.Selection]. This ViewModel may outlive
+ * an authenticated Compose subtree, so account transitions must invalidate its state explicitly.
  */
 @HiltViewModel
 class CanMakanNavGraphViewModel @Inject constructor(
@@ -31,7 +40,6 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val dietaryRestrictionRepo: DietaryRestrictionRepository,
     private val familyProfileRepository: FamilyProfileRepository,
     private val authSessionStore: AuthSessionStore,
-    private val pendingInvitationStore: PendingInvitationStore,
 ) : ViewModel() {
 
     val currentProfileId: StateFlow<Long> = activeProfileManager.currentProfileId
@@ -69,163 +77,198 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val _showManageFamilyActions = MutableStateFlow(false)
     val showManageFamilyActions: StateFlow<Boolean> = _showManageFamilyActions.asStateFlow()
 
-    private val _inviteClaimError = MutableStateFlow<String?>(null)
-    val inviteClaimError: StateFlow<String?> = _inviteClaimError.asStateFlow()
-
     private val _switchProfileError = MutableStateFlow<String?>(null)
     val switchProfileError: StateFlow<String?> = _switchProfileError.asStateFlow()
 
     private val _isSwitchingProfile = MutableStateFlow(false)
     val isSwitchingProfile: StateFlow<Boolean> = _isSwitchingProfile.asStateFlow()
 
+    private val reloadMutex = Mutex()
+    private var observedAccount = false
+    private var currentAccountKey: AuthAccountKey? = null
+    private var switchJob: Job? = null
+    private var createFamilyJob: Job? = null
+    private var refreshJob: Job? = null
+    private var accountReloadJob: Job? = null
+    private var restrictionJob: Job? = null
+    private var switchGeneration = 0L
+    private var createFamilyGeneration = 0L
+
     init {
         viewModelScope.launch {
-            authSessionStore.authenticatedUser.collect { user ->
-                _hasUserSession.value = user != null
-                if (user != null) {
-                    claimPendingInvitationIfNeeded()
-                }
-                reloadFamilyContext()
-            }
+            authSessionStore.accountKey
+                .collect(::onAuthenticatedAccountChanged)
         }
         viewModelScope.launch {
-            pendingInvitationStore.token.collect { token ->
-                if (token != null && authSessionStore.authenticatedUser.value != null) {
-                    claimPendingInvitationIfNeeded()
-                    reloadFamilyContext()
+            combine(
+                authSessionStore.accountKey,
+                activeProfileManager.selection,
+            ) { accountKey, selection ->
+                selection?.takeIf { accountKey == it.accountKey }
+            }
+                .distinctUntilChanged()
+                .collect { owner ->
+                    restrictionJob?.cancel()
+                    _activeRestrictions.value = emptyList()
+                    if (owner != null) {
+                        restrictionJob = viewModelScope.launch { loadRestrictions(owner) }
+                    }
                 }
-            }
-        }
-        viewModelScope.launch {
-            currentProfileId.collect { profileId ->
-                if (authSessionStore.authenticatedUser.value == null) return@collect
-                if (profileId == ActiveProfileManager.UNSET_PROFILE_ID) return@collect
-                loadRestrictions(profileId)
-            }
         }
     }
 
-    private suspend fun claimPendingInvitationIfNeeded() {
-        val token = pendingInvitationStore.peek() ?: return
-        try {
-            familyProfileRepository.claimInvitation(token)
-            pendingInvitationStore.clear()
-            _inviteClaimError.value = null
-        } catch (e: CreateFamilyException) {
-            Timber.w(e, "Invite claim failed")
-            _inviteClaimError.value = e.message
-            pendingInvitationStore.clear()
-        } catch (e: Exception) {
-            Timber.w(e, "Invite claim failed")
-            _inviteClaimError.value =
-                "Could not accept the family invitation. You can try again from the invite link."
-            pendingInvitationStore.clear()
+    private fun onAuthenticatedAccountChanged(accountKey: AuthAccountKey?) {
+        val accountChanged = observedAccount && currentAccountKey != accountKey
+        observedAccount = true
+        currentAccountKey = accountKey
+
+        if (accountChanged || activeProfileManager.selection.value?.accountKey != accountKey) {
+            activeProfileManager.reset()
+        }
+        switchGeneration++
+        createFamilyGeneration++
+        switchJob?.cancel()
+        createFamilyJob?.cancel()
+        refreshJob?.cancel()
+        accountReloadJob?.cancel()
+        restrictionJob?.cancel()
+        clearAccountScopedState(hasSession = accountKey != null)
+
+        if (accountKey != null) {
+            accountReloadJob = viewModelScope.launch { reloadFamilyContext(accountKey) }
+        } else {
+            _isLoading.value = false
         }
     }
 
-    fun clearInviteClaimError() {
-        _inviteClaimError.value = null
+    private fun clearAccountScopedState(hasSession: Boolean) {
+        _hasUserSession.value = hasSession
+        _activeRestrictions.value = emptyList()
+        _profiles.value = emptyList()
+        _hasFamily.value = false
+        _familyName.value = null
+        _showManageFamilyActions.value = false
+        _pendingVerdict.value = null
+        _error.value = null
+        _createFamilyError.value = null
+        _switchProfileError.value = null
+        _isCreatingFamily.value = false
+        _isSwitchingProfile.value = false
+        _isLoading.value = hasSession
     }
 
     fun clearSwitchProfileError() {
         _switchProfileError.value = null
     }
 
-    private suspend fun reloadFamilyContext() {
-        _isLoading.value = true
-        _error.value = null
-        try {
-            loadFamilyMembershipAndProfiles(activeProfileManager.currentProfileId.value)
-        } finally {
-            _isLoading.value = false
+    private suspend fun reloadFamilyContext(accountKey: AuthAccountKey) {
+        reloadMutex.withLock {
+            if (!isCurrentAccount(accountKey)) return
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val me = familyProfileRepository.getMyFamily()
+                if (!isCurrentAccount(accountKey)) return
+
+                val loadedProfiles = if (me != null) {
+                    familyProfileRepository.getProfilesForFamily(me.familyId)
+                } else {
+                    emptyList()
+                }
+                if (!isCurrentAccount(accountKey)) return
+
+                val activeFromServer = try {
+                    familyProfileRepository.getActiveProfile()
+                } catch (exception: CreateFamilyException) {
+                    if (exception.statusCode == 404) null else throw exception
+                }
+                if (!isCurrentAccount(accountKey)) return
+
+                _hasFamily.value = me != null
+                _familyName.value = me?.familyName
+                _showManageFamilyActions.value = me?.memberRole == "PRIMARY_ADMIN"
+
+                if (activeFromServer == null) {
+                    activeProfileManager.selection.value
+                        ?.takeIf { it.accountKey == accountKey }
+                        ?.let { activeProfileManager.reset() }
+                    _profiles.value = emptyList()
+                    return
+                }
+
+                require(activeFromServer.profileId > 0) {
+                    "Active-profile response must contain a positive profile id."
+                }
+                val resolvedProfileId = if (me == null) {
+                    activeFromServer.profileId
+                } else {
+                    resolveActiveProfileId(
+                        serverProfileId = activeFromServer.profileId,
+                        loadedProfiles = loadedProfiles,
+                        selfProfileId = me.selfProfileId,
+                    )
+                }
+                require(resolvedProfileId > 0) { "Resolved active profile id must be positive." }
+                if (!isCurrentAccount(accountKey)) return
+
+                val activeProfile = profileFromActiveResponse(activeFromServer)
+                _profiles.value = if (me == null) {
+                    listOf(activeProfile)
+                } else {
+                    loadedProfiles.ifEmpty { listOf(activeProfile) }
+                }
+                applyActiveProfileId(accountKey, resolvedProfileId)
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                if (!isCurrentAccount(accountKey)) return
+                Timber.e(exception, "Error loading family membership / profiles")
+                _error.value =
+                    "Unable to connect to the server. Please check your network and try again."
+                _hasFamily.value = false
+                _familyName.value = null
+                _showManageFamilyActions.value = false
+                _profiles.value = emptyList()
+            } finally {
+                if (isCurrentAccount(accountKey)) _isLoading.value = false
+            }
         }
     }
 
-    private suspend fun loadDataWithRetry(profileId: Long) {
-        reloadFamilyContext()
-        val effectiveProfileId = activeProfileManager.currentProfileId.value
-        if (effectiveProfileId != ActiveProfileManager.UNSET_PROFILE_ID) {
-            loadRestrictions(effectiveProfileId)
-        }
-    }
-
-    private suspend fun loadRestrictions(profileId: Long) {
+    private suspend fun loadRestrictions(owner: ActiveProfileManager.Selection) {
         try {
             val allRestrictions = dietaryRestrictionRepo.getAllDietaryRestrictions()
-            val profileSelections = dietaryRestrictionRepo.getDietaryRestrictionsForProfile(profileId)
+            if (!isCurrentOwner(owner)) return
+            val profileSelections =
+                dietaryRestrictionRepo.getDietaryRestrictionsForProfile(owner.profileId)
+            if (!isCurrentOwner(owner)) return
 
-            val restrictionNames = withContext(Dispatchers.Default) {
-                allRestrictions
-                    .filter { profileSelections.containsKey(it.id) }
-                    .map { it.displayName }
-            }
-
+            val restrictionNames = allRestrictions
+                .filter { profileSelections.containsKey(it.id) }
+                .map { it.displayName }
+            if (!isCurrentOwner(owner)) return
             _activeRestrictions.value = restrictionNames
-        } catch (e: Exception) {
-            Timber.e(e, "Error loading restrictions for profile $profileId")
-            val errorMessage = when (e) {
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            if (!isCurrentOwner(owner)) return
+            Timber.e(exception, "Error loading restrictions for active profile")
+            _error.value = when (exception) {
                 is java.net.SocketTimeoutException ->
                     "Connection timed out. Check your firewall settings and server connectivity."
                 is java.net.ConnectException ->
                     "Could not connect to the server. Please verify the backend is running."
                 else -> "Unable to connect to the server. Please check your network and try again."
             }
-            _error.value = errorMessage
             _activeRestrictions.value = emptyList()
         }
     }
 
-    private suspend fun loadFamilyMembershipAndProfiles(profileId: Long) {
-        if (authSessionStore.authenticatedUser.value == null) {
-            _hasFamily.value = false
-            _familyName.value = null
-            _showManageFamilyActions.value = false
-            _profiles.value = listOf(personalPlaceholder(profileId))
-            return
-        }
-
-        try {
-            val me = familyProfileRepository.getMyFamily()
-            val loadedProfiles = if (me != null) {
-                _hasFamily.value = true
-                _familyName.value = me.familyName
-                _showManageFamilyActions.value = me.memberRole == "PRIMARY_ADMIN"
-                familyProfileRepository.getProfilesForFamily(me.familyId)
-            } else {
-                _hasFamily.value = false
-                _familyName.value = null
-                _showManageFamilyActions.value = false
-                emptyList()
-            }
-            if (me != null) {
-                _profiles.value = loadedProfiles
-            }
-
-            val activeFromServer = familyProfileRepository.getActiveProfile()
-            if (me == null) {
-                _profiles.value = listOf(profileFromActiveResponse(activeFromServer))
-                applyActiveProfileId(activeFromServer.profileId)
-            } else {
-                val resolvedProfileId = resolveActiveProfileId(
-                    serverProfileId = activeFromServer.profileId,
-                    loadedProfiles = loadedProfiles,
-                    selfProfileId = me.selfProfileId,
-                )
-                applyActiveProfileId(resolvedProfileId)
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Error loading family membership / profiles")
-            _error.value = "Unable to connect to the server. Please check your network and try again."
-            _hasFamily.value = false
-            _familyName.value = null
-            _showManageFamilyActions.value = false
-            _profiles.value = listOf(personalPlaceholder(profileId))
-        }
-    }
-
-    private fun applyActiveProfileId(profileId: Long) {
-        if (activeProfileManager.currentProfileId.value != profileId) {
-            activeProfileManager.switchProfile(profileId)
+    private fun applyActiveProfileId(accountKey: AuthAccountKey, profileId: Long) {
+        if (!isCurrentAccount(accountKey)) return
+        require(profileId > 0) { "Active profile id must be positive." }
+        if (!activeProfileManager.isCurrent(accountKey, profileId)) {
+            activeProfileManager.switchProfile(accountKey, profileId)
         }
     }
 
@@ -234,9 +277,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
         loadedProfiles: List<DietaryProfile>,
         selfProfileId: Long?,
     ): Long {
-        if (loadedProfiles.any { it.id == serverProfileId }) {
-            return serverProfileId
-        }
+        if (loadedProfiles.any { it.id == serverProfileId }) return serverProfileId
         if (selfProfileId != null && loadedProfiles.any { it.id == selfProfileId }) {
             return selfProfileId
         }
@@ -244,12 +285,6 @@ class CanMakanNavGraphViewModel @Inject constructor(
     }
 
     private fun profileFromActiveResponse(active: ActiveProfileResponse): DietaryProfile {
-        // Mirrors DietaryProfileService#getProfilesByFamilyId on the backend, which
-        // derives initials from the first two characters of the profile name. The
-        // active-profile endpoint doesn't return initials itself, so this fallback
-        // has to compute them the same way the backend does for family members —
-        // otherwise a profile shows single-letter initials here but two-letter
-        // initials everywhere else, depending on which endpoint it came from.
         val trimmedName = active.profileName.trim()
         val words = trimmedName.split("\\s+".toRegex()).filter { it.isNotBlank() }
         val initials = if (words.size >= 2) {
@@ -267,60 +302,72 @@ class CanMakanNavGraphViewModel @Inject constructor(
         )
     }
 
-    private fun personalPlaceholder(profileId: Long): DietaryProfile {
-        val effectiveId = if (profileId == ActiveProfileManager.UNSET_PROFILE_ID) {
-            ActiveProfileManager.UNSET_PROFILE_ID
-        } else {
-            profileId
-        }
-        return DietaryProfile(
-            id = effectiveId,
-            familyId = 0L,
-            profileName = "Personal",
-            relationship = "Self",
-            initials = "P",
-            isPrimary = true,
-        )
-    }
-
     fun switchProfile(profileId: Long) {
-        if (profileId == activeProfileManager.currentProfileId.value) {
+        if (profileId <= 0) {
+            _switchProfileError.value = "Complete profile setup before selecting a profile."
             return
         }
-        if (authSessionStore.authenticatedUser.value == null) {
-            activeProfileManager.switchProfile(profileId)
+        val accountKey = authSessionStore.accountKey.value
+        if (accountKey == null) {
+            _switchProfileError.value = "Sign in before selecting a profile."
             return
         }
-        viewModelScope.launch {
+        if (activeProfileManager.isCurrent(accountKey, profileId)) return
+
+        val expectedSelection = activeProfileManager.selection.value
+        switchJob?.cancel()
+        val generation = ++switchGeneration
+        switchJob = viewModelScope.launch {
             _isSwitchingProfile.value = true
             _switchProfileError.value = null
             try {
-                familyProfileRepository.setActiveProfile(profileId)
-                activeProfileManager.switchProfile(profileId)
-            } catch (e: CreateFamilyException) {
-                Timber.w(e, "Switch profile failed")
-                _switchProfileError.value = when (e.statusCode) {
+                val selected = familyProfileRepository.setActiveProfile(profileId)
+                if (!isCurrentAccount(accountKey) ||
+                    generation != switchGeneration ||
+                    activeProfileManager.selection.value != expectedSelection
+                ) return@launch
+                require(selected.profileId == profileId && selected.profileId > 0) {
+                    "Active-profile update returned an unexpected profile id."
+                }
+                applyActiveProfileId(accountKey, selected.profileId)
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: CreateFamilyException) {
+                if (!isCurrentAccount(accountKey) || generation != switchGeneration) return@launch
+                Timber.w(exception, "Switch profile failed")
+                _switchProfileError.value = when (exception.statusCode) {
                     403 -> "That profile is not in your family circle."
                     409 -> "That profile is inactive and cannot be selected."
-                    else -> e.message ?: "Could not switch profile. Please try again."
+                    else -> exception.message ?: "Could not switch profile. Please try again."
                 }
-            } catch (e: Exception) {
-                Timber.w(e, "Switch profile failed")
+            } catch (exception: Exception) {
+                if (!isCurrentAccount(accountKey) || generation != switchGeneration) return@launch
+                Timber.w(exception, "Switch profile failed")
                 _switchProfileError.value =
                     "Could not switch profile. Check your connection and try again."
             } finally {
-                _isSwitchingProfile.value = false
+                if (isCurrentAccount(accountKey) && generation == switchGeneration) {
+                    _isSwitchingProfile.value = false
+                }
             }
         }
     }
 
-    fun setPendingVerdict(detail: VerdictDetail) {
-        _pendingVerdict.value = detail
+    fun setPendingVerdict(profileId: Long, detail: VerdictDetail) {
+        val accountKey = authSessionStore.accountKey.value ?: return
+        if (activeProfileManager.isCurrent(accountKey, profileId)) {
+            _pendingVerdict.value = detail
+        }
     }
 
     fun refreshRestrictions() {
-        viewModelScope.launch {
-            loadDataWithRetry(currentProfileId.value)
+        val accountKey = authSessionStore.accountKey.value ?: return
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
+            reloadFamilyContext(accountKey)
+            activeProfileManager.selection.value
+                ?.takeIf { isCurrentOwner(it) }
+                ?.let { loadRestrictions(it) }
         }
     }
 
@@ -328,12 +375,10 @@ class CanMakanNavGraphViewModel @Inject constructor(
         _createFamilyError.value = null
     }
 
-    /**
-     * UC8 create-circle. Only for authenticated users with no existing family.
-     * On success, reloads `/me` + profiles.
-     */
+    /** UC8 create-circle. The backend may bootstrap the caller's missing SELF profile. */
     fun createFamilyCircle(familyName: String, onSuccess: () -> Unit) {
-        if (authSessionStore.authenticatedUser.value == null) {
+        val accountKey = authSessionStore.accountKey.value
+        if (accountKey == null) {
             _createFamilyError.value = "Sign in before creating a family circle."
             return
         }
@@ -341,26 +386,50 @@ class CanMakanNavGraphViewModel @Inject constructor(
             _createFamilyError.value = "You already belong to a family circle."
             return
         }
-        viewModelScope.launch {
+
+        createFamilyJob?.cancel()
+        val generation = ++createFamilyGeneration
+        createFamilyJob = viewModelScope.launch {
             _isCreatingFamily.value = true
             _createFamilyError.value = null
             try {
                 val created = familyProfileRepository.createFamily(familyName.trim())
-                applyActiveProfileId(created.selfProfileId)
-                reloadFamilyContext()
-                onSuccess()
-            } catch (e: CreateFamilyException) {
-                Timber.e(e, "Create family failed")
-                _createFamilyError.value = e.message
-            } catch (e: Exception) {
-                Timber.e(e, "Create family failed")
+                if (!isCurrentAccount(accountKey) || generation != createFamilyGeneration) {
+                    return@launch
+                }
+                require(created.selfProfileId > 0) {
+                    "Family creation must return a positive SELF profile id."
+                }
+                applyActiveProfileId(accountKey, created.selfProfileId)
+                reloadFamilyContext(accountKey)
+                if (isCurrentAccount(accountKey) && generation == createFamilyGeneration) {
+                    onSuccess()
+                }
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: CreateFamilyException) {
+                if (!isCurrentAccount(accountKey) || generation != createFamilyGeneration) return@launch
+                Timber.e(exception, "Create family failed")
+                _createFamilyError.value = exception.message
+            } catch (exception: Exception) {
+                if (!isCurrentAccount(accountKey) || generation != createFamilyGeneration) return@launch
+                Timber.e(exception, "Create family failed")
                 _createFamilyError.value =
                     "Unable to create family circle. Check your connection and try again."
             } finally {
-                _isCreatingFamily.value = false
+                if (isCurrentAccount(accountKey) && generation == createFamilyGeneration) {
+                    _isCreatingFamily.value = false
+                }
             }
         }
     }
+
+    private fun isCurrentAccount(accountKey: AuthAccountKey): Boolean =
+        authSessionStore.accountKey.value == accountKey && currentAccountKey == accountKey
+
+    private fun isCurrentOwner(owner: ActiveProfileManager.Selection): Boolean =
+        isCurrentAccount(owner.accountKey) &&
+            activeProfileManager.isCurrent(owner.accountKey, owner.profileId)
 
     companion object {
         const val NO_FAMILY_MESSAGE =

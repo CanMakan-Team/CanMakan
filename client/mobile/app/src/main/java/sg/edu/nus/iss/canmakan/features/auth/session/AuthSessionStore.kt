@@ -24,6 +24,12 @@ data class AuthSessionSnapshot(
     }
 }
 
+/** Stable across same-user token refresh, renewed on logout or authenticated-user replacement. */
+data class AuthAccountKey(
+    val userId: Long,
+    val sessionGeneration: Long,
+)
+
 /**
  * Owns the access token and authoritative backend user summary.
  *
@@ -37,10 +43,17 @@ class AuthSessionStore @Inject constructor(
 ) {
     private val lock = Any()
     private var currentSession: AuthSessionSnapshot? = restoreSession()
+    private var sessionGeneration = if (currentSession == null) 0L else 1L
     private val _authenticatedUser = MutableStateFlow(currentSession?.user)
+    private val _accountKey = MutableStateFlow(
+        currentSession?.user?.let { AuthAccountKey(it.userId, sessionGeneration) },
+    )
 
     /** Token-free session signal for application lifecycle state and UI eligibility. */
     val authenticatedUser: StateFlow<AuthenticatedUser?> = _authenticatedUser.asStateFlow()
+
+    /** Account/session lifecycle key for ownership-sensitive asynchronous work. */
+    val accountKey: StateFlow<AuthAccountKey?> = _accountKey.asStateFlow()
 
     fun saveSession(session: AuthenticatedSession): Boolean = synchronized(lock) {
         val snapshot = validatedSnapshot(session.accessToken, session.user)
@@ -114,12 +127,15 @@ class AuthSessionStore @Inject constructor(
     }
 
     private fun clearLocked(): Boolean {
+        if (currentSession != null) sessionGeneration++
         currentSession = null
+        _accountKey.value = null
         _authenticatedUser.value = null
         return runCatching { persistence.clearSession() }.getOrDefault(false)
     }
 
     private fun persistSnapshotLocked(snapshot: AuthSessionSnapshot): Boolean {
+        val previousUserId = currentSession?.user?.userId
         val record = StoredSessionRecord(
             encodedAccessToken = encodeSecret(snapshot.accessToken),
             userId = snapshot.user.userId,
@@ -132,10 +148,14 @@ class AuthSessionStore @Inject constructor(
         }.getOrDefault(false)
 
         if (saved) {
+            if (previousUserId != snapshot.user.userId) sessionGeneration++
             currentSession = snapshot
+            _accountKey.value = AuthAccountKey(snapshot.user.userId, sessionGeneration)
             _authenticatedUser.value = snapshot.user
         } else {
+            if (currentSession != null) sessionGeneration++
             currentSession = null
+            _accountKey.value = null
             _authenticatedUser.value = null
             clearPersistenceBestEffort()
         }

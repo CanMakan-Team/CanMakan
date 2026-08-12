@@ -42,7 +42,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
 
 @Composable
 fun InvitationsScreen(
-    activeProfile: DietaryProfile,
+    activeProfile: DietaryProfile?,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
@@ -60,7 +60,7 @@ fun InvitationsScreen(
                     onMenuClick = onMenuClick,
                     onNotificationsClick = onNotificationsClick,
                 )
-                ActiveProfileChip(profile = activeProfile)
+                activeProfile?.let { ActiveProfileChip(profile = it) }
             }
         },
         bottomBar = {

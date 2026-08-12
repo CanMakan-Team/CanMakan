@@ -76,6 +76,18 @@ class ServerScanHistoryRepositoryTest {
         assertInstanceOf(IOException::class.java, outcome.exceptionOrNull())
     }
 
+    @Test
+    fun nonpositiveProfileIdIsRejectedBeforeApiCall() = runTest {
+        val api = FakeScanHistoryApiService()
+
+        val outcome = runCatching {
+            ServerScanHistoryRepository(api).getScanHistoryForProfile(0L)
+        }
+
+        assertTrue(outcome.isFailure)
+        assertEquals(null, api.lastRequestedProfileId)
+    }
+
     private class FakeScanHistoryApiService(
         private val entries: List<ScanHistoryEntry> = emptyList(),
         private val exception: Exception? = null,

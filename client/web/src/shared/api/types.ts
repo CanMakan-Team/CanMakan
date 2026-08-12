@@ -70,8 +70,6 @@ export interface AuthenticatedSession {
   /** POST /api/auth/register success body (UC18). */
 export interface RegistrationResponse {
   userId: number // id of the user
-  profileId: number // id of the profile
-  name: string // name of the user
   email: string // email of the user
   active: boolean // true if the user is active
 }

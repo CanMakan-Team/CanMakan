@@ -64,7 +64,7 @@ import sg.edu.nus.iss.canmakan.shared.util.toScanHistoryDisplayString
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateNewProfileScreen(
-    activeProfile: DietaryProfile,
+    activeProfile: DietaryProfile?,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
@@ -94,11 +94,8 @@ fun CreateNewProfileScreen(
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(
-                    onMenuClick = onMenuClick,
-                    onNotificationsClick = onNotificationsClick,
-                )
-                ActiveProfileChip(profile = activeProfile)
+                AppTopBar(onMenuClick = onMenuClick)
+                activeProfile?.let { ActiveProfileChip(profile = it) }
             }
         },
         bottomBar = {

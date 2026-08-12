@@ -9,6 +9,7 @@ class ServerRecommendationHistoryRepository @Inject constructor(
     override suspend fun getRecommendationHistoryForProfile(
         profileId: Long
     ): List<RecommendationHistoryEntry> {
+        require(profileId > 0) { "Recommendation history profile id must be positive." }
         return apiService.getRecommendationHistory(profileId).history
     }
 }

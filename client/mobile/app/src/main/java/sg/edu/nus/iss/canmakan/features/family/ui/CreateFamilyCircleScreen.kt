@@ -42,7 +42,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
  */
 @Composable
 fun CreateFamilyCircleScreen(
-    activeProfile: DietaryProfile,
+    activeProfile: DietaryProfile?,
     isSubmitting: Boolean,
     errorMessage: String?,
     onMenuClick: () -> Unit,
@@ -58,11 +58,8 @@ fun CreateFamilyCircleScreen(
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(
-                    onMenuClick = onMenuClick,
-                    onNotificationsClick = onNotificationsClick,
-                )
-                ActiveProfileChip(profile = activeProfile)
+                AppTopBar(onMenuClick = onMenuClick)
+                activeProfile?.let { ActiveProfileChip(profile = it) }
             }
         },
         bottomBar = {

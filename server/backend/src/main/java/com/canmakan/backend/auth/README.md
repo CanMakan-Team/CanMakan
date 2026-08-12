@@ -9,7 +9,7 @@ Public account registration plus login, refresh, logout, and `/me` against Sprin
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| `POST` | `/api/auth/register` | `name`, `email`, `password` → active `USER` + family-less SELF profile |
+| `POST` | `/api/auth/register` | `email`, `password` → active `USER` account only; deprecated optional `name` accepted |
 | `POST` | `/api/auth/login` | `email`, `password` → `AuthResponse` (access JWT + user) + refresh cookie |
 | `POST` | `/api/auth/refresh` | Rotate refresh cookie → new access JWT |
 | `POST` | `/api/auth/logout` | Revoke refresh session + clear cookie |
@@ -18,9 +18,22 @@ Public account registration plus login, refresh, logout, and `/me` against Sprin
 Login and register are owned by `AuthController` / `AuthService` (single mapping for each path).
 
 ## Registration boundary
-- Accepts `name`, `email`, `password` only.
-- Creates `users` row + SELF `dietary_profiles` with `family_id` NULL.
+- Requires `email` and `password`. Deprecated optional `name` and
+  `invitationToken` inputs remain accepted temporarily for older clients.
+- Creates only the `users` row; no dietary profile or family membership is created.
 - Does **not** create a family circle or issue tokens; clients must login after register.
+- `name` is not an account column and is neither stored nor returned. Durable
+  `profileName` belongs exclusively to later authenticated SELF profile setup.
+- A transitional `invitationToken` is accepted but never claimed during registration;
+  the authenticated UC9 claim endpoint owns that side effect after login.
+
+## Authenticated SELF profile setup
+
+`POST /api/profiles/me` is restricted to an authenticated platform `USER`.
+The JWT principal supplies the account id; request bodies cannot choose a user.
+It creates the caller's one linked, standalone `SELF` profile and optional
+restriction selections in a separate transaction. This setup transaction can
+roll back without affecting the previously committed account.
 
 ## Roles
 
@@ -34,7 +47,7 @@ Web portals may map `USER` → family-portal access and `ADMIN` → system porta
 ## Related packages
 - `auth.dto` / `auth.model` / `auth.exception` / `auth.repository` — request/response, entities, errors, persistence
 - `user` — `UserAccount` / repository
-- `dietaryprofile` — SELF profile on register
+- `dietaryprofile` — authenticated SELF profile setup and restrictions
 - `shared/security` — JWT filter, `AuthUserDetails`, SecurityFilterChain
 - `family` — UC8 create-circle / membership (JWT principal)
 

@@ -190,6 +190,9 @@ Auth (live DB, UC19 JWT):
 - `POST /api/auth/login` — email, password → `AuthResponse` (access JWT + user) + refresh cookie
 - `POST /api/auth/logout` — clears refresh cookie / session server-side
 
+Registration and authentication are separate: after successful registration,
+the browser returns to `/family-login` without issuing or storing an access token.
+
 Family (caller id from Bearer JWT):
 
 ```text

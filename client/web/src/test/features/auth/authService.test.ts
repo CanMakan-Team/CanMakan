@@ -66,24 +66,24 @@ describe('authService', () => {
     vi.mocked(fetch).mockResolvedValue(
       jsonResponse(201, {
         userId: 14,
-        profileId: 77,
-        name: 'Person Name',
         email: 'person@example.com',
         active: true,
       }),
     )
 
     const response = await authService.register({
-      name: 'Person Name',
       email: 'person@example.com',
       password: 'Password1!',
     })
 
     expect(response.userId).toBe(14)
-    expect(response.profileId).toBe(77)
+    expect(response).toEqual({
+      userId: 14,
+      email: 'person@example.com',
+      active: true,
+    })
     const init = vi.mocked(fetch).mock.calls[0][1]
     expect(JSON.parse(String(init?.body))).toEqual({
-      name: 'Person Name',
       email: 'person@example.com',
       password: 'Password1!',
     })

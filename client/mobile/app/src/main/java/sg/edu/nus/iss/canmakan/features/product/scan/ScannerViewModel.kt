@@ -3,10 +3,17 @@ package sg.edu.nus.iss.canmakan.features.product.scan
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
+import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.product.model.AlternativeProduct
 import sg.edu.nus.iss.canmakan.features.product.model.Product
 import sg.edu.nus.iss.canmakan.features.product.model.ProductFlag
@@ -44,7 +51,9 @@ enum class ScanProcessState {
 
 @HiltViewModel
 class ScannerViewModel @Inject constructor(
-    private val apiService: CanMakanApiService
+    private val apiService: CanMakanApiService,
+    private val authSessionStore: AuthSessionStore,
+    private val activeProfileManager: ActiveProfileManager,
 ) : ViewModel() {
     private val _processState = MutableStateFlow(ScanProcessState.IDLE)
     val processState: StateFlow<ScanProcessState> = _processState.asStateFlow()
@@ -55,118 +64,160 @@ class ScannerViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private var scanJob: Job? = null
+    private var scanOwner: ActiveProfileManager.Selection? = null
+    private var scanGeneration = 0L
+
+    init {
+        viewModelScope.launch {
+            combine(
+                authSessionStore.accountKey,
+                activeProfileManager.selection,
+            ) { accountKey, selection ->
+                selection?.takeIf { it.accountKey == accountKey }
+            }
+                .distinctUntilChanged()
+                .collect { owner ->
+                    val operationOwner = scanOwner
+                    if (operationOwner != null && operationOwner != owner) resetState()
+                }
+        }
+    }
+
     // Processes a barcode by sending it to the backend for validation and assessment.
     // Caller identity is attached as Bearer JWT by the auth interceptor.
-    // Ignores duplicate calls while a scan is already in progress.
     fun processBarcode(barcode: String, profileId: Long) {
-        val current = _processState.value
-        if (current == ScanProcessState.VALIDATING ||
-            current == ScanProcessState.ASSESSING ||
-            current == ScanProcessState.FETCHING_ALTERNATIVES ||
-            current == ScanProcessState.SUCCESS
-        ) {
+        val accountKey = authSessionStore.accountKey.value
+        val owner = activeProfileManager.selection.value
+            ?.takeIf { it.accountKey == accountKey && it.profileId == profileId }
+        if (profileId <= 0 || owner == null) {
+            invalidateScan()
+            _processState.value = ScanProcessState.ERROR
+            _verdictDetail.value = null
+            _errorMessage.value = PROFILE_SETUP_REQUIRED_MESSAGE
             return
         }
 
+        scanJob?.cancel()
+        val generation = ++scanGeneration
+        scanOwner = owner
         _processState.value = ScanProcessState.VALIDATING
         _verdictDetail.value = null
         _errorMessage.value = null
 
-        viewModelScope.launch {
+        scanJob = viewModelScope.launch {
             try {
-                // 1. Validate the barcode against the backend.
                 val validation = apiService.validateBarcode(ScanRequest(barcode))
+                if (!isCurrentOperation(owner, generation)) return@launch
 
-                // If the barcode is not valid, set the error message and return.
-                if (!validation.isSuccessful || validation.body() == null) {
+                val validationBody = validation.body()
+                if (!validation.isSuccessful || validationBody == null) {
                     _processState.value = ScanProcessState.ERROR
                     _errorMessage.value = "Product not found or network error"
                     return@launch
                 }
 
-                // If the validFood flag is false, set the error message and return.
-                if (!validation.body()!!.validFood) {
+                if (!validationBody.validFood) {
                     _processState.value = ScanProcessState.INVALID
-                    _errorMessage.value = validation.body()!!.message
+                    _errorMessage.value = validationBody.message
                     return@launch
                 }
 
-                // Set the process state to ASSESSING
                 _processState.value = ScanProcessState.ASSESSING
-
-                // 2. Send the barcode to the backend for assessment.
                 val assessment = apiService.assessBarcode(
-                    request = AssessmentRequest(barcode = barcode, profileId = profileId)
+                    request = AssessmentRequest(barcode = barcode, profileId = owner.profileId),
                 )
+                if (!isCurrentOperation(owner, generation)) return@launch
 
-                // If the assessment is not successful, set the error message and return.
-                if (!assessment.isSuccessful || assessment.body() == null) {
+                val assessmentBody = assessment.body()
+                if (!assessment.isSuccessful || assessmentBody == null) {
                     _processState.value = ScanProcessState.ERROR
                     _errorMessage.value = "Could not generate a safety verdict"
                     return@launch
                 }
 
-                val assessmentBody = assessment.body()!!
                 val verdict = parseVerdict(assessmentBody.verdict)
-
                 val alternativesResult = if (verdict == ScanVerdict.SAFE) {
                     AlternativesResult(emptyList(), null)
                 } else {
                     _processState.value = ScanProcessState.FETCHING_ALTERNATIVES
-                    loadAlternatives(profileId, barcode, assessmentBody.scanId)
+                    loadAlternatives(owner, barcode, assessmentBody.scanId)
                 }
+                if (!isCurrentOperation(owner, generation)) return@launch
 
                 _verdictDetail.value = toVerdictDetail(
                     response = assessmentBody,
                     fallbackBarcode = barcode,
                     alternatives = alternativesResult.alternatives,
-                    alternativesError = alternativesResult.errorMessage
+                    alternativesError = alternativesResult.errorMessage,
                 )
                 _processState.value = ScanProcessState.SUCCESS
-            } catch (e: Exception) {
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                if (!isCurrentOperation(owner, generation)) return@launch
                 _processState.value = ScanProcessState.ERROR
-                _errorMessage.value = e.message ?: "Product not found or network error"
+                _errorMessage.value = exception.message ?: "Product not found or network error"
             }
         }
     }
 
     fun resetState() {
+        invalidateScan()
         _processState.value = ScanProcessState.IDLE
         _verdictDetail.value = null
         _errorMessage.value = null
     }
 
+    private fun invalidateScan() {
+        scanGeneration++
+        scanJob?.cancel()
+        scanJob = null
+        scanOwner = null
+    }
+
+    private fun isCurrentOperation(
+        owner: ActiveProfileManager.Selection,
+        generation: Long,
+    ): Boolean =
+        generation == scanGeneration &&
+            scanOwner == owner &&
+            authSessionStore.accountKey.value == owner.accountKey &&
+            activeProfileManager.isCurrent(owner.accountKey, owner.profileId)
+
     private data class AlternativesResult(
         val alternatives: List<AlternativeProduct>,
-        val errorMessage: String?
+        val errorMessage: String?,
     )
 
     private suspend fun loadAlternatives(
-        profileId: Long,
+        owner: ActiveProfileManager.Selection,
         barcode: String,
-        scanId: Long?
+        scanId: Long?,
     ): AlternativesResult {
         return try {
             val response = apiService.getRecommendations(
-                profileId = profileId,
+                profileId = owner.profileId,
                 sourceBarcode = barcode,
-                scanId = scanId
+                scanId = scanId,
             )
             if (!response.isSuccessful || response.body() == null) {
                 AlternativesResult(
                     alternatives = emptyList(),
-                    errorMessage = "Could not load alternatives"
+                    errorMessage = "Could not load alternatives",
                 )
             } else {
                 AlternativesResult(
                     alternatives = response.body()!!.alternatives.map { it.toUiModel() },
-                    errorMessage = null
+                    errorMessage = null,
                 )
             }
-        } catch (e: Exception) {
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (_: Exception) {
             AlternativesResult(
                 alternatives = emptyList(),
-                errorMessage = "Could not load alternatives"
+                errorMessage = "Could not load alternatives",
             )
         }
     }
@@ -182,12 +233,10 @@ class ScannerViewModel @Inject constructor(
         response: AssessmentResponse,
         fallbackBarcode: String,
         alternatives: List<AlternativeProduct>,
-        alternativesError: String?
+        alternativesError: String?,
     ): VerdictDetail {
         val verdict = parseVerdict(response.verdict)
 
-        // Create a list of product flags based on the assessment response.
-        // If no flags are found, use the explanation or a default flag.
         val flags = response.findings.map { finding ->
             ProductFlag(
                 category = finding.restrictionCode?.takeIf { it.isNotBlank() } ?: "INFO",
@@ -195,7 +244,7 @@ class ScannerViewModel @Inject constructor(
                     ?.takeIf { it.isNotBlank() }
                     ?: listOfNotNull(finding.ingredientName, finding.restrictionCode)
                         .joinToString(" · ")
-                        .ifBlank { "Flagged by dietary rules" }
+                        .ifBlank { "Flagged by dietary rules" },
             )
         }.ifEmpty {
             response.explanation
@@ -208,13 +257,18 @@ class ScannerViewModel @Inject constructor(
             product = Product(
                 productName = response.productName?.takeIf { it.isNotBlank() } ?: "Unknown product",
                 brand = "",
-                barcode = response.barcode?.takeIf { it.isNotBlank() } ?: fallbackBarcode
+                barcode = response.barcode?.takeIf { it.isNotBlank() } ?: fallbackBarcode,
             ),
             verdict = verdict,
             explanation = response.explanation,
             flags = flags,
             alternatives = alternatives,
-            alternativesError = alternativesError
+            alternativesError = alternativesError,
         )
+    }
+
+    private companion object {
+        const val PROFILE_SETUP_REQUIRED_MESSAGE =
+            "Complete profile setup before scanning products."
     }
 }

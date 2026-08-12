@@ -84,6 +84,7 @@ class SampleDietaryRestrictionRepository @Inject constructor() : DietaryRestrict
     )
 
     override suspend fun getDietaryRestrictionsForProfile(profileId: Long): Map<Long, String> {
+        require(profileId > 0) { "Dietary restrictions require a positive profile id." }
         return sampleProfileRestriction
             .filter { it.dietaryProfileId == profileId }
             .associate { it.dietaryRestrictionId to it.severityLevel }
@@ -93,6 +94,7 @@ class SampleDietaryRestrictionRepository @Inject constructor() : DietaryRestrict
         profileId: Long,
         selections: Map<Long, String>
     ): Boolean {
+        require(profileId > 0) { "Dietary restrictions require a positive profile id." }
         sampleProfileRestriction.removeAll { it.dietaryProfileId == profileId }
 
         val newEntries = selections.map { (restrictionId, severity) ->
