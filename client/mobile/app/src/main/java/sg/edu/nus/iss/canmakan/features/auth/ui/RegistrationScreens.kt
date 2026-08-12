@@ -72,6 +72,7 @@ fun RegistrationRoute(
     when (state.step) {
         RegistrationStep.ACCOUNT_INFORMATION -> AccountInformationScreen(
             state = state,
+            onNameChange = viewModel::updateName,
             onEmailChange = viewModel::updateEmail,
             onPasswordChange = viewModel::updatePassword,
             onConfirmPasswordChange = viewModel::updateConfirmPassword,
@@ -97,6 +98,7 @@ fun RegistrationRoute(
 @Composable
 private fun AccountInformationScreen(
     state: RegistrationUiState,
+    onNameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
@@ -119,6 +121,15 @@ private fun AccountInformationScreen(
     ) {
         state.registrationError?.let { ErrorMessage(it) }
 
+        LabeledTextField(
+            label = "Full name",
+            value = state.name,
+            onValueChange = onNameChange,
+            placeholder = "e.g. Sarah Tan",
+            keyboardType = KeyboardType.Text,
+            isError = state.nameError != null,
+            supportingText = state.nameError,
+        )
         LabeledTextField(
             label = "Email address",
             value = state.email,

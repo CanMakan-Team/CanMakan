@@ -61,12 +61,14 @@ class RegistrationViewModelTest {
 
     @Test
     fun accountValidationStillRejectsInvalidEmailAndPassword() {
+        viewModel.updateName("")
         viewModel.updateEmail("not-an-email")
         viewModel.updatePassword("weak")
         viewModel.updateConfirmPassword("different")
         viewModel.continueToDietaryProfile()
 
         assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals("Name is required.", viewModel.uiState.value.nameError)
         assertEquals("Enter a valid email address.", viewModel.uiState.value.emailError)
         assertTrue(viewModel.uiState.value.passwordError != null)
         assertEquals("Passwords do not match.", viewModel.uiState.value.confirmPasswordError)
@@ -127,19 +129,23 @@ class RegistrationViewModelTest {
 
     @Test
     fun invitationTokenIsRetainedForLoginButExcludedFromRegistrationRequest() {
+        // Updated: RegistrationRepository now includes invitationToken in register call.
+        // This test verify it is consumed correctly.
         viewModel.setInvitationToken("  invite-token  ")
         enterValidAccountInformation()
 
         viewModel.createAccount()
         testDispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals("invite-token", pendingInvitationStore.peek())
+        assertNull(pendingInvitationStore.peek())
+        assertEquals("invite-token", repository.lastInvitationToken)
         assertEquals(1, repository.callCount)
     }
 
     @Test
     fun requestNormalizesEmailButPreservesPasswordExactly() {
         val password = "  KeepCase Password1!  "
+        viewModel.updateName("  Sarah Tan  ")
         viewModel.updateEmail("  Person@Example.COM  ")
         viewModel.updatePassword(password)
         viewModel.updateConfirmPassword(password)
@@ -148,6 +154,7 @@ class RegistrationViewModelTest {
         viewModel.createAccount()
         testDispatcher.scheduler.advanceUntilIdle()
 
+        assertEquals("Sarah Tan", repository.lastName)
         assertEquals("person@example.com", repository.lastEmail)
         assertEquals(password, repository.lastPassword)
     }
@@ -195,6 +202,7 @@ class RegistrationViewModelTest {
     }
 
     private fun enterValidAccountInformation() {
+        viewModel.updateName("Sarah Tan")
         viewModel.updateEmail("  Person@Example.COM  ")
         viewModel.updatePassword("Password1!")
         viewModel.updateConfirmPassword("Password1!")
@@ -207,16 +215,22 @@ class RegistrationViewModelTest {
         )
         var gate: CompletableDeferred<Unit>? = null
         var callCount = 0
+        var lastName: String? = null
         var lastEmail: String? = null
         var lastPassword: String? = null
+        var lastInvitationToken: String? = null
 
         override suspend fun register(
+            name: String,
             email: String,
             password: String,
+            invitationToken: String?,
         ): RegistrationResult {
             callCount++
+            lastName = name
             lastEmail = email
             lastPassword = password
+            lastInvitationToken = invitationToken
             gate?.await()
             return result
         }

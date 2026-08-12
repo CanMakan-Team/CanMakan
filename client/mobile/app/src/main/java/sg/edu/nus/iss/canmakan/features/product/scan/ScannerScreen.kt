@@ -17,6 +17,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -77,12 +78,13 @@ import java.util.concurrent.Executors
  */
 @Composable
 fun ScannerScreen(
-    activeProfile: DietaryProfile,
+    activeProfile: DietaryProfile?,
     activeRestrictions: List<String>,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
+    onSetUpProfile: () -> Unit = {},
     onVerdictReady: (VerdictDetail) -> Unit,
     viewModel: ScannerViewModel = hiltViewModel()
 ) {
@@ -93,7 +95,7 @@ fun ScannerScreen(
     val processState by viewModel.processState.collectAsState()
     val verdictDetail by viewModel.verdictDetail.collectAsState()
     val latestProcessState by rememberUpdatedState(processState)
-    val latestProfileId by rememberUpdatedState(activeProfile.id)
+    val latestProfileId by rememberUpdatedState(activeProfile?.id)
 
     val isProcessing = processState == ScanProcessState.VALIDATING ||
         processState == ScanProcessState.ASSESSING ||
@@ -140,7 +142,23 @@ fun ScannerScreen(
                     onMenuClick = onMenuClick,
                     onNotificationsClick = onNotificationsClick,
                 )
-                ActiveProfileChip(profile = activeProfile)
+                activeProfile?.let { ActiveProfileChip(profile = it) } ?: run {
+                    // Show a setup prompt if no profile is active
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { onSetUpProfile() }
+                            .padding(12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Tap here to set up your dietary profile",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         },
         bottomBar = {
@@ -188,10 +206,12 @@ fun ScannerScreen(
 
                             lastProcessedBarcode = barcode
                             scannedBarcode = barcode
-                            viewModel.processBarcode(
-                                barcode = barcode,
-                                profileId = latestProfileId,
-                            )
+                            latestProfileId?.let { profileId ->
+                                viewModel.processBarcode(
+                                    barcode = barcode,
+                                    profileId = profileId,
+                                )
+                            }
                         }
                     )
                     ValidationOverlay(viewModel = viewModel)
@@ -216,10 +236,12 @@ fun ScannerScreen(
             Button(
                 onClick = {
                     scannedBarcode?.let { barcode ->
-                        viewModel.processBarcode(
-                            barcode = barcode,
-                            profileId = activeProfile.id,
-                        )
+                        activeProfile?.id?.let { profileId ->
+                            viewModel.processBarcode(
+                                barcode = barcode,
+                                profileId = profileId,
+                            )
+                        }
                     }
                 },
                 enabled = (processState == ScanProcessState.INVALID ||
@@ -254,7 +276,7 @@ fun ScannerScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "${stringResource(id = R.string.dietary_profile_restrictions).uppercase()} - ${activeProfile.profileName.uppercase()}",
+                        "${stringResource(id = R.string.dietary_profile_restrictions).uppercase()} - ${activeProfile?.profileName?.uppercase() ?: "NONE"}",
                         color = TextSecondary,
                         style = MaterialTheme.typography.labelMedium
                     )
