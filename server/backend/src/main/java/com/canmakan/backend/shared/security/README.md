@@ -49,7 +49,7 @@ cross-origin. `CorsFilter` allows:
 
 | Client | How it is covered |
 | --- | --- |
-| Web Vite / preview | Exact origins `localhost` + `127.0.0.1` on ports 5173 and 4173 |
+| Web Vite / preview | Exact origins on 5173/5174/4173 **plus** patterns `http://localhost:[*]` / `127.0.0.1:[*]` |
 | LAN / physical device browser | Origin patterns `10.*`, `192.168.*`, `172.*` any port |
 | Android Retrofit (emulator `10.0.2.2`, device LAN IP) | Usually **no** `Origin` header — CORS does not apply; server already binds `0.0.0.0:8080` |
 
