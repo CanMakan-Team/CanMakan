@@ -308,6 +308,7 @@ fun CanMakanNavGraph(
                 }
                 FamilyRestrictionSummaryScreen(
                     uiState = uiState,
+                    profiles = profiles,
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
                     onNavigateToEditMembers = { navController.popBackStack() }

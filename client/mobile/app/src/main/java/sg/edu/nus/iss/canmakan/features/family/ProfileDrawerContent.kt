@@ -278,13 +278,24 @@ fun ProfileDrawerContent(
             onClick = onHistoryClick
         )
 
-        // (UC6) Only show Family Summary if the user belongs to a family
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Family section: dietary summary for all members; manage actions for PRIMARY_ADMIN.
         if (hasFamily) {
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                thickness = 1.dp,
+                color = Color.DarkGray
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text("FAMILY", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(8.dp))
+
             val isFamilySelected = currentRoute?.startsWith("family/restrictions") == true
             NavigationDrawerItem(
                 label = {
                     Text(
-                        text = "Family Allergies",
+                        text = "Dietary Summary",
                         color = if (isFamilySelected) Color.DarkGray else Color.White,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Normal
@@ -293,38 +304,28 @@ fun ProfileDrawerContent(
                 icon = {
                     Icon(
                         imageVector = Icons.Default.People,
-                        contentDescription = "Family Allergies",
+                        contentDescription = "Dietary Summary",
                         tint = if (isFamilySelected) Color.DarkGray else Color.White
                     )
                 },
                 selected = isFamilySelected,
                 onClick = onFamilyAllergySummaryClick
             )
-        }
 
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Member create/link is UC9/UC12 — keep hidden until those APIs exist and the user has a family.
-        if (showManageFamilyActions && hasFamily) {
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                thickness = 1.dp,
-                color = Color.DarkGray
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Text("MANAGE FAMILY", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
-            Spacer(modifier = Modifier.height(8.dp))
-            DrawerNavRow(
-                icon = Icons.Default.PersonAdd,
-                label = "Create New Family Member",
-                onClick = onCreateNewClick,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            DrawerNavRow(
-                icon = Icons.Default.Group,
-                label = "Add Profile to Family",
-                onClick = onAddProfileClick,
-            )
+            if (showManageFamilyActions) {
+                Spacer(modifier = Modifier.height(4.dp))
+                DrawerNavRow(
+                    icon = Icons.Default.PersonAdd,
+                    label = "Create New Family Member",
+                    onClick = onCreateNewClick,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                DrawerNavRow(
+                    icon = Icons.Default.Group,
+                    label = "Add Profile to Family",
+                    onClick = onAddProfileClick,
+                )
+            }
         }
         }
 
