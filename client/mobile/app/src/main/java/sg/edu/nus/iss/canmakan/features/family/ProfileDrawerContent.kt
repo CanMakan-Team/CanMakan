@@ -51,8 +51,8 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.DrawerBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.DrawerTextMuted
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 
-// Content shown inside the side drawer: the active profile, the list of
-// profiles to switch between, quick navigation links, and sign out.
+// Content shown inside the side drawer: selectable profiles (selected row
+// expands with dietary actions), quick navigation links, and sign out.
 @Composable
 fun ProfileDrawerContent(
     currentRoute: String?,
@@ -106,30 +106,100 @@ fun ProfileDrawerContent(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-        Text("ACTIVE PROFILE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = if (profiles.size > 1) "PROFILES" else "PROFILE",
+                color = DrawerTextMuted,
+                style = MaterialTheme.typography.titleSmall,
+            )
+            if (isSwitchingProfile) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = PrimaryGreen,
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(8.dp))
 
-        activeProfile?.let { profile ->
-            Row(verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(10.dp)) {
-                InitialsAvatar(initials = profile.initials, background = PrimaryGreen)
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(profile.profileName, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        if(profile.isPrimary) AdminTag()
-                    }
-                    Text(formatRelationshipLabel(profile.relationship), color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
-                }
+        if (profiles.isEmpty()) {
+            Text(
+                text = "No profile selected",
+                color = DrawerTextMuted,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(10.dp),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(onClick = onEditDietaryClick, modifier = Modifier.fillMaxWidth()) {
+                Text(editDietaryButtonLabel, color = DrawerTextMuted)
             }
-        } ?: run {
-            Text("No profile selected", color = DrawerTextMuted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(10.dp))
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedButton(onClick = onEditDietaryClick, modifier = Modifier.fillMaxWidth()) {
-            Text(editDietaryButtonLabel, color = DrawerTextMuted)
+        } else {
+            profiles.forEach { profile ->
+                val isActive = profile.id == activeProfile?.id
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isActive) PrimaryGreen.copy(alpha = 0.25f) else Color.Transparent)
+                        .padding(10.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onProfileSelected(profile) },
+                    ) {
+                        InitialsAvatar(
+                            initials = profile.initials,
+                            background = if (isActive) PrimaryGreen else avatarColorFor(profile),
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = profile.profileName,
+                                    color = Color.White,
+                                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                                    style = if (isActive) {
+                                        MaterialTheme.typography.titleMedium
+                                    } else {
+                                        MaterialTheme.typography.bodyMedium
+                                    },
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                if (profile.isPrimary) AdminTag()
+                            }
+                            Text(
+                                text = formatRelationshipLabel(profile.relationship),
+                                color = DrawerTextMuted,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                        if (isActive) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(PrimaryGreen),
+                            )
+                        }
+                    }
+                    if (isActive) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = onEditDietaryClick,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(editDietaryButtonLabel, color = DrawerTextMuted)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
         }
 
         if (!hasFamily) {
@@ -152,62 +222,6 @@ fun ProfileDrawerContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
-
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 8.dp),
-            thickness = 1.dp,
-            color = Color.DarkGray
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("SWITCH PROFILE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
-            if (isSwitchingProfile) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = PrimaryGreen,
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-
-        profiles.forEach { profile ->
-            val isActive = profile.id == activeProfile?.id
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isActive) PrimaryGreen.copy(alpha = 0.25f) else Color.Transparent)
-                    .clickable(enabled = !isSwitchingProfile) { onProfileSelected(profile) }
-                    .padding(10.dp)
-            ) {
-                InitialsAvatar(initials = profile.initials, background = avatarColorFor(profile))
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(profile.profileName, color = Color.White, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        if(profile.isPrimary) AdminTag()
-                    }
-                    Text(formatRelationshipLabel(profile.relationship), color = DrawerTextMuted, style = MaterialTheme.typography.labelSmall)
-                }
-                if (isActive) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(PrimaryGreen)
-                    )
-                }
-            }
-        }
         Spacer(modifier = Modifier.height(10.dp))
 
         HorizontalDivider(

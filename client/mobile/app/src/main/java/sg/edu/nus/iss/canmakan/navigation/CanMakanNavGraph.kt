@@ -174,7 +174,6 @@ fun CanMakanNavGraph(
                     isSwitchingProfile = isSwitchingProfile,
                     onProfileSelected = { selected ->
                         navGraphViewModel.switchProfile(selected.id)
-                        closeDrawer()
                     },
                     onEditDietaryClick = {
                         closeDrawer()

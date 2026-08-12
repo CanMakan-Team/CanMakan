@@ -60,10 +60,12 @@ mobile profile switcher and UC6 summary once created.
 ## Switch profile (UC11)
 
 On login/startup, `CanMakanNavGraphViewModel` loads `GET /api/families/me/active-profile`
-after `/me` and family profiles. Drawer profile selection calls
-`PUT /api/families/me/active-profile`; failed PUT (403 outside family, 409 inactive)
-shows an inline error without changing the current selection. `ActiveProfileManager`
-uses `UNSET_PROFILE_ID = 0` until the server (or registration `profileId`) resolves.
+after `/me` and family profiles. Drawer profile selection updates
+`ActiveProfileManager` immediately (optimistic), then confirms with
+`PUT /api/families/me/active-profile`. Failed PUT (403 outside family, 409 inactive,
+or network error) rolls back to the previous profile and shows an inline error.
+`ActiveProfileManager` uses `UNSET_PROFILE_ID = 0` until the server (or registration
+`profileId`) resolves.
 
 ## Manage members (UC12)
 
