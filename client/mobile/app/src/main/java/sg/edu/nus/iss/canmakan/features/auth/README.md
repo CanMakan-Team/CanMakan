@@ -17,20 +17,24 @@ User registration, authentication and session management.
 - Does not own role/permission logic (handled by backend)
 - Registration uses the shared Retrofit/Hilt client and sends only `email` and
   `password`. Deprecated compatibility fields such as `name` and
-  `invitationToken` are not part of the Android account contract. Invitation
-  tokens remain in the separate post-login claim flow.
+  `invitationToken` are not part of the Android account contract.
+- Invitation tokens are offered to `PendingInvitationStore` from deep links,
+  registration, and login routes. Registration never claims or consumes them.
+  `LoginViewModel` also only offers; `PostLoginContinuationViewModel` is the sole
+  authenticated claimer (after deferred dietary setup when requested).
 - Registration Screen 2 records only whether the user wants dietary setup after
-  sign-in. It never loads the authenticated restriction catalog.
+  sign-in. It never loads the authenticated restriction catalog. Durable profile
+  name belongs to authenticated SELF-profile setup.
 - `PendingOnboardingStore` retains only the normalized registration email and an
   opaque in-memory request version for normal navigation. The email binds the
   setup intent to the account that registered; the version prevents old
   same-account work from clearing a newer intent. The authenticated setup UI
   collects the profile name after sign-in. A different authenticated email
   invalidates the intent. The store deliberately does not survive process death
-  and stores no
-  password, backend user id, access token, refresh token, or session material.
+  and stores no password, backend user id, access token, refresh token, or
+  session material.
 - After UC19 Login persists the session, `PostLoginContinuationViewModel` routes
-  requested dietary setup first and owns the one invitation-claim attempt. Both
+  requested dietary setup first and owns the invitation-claim attempt. Both
   setup and invitation work snapshot the initiating authenticated account and
   reject stale completion after logout or an account transition. Pending-token
   clearing is conditional, so completion of an older claim cannot erase a newer
@@ -64,7 +68,8 @@ User registration, authentication and session management.
 - The 7.4 `LoginViewModel` validates and normalizes email input, preserves the
   password exactly, prevents duplicate submissions, calls `AuthRepository`, and
   considers Login successful only after `AuthSessionStore` persists the session.
-  It preserves invitation input but does not claim invitations itself.
+  It may re-offer a pending invitation token into `PendingInvitationStore` but
+  does not claim invitations itself.
 - The Compose Login route exposes only a safe authenticated-user success callback
   and links to the separate UC18 Registration route.
 - The 7.5 Bearer interceptor reads the current access token from

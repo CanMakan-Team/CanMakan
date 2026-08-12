@@ -75,6 +75,7 @@ fun ProductDetailScreen(
     val showAlternativesTab = verdict != ScanVerdict.SAFE
     val accent = statusAccentColor(verdict)
     val (icon, label) = verdictPresentation(verdict)
+    val scrollState = rememberScrollState()
 
     Scaffold(
         bottomBar = {
@@ -88,8 +89,10 @@ fun ProductDetailScreen(
         Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp)
                 .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -123,12 +126,24 @@ fun ProductDetailScreen(
                     product.productName,
                     fontWeight = FontWeight.Bold,
                     fontSize = 30.sp,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 if (product.brand.isNotBlank()) {
-                    Text(product.brand, color = TextSecondary)
+                    Text(
+                        product.brand,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
-                Text(product.barcode, color = TextSecondary)
+                Text(
+                    product.barcode,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 if (!explanation.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(

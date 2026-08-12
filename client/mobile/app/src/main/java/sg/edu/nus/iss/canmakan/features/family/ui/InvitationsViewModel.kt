@@ -51,7 +51,7 @@ class InvitationsViewModel @Inject constructor(
         val accountKey = authSessionStore.accountKey.value
         if (accountKey == null) {
             bindAccount(null)
-            _uiState.value = InvitationsUiState(errorMessage = "Sign in to view invitations.")
+            _uiState.value = InvitationsUiState(errorMessage = "Sign in to view notifications.")
             return
         }
         bindAccount(accountKey)
@@ -79,7 +79,7 @@ class InvitationsViewModel @Inject constructor(
                 if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = exception.message ?: "Could not load invitations.",
+                    errorMessage = exception.message ?: "Could not load notifications.",
                 )
             }
         }

@@ -77,6 +77,13 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val _showManageFamilyActions = MutableStateFlow(false)
     val showManageFamilyActions: StateFlow<Boolean> = _showManageFamilyActions.asStateFlow()
 
+    /** Linked SELF profile for the signed-in account; null when no family membership. */
+    private val _selfProfileId = MutableStateFlow<Long?>(null)
+    val selfProfileId: StateFlow<Long?> = _selfProfileId.asStateFlow()
+
+    private val _memberRole = MutableStateFlow<String?>(null)
+    val memberRole: StateFlow<String?> = _memberRole.asStateFlow()
+
     private val _switchProfileError = MutableStateFlow<String?>(null)
     val switchProfileError: StateFlow<String?> = _switchProfileError.asStateFlow()
 
@@ -148,6 +155,8 @@ class CanMakanNavGraphViewModel @Inject constructor(
         _hasFamily.value = false
         _familyName.value = null
         _showManageFamilyActions.value = false
+        _selfProfileId.value = null
+        _memberRole.value = null
         _pendingVerdict.value = null
         _error.value = null
         _createFamilyError.value = null
@@ -187,6 +196,8 @@ class CanMakanNavGraphViewModel @Inject constructor(
                 _hasFamily.value = me != null
                 _familyName.value = me?.familyName
                 _showManageFamilyActions.value = me?.memberRole == "PRIMARY_ADMIN"
+                _selfProfileId.value = me?.selfProfileId
+                _memberRole.value = me?.memberRole
 
                 if (activeFromServer == null) {
                     activeProfileManager.selection.value
@@ -228,6 +239,8 @@ class CanMakanNavGraphViewModel @Inject constructor(
                 _hasFamily.value = false
                 _familyName.value = null
                 _showManageFamilyActions.value = false
+                _selfProfileId.value = null
+                _memberRole.value = null
                 _profiles.value = emptyList()
             } finally {
                 if (isCurrentAccount(accountKey)) _isLoading.value = false

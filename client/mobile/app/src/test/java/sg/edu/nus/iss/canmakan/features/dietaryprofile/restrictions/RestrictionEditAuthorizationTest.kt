@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -78,6 +79,19 @@ class RestrictionEditAuthorizationTest {
                 hasFamily = true,
                 me = FAMILY_ME.copy(memberRole = "MEMBER"),
             )
+        )
+    }
+
+    @Test
+    @DisplayName("Drawer label is Edit for own profile and View for other profiles as non-admin")
+    fun dietaryProfileButtonLabelMatchesEditPermission() {
+        assertEquals(
+            RestrictionEditAuthorization.EDIT_DIETARY_PROFILE_LABEL,
+            RestrictionEditAuthorization.dietaryProfileButtonLabel(allowEdit = true),
+        )
+        assertEquals(
+            RestrictionEditAuthorization.VIEW_DIETARY_PROFILE_LABEL,
+            RestrictionEditAuthorization.dietaryProfileButtonLabel(allowEdit = false),
         )
     }
 

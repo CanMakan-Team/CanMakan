@@ -9,6 +9,9 @@ import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeResponse
 object RestrictionEditAuthorization {
     const val ROLE_PRIMARY_ADMIN = "PRIMARY_ADMIN"
 
+    const val EDIT_DIETARY_PROFILE_LABEL = "Edit dietary profile"
+    const val VIEW_DIETARY_PROFILE_LABEL = "View dietary profile"
+
     const val READ_ONLY_HINT =
         "Only the family admin can edit another member's dietary restrictions."
 
@@ -20,12 +23,30 @@ object RestrictionEditAuthorization {
         hasFamily: Boolean,
         me: FamilyMeResponse?,
     ): Boolean {
-        if (!hasFamily || me == null) {
+        return mayEditRestrictions(
+            profileId = profileId,
+            hasFamily = hasFamily,
+            selfProfileId = me?.selfProfileId,
+            memberRole = me?.memberRole,
+        )
+    }
+
+    fun mayEditRestrictions(
+        profileId: Long,
+        hasFamily: Boolean,
+        selfProfileId: Long?,
+        memberRole: String?,
+    ): Boolean {
+        if (!hasFamily || selfProfileId == null) {
             return true
         }
-        if (profileId == me.selfProfileId) {
+        if (profileId == selfProfileId) {
             return true
         }
-        return me.memberRole == ROLE_PRIMARY_ADMIN
+        return memberRole == ROLE_PRIMARY_ADMIN
+    }
+
+    fun dietaryProfileButtonLabel(allowEdit: Boolean): String {
+        return if (allowEdit) EDIT_DIETARY_PROFILE_LABEL else VIEW_DIETARY_PROFILE_LABEL
     }
 }

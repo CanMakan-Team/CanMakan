@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Settings
@@ -45,6 +44,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.RestrictionEditAuthorization
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.DrawerBackground
@@ -65,7 +65,7 @@ fun ProfileDrawerContent(
     isSwitchingProfile: Boolean = false,
     onProfileSelected: (DietaryProfile) -> Unit,
     onEditDietaryClick: () -> Unit,
-    editDietaryButtonLabel: String = "Edit dietary profile",
+    editDietaryButtonLabel: String = RestrictionEditAuthorization.EDIT_DIETARY_PROFILE_LABEL,
     onScannerClick: () -> Unit,
     onFamilyAllergySummaryClick: () -> Unit,
     onHistoryClick: () -> Unit,
@@ -74,7 +74,6 @@ fun ProfileDrawerContent(
     onCreateFamilyCircleClick: () -> Unit,
     onCreateNewClick: () -> Unit,
     onAddProfileClick: () -> Unit,
-    onInvitationsClick: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -311,12 +310,6 @@ fun ProfileDrawerContent(
                 icon = Icons.Default.Group,
                 label = "Add Profile to Family",
                 onClick = onAddProfileClick,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            DrawerNavRow(
-                icon = Icons.Default.Mail,
-                label = "Pending Invitations",
-                onClick = onInvitationsClick,
             )
         }
         }
