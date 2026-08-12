@@ -334,45 +334,39 @@ UC2, UC3; UC8 for family list
 ## UC5 — View Alternative Product Recommendation
 
 **Owner:** Chai Lee · **Package:** Core MVP · **Architecture:** Scanning & Verdicts / Mobile Client  
-**Tech:** Android; Spring Boot; Open Food Facts; recommendation logic  
-**Current code state:** Not started — Alternatives tab shell only (always empty on live assess)
+**Tech:** Android; Spring Boot; Open Food Facts catalog; recommendation logic  
+**Current code state:** **Mostly complete (backend + mobile)** — live recommendations API + Alternatives tab; profile authorization on GET still open.
 
-- **Backend:** no recommendations controller/service.
-- **Mobile:** `ProductDetailScreen` Alternatives tab is always visible; live assess returns empty alternatives. Sample data only in `ProductSampleData`.
-- **Boundary:** No separate recommendation-history screen (UC17) exists.
+- **Backend:** `GET /api/profiles/{profileId}/recommendations?sourceBarcode=&scanId=` (`RecommendationController` / `RecommendationService`) — same-category SAFE candidates (source excluded) → tag fallback via `SubstituteDiscoveryProfiles` (e.g. Fresh milks → oat/dairy substitutes; Wheat/White wheat flours → gluten-free flour tags); intolerance hardening in `AlternativeCandidateFilter`; ranked by `AlternativeProductRanker` (prior Safe scan history boost); best-effort write to `recommendation_logs` (UC17 read side). **Gap:** controller has no JWT / `assertProfileAuthorizedForScan` yet (unlike UC17 history).
+- **Mobile:** `ScannerViewModel` calls recommendations after assess for WARNING/UNSAFE only; `FETCHING_ALTERNATIVES` overlay on scanner; `ProductDetailScreen` hides Alternatives tab for SAFE, shows empty/error on tab (`alternativesError`). Tests: `ScannerViewModelTest` UC5 M1–M3; backend `RecommendationServiceTest`, `RecommendationControllerTest`, filter/ranker tests.
+- **Schema:** `recommendation_logs` + seed `10_recommendation_logs.sql`.
+- **Boundary:** Listing **past** recommendations = UC17 (Enhanced); not built here (UC5-S3 done).
 
-### User story
+### User stories
 
-As an app user, I want suitable alternatives when a product is Warning/Avoid, based on my active dietary profile.
-
-### Alignment
-
-Generating alternatives = UC5. **Listing past recommendations = UC17** (Enhanced).
-
-### Context
-
-**Out of scope:** Recommendation history list UI (UC17); ML ranking beyond agreed MVP algorithm; web alternatives UI unless later assigned.
+1. When a scan returns Warning or Avoid, see safer alternative products for the active dietary profile.  
+2. Safe verdicts skip alternatives entirely (no API call; Alternatives tab hidden).
 
 ### Acceptance criteria
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | `GET /api/profiles/{profileId}/recommendations` (or equivalent) returns alternatives for an authorized profile. |
-| [ ] | 2 | Alternatives are shown on mobile for Warning and Unsafe (Avoid) verdicts. |
-| [ ] | 3 | Alternatives tab/section is hidden (or clearly inactive) for Safe verdicts. |
-| [ ] | 4 | Returned alternatives are suitable for the active dietary profile under the agreed MVP algorithm (e.g. prior Safe history / category overlap). |
-| [ ] | 5 | Current barcode/product is excluded from the recommendation list. |
-| [ ] | 6 | When no alternatives exist, API returns an empty list and UI shows an appropriate empty state. |
-| [ ] | 7 | Unauthorized profile access returns 403. |
-| [ ] | 8 | Loading and error states are handled on the Alternatives UI. |
+| [x] | 1 | `GET /api/profiles/{profileId}/recommendations` returns alternatives for a profile + source barcode (optional `scanId` for logging). |
+| [x] | 2 | Alternatives are shown on mobile for Warning and Unsafe (Avoid) verdicts. |
+| [x] | 3 | Alternatives tab/section is hidden for Safe verdicts. |
+| [x] | 4 | Returned alternatives are suitable for the active dietary profile under the agreed MVP algorithm (same-category SAFE → tag fallback; dairy/gluten hardening; prior Safe history ranking). |
+| [x] | 5 | Current barcode/product is excluded from the recommendation list. |
+| [x] | 6 | When no alternatives exist, API returns an empty list and UI shows an appropriate empty state. |
+| [ ] | 7 | Unauthorized profile access returns 403. *(endpoint is public today; wire family auth like UC17)* |
+| [x] | 8 | Loading and error states are handled on the Alternatives UI. |
 | [x] | 9 | This UC does not implement a separate recommendation-history screen (UC17). |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC5-S1** | 1, 4–5, 7 | Recommendations API — **open** |
-| **UC5-S2** | 2–3, 6, 8 | Alternatives tab UX — **open** |
+| **UC5-S1** | 1, 4–5 | Recommendations API + MVP algorithm — **done** *(AC7 auth open)* |
+| **UC5-S2** | 2–3, 6, 8 | Alternatives tab UX — **done** |
 | **UC5-S3** | 9 | UC17 boundary — **done** |
 
 Full table: [backlog §5 scan path](sprint2-jira-backlog.md#uc2--uc3--uc4--uc5--scan-path).
