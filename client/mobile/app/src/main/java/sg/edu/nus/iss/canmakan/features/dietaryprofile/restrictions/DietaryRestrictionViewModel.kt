@@ -43,6 +43,7 @@ class DietaryRestrictionViewModel @Inject constructor(
             val savedDietaryRestrictions = dietaryRestrictionRepo.getDietaryRestrictionsForProfile(profileId)
             _uiState.value = _uiState.value.copy(
                 selectedRestrictions = savedDietaryRestrictions,
+                errorMessage = null // Clear any error message from previous profile attempts
             )
         } catch (e: Exception) {
             Timber.e(e, "Error loading dietary restrictions for profile $profileId")
