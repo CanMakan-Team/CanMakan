@@ -31,6 +31,7 @@ captures/
 *.ap_
 *.apk.d
 *.dex
+**/keystore_base64.txt
 
 # Java / Maven / Eclipse build output
 target/

@@ -90,7 +90,7 @@ Tick after a family UC change lands — keep these aligned with code.
 
 ## UC10 — Accept / Decline Invitation
 
-**Primary UI:** Mobile **Family Invitations** · Web claim path optional  
+**Primary UI:** Mobile **Notifications** (top-bar bell) · Web claim path optional  
 **APIs:** `GET /api/invitations/me`, accept/decline (or UC9 claim)
 
 - [ ] **10.1** As Invitee B, open pending invitations → Admin A’s invite listed (or claim via link) *(AC 1–2, 12)*

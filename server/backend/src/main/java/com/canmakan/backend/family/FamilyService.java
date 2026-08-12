@@ -293,7 +293,8 @@ public class FamilyService {
         profile.setRelationship(request.relationship().trim().toUpperCase(Locale.ROOT));
         dietaryProfileRepository.saveAndFlush(profile);
 
-        // Restriction lists are optional; when present, D3 ownership applies.
+        // Restriction lists are optional; when present, D3 ownership applies
+        // (self, or any family profile for PRIMARY_ADMIN).
         if (request.commonRequirements() != null || request.restrictions() != null) {
             assertMayEditRestrictions(adminUserId, profileId);
             Map<Long, String> selections = resolveRestrictionSelections(
@@ -377,8 +378,8 @@ public class FamilyService {
     }
 
     /**
-     * D3: actor may edit restrictions for self-linked profile or unlinked dependants
-     * in their family (PRIMARY_ADMIN for dependants).
+     * D3: actor may edit restrictions for their own linked profile, or for any
+     * profile in their family circle when they are PRIMARY_ADMIN.
      */
     @Transactional(readOnly = true)
     public void assertMayEditRestrictions(long actorUserId, long profileId) {

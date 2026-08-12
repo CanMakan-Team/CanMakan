@@ -912,8 +912,31 @@ class FamilyServiceTest {
     }
 
     @Test
-    @DisplayName("assertMayEditRestrictions rejects another adult linked profile")
-    void assertMayEditRestrictionsOtherAdultForbidden() {
+    @DisplayName("assertMayEditRestrictions allows PRIMARY_ADMIN to edit another adult")
+    void assertMayEditRestrictionsAdminOtherAdultOk() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile other = activeProfile(99L, "Member", family, true);
+        UserAccount linked = new UserAccount();
+        linked.setId(20L);
+        other.setLinkedUser(linked);
+        when(dietaryProfileRepository.findById(99L)).thenReturn(Optional.of(other));
+
+        familyService.assertMayEditRestrictions(10L, 99L);
+    }
+
+    @Test
+    @DisplayName("assertMayEditRestrictions rejects non-admin editing another adult")
+    void assertMayEditRestrictionsOtherAdultForbiddenForMember() {
+        FamilyMember membership = new FamilyMember(
+            new FamilyMember.FamilyMemberId(1L, 10L),
+            FamilyMember.ROLE_MEMBER,
+            true,
+            null
+        );
+        when(familyMemberRepository.findMembershipByUserId(10L)).thenReturn(Optional.of(membership));
+
         Family family = new Family();
         family.setId(1L);
         DietaryProfile other = activeProfile(99L, "Member", family, true);

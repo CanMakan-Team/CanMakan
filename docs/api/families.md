@@ -304,7 +304,7 @@ flowchart TD
   Admin[PRIMARY_ADMIN creates PENDING invite] --> Share[Share link/code or Resend email]
   Share --> PathA[New user: register, then login with token preserved]
   Share --> PathB[Existing user: open link then login/claim]
-  Share --> PathC[Already logged in: Family Invitations inbox]
+  Share --> PathC[Already logged in: Notifications inbox]
   PathA --> Join[MEMBER + SELF profile + ACCEPTED]
   PathB --> Join
   PathC --> Join

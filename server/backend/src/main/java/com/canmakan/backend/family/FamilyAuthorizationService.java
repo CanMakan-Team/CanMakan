@@ -57,8 +57,9 @@ public class FamilyAuthorizationService {
     }
 
     /**
-     * D3: actor may edit restrictions for self-linked profile or unlinked dependants
-     * in their family (PRIMARY_ADMIN for dependants).
+     * D3: actor may edit restrictions for their own linked profile, or for any
+     * profile in their family circle when they are PRIMARY_ADMIN.
+     * Non-admins may only edit their own profile.
      */
     @Transactional(readOnly = true)
     public void assertMayEditRestrictions(long actorUserId, long profileId) {
@@ -71,15 +72,20 @@ public class FamilyAuthorizationService {
             return;
         }
 
-        if (profile.getLinkedUser() == null && profile.getFamily() != null) {
-            FamilyMember membership = requirePrimaryAdmin(actorUserId);
-            if (membership.getFamilyId().equals(profile.getFamily().getId())) {
-                return;
+        if (profile.getFamily() != null) {
+            Optional<FamilyMember> membershipOpt =
+                familyMemberRepository.findMembershipByUserId(actorUserId);
+            if (membershipOpt.isPresent()) {
+                FamilyMember membership = membershipOpt.get();
+                if (FamilyMember.ROLE_PRIMARY_ADMIN.equals(membership.getMemberRole())
+                        && membership.getFamilyId().equals(profile.getFamily().getId())) {
+                    return;
+                }
             }
         }
 
         throw new FamilyForbiddenException(
-            "You cannot edit restrictions for another adult's linked profile.");
+            "You can only edit dietary restrictions for your own profile.");
     }
 
     /**

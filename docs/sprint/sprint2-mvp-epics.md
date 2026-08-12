@@ -97,7 +97,7 @@ flowchart TB
 **Tech:** Android Kotlin; Spring Boot REST; AWS RDS MySQL  
 **Current code state:** Partial — live catalog/PUT + mobile editor; JWT + D3 ownership authz shipped; severity fixed `STRICT_AVOID`
 
-- **Backend:** `DietaryProfileController` — live `GET /api/restrictions` and `GET|PUT /api/profiles/{profileId}/restrictions`; JWT required (`SecurityConfig`); GET uses `FamilyAuthorizationService.assertProfileAuthorizedForScan`; PUT uses D3 (`assertMayEditRestrictions`: self + unlinked dependants).
+- **Backend:** `DietaryProfileController` — live `GET /api/restrictions` and `GET|PUT /api/profiles/{profileId}/restrictions`; JWT required (`SecurityConfig`); GET uses `FamilyAuthorizationService.assertProfileAuthorizedForScan`; PUT uses D3 (`assertMayEditRestrictions`: self, or any family profile for PRIMARY_ADMIN).
 - **Mobile:** `DietaryRestrictionSheet` + ViewModel wired from the drawer; loads/saves against the live API for the active profile. Severity is fixed to `STRICT_AVOID` in the VM (no PREFERENCE / INTOLERANCE picker). Loading/error paths exist.
 - **Missing:** unknown-code → consistent HTTP 400 mapping; severity picker (AC4); empty-state polish (AC14). SELF bootstrap after registration is via **UC8** create-circle (register leaves `family_id` NULL until then).
 
@@ -336,45 +336,39 @@ UC2, UC3; UC8 for family list
 ## UC5 — View Alternative Product Recommendation
 
 **Owner:** Chai Lee · **Package:** Core MVP · **Architecture:** Scanning & Verdicts / Mobile Client  
-**Tech:** Android; Spring Boot; Open Food Facts; recommendation logic  
-**Current code state:** Not started — Alternatives tab shell only (always empty on live assess)
+**Tech:** Android; Spring Boot; Open Food Facts catalog; recommendation logic  
+**Current code state:** **Mostly complete (backend + mobile)** — live recommendations API + Alternatives tab; profile authorization on GET still open.
 
-- **Backend:** no recommendations controller/service.
-- **Mobile:** `ProductDetailScreen` Alternatives tab is always visible; live assess returns empty alternatives. Sample data only in `ProductSampleData`.
-- **Boundary:** No separate recommendation-history screen (UC17) exists.
+- **Backend:** `GET /api/profiles/{profileId}/recommendations?sourceBarcode=&scanId=` (`RecommendationController` / `RecommendationService`) — same-category SAFE candidates (source excluded) → tag fallback via `SubstituteDiscoveryProfiles` (e.g. Fresh milks → oat/dairy substitutes; Wheat/White wheat flours → gluten-free flour tags); intolerance hardening in `AlternativeCandidateFilter`; ranked by `AlternativeProductRanker` (prior Safe scan history boost); best-effort write to `recommendation_logs` (UC17 read side). **Gap:** controller has no JWT / `assertProfileAuthorizedForScan` yet (unlike UC17 history).
+- **Mobile:** `ScannerViewModel` calls recommendations after assess for WARNING/UNSAFE only; `FETCHING_ALTERNATIVES` overlay on scanner; `ProductDetailScreen` hides Alternatives tab for SAFE, shows empty/error on tab (`alternativesError`). Tests: `ScannerViewModelTest` UC5 M1–M3; backend `RecommendationServiceTest`, `RecommendationControllerTest`, filter/ranker tests.
+- **Schema:** `recommendation_logs` + seed `10_recommendation_logs.sql`.
+- **Boundary:** Listing **past** recommendations = UC17 (Enhanced); not built here (UC5-S3 done).
 
-### User story
+### User stories
 
-As an app user, I want suitable alternatives when a product is Warning/Avoid, based on my active dietary profile.
-
-### Alignment
-
-Generating alternatives = UC5. **Listing past recommendations = UC17** (Enhanced).
-
-### Context
-
-**Out of scope:** Recommendation history list UI (UC17); ML ranking beyond agreed MVP algorithm; web alternatives UI unless later assigned.
+1. When a scan returns Warning or Avoid, see safer alternative products for the active dietary profile.  
+2. Safe verdicts skip alternatives entirely (no API call; Alternatives tab hidden).
 
 ### Acceptance criteria
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | `GET /api/profiles/{profileId}/recommendations` (or equivalent) returns alternatives for an authorized profile. |
-| [ ] | 2 | Alternatives are shown on mobile for Warning and Unsafe (Avoid) verdicts. |
-| [ ] | 3 | Alternatives tab/section is hidden (or clearly inactive) for Safe verdicts. |
-| [ ] | 4 | Returned alternatives are suitable for the active dietary profile under the agreed MVP algorithm (e.g. prior Safe history / category overlap). |
-| [ ] | 5 | Current barcode/product is excluded from the recommendation list. |
-| [ ] | 6 | When no alternatives exist, API returns an empty list and UI shows an appropriate empty state. |
-| [ ] | 7 | Unauthorized profile access returns 403. |
-| [ ] | 8 | Loading and error states are handled on the Alternatives UI. |
+| [x] | 1 | `GET /api/profiles/{profileId}/recommendations` returns alternatives for a profile + source barcode (optional `scanId` for logging). |
+| [x] | 2 | Alternatives are shown on mobile for Warning and Unsafe (Avoid) verdicts. |
+| [x] | 3 | Alternatives tab/section is hidden for Safe verdicts. |
+| [x] | 4 | Returned alternatives are suitable for the active dietary profile under the agreed MVP algorithm (same-category SAFE → tag fallback; dairy/gluten hardening; prior Safe history ranking). |
+| [x] | 5 | Current barcode/product is excluded from the recommendation list. |
+| [x] | 6 | When no alternatives exist, API returns an empty list and UI shows an appropriate empty state. |
+| [ ] | 7 | Unauthorized profile access returns 403. *(endpoint is public today; wire family auth like UC17)* |
+| [x] | 8 | Loading and error states are handled on the Alternatives UI. |
 | [x] | 9 | This UC does not implement a separate recommendation-history screen (UC17). |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC5-S1** | 1, 4–5, 7 | Recommendations API — **open** |
-| **UC5-S2** | 2–3, 6, 8 | Alternatives tab UX — **open** |
+| **UC5-S1** | 1, 4–5 | Recommendations API + MVP algorithm — **done** *(AC7 auth open)* |
+| **UC5-S2** | 2–3, 6, 8 | Alternatives tab UX — **done** |
 | **UC5-S3** | 9 | UC17 boundary — **done** |
 
 Full table: [backlog §5 scan path](sprint2-jira-backlog.md#uc2--uc3--uc4--uc5--scan-path).
@@ -621,7 +615,7 @@ UC19, UC8, UC1 · Related: UC10
 **Current code state:** Complete (MVP ACs) — **UC10-S1–S4 shipped** (inbox list/accept/decline + Resend optional; web inbox still optional residual)
 
 - **Backend:** `GET /api/invitations/me`, `POST /api/invitations/{token}/accept|decline`; claim path aligned (403 mismatch, 410 expired, 409 final/already-in-family). Optional Resend email on invite create when configured.
-- **Mobile:** Drawer **Family Invitations** → `InvitationsScreen` (loading/empty/error; Accept/Decline). UC9 deep-link claim remains.
+- **Mobile:** Top-bar **Notifications** → `InvitationsScreen` (loading/empty/error; Accept/Decline). UC9 deep-link claim remains.
 - **Web:** `/invite/:token` claim path remains; full inbox UI still optional.
 - **Workflow:** Invite → join diagram and path table in [`docs/api/families.md`](../api/families.md#invite--join-workflow-uc9--uc10).
 - **Out of this epic:** Creating invitations (UC9); web inbox parity.
@@ -930,32 +924,34 @@ Full table: [backlog §5 Enhanced](sprint2-jira-backlog.md#enhanced--nice-to-hav
 
 **Owner:** Chai Lee · **Package:** Enhanced · **Architecture:** Mobile Client  
 **Tech:** Android; Spring Boot; RDS  
-**Current code state:** Not started — no recommendation-history API/table; Alternatives tab is UC5 verdict-time shell only
+**Current code state:** **Complete (backend + mobile)** — live history API + list UI; UC5 writes `recommendation_logs` at verdict time.
 
-### User story
+- **Backend:** `GET /api/profiles/{profileId}/recommendation-history` (`RecommendationHistoryController` / `RecommendationHistoryService`) — JWT + `assertProfileAuthorizedForScan`; groups `recommendation_logs` by `scan_id`; enriches source product from catalog + timestamp/verdict from `scans`; nested alternatives (barcode, name, brand, match reason, rank score, discovery tier). Tests: `RecommendationHistoryControllerTest` (200, empty, 403), `RecommendationHistoryServiceTest`.
+- **Mobile:** drawer → **Recommendations** (`RecommendationHistoryScreen` + `RecommendationHistoryViewModel`); loads for active profile, reloads on profile switch; loading / empty / error states; row tap opens `ProductDetailScreen` with stored alternatives via `VerdictDetail.fromRecommendationHistoryEntry()`. Tests: `RecommendationHistoryViewModelTest` UC17 V1–V4.
+- **Schema:** `recommendation_logs` (written by UC5 `RecommendationLogService`); seed `10_recommendation_logs.sql`.
+- **Boundary:** Does not generate new alternatives at verdict time (UC5 owns that); no web history UI in this UC.
 
-As an app user, I want to list past product recommendations so I can revisit suggestions I was shown.
+### User stories
 
-### Alignment
-
-UC5 generates alternatives at verdict time. **UC17** persists/lists that history.
+1. List past recommendation sessions for the active dietary profile so I can revisit alternatives I was shown.  
+2. Open a history row to see the source product verdict context and the alternatives that were suggested.
 
 ### Acceptance criteria
 
 | Done | # | Criterion |
 | --- | --- | --- |
-| [ ] | 1 | Authenticated user can list past recommendations for an authorized profile. |
-| [ ] | 2 | Each history item includes enough context to identify the source product/time and suggested alternatives (as designed). |
-| [ ] | 3 | Empty history shows an empty state. |
-| [ ] | 4 | Unauthorized profile access returns 403. |
-| [ ] | 5 | Loading and error states are handled. |
+| [x] | 1 | Authenticated user can list past recommendations for an authorized profile via `GET /api/profiles/{profileId}/recommendation-history`. |
+| [x] | 2 | Each history item includes enough context to identify the source product/time and suggested alternatives (source name/brand/barcode, verdict, `recommendedAt`, ranked alternatives). |
+| [x] | 3 | Empty history shows an empty state. |
+| [x] | 4 | Unauthorized profile access returns 403. |
+| [x] | 5 | Loading and error states are handled. |
 | [x] | 6 | This UC does not generate new alternatives at verdict time (UC5 owns that). |
 
 ### Jira child stories
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC17-S1** | 1–6 | Recommendation history API + list — **open** (AC6 boundary done) |
+| **UC17-S1** | 1–6 | Recommendation history API + mobile list UI — **done** |
 
 Full table: [backlog §5 Enhanced](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
