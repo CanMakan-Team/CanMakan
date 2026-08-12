@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getErrorMessage } from '../../../shared/api/apiErrors'
 import { familyApiService } from '../api/familyApiService'
-import type { FamilyRestrictionSumRes, Verdict } from '../../../shared/api/types'
+import { restrictionGroups } from '../lib/profileOptions'
+import type { FamilyRestrictionSumRes } from '../../../shared/api/types'
 import { EmptyState, ErrorState, LoadingState } from '../../../shared/ui/PageState'
 import { StatusBadge } from '../../../shared/ui/StatusBadge'
 
@@ -68,9 +69,8 @@ export function FamilyRestrictionSummaryPage() {
       ) : (
         <section className="panel">
           <div className="matrix-legend" aria-label="Restriction grid legend">
-            <span><StatusBadge status="AVOID" /> Strict Avoid / Unsafe</span>
-            <span><StatusBadge status="WARNING" /> Intolerance / Warning</span>
-            <span><i className="matrix-cell"> </i> Not recorded</span>
+            <span><StatusBadge status="SELECTED" /> Option selected in dietary profile</span>
+            <span><i className="matrix-cell"> </i> Not selected</span>
           </div>
 
           <div className="responsive-table">
@@ -91,26 +91,19 @@ export function FamilyRestrictionSummaryPage() {
                   <tr key={member.profileId ?? member.userId}>
                     <th scope="row">{member.name}</th>
                     {columns.map((colName) => {
-                      const restriction = member.restrictions.find(
+                      // Any restriction present on the dietary profile counts as
+                      // selected for this column; the grid does not grade by
+                      // severity, it only reports what the profile has chosen.
+                      const isSelected = member.restrictions.some(
                         (r) => r.displayName === colName
                       )
-                      
-                      let status: Verdict | undefined
-                      if (restriction) {
-                        const sev = restriction.severity.toUpperCase()
-                        status = ['STRICT_AVOID', 'STRICT', 'HIGH', 'UNSAFE'].includes(sev)
-                          ? 'AVOID'
-                          : ['INTOLERANCE', 'WARNING', 'MEDIUM', 'MODERATE'].includes(sev)
-                          ? 'WARNING'
-                          : 'SAFE'
-                      }
 
                       return (
                         <td key={colName}>
-                          {status ? (
-                            <StatusBadge status={status} />
+                          {isSelected ? (
+                            <StatusBadge status="SELECTED" />
                           ) : (
-                            <span className="matrix-cell" aria-label="Not recorded"> </span>
+                            <span className="matrix-cell" aria-label="Not selected"> </span>
                           )}
                         </td>
                       )
@@ -130,6 +123,26 @@ export function FamilyRestrictionSummaryPage() {
           risk or make a food-safety assessment.
         </p>
       </div>
+
+      <section className="panel">
+        <h2>Dietary restriction reference</h2>
+        <p>What each dietary restriction option means.</p>
+        {restrictionGroups.map((group) => (
+          <div className="restriction-reference-group" key={group.label}>
+            <h3>{group.label}</h3>
+            <dl className="detail-grid">
+              {[...group.options]
+                .sort((a, b) => a.label.localeCompare(b.label))
+                .map((option) => (
+                  <div key={option.value}>
+                    <dt>{option.label}</dt>
+                    <dd>{option.description}</dd>
+                  </div>
+                ))}
+            </dl>
+          </div>
+        ))}
+      </section>
     </>
   )
 }

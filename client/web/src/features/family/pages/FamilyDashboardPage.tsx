@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../../../shared/api/apiErrors'
 import { familyApiService } from '../api/familyApiService'
 import type { ActiveProfile, FamilyMember, ScanRecord } from '../../../shared/api/types'
+import { getGreetingPeriod } from '../lib/greeting'
 import { ErrorState, LoadingState } from '../../../shared/ui/PageState'
 import { StatusBadge } from '../../../shared/ui/StatusBadge'
 
@@ -60,12 +61,19 @@ export function FamilyDashboardPage() {
     return counts
   }, {})
 
+  // The greeting addresses the logged-in family admin by their own profile
+  // name (relationship SELF), not the currently active/scanned profile.
+  const adminProfileName = members.find((member) => member.relationship === 'SELF')?.profileName
+  const greetingPeriod = getGreetingPeriod()
+
   return (
     <>
       <header className="page-header">
         <div>
           <p className="eyebrow">Family overview</p>
-          <h1>Good morning, Alicia.</h1>
+          <h1>
+            Good {greetingPeriod}, {adminProfileName ?? 'there'}.
+          </h1>
           <p>
             A practical snapshot of profiles and supplied assessment history.
             Counts are not medical-risk trends.

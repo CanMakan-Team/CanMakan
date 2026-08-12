@@ -78,6 +78,9 @@ interface FamilyProfileApiService {
     @GET("families/me")
     suspend fun getMyFamily(): Response<FamilyMeResponse>
 
+    @GET("families/me/members")
+    suspend fun getFamilyMembers(): Response<List<FamilyMemberRosterItem>>
+
     @POST("families")
     suspend fun createFamily(
         @Body request: CreateFamilyRequestBody,

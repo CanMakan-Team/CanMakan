@@ -1,10 +1,10 @@
 import type {
   DataCompleteness,
-  Verdict,
+  RestrictionCellStatus,
 } from '../api/types'
 
 type Status =
-  | Verdict
+  | RestrictionCellStatus
   | DataCompleteness
   | 'ACTIVE'
   | 'SUSPENDED'

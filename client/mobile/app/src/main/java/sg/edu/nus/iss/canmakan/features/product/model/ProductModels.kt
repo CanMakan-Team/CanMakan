@@ -2,6 +2,7 @@ package sg.edu.nus.iss.canmakan.features.product.model
 
 import com.google.gson.annotations.SerializedName
 import java.time.LocalDateTime
+import sg.edu.nus.iss.canmakan.shared.network.AlternativeProductDto
 
 // Represents a single food product that has been scanned or is being reviewed.
 data class Product(
@@ -48,4 +49,10 @@ data class AlternativeProduct(
     val name: String,
     val brand: String,
     val description: String
+)
+
+fun AlternativeProductDto.toUiModel() = AlternativeProduct(
+    name = productName,
+    brand = brand.orEmpty(),
+    description = matchReason ?: "Same category alternative"
 )
