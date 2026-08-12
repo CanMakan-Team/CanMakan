@@ -110,6 +110,82 @@ class AlternativeProductQueryServiceTest {
     }
 
     @Test
+    void findSubstituteTagCandidatesQueriesGlutenFreeBreakfastCerealsTag() {
+        CatalogProduct source = product(
+                "0038527591039",
+                "Breakfast cereals",
+                "Whole Grain Oat Flour, Whole Wheat Flour",
+                "en:breakfast-cereals");
+        CatalogProduct glutenFreeGranola = product(
+                "9315090200706",
+                "Breakfast cereals",
+                "rice flour, yellow corn flour, sorghum flour",
+                "Gluten free Breakfast cereals");
+        SubstituteDiscoveryProfile breakfastCerealsProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Breakfast cereals").orElseThrow();
+
+        when(catalogProductRepository.findCandidatesByCategoryTag(
+                "Gluten free Breakfast cereals",
+                "0038527591039"))
+                .thenReturn(List.of(glutenFreeGranola));
+
+        List<CatalogProduct> results = queryService.findSubstituteTagCandidates(source, breakfastCerealsProfile);
+
+        assertEquals(1, results.size());
+        assertEquals("9315090200706", results.getFirst().getBarcode());
+    }
+
+    @Test
+    void findSubstituteTagCandidatesQueriesIceCreamSorbetTagForIceCreamSource() {
+        CatalogProduct source = product(
+                "8714100638415",
+                "Ice cream bars",
+                "Reconstituted skimmed MILK, sugar",
+                "en:ice-cream-bars");
+        CatalogProduct sorbet = product(
+                "0797776401178",
+                "Ice cream tubs",
+                "Acai pulp, coconut milk",
+                "ice-creams-and-sorbets");
+        SubstituteDiscoveryProfile iceCreamProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Ice cream bars").orElseThrow();
+
+        when(catalogProductRepository.findCandidatesByCategoryTag("ice-creams-and-sorbets", "8714100638415"))
+                .thenReturn(List.of(sorbet));
+        when(catalogProductRepository.findCandidatesByCategoryTag("en:ice-creams-and-sorbets", "8714100638415"))
+                .thenReturn(List.of());
+
+        List<CatalogProduct> results = queryService.findSubstituteTagCandidates(source, iceCreamProfile);
+
+        assertEquals(1, results.size());
+        assertEquals("0797776401178", results.getFirst().getBarcode());
+    }
+
+    @Test
+    void findSubstituteTagCandidatesQueriesGlutenFreeSaucesForSoySauceSource() {
+        CatalogProduct source = product(
+                "0078895129779",
+                "Soy sauces",
+                "Water, salt, soybeans, wheat flour",
+                "en:soy-sauces");
+        CatalogProduct glutenFreeSauce = product(
+                "4901515129889",
+                "Soy sauces",
+                "Water, Soybeans, Rice, Salt",
+                "Gluten Free sauces");
+        SubstituteDiscoveryProfile soySauceProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Soy sauces").orElseThrow();
+
+        when(catalogProductRepository.findCandidatesByCategoryTag("Gluten Free sauces", "0078895129779"))
+                .thenReturn(List.of(glutenFreeSauce));
+
+        List<CatalogProduct> results = queryService.findSubstituteTagCandidates(source, soySauceProfile);
+
+        assertEquals(1, results.size());
+        assertEquals("4901515129889", results.getFirst().getBarcode());
+    }
+
+    @Test
     void findSubstituteTagCandidatesQueriesGlutenFreeFlourForWheatFlourSource() {
         CatalogProduct source = product(
                 "4894514060287",
