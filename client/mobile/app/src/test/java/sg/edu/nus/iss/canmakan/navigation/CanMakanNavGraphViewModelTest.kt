@@ -28,6 +28,7 @@ import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.data.ActiveProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeResponse
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyMemberRosterItem
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileResponse
@@ -370,6 +371,9 @@ class CanMakanNavGraphViewModelTest {
             meCalls++
             return meResponse
         }
+
+        override suspend fun getFamilyMembers(): Response<List<FamilyMemberRosterItem>> =
+            Response.success(emptyList())
 
         override suspend fun createFamily(
             request: CreateFamilyRequestBody,

@@ -8,6 +8,8 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -17,9 +19,26 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import retrofit2.Response
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
+import sg.edu.nus.iss.canmakan.features.family.data.ActiveProfileResponse
+import sg.edu.nus.iss.canmakan.features.family.data.ClaimInvitationRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.CreateDependantProfileRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.CreateInvitationRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.DependantProfileResponse
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeResponse
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyMemberRosterItem
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileResponse
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyRestrictionSumRes
+import sg.edu.nus.iss.canmakan.features.family.data.InvitationResponse
+import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
+import sg.edu.nus.iss.canmakan.features.family.data.SetActiveProfileRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.UserSearchResponse
 
 /*
     Mobile Test Cases for Use Case 1: Update App User Dietary Profile
@@ -36,6 +55,7 @@ class DietaryRestrictionViewModelTest {
 
     private lateinit var activeProfileManager: ActiveProfileManager
     private lateinit var repository: FakeDietaryRestrictionRepository
+    private lateinit var familyApi: FakeFamilyProfileApiService
     private lateinit var viewModel: DietaryRestrictionViewModel
 
     // Set up the test environment
@@ -45,7 +65,12 @@ class DietaryRestrictionViewModelTest {
         Dispatchers.setMain(testDispatcher)
         activeProfileManager = ActiveProfileManager()
         repository = FakeDietaryRestrictionRepository()
-        viewModel = DietaryRestrictionViewModel(activeProfileManager, repository)
+        familyApi = FakeFamilyProfileApiService()
+        viewModel = DietaryRestrictionViewModel(
+            activeProfileManager,
+            repository,
+            FamilyProfileRepository(familyApi),
+        )
         testDispatcher.scheduler.advanceUntilIdle()
     }
 
@@ -71,6 +96,7 @@ class DietaryRestrictionViewModelTest {
         assertEquals(2, uiState.allergenRestrictions.size)
         assertEquals(1, uiState.dietRestrictions.size)
         assertTrue(uiState.selectedRestrictions.containsKey(1L))
+        assertTrue(uiState.allowRestrictionEdit)
     }
 
     // Testing the selection of dietary restrictions
@@ -158,7 +184,11 @@ class DietaryRestrictionViewModelTest {
     @DisplayName("UC1 M7: Shows an error state when the catalog fails to load")
     fun showsErrorStateWhenCatalogLoadFails() = runTest {
         val failingRepository = FakeDietaryRestrictionRepository().apply { loadShouldThrow = true }
-        val freshViewModel = DietaryRestrictionViewModel(ActiveProfileManager(), failingRepository)
+        val freshViewModel = DietaryRestrictionViewModel(
+            ActiveProfileManager(),
+            failingRepository,
+            FamilyProfileRepository(FakeFamilyProfileApiService()),
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         val uiState = freshViewModel.uiState.value
@@ -184,11 +214,61 @@ class DietaryRestrictionViewModelTest {
         assertFalse(viewModel.uiState.value.isLoading)
     }
 
+    @Test
+    @DisplayName("UC1 M9: Locks the sheet for another adult's linked profile (D3)")
+    fun locksSheetForOtherAdultLinkedProfile() = runTest {
+        familyApi.meResponse = Response.success(
+            FamilyMeResponse(
+                familyId = 50L,
+                familyName = "Wong Family",
+                memberRole = "PRIMARY_ADMIN",
+                selfProfileId = 77L,
+                createdByUserId = 14L,
+            ),
+        )
+        familyApi.membersResponse = Response.success(
+            listOf(
+                FamilyMemberRosterItem(
+                    memberId = 14L,
+                    profileId = 77L,
+                    linkedUserId = 14L,
+                    profileName = "Wong",
+                    relationship = "SELF",
+                    source = "REGISTERED_USER",
+                ),
+                FamilyMemberRosterItem(
+                    memberId = 22L,
+                    profileId = 99L,
+                    linkedUserId = 22L,
+                    profileName = "Amanda",
+                    relationship = "SPOUSE",
+                    source = "REGISTERED_USER",
+                ),
+            ),
+        )
+
+        activeProfileManager.switchProfile(99L)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        assertFalse(uiState.allowRestrictionEdit)
+        assertEquals(RestrictionEditAuthorization.READ_ONLY_HINT, uiState.restrictionEditHint)
+
+        viewModel.toggleDietaryRestriction(20L)
+        assertFalse(viewModel.uiState.value.selectedRestrictions.containsKey(20L))
+
+        var saved = false
+        viewModel.onSave { saved = true }
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertFalse(saved)
+        assertNull(repository.lastSavedSelections)
+    }
+
     // Fake repository for testing
     // Avoid using real repo in tests
     private class FakeDietaryRestrictionRepository : DietaryRestrictionRepository {
         var savedSelections: Map<Long, String> = emptyMap()
-        var lastSavedSelections: Map<Long, String> = emptyMap()
+        var lastSavedSelections: Map<Long, String>? = null
         var catalog: List<DietaryRestriction> = listOf(
             DietaryRestriction(10L, "HALAL", "Halal", "RELIGIOUS"),
             DietaryRestriction(11L, "VEGETARIAN", "Vegetarian", "RELIGIOUS"),
@@ -214,5 +294,62 @@ class DietaryRestrictionViewModelTest {
             lastSavedSelections = selections
             return saveShouldSucceed
         }
+    }
+
+    private class FakeFamilyProfileApiService : FamilyProfileApiService {
+        var meResponse: Response<FamilyMeResponse> = Response.error(
+            404,
+            "{}".toResponseBody("application/json".toMediaType()),
+        )
+        var membersResponse: Response<List<FamilyMemberRosterItem>> = Response.success(emptyList())
+
+        override suspend fun getMyFamily(): Response<FamilyMeResponse> = meResponse
+
+        override suspend fun getFamilyMembers(): Response<List<FamilyMemberRosterItem>> = membersResponse
+
+        override suspend fun createFamily(
+            request: CreateFamilyRequestBody,
+        ): Response<FamilyMeResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun getProfilesByFamilyId(familyId: Long): List<FamilyProfileResponse> = emptyList()
+
+        override suspend fun getActiveProfile(): Response<ActiveProfileResponse> =
+            Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun setActiveProfile(
+            request: SetActiveProfileRequestBody,
+        ): Response<ActiveProfileResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun searchUserByEmail(email: String): Response<UserSearchResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun createInvitation(
+            request: CreateInvitationRequestBody,
+        ): Response<InvitationResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun claimInvitation(
+            request: ClaimInvitationRequestBody,
+        ): Response<FamilyMeResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun listMyInvitations(): Response<List<PendingInvitationResponse>> =
+            Response.success(emptyList())
+
+        override suspend fun acceptInvitation(token: String): Response<FamilyMeResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun declineInvitation(token: String): Response<Unit> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun createDependantProfile(
+            request: CreateDependantProfileRequestBody,
+        ): Response<DependantProfileResponse> =
+            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
     }
 }

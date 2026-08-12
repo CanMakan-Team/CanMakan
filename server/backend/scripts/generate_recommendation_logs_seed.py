@@ -5,6 +5,7 @@ Generate 10_recommendation_logs.sql from scan seed + products catalog.
 Tier A rules mirrored offline:
   - Only WARNING/UNSAFE scans get recommendations
   - Candidates must share main_category_en with the scanned product
+  - When same-category SAFE pool is empty, fall back to category_tags substitute profiles
   - Candidates must have non-empty ingredients_text
   - Simple keyword filter approximates DietaryRuleEngine STRICT_AVOID / INTOLERANCE
   - prior_safe_scan boost when profile has a SAFE scan in the same category
@@ -31,6 +32,7 @@ OUTPUT_SQL = RESOURCES / "10_recommendation_logs.sql"
 IDX_BARCODE = 0
 IDX_PRODUCT_NAME = 1
 IDX_BRAND = 3
+IDX_CATEGORY_TAGS = 8
 IDX_MAIN_CATEGORY_EN = 10
 IDX_INGREDIENTS_TEXT = 13
 IDX_ALLERGENS = 15
@@ -38,6 +40,19 @@ IDX_LABELS_TAGS = 19
 IDX_COMPLETENESS = 25
 
 MAX_ALTERNATIVES_PER_SCAN = 2
+
+SUBSTITUTE_PROFILES: dict[str, dict[str, list[str]]] = {
+    "Fresh milks": {
+        "include": ["en:milk-substitutes", "en:dairy-substitutes"],
+        "beverage": [
+            "en:oat-based-drinks",
+            "en:soy-based-drinks",
+            "en:almond-based-drinks",
+            "en:unsweetened-plain-soy-based-drinks",
+        ],
+        "deprioritize": ["en:plant-based-creams-for-cooking", "en:coconut-milks-and-creams"],
+    }
+}
 
 # profile_id -> list of (restriction_code, severity)
 PROFILE_RULES: dict[int, list[tuple[str, str]]] = {
@@ -90,6 +105,7 @@ class Product:
     name: str
     brand: str | None
     category_en: str | None
+    category_tags: str | None
     ingredients_text: str | None
     allergens: str | None
     labels_tags: str | None
@@ -191,6 +207,7 @@ def parse_products(path: Path) -> dict[str, Product]:
                 name=(values[IDX_PRODUCT_NAME] or "").strip(),
                 brand=values[IDX_BRAND],
                 category_en=(values[IDX_MAIN_CATEGORY_EN] or "").strip() or None,
+                category_tags=values[IDX_CATEGORY_TAGS] if len(values) > IDX_CATEGORY_TAGS else None,
                 ingredients_text=(values[IDX_INGREDIENTS_TEXT] or "").strip() or None,
                 allergens=values[IDX_ALLERGENS] if len(values) > IDX_ALLERGENS else None,
                 labels_tags=values[IDX_LABELS_TAGS] if len(values) > IDX_LABELS_TAGS else None,
@@ -241,6 +258,51 @@ def parse_scans(path: Path) -> list[Scan]:
 
 def labels_lower(product: Product) -> str:
     return (product.labels_tags or "").lower()
+
+
+def category_tags_set(product: Product) -> set[str]:
+    if not product.category_tags:
+        return set()
+    return {tag.strip() for tag in product.category_tags.split(",") if tag.strip()}
+
+
+def tags_contain_any(tags: set[str], needles: list[str]) -> bool:
+    return any(needle in tags for needle in needles)
+
+
+def substitute_profile_for(category_en: str | None) -> dict[str, list[str]] | None:
+    if not category_en:
+        return None
+    return SUBSTITUTE_PROFILES.get(category_en)
+
+
+def substitute_candidates(
+    products: dict[str, Product],
+    source: Product,
+    profile_id: int,
+) -> list[Product]:
+    profile = substitute_profile_for(source.category_en)
+    if profile is None:
+        return []
+
+    include_tags = profile["include"]
+    pool: list[Product] = []
+    seen: set[str] = set()
+    for product in products.values():
+        if product.barcode == source.barcode or not eligible_candidate(product):
+            continue
+        tags = category_tags_set(product)
+        if not tags_contain_any(tags, include_tags):
+            continue
+        if category_blocked(product, profile_id):
+            continue
+        if violates_strict_rules(product, profile_id):
+            continue
+        if product.barcode in seen:
+            continue
+        seen.add(product.barcode)
+        pool.append(product)
+    return pool
 
 
 def ingredients_lower(product: Product) -> str:
@@ -299,11 +361,26 @@ def rank_score(
     candidate: Product,
     position: int,
     prior_safe: bool,
+    substitute_profile: dict[str, list[str]] | None = None,
 ) -> tuple[float, str]:
-    base = max(0.5, 1.0 - (position * 0.02))
+    if substitute_profile is None:
+        base = max(0.5, 1.0 - (position * 0.02))
+        if prior_safe:
+            return (min(base + 0.10, 0.99), "prior_safe_scan")
+        return (base, "category_match")
+
+    base = 0.95 - (position * 0.01)
+    tags = category_tags_set(candidate)
+    if tags_contain_any(tags, substitute_profile["beverage"]):
+        base += 0.03
+    deprioritized = tags_contain_any(tags, substitute_profile["deprioritize"])
+    if deprioritized:
+        base -= 0.10
     if prior_safe:
         return (min(base + 0.10, 0.99), "prior_safe_scan")
-    return (base, "category_match")
+    if deprioritized:
+        return (base, "substitute_category_cooking")
+    return (base, "substitute_category")
 
 
 def sql_str(value: str | None) -> str:
@@ -351,6 +428,7 @@ def main() -> int:
             continue
 
         category = source.category_en
+        substitute_profile = None
         pool = [
             p
             for p in by_category.get(category, [])
@@ -358,6 +436,10 @@ def main() -> int:
             and not category_blocked(p, scan.profile_id)
             and not violates_strict_rules(p, scan.profile_id)
         ]
+
+        if not pool:
+            substitute_profile = substitute_profile_for(category)
+            pool = substitute_candidates(products, source, scan.profile_id)
 
         if not pool:
             continue
@@ -391,7 +473,7 @@ def main() -> int:
 
         for offset, candidate in enumerate(picks):
             prior = candidate.barcode in prior_safe_barcodes
-            score, reason = rank_score(candidate, offset, prior)
+            score, reason = rank_score(candidate, offset, prior, substitute_profile)
             if discovery_tier == "TIER_B_LLM_DISCOVERY" and offset == 0:
                 reason = "llm_suggested_verified"
                 score = max(score - 0.05, 0.75)

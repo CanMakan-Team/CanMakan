@@ -64,11 +64,13 @@ fun ProductDetailScreen(
     alternatives: List<AlternativeProduct>,
     profileName: String,
     explanation: String? = null, // optional explanation for the verdict
+    alternativesError: String? = null,
     onBackClick: () -> Unit,
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(DetailTab.FLAGS) }
+    val showAlternativesTab = verdict != ScanVerdict.SAFE
     val accent = statusAccentColor(verdict)
     val (icon, label) = verdictPresentation(verdict)
 
@@ -148,17 +150,23 @@ fun ProductDetailScreen(
                     isSelected = selectedTab == DetailTab.FLAGS,
                     modifier = Modifier.weight(1f)
                 ) { selectedTab = DetailTab.FLAGS }
-                DetailTabButton(
-                    label = "Alternatives",
-                    isSelected = selectedTab == DetailTab.ALTERNATIVES,
-                    modifier = Modifier.weight(1f)
-                ) { selectedTab = DetailTab.ALTERNATIVES }
+                if (showAlternativesTab) {
+                    DetailTabButton(
+                        label = "Alternatives",
+                        isSelected = selectedTab == DetailTab.ALTERNATIVES,
+                        modifier = Modifier.weight(1f)
+                    ) { selectedTab = DetailTab.ALTERNATIVES }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
             when (selectedTab) {
                 DetailTab.FLAGS -> FlagsAndDetailsTab(flags = flags, profileName = profileName)
-                DetailTab.ALTERNATIVES -> AlternativesTab(alternatives = alternatives, profileName = profileName)
+                DetailTab.ALTERNATIVES -> AlternativesTab(
+                    alternatives = alternatives,
+                    profileName = profileName,
+                    errorMessage = alternativesError
+                )
             }
         }
     }
@@ -238,10 +246,22 @@ private fun FlagsAndDetailsTab(flags: List<ProductFlag>, profileName: String) {
 
 // Tab 2: Shows the alternatives for the product
 @Composable
-private fun AlternativesTab(alternatives: List<AlternativeProduct>, profileName: String) {
+private fun AlternativesTab(
+    alternatives: List<AlternativeProduct>,
+    profileName: String,
+    errorMessage: String? = null
+) {
     Column {
         Text("Safe alternatives for $profileName", color = TextSecondary)
         Spacer(modifier = Modifier.height(8.dp))
+
+        if (!errorMessage.isNullOrBlank()) {
+            Text(
+                errorMessage,
+                color = AvoidRed
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         // Display a message if there are no alternatives
         if (alternatives.isEmpty()) {

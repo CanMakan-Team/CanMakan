@@ -31,6 +31,7 @@ import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.CreateInvitationRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.DependantProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeResponse
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyMemberRosterItem
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileResponse
@@ -394,6 +395,9 @@ class LoginViewModelTest {
     private class NoOpFamilyProfileApiService : FamilyProfileApiService {
         override suspend fun getMyFamily(): Response<FamilyMeResponse> =
             Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun getFamilyMembers(): Response<List<FamilyMemberRosterItem>> =
+            Response.success(emptyList())
 
         override suspend fun createFamily(
             request: CreateFamilyRequestBody,
