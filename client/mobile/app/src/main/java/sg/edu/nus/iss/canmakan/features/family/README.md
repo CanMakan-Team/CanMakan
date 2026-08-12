@@ -29,16 +29,15 @@ Create is hidden when the user already has a family. Without a UC19 session, the
 PRIMARY_ADMIN can open **Invite to Family** from the drawer (`showManageFamilyActions`
 when `memberRole == PRIMARY_ADMIN`). `AddProfileToFamilyScreen` searches by email,
 creates a PENDING invitation, and opens the system share sheet with `inviteUrl` +
-`inviteCode`. Invitees can join via register/login claim (optional `invitationToken`)
-or from **Notifications** (bell in the top bar → `InvitationsScreen`): list pending,
-accept, or decline.
+`inviteCode`. Invitees preserve the token through register/login; claim runs only after
+authentication (post-login continuation or **Notifications** inbox).
 
 ```mermaid
 flowchart TD
   Admin[PRIMARY_ADMIN creates PENDING invite] --> Share[Share link/code or Resend email]
-  Share --> PathA[New user: register with token]
-  Share --> PathB[Existing user: open link then login/claim]
-  Share --> PathC[Already logged in: Notifications inbox]
+  Share --> PathA[New user: register, then login with token preserved]
+  Share --> PathB[Existing user: open link then login]
+  Share --> PathC[Already logged in: Notifications inbox or deep-link claim]
   PathA --> Join[MEMBER + SELF profile + ACCEPTED]
   PathB --> Join
   PathC --> Join
@@ -46,8 +45,8 @@ flowchart TD
 
 | Path | Mobile entry |
 | --- | --- |
-| Register auto-claim | Invite landing → Register with token |
-| Deep link / login claim | `canmakan://invite/{token}` → landing → Sign in; already-authed via `PendingInvitationStore` |
+| Register then claim | Invite landing → Register (token offered) → Login → `PostLoginContinuationViewModel` claim |
+| Deep link / login claim | `canmakan://invite/{token}` → `PendingInvitationStore` → Login offer → post-login claim |
 | Inbox accept / decline | Top-bar **Notifications** → `InvitationsScreen` |
 
 Full API contract and HTTP guards: `docs/api/families.md` (Invite → join workflow).

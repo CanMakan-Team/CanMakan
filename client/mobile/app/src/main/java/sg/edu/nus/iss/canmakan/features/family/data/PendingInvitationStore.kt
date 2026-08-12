@@ -7,8 +7,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Holds an invite token extracted from an Android deep-link Intent so it can be
- * claimed after login or when the authenticated shell is already showing.
+ * Holds an invite token from deep links / auth routes until
+ * [sg.edu.nus.iss.canmakan.features.auth.onboarding.PostLoginContinuationViewModel]
+ * claims it after authentication (and after deferred dietary setup when needed).
  */
 @Singleton
 class PendingInvitationStore @Inject constructor() {
