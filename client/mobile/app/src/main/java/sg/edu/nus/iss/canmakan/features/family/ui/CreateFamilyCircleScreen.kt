@@ -46,6 +46,7 @@ fun CreateFamilyCircleScreen(
     isSubmitting: Boolean,
     errorMessage: String?,
     onMenuClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onBackClick: () -> Unit,
@@ -57,7 +58,10 @@ fun CreateFamilyCircleScreen(
     Scaffold(
         topBar = {
             Column {
-                AppTopBar(onMenuClick = onMenuClick)
+                AppTopBar(
+                    onMenuClick = onMenuClick,
+                    onNotificationsClick = onNotificationsClick,
+                )
                 ActiveProfileChip(profile = activeProfile)
             }
         },

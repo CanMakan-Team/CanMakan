@@ -57,7 +57,17 @@ class ScannerViewModel @Inject constructor(
 
     // Processes a barcode by sending it to the backend for validation and assessment.
     // Caller identity is attached as Bearer JWT by the auth interceptor.
+    // Ignores duplicate calls while a scan is already in progress.
     fun processBarcode(barcode: String, profileId: Long) {
+        val current = _processState.value
+        if (current == ScanProcessState.VALIDATING ||
+            current == ScanProcessState.ASSESSING ||
+            current == ScanProcessState.FETCHING_ALTERNATIVES ||
+            current == ScanProcessState.SUCCESS
+        ) {
+            return
+        }
+
         _processState.value = ScanProcessState.VALIDATING
         _verdictDetail.value = null
         _errorMessage.value = null

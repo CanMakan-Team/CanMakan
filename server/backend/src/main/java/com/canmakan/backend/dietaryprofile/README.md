@@ -33,7 +33,7 @@ Manages a person’s dietary profile independently of family relationships.
 
 - Family admin can manage all profiles in their family.
 - Non-admin members can edit only the profile linked to their own user account.
-- Dependent profiles can exist without linked login users.
+- Dependant profiles can exist without linked login users.
 
 ## Related packages
 
