@@ -30,16 +30,21 @@ public class AuthController {
 
     private final AuthService authService;
     private final RefreshCookieService refreshCookieService;
+    private final AuthSessionRequestGuard sessionRequestGuard;
 
     // User login
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<AuthResponse> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest servletRequest) {
+        sessionRequestGuard.requireTrustedSessionMutation(servletRequest);
         return authenticationResponse(authService.login(request));
     }
 
     // User refresh token
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(HttpServletRequest request) {
+        sessionRequestGuard.requireTrustedSessionMutation(request);
         String rawRefreshToken = refreshCookieService.readRefreshToken(request)
             .orElseThrow(RefreshAuthenticationException::new);
         return authenticationResponse(authService.refresh(rawRefreshToken));
@@ -50,6 +55,7 @@ public class AuthController {
     public ResponseEntity<Void> logout(
             HttpServletRequest request,
             HttpServletResponse response) {
+        sessionRequestGuard.requireTrustedSessionMutation(request);
         response.addHeader(
             HttpHeaders.SET_COOKIE,
             refreshCookieService.clearRefreshCookie().toString()

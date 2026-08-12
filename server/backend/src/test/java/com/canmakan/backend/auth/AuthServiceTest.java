@@ -117,7 +117,7 @@ class AuthServiceTest {
             assertEquals("Bearer", response.tokenType());
             assertEquals(900L, response.expiresIn());
             assertEquals(
-                new CurrentUserResponse(12L, "user@example.com", SystemRole.USER),
+                new CurrentUserResponse(12L, "user@example.com", SystemRole.USER, true),
                 response.user()
             );
             assertEquals("raw-refresh-token", result.rawRefreshToken());

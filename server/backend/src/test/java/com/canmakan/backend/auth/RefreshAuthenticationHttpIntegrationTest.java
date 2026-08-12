@@ -218,7 +218,8 @@ class RefreshAuthenticationHttpIntegrationTest {
     @Test
     void allRefreshCredentialAndCurrentAccountFailuresShareOneResponse() throws Exception {
         String missingCookieBody = assertRefreshUnauthorized(
-            mockMvc.perform(post("/api/auth/refresh"))
+            mockMvc.perform(post("/api/auth/refresh")
+                .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1"))
         );
         String unknownTokenBody = assertRefreshUnauthorized(refresh("U".repeat(43)));
 
@@ -310,7 +311,8 @@ class RefreshAuthenticationHttpIntegrationTest {
         assertLogoutNoContent(logout(currentToken));
         assertLogoutNoContent(logout("U".repeat(43)));
         assertLogoutNoContent(logout(""));
-        assertLogoutNoContent(mockMvc.perform(post("/api/auth/logout")));
+        assertLogoutNoContent(mockMvc.perform(post("/api/auth/logout")
+            .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1")));
         assertLogoutNoContent(logout(expiredToken));
 
         assertSessionDeleted(currentToken);
@@ -356,6 +358,7 @@ class RefreshAuthenticationHttpIntegrationTest {
 
     private ResultActions login() throws Exception {
         return mockMvc.perform(post("/api/auth/login")
+            .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 {"email":"user@example.com","password":"  Exact Password1!  "}
@@ -364,22 +367,26 @@ class RefreshAuthenticationHttpIntegrationTest {
 
     private ResultActions refresh(String rawToken) throws Exception {
         return mockMvc.perform(post("/api/auth/refresh")
+            .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1")
             .cookie(new Cookie(COOKIE_NAME, rawToken)));
     }
 
     private ResultActions refresh(String rawToken, String authorization) throws Exception {
         return mockMvc.perform(post("/api/auth/refresh")
+            .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1")
             .header(HttpHeaders.AUTHORIZATION, authorization)
             .cookie(new Cookie(COOKIE_NAME, rawToken)));
     }
 
     private ResultActions logout(String rawToken) throws Exception {
         return mockMvc.perform(post("/api/auth/logout")
+            .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1")
             .cookie(new Cookie(COOKIE_NAME, rawToken)));
     }
 
     private ResultActions logout(String rawToken, String authorization) throws Exception {
         return mockMvc.perform(post("/api/auth/logout")
+            .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1")
             .header(HttpHeaders.AUTHORIZATION, authorization)
             .cookie(new Cookie(COOKIE_NAME, rawToken)));
     }

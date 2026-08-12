@@ -71,6 +71,7 @@ jobs:
       REFRESH_TOKEN_TTL: ${{ secrets.REFRESH_TOKEN_TTL }}
       REFRESH_COOKIE_NAME: ${{ secrets.REFRESH_COOKIE_NAME }}
       REFRESH_COOKIE_SECURE: ${{ secrets.REFRESH_COOKIE_SECURE }}
+      REFRESH_COOKIE_SAME_SITE: ${{ vars.REFRESH_COOKIE_SAME_SITE || 'Lax' }}
 
       # Product APIs (OFF / EAN-Search)
       OPEN_FOOD_FACTS_BASE_URL: ${{ secrets.OPEN_FOOD_FACTS_BASE_URL }}

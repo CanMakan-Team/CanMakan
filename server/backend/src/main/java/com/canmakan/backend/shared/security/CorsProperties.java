@@ -55,15 +55,16 @@ public class CorsProperties {
             "Content-Type",
             "Accept",
             "Origin",
-            "X-Requested-With");
+            "X-Requested-With",
+            "X-CanMakan-Session-Request");
 
     /**
      * Exposed headers for the CORS configuration.
      */
     private List<String> exposedHeaders = List.of("Authorization");
 
-    /** Browser credentialed mode (cookies). Web uses localStorage; keep false. */
-    private boolean allowCredentials = false;
+    /** Browser credentialed mode required by the HttpOnly refresh cookie. */
+    private boolean allowCredentials = true;
 
     private long maxAgeSeconds = 3600;
 }
