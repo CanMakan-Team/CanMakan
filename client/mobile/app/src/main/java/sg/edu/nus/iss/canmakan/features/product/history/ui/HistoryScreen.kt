@@ -35,6 +35,8 @@ import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotEmptyState
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
 import sg.edu.nus.iss.canmakan.shared.ui.StatusBadge
 import sg.edu.nus.iss.canmakan.shared.ui.statusAccentColor
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
@@ -108,18 +110,16 @@ fun HistoryScreen(
                         .padding(horizontal = 24.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text(
-                            text = "Set up your dietary profile to view personalised scan history.",
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        Button(onClick = onSetUpProfile) {
-                            Text("Set up profile")
-                        }
-                    }
+                    CanMakanMascotEmptyState(
+                        title = "Set up your dietary profile",
+                        body = "Personalised scan history becomes available after profile setup.",
+                        pose = CanMakanMascotPose.Wave,
+                        action = {
+                            Button(onClick = onSetUpProfile) {
+                                Text("Set up profile")
+                            }
+                        },
+                    )
                 }
                 isLoading -> Box(
                     modifier = Modifier
@@ -137,6 +137,24 @@ fun HistoryScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(text = errorMessage, color = MaterialTheme.colorScheme.error)
+                }
+                entries.isEmpty() -> Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CanMakanMascotEmptyState(
+                        title = "No scans yet",
+                        body = "Scan a barcode to check if ${activeProfile.profileName} can makan.",
+                        pose = CanMakanMascotPose.Scan,
+                        action = {
+                            Button(onClick = onScanClick) {
+                                Text("Go to Scanner")
+                            }
+                        },
+                    )
                 }
                 else -> LazyColumn(
                     modifier = Modifier
@@ -177,9 +195,12 @@ private fun ScanHistoryRow(entry: ScanHistoryEntry, onClick: () -> Unit) {
                 .weight(1f)
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
-            Text(entry.product.productName, fontWeight = FontWeight.Medium)
-            Text((entry.product.brand), color = TextSecondary)
-            entry.aiExplanation?.let { note ->
+            Text(entry.product.displayName, fontWeight = FontWeight.Medium)
+            val brand = entry.product.displayBrand
+            if (brand.isNotEmpty()) {
+                Text(brand, color = TextSecondary)
+            }
+            entry.aiExplanation?.takeIf { it.isNotBlank() }?.let { note ->
                 val noteColor = if (entry.verdict == ScanVerdict.UNSAFE) {
                     AvoidRed
                 } else if (entry.verdict == ScanVerdict.WARNING) {

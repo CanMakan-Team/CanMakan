@@ -265,12 +265,15 @@ fun ScanHistoryRow(entry: ScanHistoryEntry, onClick: () -> Unit) {
                 .weight(1f)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
         ) {
-            Text(entry.product.productName, fontWeight = FontWeight.Medium)
+            Text(entry.product.displayName, fontWeight = FontWeight.Medium)
             Text(
-                "${entry.product.brand} \u00B7 ${entry.scannedAt.toScanHistoryDisplayString()}",
+                text = listOfNotNull(
+                    entry.product.displayBrand.takeIf { it.isNotEmpty() },
+                    entry.scannedAt.toScanHistoryDisplayString(),
+                ).joinToString(" \u00B7 "),
                 color = TextSecondary,
             )
-            entry.aiExplanation?.let { note ->
+            entry.aiExplanation?.takeIf { it.isNotBlank() }?.let { note ->
                 val noteColor = if (entry.verdict == ScanVerdict.UNSAFE) AvoidRed else WarningAmber
                 Text(note, color = noteColor)
             }

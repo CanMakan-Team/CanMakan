@@ -1,8 +1,6 @@
 package sg.edu.nus.iss.canmakan.features.auth.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -42,7 +39,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -54,6 +50,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import sg.edu.nus.iss.canmakan.features.auth.LoginUiState
 import sg.edu.nus.iss.canmakan.features.auth.LoginViewModel
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascot
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotSize
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightRedBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
@@ -224,17 +223,15 @@ private fun LoginTopBar() {
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(vertical = 12.dp),
+                .padding(vertical = 10.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(PrimaryGreen)
+            CanMakanMascot(
+                pose = CanMakanMascotPose.Wave,
+                size = CanMakanMascotSize.Compact,
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             Text("CanMakan", fontWeight = FontWeight.Bold, color = TextPrimary)
         }
     }

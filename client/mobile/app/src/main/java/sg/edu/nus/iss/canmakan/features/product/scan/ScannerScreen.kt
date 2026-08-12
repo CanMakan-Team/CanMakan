@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -72,6 +73,10 @@ import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
 import sg.edu.nus.iss.canmakan.shared.ui.theme.*
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascot
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotEmptyState
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotSize
 import timber.log.Timber
 import java.util.concurrent.Executors
 
@@ -185,10 +190,26 @@ fun ScannerScreen(
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.headlineSmall
             )
-            Text(
-                text = stringResource(id = R.string.scanner_instructions),
-                color = TextSecondary,
-                style = MaterialTheme.typography.bodyMedium)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                // Keep mascot visible while waiting or after a failed scan
+                // (INVALID / ERROR); hide only while a request is in flight.
+                if (canAcceptNewScan) {
+                    CanMakanMascot(
+                        pose = CanMakanMascotPose.Scan,
+                        size = CanMakanMascotSize.Compact,
+                    )
+                }
+                Text(
+                    text = stringResource(id = R.string.scanner_instructions),
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
 
             Box(
@@ -220,10 +241,14 @@ fun ScannerScreen(
                     )
                     ValidationOverlay(viewModel = viewModel)
                 } else {
-                    Text(
-                        text = stringResource(id = R.string.scanner_camera_permission_required),
-                        color = MutedBlue,
-                        modifier = Modifier.align(Alignment.Center)
+                    CanMakanMascotEmptyState(
+                        title = "Camera access needed",
+                        body = stringResource(id = R.string.scanner_camera_permission_required),
+                        pose = CanMakanMascotPose.Scan,
+                        mascotSize = CanMakanMascotSize.Medium,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(16.dp),
                     )
                 }
             }

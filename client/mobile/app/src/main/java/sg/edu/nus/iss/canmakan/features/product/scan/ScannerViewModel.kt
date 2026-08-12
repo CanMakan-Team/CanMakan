@@ -17,6 +17,7 @@ import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.product.model.AlternativeProduct
 import sg.edu.nus.iss.canmakan.features.product.model.Product
 import sg.edu.nus.iss.canmakan.features.product.model.ProductFlag
+import sg.edu.nus.iss.canmakan.features.product.model.ProductFlagCopy
 import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.features.product.model.toUiModel
@@ -238,18 +239,15 @@ class ScannerViewModel @Inject constructor(
         val verdict = parseVerdict(response.verdict)
 
         val flags = response.findings.map { finding ->
-            ProductFlag(
-                category = finding.restrictionCode?.takeIf { it.isNotBlank() } ?: "INFO",
-                label = finding.reason
-                    ?.takeIf { it.isNotBlank() }
-                    ?: listOfNotNull(finding.ingredientName, finding.restrictionCode)
-                        .joinToString(" · ")
-                        .ifBlank { "Flagged by dietary rules" },
+            ProductFlagCopy.flagFromFinding(
+                restrictionCode = finding.restrictionCode,
+                ingredientName = finding.ingredientName,
+                reason = finding.reason,
             )
         }.ifEmpty {
             response.explanation
                 ?.takeIf { it.isNotBlank() }
-                ?.let { listOf(ProductFlag("SUMMARY", it)) }
+                ?.let { listOf(ProductFlag(ProductFlagCopy.titleForCode("SUMMARY"), it)) }
                 ?: emptyList()
         }
 

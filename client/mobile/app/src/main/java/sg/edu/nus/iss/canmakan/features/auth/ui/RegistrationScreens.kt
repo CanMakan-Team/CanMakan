@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -49,6 +48,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import sg.edu.nus.iss.canmakan.features.auth.RegistrationStep
 import sg.edu.nus.iss.canmakan.features.auth.RegistrationUiState
 import sg.edu.nus.iss.canmakan.features.auth.RegistrationViewModel
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascot
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotSize
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightRedBackground
@@ -258,6 +260,16 @@ private fun RegistrationCompleteScreen(
             }
         },
     ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            CanMakanMascot(
+                pose = CanMakanMascotPose.Wave,
+                size = CanMakanMascotSize.Large,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
         Text(
             text = if (dietarySetupRequested) {
                 "Sign in explicitly to choose and save your dietary restrictions."
@@ -308,17 +320,15 @@ private fun RegistrationTopBar() {
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(vertical = 12.dp),
+                .padding(vertical = 10.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(PrimaryGreen)
+            CanMakanMascot(
+                pose = CanMakanMascotPose.Wave,
+                size = CanMakanMascotSize.Compact,
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             Text("CanMakan", fontWeight = FontWeight.Bold, color = TextPrimary)
         }
     }

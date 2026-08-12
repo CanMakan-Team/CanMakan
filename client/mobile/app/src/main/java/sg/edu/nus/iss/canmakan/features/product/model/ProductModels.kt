@@ -5,11 +5,21 @@ import java.time.LocalDateTime
 import sg.edu.nus.iss.canmakan.shared.network.AlternativeProductDto
 
 // Represents a single food product that has been scanned or is being reviewed.
+// Fields are nullable because Gson can deserialize JSON null into them at runtime.
 data class Product(
-    val productName: String,
-    val brand: String,
-    val barcode: String
-)
+    val productName: String? = null,
+    val brand: String? = null,
+    val barcode: String? = null,
+) {
+    val displayName: String
+        get() = productName?.takeIf { it.isNotBlank() } ?: "Unknown product"
+
+    val displayBrand: String
+        get() = brand.orEmpty()
+
+    val displayBarcode: String
+        get() = barcode.orEmpty()
+}
 
 // The three possible outcomes after checking a product against a dietary profile.
 enum class ScanVerdict {
@@ -40,8 +50,8 @@ data class ScanHistoryEntry(
 // A single flagged reason shown on the product detail screen,
 // such as an allergen or a dietary conflict.
 data class ProductFlag(
-    val category: String,
-    val label: String
+    val category: String? = null,
+    val label: String? = null,
 )
 
 // A suggested replacement product shown on the Alternatives tab.
@@ -52,7 +62,7 @@ data class AlternativeProduct(
 )
 
 fun AlternativeProductDto.toUiModel() = AlternativeProduct(
-    name = productName,
+    name = productName?.takeIf { it.isNotBlank() } ?: "Alternative product",
     brand = brand.orEmpty(),
-    description = matchReason ?: "Same category alternative"
+    description = matchReason?.takeIf { it.isNotBlank() } ?: "Same category alternative",
 )

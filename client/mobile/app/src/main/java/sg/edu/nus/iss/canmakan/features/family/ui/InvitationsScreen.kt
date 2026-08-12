@@ -38,6 +38,8 @@ import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotEmptyState
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 /**
@@ -161,6 +163,19 @@ fun InvitationsScreen(
                             },
                         )
                         HorizontalDivider()
+                    }
+                }
+
+                else -> {
+                    item {
+                        CanMakanMascotEmptyState(
+                            title = "No notifications yet",
+                            body = "Family invitations and updates will show up here.",
+                            pose = CanMakanMascotPose.Wave,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 40.dp, bottom = 24.dp),
+                        )
                     }
                 }
             }

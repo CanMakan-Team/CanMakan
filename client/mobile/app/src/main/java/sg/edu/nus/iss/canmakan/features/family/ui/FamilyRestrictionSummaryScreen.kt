@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -50,6 +51,8 @@ import java.util.Locale
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeRestrictionSum
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotEmptyState
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvatarBlue
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvatarOrange
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvatarPurple
@@ -365,17 +368,19 @@ private fun ProfileInfoDialog(
 
 @Composable
 private fun EmptyStateView(onNavigateToEditMembers: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("No Family Members or Restrictions Found.")
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onNavigateToEditMembers) {
-            Text("Manage or Edit Family Members")
-        }
-    }
+    CanMakanMascotEmptyState(
+        title = "No family members yet",
+        body = "Add members to see a shared dietary summary.",
+        pose = CanMakanMascotPose.Wave,
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp),
+        action = {
+            Button(onClick = onNavigateToEditMembers) {
+                Text("Manage or Edit Family Members")
+            }
+        },
+    )
 }
 
 private fun getCategoryForCode(code: String): String {
