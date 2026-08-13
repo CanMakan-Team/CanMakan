@@ -29,16 +29,22 @@ record OpenFoodFactsProduct(
         @JsonProperty("ingredients_text") String ingredientsText,
         List<OpenFoodFactsIngredient> ingredients,
         @JsonProperty("labels_tags") List<String> labelTags,
+        @JsonProperty("allergens_tags") List<String> allergensTags,
         @JsonProperty("traces_tags") List<String> tracesTags,
         OpenFoodFactsNutriments nutriments
 ) {
 }
 
-/** Structured ingredient supplied by Open Food Facts. */
+/**
+ * Structured ingredient supplied by Open Food Facts. Compound ingredients carry their own nested
+ * {@code ingredients} list (e.g. "Cereals Grains" -> Wheat, Oat Flakes), where the real allergen
+ * sources live, so the nested list must be parsed too.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 record OpenFoodFactsIngredient(
         String id,
-        String text
+        String text,
+        List<OpenFoodFactsIngredient> ingredients
 ) {
 }
 

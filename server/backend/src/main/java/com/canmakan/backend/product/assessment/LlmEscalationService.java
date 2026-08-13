@@ -6,6 +6,7 @@ import com.canmakan.backend.ai.llm.PromptBuilder;
 import com.canmakan.backend.ai.llm.ResolvedIngredient;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.product.verdict.DietaryRuleEngine;
+import com.canmakan.backend.product.verdict.Finding;
 import com.canmakan.backend.product.verdict.ProductData;
 import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
@@ -16,9 +17,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -66,9 +69,15 @@ public class LlmEscalationService {
             return new TieredOutcome(tier1Verdict, ExecutionTier.TIER_1_RULES, null);
         }
         try {
+            // The LLM may only supply roots for ingredients the deterministic engine could not
+            // resolve. Anything the engine already classified (a real allergen, or catalog
+            // known-safe such as Water/Sugar/Salt) is authoritative and must not be overwritten
+            // by an LLM guess - otherwise a shaky guess tags every ingredient with the
+            // restriction and the whole label reads as matching.
+            Set<String> unresolvedKeys = unresolvedIngredientKeys(tier1Verdict);
             String compiledPrompt = promptBuilder.build(product, rules);
             LlmAssessmentResult llmResult = llmClient.assess(compiledPrompt);   // evidence only, no verdict
-            ProductData enriched = enrichWithLlmEvidence(product, llmResult);
+            ProductData enriched = enrichWithLlmEvidence(product, llmResult, unresolvedKeys);
             SafetyVerdict reDecided = ruleEngine.assess(rules, enriched);       // engine re-decides
             return new TieredOutcome(reDecided, ExecutionTier.TIER_3_LLM, llmResult);
         } catch (IllegalStateException | IllegalArgumentException ex) {
@@ -97,10 +106,12 @@ public class LlmEscalationService {
      * {@link #LLM_CONFIDENCE_THRESHOLD} are trusted. Returns a new {@link ProductData}
      * for the engine to re-assess deterministically.
      */
-    private ProductData enrichWithLlmEvidence(ProductData product, LlmAssessmentResult llm) {
+    private ProductData enrichWithLlmEvidence(
+            ProductData product, LlmAssessmentResult llm, Set<String> unresolvedKeys) {
         if (product == null || product.ingredients() == null
                 || llm == null || llm.resolvedIngredients() == null
-                || llm.resolvedIngredients().isEmpty()) {
+                || llm.resolvedIngredients().isEmpty()
+                || unresolvedKeys == null || unresolvedKeys.isEmpty()) {
             return product;
         }
 
@@ -118,12 +129,15 @@ public class LlmEscalationService {
             return product;
         }
 
-        // Fill a trusted allergen into each ingredient that still lacks one; leave the rest untouched.
+        // Fill a trusted allergen only into ingredients the engine left UNRESOLVED at Tier 1.
+        // Ingredients already resolved (a real allergen) or catalog known-safe are authoritative
+        // and are never overwritten by LLM evidence.
         List<Ingredient> merged = new ArrayList<>();
         for (Ingredient ing : product.ingredients()) {
             String key = normalizedKey(ing.ingredientName());
             boolean needsRoot = ing.rootAllergen() == null || ing.rootAllergen().isBlank();
-            if (needsRoot && key != null && trusted.containsKey(key)) {
+            boolean wasUnresolved = key != null && unresolvedKeys.contains(key);
+            if (needsRoot && wasUnresolved && trusted.containsKey(key)) {
                 merged.add(new Ingredient(
                         ing.ingredientName(), ing.parentAllergen(), trusted.get(key), ing.chemicalAlias()));
             } else {
@@ -133,6 +147,32 @@ public class LlmEscalationService {
 
         return new ProductData(product.barcode(), merged, product.ingredientsText(),
             product.labelTags(), product.tracesTags(), product.nutrition(), product.dataComplete());
+    }
+
+    /**
+     * The ingredient names the deterministic engine could not resolve at Tier 1, taken from the
+     * grouped {@link DietaryRuleEngine#UNRESOLVED} finding. These are the only ingredients the LLM
+     * is allowed to supply a root allergen for.
+     */
+    private static Set<String> unresolvedIngredientKeys(SafetyVerdict tier1Verdict) {
+        Set<String> keys = new HashSet<>();
+        if (tier1Verdict == null || tier1Verdict.findings() == null) {
+            return keys;
+        }
+        for (Finding finding : tier1Verdict.findings()) {
+            if (!DietaryRuleEngine.UNRESOLVED.equals(finding.restrictionCode())
+                    || finding.ingredientName() == null) {
+                continue;
+            }
+            // The finding groups the unresolved names as a comma-separated list.
+            for (String name : finding.ingredientName().split(",")) {
+                String key = normalizedKey(name.trim());
+                if (key != null && !key.isBlank()) {
+                    keys.add(key);
+                }
+            }
+        }
+        return keys;
     }
 
     /** Lower-cases an ingredient name for case-insensitive matching; {@code null} stays {@code null}. */

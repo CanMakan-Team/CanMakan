@@ -14,6 +14,7 @@ import com.canmakan.backend.ai.llm.PromptBuilder;
 import com.canmakan.backend.ai.llm.ResolvedIngredient;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.product.verdict.DietaryRuleEngine;
+import com.canmakan.backend.product.verdict.Finding;
 import com.canmakan.backend.product.verdict.ProductData;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
 import java.util.List;
@@ -85,14 +86,14 @@ class LlmEscalationServiceTest {
     }
 
     @Test
-    @DisplayName("BE4: High-confidence evidence enriches the product before reassessment")
+    @DisplayName("BE4: High-confidence evidence enriches an UNRESOLVED ingredient before reassessment")
     void highConfidenceEvidenceEnrichesTheProduct() {
         when(promptBuilder.build(any(), any())).thenReturn("prompt");
         when(llmClient.assess("prompt")).thenReturn(llmResult("Casein", "DAIRY", 0.9));
         when(ruleEngine.assess(any(), any())).thenReturn(SafetyVerdict.unsafe("resolved", List.of()));
 
         service.escalate(List.of(), productWith(true, ingredient("Casein", null)),
-                SafetyVerdict.warning("uncertain", List.of()), "123");
+                warningUnresolved("Casein"), "123");
 
         assertEquals("DAIRY", captureReassessedProduct().ingredients().get(0).rootAllergen());
     }
@@ -105,9 +106,26 @@ class LlmEscalationServiceTest {
         when(ruleEngine.assess(any(), any())).thenReturn(SafetyVerdict.warning("still uncertain", List.of()));
 
         service.escalate(List.of(), productWith(true, ingredient("Casein", null)),
-                SafetyVerdict.warning("uncertain", List.of()), "123");
+                warningUnresolved("Casein"), "123");
 
         assertNull(captureReassessedProduct().ingredients().get(0).rootAllergen()); // NOT enriched
+    }
+
+    @Test
+    @DisplayName("BE7: LLM evidence never overwrites an ingredient the engine already resolved as safe")
+    void llmEvidenceDoesNotTagResolvedIngredients() {
+        when(promptBuilder.build(any(), any())).thenReturn("prompt");
+        // The LLM wrongly claims Water is DAIRY at high confidence.
+        when(llmClient.assess("prompt")).thenReturn(llmResult("Water", "DAIRY", 0.9));
+        when(ruleEngine.assess(any(), any())).thenReturn(SafetyVerdict.warning("still uncertain", List.of()));
+
+        // Water is not in the Tier-1 UNRESOLVED set (only Casein is), so it must stay untouched.
+        service.escalate(List.of(),
+                productWith(true, ingredient("Water", null), ingredient("Casein", null)),
+                warningUnresolved("Casein"), "123");
+
+        List<Ingredient> reassessed = captureReassessedProduct().ingredients();
+        assertNull(reassessed.get(0).rootAllergen()); // Water stays safe despite the LLM guess
     }
 
     @Test
@@ -139,6 +157,15 @@ class LlmEscalationServiceTest {
 
     private static Ingredient ingredient(String name, String rootAllergen) {
         return new Ingredient(name, null, rootAllergen, false);
+    }
+
+    /** A Tier-1 WARNING that carries the grouped UNRESOLVED finding naming the given ingredients. */
+    private static SafetyVerdict warningUnresolved(String... unresolvedNames) {
+        Finding unresolved = new Finding(
+                DietaryRuleEngine.UNRESOLVED,
+                String.join(", ", unresolvedNames),
+                "Treat these ingredients with caution: " + String.join(", ", unresolvedNames) + ".");
+        return SafetyVerdict.warning("uncertain", List.of(unresolved));
     }
 
     private static LlmAssessmentResult llmResult(String ingredient, String rootAllergen, double confidence) {

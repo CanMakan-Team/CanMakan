@@ -275,3 +275,18 @@ INSERT IGNORE INTO ingredients (id, ingredient_name, parent_allergen, root_aller
 (219, 'Water', NULL, NULL, 0),
 (220, 'Basil', NULL, NULL, 0),
 (221, 'Natural Basil Flavour', NULL, NULL, 0);
+
+-- Additional gluten sources Open Food Facts lists but that were previously unmapped
+-- (surfaced by the nested granola ingredients, barcode 7613036049368). Oats are treated
+-- as gluten to stay consistent with the existing 'Whole Grain Oat Flour' -> GLUTEN row and
+-- the "avoid ... oat gluten" profile rule; malt extract and malted barley derive from barley.
+INSERT IGNORE INTO ingredients (id, ingredient_name, parent_allergen, root_allergen, is_chemical_alias) VALUES
+(222, 'Oats', 'Gluten Containing Grains', 'GLUTEN', 0),
+(223, 'Oat Flakes', 'Gluten Containing Grains', 'GLUTEN', 0),
+(224, 'Rolled Oats', 'Gluten Containing Grains', 'GLUTEN', 0),
+(225, 'Malted Barley', 'Gluten Containing Grains', 'GLUTEN', 0),
+(226, 'Malt Extract', 'Gluten Containing Grains', 'GLUTEN', 0),
+(227, 'Peanuts', 'Peanuts', 'PEANUT', 0),
+(228, 'Roasted Peanuts', 'Peanuts', 'PEANUT', 0),
+(229, 'Peanut Oil', 'Peanuts', 'PEANUT', 0),
+(230, 'Peanut Butter', 'Peanuts', 'PEANUT', 0);
