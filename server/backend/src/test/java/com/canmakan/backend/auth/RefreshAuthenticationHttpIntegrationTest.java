@@ -121,7 +121,7 @@ class RefreshAuthenticationHttpIntegrationTest {
             ))
             .andExpect(header().string(
                 HttpHeaders.SET_COOKIE,
-                containsString("SameSite=Strict")
+                containsString("SameSite=Lax")
             ))
             .andExpect(header().string(
                 HttpHeaders.SET_COOKIE,
@@ -406,7 +406,7 @@ class RefreshAuthenticationHttpIntegrationTest {
             ))
             .andExpect(header().string(
                 HttpHeaders.SET_COOKIE,
-                containsString("SameSite=Strict")
+                containsString("SameSite=Lax")
             ))
             .andExpect(header().string(
                 HttpHeaders.SET_COOKIE,

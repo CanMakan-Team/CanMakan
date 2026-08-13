@@ -30,6 +30,7 @@ data class InvitationResponse(
     @SerializedName("status") val status: String,
     @SerializedName("expiresAt") val expiresAt: String?,
     @SerializedName("inviteeRegistered") val inviteeRegistered: Boolean,
+    @SerializedName("emailSent") val emailSent: Boolean = false,
 )
 
 data class ClaimInvitationRequestBody(

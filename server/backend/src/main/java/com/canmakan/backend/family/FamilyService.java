@@ -784,11 +784,11 @@ public class FamilyService {
         // Save the invitation
         FamilyInvitation saved = familyInvitationRepository.saveAndFlush(invitation);
 
-        InvitationResponse response = toInvitationResponse(saved, invitee.isPresent());
+        InvitationResponse pendingResponse = toInvitationResponse(saved, invitee.isPresent(), false);
         Family family = familyRepository.findById(adminMembership.getFamilyId()).orElse(null);
         String familyName = family == null ? "a family circle" : family.getFamilyName();
-        invitationEmailService.sendInvitationEmail(familyName, response);
-        return response;
+        boolean emailSent = invitationEmailService.sendInvitationEmail(familyName, pendingResponse);
+        return toInvitationResponse(saved, invitee.isPresent(), emailSent);
     }
 
     // Claim an invitation (UC9 deep-link / login path — same rules as accept)
@@ -1019,7 +1019,7 @@ public class FamilyService {
 
     // Convert the invitation to an invitation response
     private InvitationResponse toInvitationResponse(
-            FamilyInvitation invitation, boolean inviteeRegistered) {
+            FamilyInvitation invitation, boolean inviteeRegistered, boolean emailSent) {
         String base = inviteProperties.getPublicBaseUrl();
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
@@ -1033,7 +1033,8 @@ public class FamilyService {
             inviteUrl,
             invitation.getStatus(),
             invitation.getExpiresAt(),
-            inviteeRegistered
+            inviteeRegistered,
+            emailSent
         );
     }
 
