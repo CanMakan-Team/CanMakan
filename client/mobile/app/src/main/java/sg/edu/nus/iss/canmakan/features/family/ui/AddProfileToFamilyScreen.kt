@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -29,10 +29,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
-import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
@@ -42,8 +40,6 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 @Composable
 fun AddProfileToFamilyScreen(
-    activeProfile: DietaryProfile?,
-    activeRestrictions: List<String> = emptyList(),
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
@@ -62,13 +58,10 @@ fun AddProfileToFamilyScreen(
 
     Scaffold(
         topBar = {
-            Column {
-                AppTopBar(
-                    onMenuClick = onMenuClick,
-                    onNotificationsClick = onNotificationsClick,
-                )
-                activeProfile?.let { ActiveProfileChip(profile = it) }
-            }
+            AppTopBar(
+                onMenuClick = onMenuClick,
+                onNotificationsClick = onNotificationsClick,
+            )
         },
         bottomBar = {
             AppBottomNavBar(
@@ -91,7 +84,7 @@ fun AddProfileToFamilyScreen(
                     .clickable { onBackClick() }
                     .padding(bottom = 24.dp)
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Go back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("Back")
             }

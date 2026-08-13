@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.family.ui
+package sg.edu.nus.iss.canmakan.features.notifications
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,7 +16,7 @@ import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
 import javax.inject.Inject
 
-data class InvitationsUiState(
+data class NotificationsInboxUiState(
     val isLoading: Boolean = false,
     val invitations: List<PendingInvitationResponse> = emptyList(),
     val actingToken: String? = null,
@@ -25,13 +25,13 @@ data class InvitationsUiState(
 )
 
 @HiltViewModel
-class InvitationsViewModel @Inject constructor(
+class NotificationsInboxViewModel @Inject constructor(
     private val familyProfileRepository: FamilyProfileRepository,
     private val authSessionStore: AuthSessionStore,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(InvitationsUiState())
-    val uiState: StateFlow<InvitationsUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(NotificationsInboxUiState())
+    val uiState: StateFlow<NotificationsInboxUiState> = _uiState.asStateFlow()
 
     private var refreshJob: Job? = null
     private var actionJob: Job? = null
@@ -51,7 +51,7 @@ class InvitationsViewModel @Inject constructor(
         val accountKey = authSessionStore.accountKey.value
         if (accountKey == null) {
             bindAccount(null)
-            _uiState.value = InvitationsUiState(errorMessage = "Sign in to view notifications.")
+            _uiState.value = NotificationsInboxUiState(errorMessage = "Sign in to view notifications.")
             return
         }
         bindAccount(accountKey)
@@ -172,7 +172,7 @@ class InvitationsViewModel @Inject constructor(
         if (accountObserved && observedAccountKey == accountKey) return false
         refreshJob?.cancel()
         actionJob?.cancel()
-        _uiState.value = InvitationsUiState()
+        _uiState.value = NotificationsInboxUiState()
         observedAccountKey = accountKey
         accountObserved = true
         return true
