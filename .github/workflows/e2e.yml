@@ -87,3 +87,4 @@ jobs:
           name: playwright-report
           path: client/web/playwright-report/
           retention-days: 30
+          if-no-files-found: warn
