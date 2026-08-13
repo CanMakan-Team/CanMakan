@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Settings
@@ -77,8 +76,7 @@ fun ProfileDrawerContent(
     onSignOutClick: () -> Unit,
     onCloseClick: () -> Unit,
     onCreateFamilyCircleClick: () -> Unit,
-    onCreateNewClick: () -> Unit,
-    onAddProfileClick: () -> Unit,
+    onManageFamilyClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -321,14 +319,8 @@ fun ProfileDrawerContent(
                 Spacer(modifier = Modifier.height(4.dp))
                 DrawerNavRow(
                     icon = Icons.Default.PersonAdd,
-                    label = "Create New Family Member",
-                    onClick = onCreateNewClick,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                DrawerNavRow(
-                    icon = Icons.Default.Group,
-                    label = "Add Profile to Family",
-                    onClick = onAddProfileClick,
+                    label = "Manage family",
+                    onClick = onManageFamilyClick,
                 )
             }
         }

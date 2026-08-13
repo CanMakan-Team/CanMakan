@@ -377,7 +377,7 @@ private fun EmptyStateView(onNavigateToEditMembers: () -> Unit) {
             .padding(horizontal = 24.dp),
         action = {
             Button(onClick = onNavigateToEditMembers) {
-                Text("Manage or Edit Family Members")
+                Text("Manage family")
             }
         },
     )
