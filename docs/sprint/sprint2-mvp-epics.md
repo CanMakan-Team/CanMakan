@@ -631,7 +631,7 @@ As an invited app user, I want to accept or decline a family invitation on mobil
 ### Acceptance criteria
 
 | Done | # | Criterion |
-| --- | --- | --- |
+| --- | --- | --- | 
 | [x] | 1 | Authenticated invitee can list pending invitations for their account/email (GET /api/invitations/me). |
 | [x] | 2 | Each pending invitation displays family information needed to decide. |
 | [x] | 3 | Accepting a valid PENDING invitation adds the user as MEMBER and links/creates their dietary profile in that family. |

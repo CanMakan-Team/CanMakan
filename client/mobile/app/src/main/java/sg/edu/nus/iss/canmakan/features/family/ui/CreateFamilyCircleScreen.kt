@@ -31,8 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
-import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
@@ -44,7 +42,6 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
  */
 @Composable
 fun CreateFamilyCircleScreen(
-    activeProfile: DietaryProfile?,
     isSubmitting: Boolean,
     errorMessage: String?,
     onMenuClick: () -> Unit,
@@ -59,13 +56,10 @@ fun CreateFamilyCircleScreen(
 
     Scaffold(
         topBar = {
-            Column {
-                AppTopBar(
-                    onMenuClick = onMenuClick,
-                    onNotificationsClick = onNotificationsClick,
-                )
-                activeProfile?.let { ActiveProfileChip(profile = it) }
-            }
+            AppTopBar(
+                onMenuClick = onMenuClick,
+                onNotificationsClick = onNotificationsClick,
+            )
         },
         bottomBar = {
             AppBottomNavBar(

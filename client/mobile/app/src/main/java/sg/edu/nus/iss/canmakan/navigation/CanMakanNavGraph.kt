@@ -227,6 +227,14 @@ fun CanMakanNavGraph(
             }
         }
 
+        fun openActiveProfileDietary() {
+            if (activeProfile == null) {
+                onRequestSelfProfileSetup()
+            } else {
+                showEditDietarySheet = true
+            }
+        }
+
         Column {
             invitationClaimError?.let { message ->
                 Column(
@@ -282,6 +290,7 @@ fun CanMakanNavGraph(
                     // Navigate to the history screen when the history button is clicked
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onSetUpProfile = onRequestSelfProfileSetup,
+                    onActiveProfileClick = { openActiveProfileDietary() },
 
                     // Navigate to the product detail screen when a verdict is ready
                     onVerdictReady = { detail ->
@@ -329,6 +338,7 @@ fun CanMakanNavGraph(
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { },
                     onSetUpProfile = onRequestSelfProfileSetup,
+                    onActiveProfileClick = { openActiveProfileDietary() },
                     onEntryClick = { entry ->
                         val alternatives = scanHistoryUiState.alternativesByScanId[entry.id].orEmpty()
                         navGraphViewModel.setPendingVerdict(
@@ -370,7 +380,6 @@ fun CanMakanNavGraph(
                     }
                 } else {
                     CreateFamilyCircleScreen(
-                        activeProfile = activeProfile,
                         isSubmitting = isCreatingFamily,
                         errorMessage = createFamilyError,
                         onMenuClick = { openDrawer() },
@@ -388,7 +397,6 @@ fun CanMakanNavGraph(
             }
             composable(ROUTE_CREATE_NEW) {
                 CreateNewProfileScreen(
-                    activeProfile = activeProfile,
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
@@ -405,7 +413,6 @@ fun CanMakanNavGraph(
             }
             composable(ROUTE_ADD_PROFILE) {
                 AddProfileToFamilyScreen(
-                    activeProfile = activeProfile,
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
@@ -420,7 +427,6 @@ fun CanMakanNavGraph(
             }
             composable(ROUTE_NOTIFICATIONS) {
                 NotificationsInboxScreen(
-                    activeProfile = activeProfile,
                     hasFamily = hasFamily,
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },

@@ -92,6 +92,7 @@ fun ScannerScreen(
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onSetUpProfile: () -> Unit = {},
+    onActiveProfileClick: () -> Unit = {},
     onVerdictReady: (VerdictDetail) -> Unit,
     viewModel: ScannerViewModel = hiltViewModel()
 ) {
@@ -149,7 +150,12 @@ fun ScannerScreen(
                     onMenuClick = onMenuClick,
                     onNotificationsClick = onNotificationsClick,
                 )
-                activeProfile?.let { ActiveProfileChip(profile = it) } ?: run {
+                activeProfile?.let {
+                    ActiveProfileChip(
+                        profile = it,
+                        onClick = onActiveProfileClick,
+                    )
+                } ?: run {
                     // Show a setup prompt if no profile is active
                     Box(
                         modifier = Modifier

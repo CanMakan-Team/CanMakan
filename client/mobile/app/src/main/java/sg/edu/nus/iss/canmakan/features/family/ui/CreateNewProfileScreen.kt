@@ -49,8 +49,6 @@ import kotlinx.coroutines.delay
 import sg.edu.nus.iss.canmakan.features.family.model.RelationshipToAdmin
 import sg.edu.nus.iss.canmakan.features.product.model.ScanHistoryEntry
 import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
-import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
-import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
@@ -67,7 +65,6 @@ import sg.edu.nus.iss.canmakan.shared.util.toScanHistoryDisplayString
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateNewProfileScreen(
-    activeProfile: DietaryProfile?,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
@@ -96,13 +93,10 @@ fun CreateNewProfileScreen(
 
     Scaffold(
         topBar = {
-            Column {
-                AppTopBar(
-                    onMenuClick = onMenuClick,
-                    onNotificationsClick = onNotificationsClick,
-                )
-                activeProfile?.let { ActiveProfileChip(profile = it) }
-            }
+            AppTopBar(
+                onMenuClick = onMenuClick,
+                onNotificationsClick = onNotificationsClick,
+            )
         },
         bottomBar = {
             AppBottomNavBar(

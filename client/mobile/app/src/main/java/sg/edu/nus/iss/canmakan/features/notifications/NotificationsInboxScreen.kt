@@ -33,8 +33,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
-import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
-import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
@@ -48,7 +46,6 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
  */
 @Composable
 fun NotificationsInboxScreen(
-    activeProfile: DietaryProfile?,
     hasFamily: Boolean = false,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
@@ -69,13 +66,10 @@ fun NotificationsInboxScreen(
 
     Scaffold(
         topBar = {
-            Column {
-                AppTopBar(
-                    onMenuClick = onMenuClick,
-                    onNotificationsClick = onNotificationsClick,
-                )
-                activeProfile?.let { ActiveProfileChip(profile = it) }
-            }
+            AppTopBar(
+                onMenuClick = onMenuClick,
+                onNotificationsClick = onNotificationsClick,
+            )
         },
         bottomBar = {
             AppBottomNavBar(

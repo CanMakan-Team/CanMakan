@@ -56,6 +56,7 @@ fun HistoryScreen(
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onSetUpProfile: () -> Unit,
+    onActiveProfileClick: () -> Unit = {},
     onEntryClick: (ScanHistoryEntry) -> Unit
 ) {
     Scaffold(
@@ -66,7 +67,12 @@ fun HistoryScreen(
                     onNotificationsClick = onNotificationsClick,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                activeProfile?.let { ActiveProfileChip(profile = it) }
+                activeProfile?.let {
+                    ActiveProfileChip(
+                        profile = it,
+                        onClick = onActiveProfileClick,
+                    )
+                }
             }
         },
         bottomBar = {
