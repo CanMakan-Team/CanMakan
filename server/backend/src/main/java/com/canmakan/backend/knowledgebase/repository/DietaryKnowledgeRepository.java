@@ -16,6 +16,7 @@ import org.springframework.stereotype.Repository;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -44,6 +45,7 @@ public class DietaryKnowledgeRepository {
     private final DietaryRestrictionRepository dietaryRestrictionRepository;
     private final Map<String, Ingredient> ingredientAliases = new LinkedHashMap<>();
     private final Map<String, Ingredient> allergenRelationships = new LinkedHashMap<>();
+    private final Set<String> knownNonAllergenLabels = new LinkedHashSet<>();
     private final List<String> crossContaminationKeywords = new ArrayList<>();
 
     // Seed the cross contamination patterns at startup
@@ -63,6 +65,16 @@ public class DietaryKnowledgeRepository {
     // Find the ingredient alias by normalized name (exact catalog name, synonym, or E-code).
     public Optional<Ingredient> findIngredientAlias(String ingredientName) {
         return Optional.ofNullable(ingredientAliases.get(normalize(ingredientName)));
+    }
+
+    /**
+     * Labels registered as intentionally non-allergen (e.g. plant-based "coconut milk")
+     * that should not be resolved through the allergen hierarchy.
+     */
+    public boolean isKnownNonAllergenLabel(String ingredientName) {
+        return ingredientName != null
+                && !ingredientName.isBlank()
+                && knownNonAllergenLabels.contains(normalize(ingredientName.trim()));
     }
 
     // Find the E-number by normalized key
@@ -337,6 +349,9 @@ public class DietaryKnowledgeRepository {
         registerKnownLabel("vegetable");
         registerKnownLabel("vegetable powder");
         registerKnownLabel("sodium salt");
+        // Plant-based liquids that contain the word "milk" but are not dairy.
+        registerKnownLabel("coconut milk");
+        registerKnownLabel("coconut water");
     }
 
     /** Registers a free-text label as a known non-allergen ingredient (no root). */
@@ -345,6 +360,7 @@ public class DietaryKnowledgeRepository {
             return;
         }
         String trimmed = query.trim();
+        knownNonAllergenLabels.add(normalize(trimmed));
         if (ingredientAliases.containsKey(normalize(trimmed))) {
             return;
         }

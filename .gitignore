@@ -26,6 +26,8 @@ captures/
 .kotlin/
 .navigation/
 .artifacts/
+server/machine-learning/artifacts/*
+!server/machine-learning/artifacts/.gitkeep
 *.apk
 *.aab
 *.ap_

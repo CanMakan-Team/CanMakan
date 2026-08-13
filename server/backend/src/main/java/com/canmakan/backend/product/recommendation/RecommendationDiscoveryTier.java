@@ -10,5 +10,8 @@ public enum RecommendationDiscoveryTier {
     TIER_A_CATALOG,
 
     /** LLM suggested candidates, then verified by {@code DietaryRuleEngine}. */
-    TIER_B_LLM_DISCOVERY
+    TIER_B_LLM_DISCOVERY,
+
+    /** Content-based similarity on sparse catalog metadata, then verified by {@code DietaryRuleEngine}. */
+    TIER_C_ML_SPARSE
 }
