@@ -64,13 +64,13 @@ flowchart TD
 | --- | --- |
 | Register then claim | Invite landing → Register (token offered) → Login → `PostLoginContinuationViewModel` claim |
 | Deep link / login claim | `canmakan://invite/{token}` or HTTPS hosts from `WEB_INVITE_BASE_URLS` → `PendingInvitationStore` → Login offer → post-login claim |
-| Inbox accept / decline | Top-bar **Notifications** bell → `features/notifications` (`NotificationsInboxScreen`) |
+| Inbox accept / decline | Top-bar **Notifications** bell → `features/notifications` (`GET /api/notifications/me`) |
 
-The inbox is account-wide (not admin-only): family invitations today, with room for
-profile-update notices later. It lives under `features/notifications` so any shell screen
-can open it; it is not listed under Family in the drawer.
+The inbox is account-wide (`features/notifications`, `GET /api/notifications/me`).
+Family invite updates and pending Accept / Decline are one kind of card; deleting
+a card only hides it. It is not listed under Family in the drawer.
 
-Full API contract and HTTP guards: `docs/api/families.md` (Invite → join workflow).
+Full API contract: `docs/api/notifications.md` and `docs/api/families.md`.
 
 Dependant profiles appear in the mobile profile switcher and UC6 summary once created.
 Dietary Summary empty state can open the same Manage family hub.

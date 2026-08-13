@@ -96,6 +96,7 @@ public class FamilyService {
     private final ScanRepository scanRepository;
     private final InviteProperties inviteProperties;
     private final InvitationEmailService invitationEmailService;
+    private final FamilyInviteNotifier familyInviteNotifier;
     private final SecureRandom secureRandom = new SecureRandom();
 
     // Create a family circle
@@ -794,9 +795,9 @@ public class FamilyService {
         if (!response.emailSent()) {
             familyInvitationRepository.delete(saved);
             familyInvitationRepository.flush();
+            return response;
         }
-
-        // Return the invitation response
+        familyInviteNotifier.notifyInviteSent(saved, invitee.orElse(null));
         return response;
     }
 
@@ -854,6 +855,7 @@ public class FamilyService {
 
         invitation.setStatus(InvitationStatus.DECLINED);
         familyInvitationRepository.saveAndFlush(invitation);
+        familyInviteNotifier.notifyInviteDeclined(invitation, user.getEmail());
     }
 
     /**
@@ -1020,6 +1022,7 @@ public class FamilyService {
 
             invitation.setStatus(InvitationStatus.ACCEPTED);
             familyInvitationRepository.saveAndFlush(invitation);
+            familyInviteNotifier.notifyInviteAccepted(invitation, user.getEmail());
 
             return new FamilyMeResponse(
                 family.getId(),

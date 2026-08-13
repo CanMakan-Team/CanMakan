@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -91,6 +92,7 @@ class FamilyServiceTest {
     private ScanRepository scanRepository;
 
     private InvitationEmailService invitationEmailService;
+    private FamilyInviteNotifier familyInviteNotifier;
     private FamilyService familyService;
 
     @BeforeEach
@@ -99,6 +101,7 @@ class FamilyServiceTest {
         inviteProperties.setPublicBaseUrl("http://localhost:5173");
         inviteProperties.setExpiryDays(7);
         invitationEmailService = org.mockito.Mockito.mock(InvitationEmailService.class);
+        familyInviteNotifier = org.mockito.Mockito.mock(FamilyInviteNotifier.class);
         FamilyAuthorizationService familyAuthorization = new FamilyAuthorizationService(
             familyMemberRepository,
             dietaryProfileRepository
@@ -115,7 +118,8 @@ class FamilyServiceTest {
             familyAuthorization,
             scanRepository,
             inviteProperties,
-            invitationEmailService
+            invitationEmailService,
+            familyInviteNotifier
         );
     }
 
@@ -342,6 +346,39 @@ class FamilyServiceTest {
         assertTrue(response.inviteUrl().startsWith("http://localhost:5173/invite/"));
         assertEquals(8, response.inviteCode().length());
         assertEquals(InvitationStatus.PENDING, response.status());
+        verify(familyInviteNotifier).notifyInviteSent(any(FamilyInvitation.class), isNull());
+    }
+
+    @Test
+    @DisplayName("invite registered user also notifies the invitee inbox")
+    void inviteRegisteredUserNotifiesInvitee() {
+        stubPrimaryAdmin(10L, 1L);
+        UserAccount invitee = new UserAccount();
+        invitee.setId(30L);
+        invitee.setEmail("jamie@example.com");
+        when(userAccountRepository.findByEmail("jamie@example.com")).thenReturn(Optional.of(invitee));
+        when(familyMemberRepository.existsByIdUserId(30L)).thenReturn(false);
+        when(familyInvitationRepository.findPendingByFamilyAndEmail(1L, "jamie@example.com"))
+            .thenReturn(Optional.empty());
+        when(familyInvitationRepository.existsByInvitationToken(any())).thenReturn(false);
+        when(familyInvitationRepository.existsByInviteCode(any())).thenReturn(false);
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class))).thenAnswer(invocation -> {
+            FamilyInvitation invitation = invocation.getArgument(0);
+            invitation.setId(88L);
+            return invitation;
+        });
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(invitationEmailService.sendInvitationEmail(eq("Host Family"), any(InvitationResponse.class)))
+            .thenReturn(true);
+
+        InvitationResponse response = familyService.createInvitation(
+            10L, new CreateInvitationRequest("jamie@example.com"));
+
+        assertTrue(response.inviteeRegistered());
+        verify(familyInviteNotifier).notifyInviteSent(any(FamilyInvitation.class), eq(invitee));
     }
 
     @Test
@@ -418,6 +455,7 @@ class FamilyServiceTest {
         assertFalse(response.emailSent());
         verify(familyInvitationRepository).delete(any(FamilyInvitation.class));
         verify(familyInvitationRepository).flush();
+        verify(familyInviteNotifier, never()).notifyInviteSent(any(), any());
     }
 
     @Test
@@ -567,6 +605,7 @@ class FamilyServiceTest {
         assertEquals(1L, response.familyId());
         assertEquals(FamilyMember.ROLE_MEMBER, response.memberRole());
         assertEquals(InvitationStatus.ACCEPTED, invitation.getStatus());
+        verify(familyInviteNotifier).notifyInviteAccepted(invitation, "invitee@example.com");
     }
 
     @Test
@@ -709,6 +748,7 @@ class FamilyServiceTest {
 
         assertEquals(InvitationStatus.DECLINED, invitation.getStatus());
         verify(familyMemberRepository, never()).saveAndFlush(any(FamilyMember.class));
+        verify(familyInviteNotifier).notifyInviteDeclined(invitation, "invitee@example.com");
     }
 
     @Test

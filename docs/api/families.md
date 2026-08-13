@@ -17,6 +17,7 @@
 | Spring Data repos (Family / Member / Invitation) | Done |
 | `GET /api/families/me/members` roster list | Done (UC12 list; manage CRUD later) |
 | UC10 invitee inbox list / accept / decline | Done (mobile primary; web inbox optional) |
+| UC10 invite cards via general notifications | Done (`GET /api/notifications/me`; see [`notifications.md`](notifications.md)) |
 | UC10 Resend invitation email | Done (optional; no-op when disabled) |
 
 A `404` from `GET /api/families/me` is a valid personal-USER state. It does not
@@ -323,7 +324,7 @@ flowchart TD
 | --- | --- | --- |
 | **A. Register then claim** | New account with matching email; client preserves `invitationToken` through explicit login | `POST /api/auth/register`, `POST /api/auth/login`, then `POST /api/families/me/invitations/claim` |
 | **B. Deep link / login claim** | Open `…/invite/{token}` (desktop stays on web; Android opens the app) or `canmakan://invite/{token}`, then register or sign in | `POST /api/families/me/invitations/claim` |
-| **C. Inbox accept** | Signed-in invitee opens pending list and Accepts (or Declines) | `GET /api/invitations/me`, `POST /api/invitations/{token}/accept` or `…/decline` |
+| **C. Inbox accept** | Signed-in invitee opens Notifications and Accepts (or Declines) | `GET /api/notifications/me`, `POST /api/invitations/{token}/accept` or `…/decline` |
 
 Guards on accept/claim: **403** email mismatch, **410** expired, **409** already
 in a family or invitation already final, **404** unknown token.
@@ -480,6 +481,8 @@ may still be declined.
 | 403 | Email mismatch |
 | 404 | Unknown token |
 | 409 | Invitation is no longer pending |
+
+---
 
 ---
 

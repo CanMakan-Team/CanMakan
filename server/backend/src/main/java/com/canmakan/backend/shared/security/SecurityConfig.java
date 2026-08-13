@@ -82,6 +82,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/families/**").authenticated()
                 .requestMatchers("/api/invitations/**").authenticated()
+                .requestMatchers("/api/notifications/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/scan/assess").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/scan/history/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/profiles/me").hasRole("USER")

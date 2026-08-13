@@ -438,7 +438,6 @@ fun CanMakanNavGraph(
             }
             composable(ROUTE_NOTIFICATIONS) {
                 NotificationsInboxScreen(
-                    hasFamily = hasFamily,
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },

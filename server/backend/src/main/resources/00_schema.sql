@@ -32,6 +32,7 @@ DROP TABLE IF EXISTS profile_restrictions;
 DROP TABLE IF EXISTS dietary_restrictions;
 DROP TABLE IF EXISTS user_preferences;
 DROP TABLE IF EXISTS dietary_profiles;
+DROP TABLE IF EXISTS user_notifications;
 DROP TABLE IF EXISTS family_invitations;
 DROP TABLE IF EXISTS family_members;
 DROP TABLE IF EXISTS families;
@@ -123,6 +124,26 @@ CREATE TABLE family_invitations (
     CONSTRAINT fk_fam_invites_invited_by
         FOREIGN KEY (invited_by_user_id) REFERENCES users(id)
         ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE user_notifications (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    `type` VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    body VARCHAR(255) NULL,
+    reference_type VARCHAR(50) NULL,
+    reference_id BIGINT NULL,
+    action_token VARCHAR(100) NULL,
+    expires_at TIMESTAMP NULL,
+    read_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_user_notifications_user_type_ref
+        UNIQUE (user_id, `type`, reference_type, reference_id),
+    CONSTRAINT fk_user_notifications_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE dietary_profiles (

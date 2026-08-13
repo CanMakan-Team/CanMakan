@@ -21,6 +21,19 @@ See [`families.md`](families.md) for:
 - Bearer JWT / `@AuthenticationPrincipal` on family and invitation routes
 - Invite → join workflow diagram (register-login-claim / deep-link claim / inbox accept)
 
+## Notifications inbox
+
+**Status:** Account-wide list / mark read / delete.
+
+See [`notifications.md`](notifications.md) for:
+
+- `GET /api/notifications/me`
+- `POST /api/notifications/me/read`
+- `DELETE /api/notifications/{id}`
+
+Family invite cards are written by `FamilyInviteNotifier`; Accept / Decline still
+use invitation endpoints in [`families.md`](families.md).
+
 ## UC18 user registration
 
 `POST /api/auth/register`

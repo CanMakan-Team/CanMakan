@@ -23,6 +23,7 @@ import com.canmakan.backend.auth.exception.DuplicateEmailException;
 import com.canmakan.backend.auth.exception.RegistrationFailedException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
+import com.canmakan.backend.family.FamilyInviteNotifier;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
 import com.canmakan.backend.shared.security.JwtService;
@@ -74,6 +75,9 @@ class AuthServiceTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
+    @Mock
+    private FamilyInviteNotifier familyInviteNotifier;
+
     private PasswordEncoder passwordEncoder;
     private AuthService authService;
 
@@ -85,7 +89,8 @@ class AuthServiceTest {
             passwordEncoder,
             authenticationManager,
             jwtService,
-            refreshTokenService
+            refreshTokenService,
+            familyInviteNotifier
         );
     }
 
@@ -237,6 +242,7 @@ class AuthServiceTest {
             assertEquals("person@example.com", response.email());
             assertTrue(response.active());
             verify(userAccountRepository).findRoleIdByName(AuthService.PUBLIC_REGISTRATION_ROLE);
+            verify(familyInviteNotifier).hydrateIncomingInvites(14L, "person@example.com");
             verifyNoInteractions(authenticationManager, jwtService, refreshTokenService);
         }
 
@@ -262,6 +268,7 @@ class AuthServiceTest {
 
             assertEquals(14L, response.userId());
             assertEquals(3, RegistrationResponse.class.getRecordComponents().length);
+            verify(familyInviteNotifier).hydrateIncomingInvites(14L, "person@example.com");
             verifyNoInteractions(authenticationManager, jwtService, refreshTokenService);
         }
 
@@ -280,6 +287,7 @@ class AuthServiceTest {
 
             verify(userAccountRepository, never()).findRoleIdByName(any());
             verify(userAccountRepository, never()).saveAndFlush(any());
+            verify(familyInviteNotifier, never()).hydrateIncomingInvites(any(Long.class), any());
         }
 
         @Test
