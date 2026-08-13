@@ -96,11 +96,17 @@ class DietaryRestrictionViewModel @Inject constructor(
             val authorization = resolveEditAuthorization(owner, generation) ?: return
             if (!isCurrentLoad(owner, generation)) return
 
+            val presentedCatalog = DairyRestrictionPresentation.presentCatalog(allDietaryRestrictions)
+            val presentedSelections = DairyRestrictionPresentation.presentSelections(
+                catalog = allDietaryRestrictions,
+                saved = savedDietaryRestrictions,
+            )
+
             _uiState.value = _uiState.value.copy(
-                religiousRestrictions = allDietaryRestrictions.filter { it.category == "RELIGIOUS" },
-                allergenRestrictions = allDietaryRestrictions.filter { it.category == "ALLERGEN" },
-                dietRestrictions = allDietaryRestrictions.filter { it.category == "DIET" },
-                selectedRestrictions = savedDietaryRestrictions,
+                religiousRestrictions = presentedCatalog.filter { it.category == "RELIGIOUS" },
+                allergenRestrictions = presentedCatalog.filter { it.category == "ALLERGEN" },
+                dietRestrictions = presentedCatalog.filter { it.category == "DIET" },
+                selectedRestrictions = presentedSelections,
                 isLoading = false,
                 errorMessage = null,
                 allowRestrictionEdit = authorization.allow,
@@ -227,6 +233,14 @@ class DietaryRestrictionViewModel @Inject constructor(
         }
 
         val selections = _uiState.value.selectedRestrictions.toMap()
+        val catalogForSave = _uiState.value.religiousRestrictions +
+            _uiState.value.allergenRestrictions +
+            _uiState.value.dietRestrictions
+        // Alias ids are already absent from UI state; keep helper for safety if catalog grows.
+        val persistedSelections = DairyRestrictionPresentation.selectionsForSave(
+            catalog = catalogForSave,
+            selections = selections,
+        )
         saveJob?.cancel()
         val generation = ++saveGeneration
         saveJob = viewModelScope.launch {
@@ -235,7 +249,7 @@ class DietaryRestrictionViewModel @Inject constructor(
                 if (!isCurrentOwner(owner) || generation != saveGeneration) return@launch
                 val saved = dietaryRestrictionRepo.saveDietaryRestrictionSelections(
                     profileId = owner.profileId,
-                    selections = selections,
+                    selections = persistedSelections,
                 )
                 if (!isCurrentOwner(owner) || generation != saveGeneration) return@launch
                 if (saved) {

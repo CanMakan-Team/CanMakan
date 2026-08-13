@@ -94,7 +94,7 @@ fun ManageFamilyScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Add someone to this household.",
+                text = "Add someone to this family circle.",
                 color = TextSecondary,
             )
 
@@ -102,15 +102,15 @@ fun ManageFamilyScreen(
 
             ManageFamilyActionRow(
                 icon = Icons.Default.PersonAdd,
-                title = "Invite someone to join",
+                title = "Invite new member",
                 subtitle = "They get their own CanMakan account via email invite/link",
                 onClick = onInviteClick,
             )
             Spacer(modifier = Modifier.height(12.dp))
             ManageFamilyActionRow(
                 icon = Icons.Default.Person,
-                title = "Add dependant profile",
-                subtitle = "Profile you manage for someone who will not sign in",
+                title = "Add new profile",
+                subtitle = "Profile you manage for someone",
                 onClick = onDependantClick,
             )
         }

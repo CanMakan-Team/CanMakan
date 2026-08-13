@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import java.util.Locale
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeRestrictionDetail
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeRestrictionSum
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
@@ -139,12 +140,12 @@ private fun MatrixGrid(
         }
         return
     }
-    val allRestrictions = activeMembers
-        .flatMap { it.restrictions }
-        .distinctBy { it.code }
+    val allRestrictions = consolidateRestrictionsForMatrix(
+        activeMembers.flatMap { it.restrictions },
+    )
 
-    val groupedRestrictions = allRestrictions.groupBy { getCategoryForCode(it.code) }
-    val categoryOrder = listOf("Religious", "Allergies & Intolerances", "Specific Diets")
+    val groupedRestrictions = allRestrictions.groupBy { it.category }
+    val categoryOrder = listOf("Religious", "Allergies & Intolerances", "Specific Diets", "Other")
     val profilesById = remember(profiles) { profiles.associateBy { it.id } }
 
     LazyColumn(
@@ -256,7 +257,9 @@ private fun MatrixGrid(
                         )
 
                         activeMembers.forEach { member ->
-                            val hasRestriction = member.restrictions.any { it.code == restriction.code }
+                            val hasRestriction = member.restrictions.any { detail ->
+                                detail.code.uppercase() in restriction.matchCodes
+                            }
 
                             Box(
                                 modifier = Modifier.weight(1f),
@@ -383,11 +386,81 @@ private fun EmptyStateView(onNavigateToEditMembers: () -> Unit) {
     )
 }
 
-private fun getCategoryForCode(code: String): String {
+/**
+ * One matrix row. Dairy-family backend codes ([DAIRY_FAMILY_CODES]) collapse into a single
+ * row because AllergenChecker treats them as aliases; catalog codes stay unchanged.
+ */
+private data class MatrixRestrictionRow(
+    val matchCodes: Set<String>,
+    val displayName: String,
+    val category: String,
+)
+
+/** Backend codes that share dairy ingredient matching (see AllergenChecker.DAIRY_ALIASES). */
+private val DAIRY_FAMILY_CODES = setOf(
+    "DAIRY",
+    "LACTOSE_INTOLERANT",
+    "DAIRY_FREE",
+    "LACTOSE",
+)
+
+/**
+ * Collapse duplicate dairy-family codes into one row; keep other codes as-is.
+ * Categories mirror the seeded catalog in 05_household_dietary_data.sql.
+ */
+private fun consolidateRestrictionsForMatrix(
+    details: List<FamilyMeRestrictionDetail>,
+): List<MatrixRestrictionRow> {
+    val byCode = details
+        .map { it.copy(code = it.code.trim().uppercase()) }
+        .distinctBy { it.code }
+
+    val dairyDetails = byCode.filter { it.code in DAIRY_FAMILY_CODES }
+    val otherDetails = byCode.filterNot { it.code in DAIRY_FAMILY_CODES }
+
+    val rows = mutableListOf<MatrixRestrictionRow>()
+    if (dairyDetails.isNotEmpty()) {
+        rows += MatrixRestrictionRow(
+            matchCodes = DAIRY_FAMILY_CODES,
+            displayName = "Dairy Free / Lactose Intolerant",
+            category = "Allergies & Intolerances",
+        )
+    }
+    rows += otherDetails.map { detail ->
+        MatrixRestrictionRow(
+            matchCodes = setOf(detail.code),
+            displayName = detail.displayName,
+            category = categoryForRestrictionCode(detail.code),
+        )
+    }
+    return rows
+}
+
+private fun categoryForRestrictionCode(code: String): String {
     return when (code.uppercase()) {
-        "HALAL", "HINDU" -> "Religious"
-        "GLUTEN", "DAIRY", "PEANUT", "SHELLFISH", "FISH", "SOY", "EGG" -> "Allergies & Intolerances"
-        "VEGETARIAN", "VEGAN", "LOW_SUGAR", "LOW_FAT", "LOW_TRANS_FAT", "LOW_SODIUM" -> "Specific Diets"
+        "HALAL", "KOSHER" -> "Religious"
+        "GLUTEN",
+        "DAIRY",
+        "DAIRY_FREE",
+        "LACTOSE",
+        "LACTOSE_INTOLERANT",
+        "PEANUT",
+        "TREE_NUT",
+        "SHELLFISH",
+        "FISH",
+        "SOY",
+        "EGG",
+        "SESAME",
+        -> "Allergies & Intolerances"
+        "VEGETARIAN",
+        "VEGAN",
+        "LOW_SUGAR",
+        "LOW_FAT",
+        "LOW_TRANS_FAT",
+        "LOW_SODIUM",
+        "LOW_CHOLESTEROL",
+        "KETO",
+        -> "Specific Diets"
         else -> "Other"
     }
 }

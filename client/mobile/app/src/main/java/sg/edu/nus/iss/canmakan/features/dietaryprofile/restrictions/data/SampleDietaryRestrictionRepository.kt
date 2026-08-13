@@ -32,10 +32,10 @@ class SampleDietaryRestrictionRepository @Inject constructor() : DietaryRestrict
         ),
         DietaryRestriction(
             id = 4L,
-            code = "DAIRY_FREE",
-            displayName = "Dairy free",
+            code = "DAIRY",
+            displayName = "Dairy Free / Lactose Intolerant",
             category = "ALLERGEN",
-            description = "Avoid dairy products and milk-derived ingredients",
+            description = "Avoid dairy products, milk-derived ingredients, and lactose",
         ),
         DietaryRestriction(
             id = 5L,

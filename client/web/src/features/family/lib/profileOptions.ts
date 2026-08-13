@@ -47,8 +47,12 @@ export const restrictionGroups: Array<{
     options: [
       { value: 'PEANUT', label: 'Peanut Allergy', description: 'Severe reaction to peanuts and peanut derivatives.' },
       { value: 'TREE_NUT', label: 'Tree Nut Allergy', description: 'Avoid almonds, cashews, hazelnuts, walnuts, and other tree nuts.' },
-      { value: 'DAIRY', label: 'Dairy Free', description: 'Avoid milk solids, lactose, whey, and dairy fats.' },
-      { value: 'LACTOSE_INTOLERANT', label: 'Lactose Intolerant', description: 'Avoid lactose found in milk and dairy products.' },
+      {
+        value: 'DAIRY',
+        label: 'Dairy Free / Lactose Intolerant',
+        description:
+          'Avoid milk solids, lactose, whey, and dairy fats.',
+      },
       { value: 'EGG', label: 'Egg Allergy', description: 'Avoid eggs and egg powder.' },
       { value: 'GLUTEN', label: 'Gluten Free', description: 'Strictly avoid wheat, barley, rye, and oat gluten.' },
       { value: 'SHELLFISH', label: 'Shellfish Allergy', description: 'Avoid crab, shrimp, lobster, and shellfish extracts.' },
@@ -80,7 +84,7 @@ export const summaryRestrictions: Array<{
   { value: 'HALAL', shortLabel: 'Halal' },
   { value: 'KOSHER', shortLabel: 'Kosher' },
   { value: 'PEANUT', shortLabel: 'Peanut' },
-  { value: 'DAIRY', shortLabel: 'Dairy Free' },
+  { value: 'DAIRY', shortLabel: 'Dairy / Lactose' },
   { value: 'EGG', shortLabel: 'Egg' },
   { value: 'GLUTEN', shortLabel: 'Gluten Free' },
   { value: 'SHELLFISH', shortLabel: 'Shellfish' },

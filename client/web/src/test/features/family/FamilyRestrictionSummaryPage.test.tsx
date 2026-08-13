@@ -58,7 +58,7 @@ describe('FamilyRestrictionSummaryPage', () => {
           isActive: true,
           restrictions: [
             { code: 'PEANUT', displayName: 'Peanut', severity: 'STRICT_AVOID' },
-            { code: 'LACTOSE', displayName: 'Lactose', severity: 'INTOLERANCE' }
+            { code: 'LACTOSE_INTOLERANT', displayName: 'Lactose Intolerant', severity: 'INTOLERANCE' }
           ]
         },
         {
@@ -67,7 +67,8 @@ describe('FamilyRestrictionSummaryPage', () => {
           isActive: true,
           restrictions: [
             { code: 'PEANUT', displayName: 'Peanut', severity: 'PREFERENCE' },
-            { code: 'VEGAN', displayName: 'Vegan', severity: 'STRICT_AVOID' }
+            { code: 'VEGAN', displayName: 'Vegan', severity: 'STRICT_AVOID' },
+            { code: 'DAIRY', displayName: 'Dairy Free', severity: 'STRICT_AVOID' }
           ]
         }
       ]
@@ -79,19 +80,23 @@ describe('FamilyRestrictionSummaryPage', () => {
       expect(screen.getByRole('table')).toBeInTheDocument()
     })
 
-    // 1. Verify dynamic column headers (Peanut, Lactose, Vegan)
+    // Dairy Free and Lactose Intolerant collapse into one column
     const headers = screen.getAllByRole('columnheader').map(h => h.textContent)
-    expect(headers).toEqual(['Family member', 'Peanut', 'Lactose', 'Vegan'])
+    expect(headers).toEqual([
+      'Family member',
+      'Peanut',
+      'Dairy Free / Lactose Intolerant',
+      'Vegan',
+    ])
 
-    // 2. Alice has Peanut and Lactose selected; Vegan is not recorded for her
+    // Alice has Peanut and Lactose (dairy family); Vegan is not recorded for her
     const aliceRow = screen.getByRole('row', { name: /Alice/ })
     expect(within(aliceRow).getAllByText('SELECTED')).toHaveLength(2)
     expect(within(aliceRow).getByLabelText('Not selected')).toBeInTheDocument()
 
-    // 3. Bob has Peanut and Vegan selected, regardless of their severity level
+    // Bob has Peanut, Dairy, and Vegan — dairy still counts as the shared column
     const bobRow = screen.getByRole('row', { name: /Bob/ })
-    expect(within(bobRow).getAllByText('SELECTED')).toHaveLength(2)
-    expect(within(bobRow).getByLabelText('Not selected')).toBeInTheDocument()
+    expect(within(bobRow).getAllByText('SELECTED')).toHaveLength(3)
   })
 
   it('shows a Selected badge for a diet preference like Low Trans Fat, not just religious requirements', async () => {
