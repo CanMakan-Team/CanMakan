@@ -67,7 +67,7 @@ public final class NutritionChecker implements RestrictionChecker {
             List<Finding> hits
     ) {
         BigDecimal value = nutrition == null ? null : valueExtractor.apply(nutrition);
-        if (isUnusable(value)) {
+        if (warnIfUncheckable(code, nutrientName, value, hits)) {
             return;
         }
 
@@ -85,7 +85,7 @@ public final class NutritionChecker implements RestrictionChecker {
     private void checkTransFat(Nutrition nutrition, List<Finding> hits) {
         String code = "LOW_TRANS_FAT";
         BigDecimal value = nutrition == null ? null : nutrition.transFatPer100g();
-        if (isUnusable(value)) {
+        if (warnIfUncheckable(code, "Trans fat", value, hits)) {
             return;
         }
 
@@ -102,7 +102,7 @@ public final class NutritionChecker implements RestrictionChecker {
     private void checkSodium(Nutrition nutrition, List<Finding> hits) {
         String code = "LOW_SODIUM";
         BigDecimal value = nutrition == null ? null : nutrition.sodiumPer100g();
-        if (isUnusable(value)) {
+        if (warnIfUncheckable(code, "Sodium", value, hits)) {
             return;
         }
 
@@ -118,11 +118,32 @@ public final class NutritionChecker implements RestrictionChecker {
     }
 
     /**
-     * Soft nutrition preferences must not warn on missing or invalid data - only an actual
-     * exceedance produces a finding. Returns {@code true} when the value cannot be checked.
+     * When the nutrition value a preference needs is missing or invalid we cannot confirm
+     * compliance, so we surface a WARNING that tells the user to check the physical food label
+     * rather than silently ignoring it. Returns {@code true} when a finding was added.
      */
-    private static boolean isUnusable(BigDecimal value) {
-        return value == null || value.compareTo(BigDecimal.ZERO) < 0;
+    private boolean warnIfUncheckable(
+            String code, String nutrientName, BigDecimal value, List<Finding> hits) {
+        if (value == null) {
+            hits.add(new Finding(
+                    code,
+                    Finding.SUBJECT_NUTRITION,
+                    nutrientName + " data is missing for the " + code
+                            + " preference - please check the product's physical label."
+            ));
+            return true;
+        }
+        if (value.compareTo(BigDecimal.ZERO) < 0) {
+            hits.add(new Finding(
+                    code,
+                    Finding.SUBJECT_NUTRITION,
+                    nutrientName + " data looks invalid (" + format(value)
+                            + " per 100 g) for the " + code
+                            + " preference - please check the product's physical label."
+            ));
+            return true;
+        }
+        return false;
     }
 
     private String format(BigDecimal value) {
