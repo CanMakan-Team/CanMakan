@@ -43,11 +43,21 @@ public class AuthController {
 
     // User refresh token
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refresh(HttpServletRequest request) {
+    public ResponseEntity<AuthResponse> refresh(
+            HttpServletRequest request,
+            HttpServletResponse response) {
         sessionRequestGuard.requireTrustedSessionMutation(request);
-        String rawRefreshToken = refreshCookieService.readRefreshToken(request)
-            .orElseThrow(RefreshAuthenticationException::new);
-        return authenticationResponse(authService.refresh(rawRefreshToken));
+        try {
+            String rawRefreshToken = refreshCookieService.readRefreshToken(request)
+                .orElseThrow(RefreshAuthenticationException::new);
+            return authenticationResponse(authService.refresh(rawRefreshToken));
+        } catch (RefreshAuthenticationException exception) {
+            response.addHeader(
+                HttpHeaders.SET_COOKIE,
+                refreshCookieService.clearRefreshCookie().toString()
+            );
+            throw exception;
+        }
     }
 
     // User logout

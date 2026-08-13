@@ -59,6 +59,9 @@ only with `Secure=true`, credentialed CORS, exact HTTPS origins, and no origin
 patterns. `Lax` is the default. Login, refresh, and logout require a non-secret
 session-intent request header. Browser requests additionally require an exact
 configured Origin; native requests may omit Origin but must retain the header.
+Confirmed refresh-authentication failures retain the uniform 401 response and
+expire the presented cookie with the same configured attributes. Unexpected
+server failures remain 5xx responses and preserve a potentially valid cookie.
 
 ## Ops note
 With `spring.sql.init.mode=always`, schema/seed reload wipes newly registered users on backend restart.
