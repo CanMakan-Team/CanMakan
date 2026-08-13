@@ -40,6 +40,8 @@ then **Cancel** / **Invite**.
 That POST does not retry on timeout (one attempt, ~15s) so a down host does not
 block the screen for three tries. A `PENDING` invite is stored only after Resend accepts the email; a failed send
 can be retried. Repeating Invite for the same email after a successful send returns **409**.
+The Resend email does not include an invite link or code; it asks the invitee to
+register or sign in, then accept from **Notifications**.
 Success toasts and returns to Manage Family.
 
 Invitees preserve the token through register/login; claim runs only after

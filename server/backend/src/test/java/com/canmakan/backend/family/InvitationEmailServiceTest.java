@@ -19,7 +19,7 @@ class InvitationEmailServiceTest {
     private final InvitationEmailService service = new InvitationEmailService(new ResendProperties());
 
     @Test
-    void htmlUsesFriendlyCopyPrimaryButtonSgtAndCopyLink() {
+    void htmlAsksInviteeToRegisterOrSignInAndCheckNotifications() {
         InvitationResponse invitation = new InvitationResponse(
             1L,
             "guest@example.com",
@@ -43,15 +43,15 @@ class InvitationEmailServiceTest {
         assertThat(html).contains("<br>");
         assertThat(html).contains("Good news");
         assertThat(html).contains("<strong>Wong Family</strong>");
-        assertThat(html).contains("bgcolor=\"#1E7A5C\"");
-        assertThat(html).contains("Accept the invitation");
-        assertThat(html).contains(
-            "href=\"https://canmakan-project.web.app/invite/token\"");
-        assertThat(html).contains("when you register or sign in");
+        assertThat(html).contains("register a CanMakan account");
+        assertThat(html).contains("sign in if you already have one");
+        assertThat(html).contains("Notifications");
+        assertThat(html).doesNotContain("Accept the invitation");
+        assertThat(html).doesNotContain("href=\"https://canmakan-project.web.app/invite/token\"");
+        assertThat(html).doesNotContain("/invite/token");
         assertThat(html).doesNotContain("canmakan://");
-        assertThat(html).doesNotContain("/invite/copy");
-        assertThat(html).contains("user-select:all");
-        assertThat(html).contains("ABCD1234");
+        assertThat(html).doesNotContain("ABCD1234");
+        assertThat(html).doesNotContain("user-select:all");
         assertThat(html).contains("16 Aug 2026, 8:00 AM SGT");
         assertThat(html).doesNotContain("UTC");
     }

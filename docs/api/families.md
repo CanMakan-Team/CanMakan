@@ -371,7 +371,8 @@ insert `family_members`. Response includes shareable fields and email status:
 }
 ```
 
-`inviteUrl` base comes from `canmakan.invites.public-base-url`
+`inviteUrl` is still returned on the create-invitation JSON for other clients
+(admin copy/share). Its base comes from `canmakan.invites.public-base-url`
 (`CANMAKAN_INVITES_PUBLIC_BASE_URL`, default `http://localhost:5173` for local Vite).
 Deployed web: set `CANMAKAN_INVITES_PUBLIC_BASE_URL=https://canmakan-project.web.app`.
 The alternate Firebase host `https://canmakan-project.firebaseapp.com` is also a
@@ -381,11 +382,10 @@ live origin (CORS + Android invite filters). Debug Android builds also claim
 When Resend is enabled (`canmakan.email.resend.enabled=true` / env
 `CANMAKAN_EMAIL_RESEND_ENABLED=true`, non-blank `CANMAKAN_EMAIL_RESEND_API_KEY`, and
 `CANMAKAN_EMAIL_RESEND_FROM`), the server emails the invitee after create using the
-standard HTML template (friendly copy, waving mascot, primary-green Accept
-button, invite code as another way to register or sign in, expiry in SGT).
-The Accept button uses the HTTPS `inviteUrl`. On Android the web page may then
-open the installed app. Add `?web=1` to stay in the browser if the app is not
-installed.
+standard HTML template (friendly copy, waving mascot, expiry in SGT). The email
+does **not** include `inviteUrl`, `invitationToken`, or `inviteCode`. It asks the
+invitee to register or sign in with the invited email, then accept from
+**Notifications**.
 
 `emailSent` is `true` only when Resend accepted the send. A `PENDING` row is kept
 only after a successful send. A later `POST` for the same family+email returns

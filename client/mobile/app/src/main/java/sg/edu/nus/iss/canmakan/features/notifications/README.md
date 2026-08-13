@@ -22,4 +22,5 @@ removes the inbox row; it does not decline an invitation.
 Opening the inbox also calls `POST /api/notifications/me/read`.
 
 New users see a `FAMILY_INVITE_REQUEST` card after they register (hydration from
-PENDING invites for their email). Until then they use the invitation email.
+PENDING invites for their email). The invitation email tells them to register or
+sign in, then open this inbox.

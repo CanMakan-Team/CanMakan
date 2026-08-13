@@ -33,9 +33,6 @@ public class InvitationEmailService {
         .ofPattern("d MMM yyyy, h:mm a 'SGT'", Locale.ENGLISH)
         .withZone(SINGAPORE);
     private static final String MASCOT_RESOURCE = "/email/canmakan-mascot-wave.png";
-    private static final String PRIMARY_GREEN = "#1E7A5C";
-    private static final String ON_PRIMARY = "#FFFFFF";
-    private static final String PRIMARY_CONTAINER = "#DCF0E6";
     private static final String TEXT_PRIMARY = "#1C1C1C";
     private static final String TEXT_SECONDARY = "#6E6E6E";
 
@@ -105,8 +102,6 @@ public class InvitationEmailService {
         String expiry = invitation.expiresAt() == null
             ? ""
             : EXPIRY_FORMAT.format(invitation.expiresAt());
-        String inviteUrl = escape(invitation.inviteUrl());
-        String inviteCode = escape(invitation.inviteCode());
         String mascotSrc = inlineMascot
             ? "cid:mascot-wave"
             : escape(hostedMascotUrl(invitation));
@@ -128,19 +123,7 @@ public class InvitationEmailService {
             <br>
             <p>Good news — you have a seat waiting in the <strong>%s</strong> family circle on CanMakan.</p>
             <p>Scan groceries together, catch allergens and dietary no-gos before they hit the table, and keep everyone in the loop. Food shopping just got a whole lot kinder.</p>
-            <br>
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-            <tr>
-            <td bgcolor="%s" style="border-radius:8px;">
-            <a href="%s" style="display:inline-block;padding:12px 28px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:%s;text-decoration:none;">Accept the invitation</a>
-            </td>
-            </tr>
-            </table>
-            <br>
-            <p style="color:%s;font-size:14px;margin:0 0 8px 0;">You can also use this code when you register or sign in. Same welcome, either way.</p>
-            <p style="margin:8px 0 16px 0;">
-            <span style="font-family:Consolas,Monaco,monospace;font-size:20px;font-weight:bold;letter-spacing:0.12em;color:%s;background-color:%s;padding:8px 16px;border-radius:8px;display:inline-block;-webkit-user-select:all;user-select:all;">%s</span>
-            </p>
+            <p>When you are ready, register a CanMakan account (or sign in if you already have one) with this email. Then open <strong>Notifications</strong> in the app — your invitation will be waiting there, ready to accept.</p>
             <p style="color:%s;font-size:14px;">%s</p>
             <br>
             <p style="color:%s;font-size:13px;">If this was not meant for you, you can ignore this email — no action needed.</p>
@@ -149,13 +132,6 @@ public class InvitationEmailService {
                 TEXT_PRIMARY,
                 mascotSrc,
                 escape(familyName),
-                PRIMARY_GREEN,
-                inviteUrl,
-                ON_PRIMARY,
-                TEXT_SECONDARY,
-                PRIMARY_GREEN,
-                PRIMARY_CONTAINER,
-                inviteCode,
                 TEXT_SECONDARY,
                 expiryLine,
                 TEXT_SECONDARY
