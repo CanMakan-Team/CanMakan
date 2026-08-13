@@ -422,7 +422,7 @@ private fun consolidateRestrictionsForMatrix(
     if (dairyDetails.isNotEmpty()) {
         rows += MatrixRestrictionRow(
             matchCodes = DAIRY_FAMILY_CODES,
-            displayName = "Dairy Free / Lactose Intolerant",
+            displayName = "Lactose Intolerance",
             category = "Allergies & Intolerances",
         )
     }

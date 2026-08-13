@@ -68,7 +68,7 @@ describe('FamilyRestrictionSummaryPage', () => {
           restrictions: [
             { code: 'PEANUT', displayName: 'Peanut', severity: 'PREFERENCE' },
             { code: 'VEGAN', displayName: 'Vegan', severity: 'STRICT_AVOID' },
-            { code: 'DAIRY', displayName: 'Dairy Free', severity: 'STRICT_AVOID' }
+            { code: 'DAIRY', displayName: 'Lactose Intolerance', severity: 'STRICT_AVOID' }
           ]
         }
       ]
@@ -80,12 +80,12 @@ describe('FamilyRestrictionSummaryPage', () => {
       expect(screen.getByRole('table')).toBeInTheDocument()
     })
 
-    // Dairy Free and Lactose Intolerant collapse into one column
+    // Dairy / lactose family codes collapse into one Lactose Intolerance column
     const headers = screen.getAllByRole('columnheader').map(h => h.textContent)
     expect(headers).toEqual([
       'Family member',
       'Peanut',
-      'Dairy Free / Lactose Intolerant',
+      'Lactose Intolerance',
       'Vegan',
     ])
 

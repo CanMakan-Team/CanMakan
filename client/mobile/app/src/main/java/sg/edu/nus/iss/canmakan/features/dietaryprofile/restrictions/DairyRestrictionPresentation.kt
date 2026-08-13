@@ -10,7 +10,7 @@ import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.Dietar
 object DairyRestrictionPresentation {
     val HIDDEN_ALIAS_CODES = setOf("LACTOSE_INTOLERANT", "LACTOSE")
     private val PRIMARY_CODES = setOf("DAIRY", "DAIRY_FREE")
-    const val MERGED_DISPLAY_NAME = "Dairy Free / Lactose Intolerant"
+    const val MERGED_DISPLAY_NAME = "Lactose Intolerance"
 
     fun presentCatalog(restrictions: List<DietaryRestriction>): List<DietaryRestriction> =
         restrictions

@@ -482,9 +482,9 @@ class DietaryKnowledgeToolsTest {
 
     private static Map<String, DietaryRestriction> seedRestrictions() {
         Map<String, DietaryRestriction> byCode = new LinkedHashMap<>();
-        addRestriction(byCode, 1L, "GLUTEN", "Gluten Free", "ALLERGEN",
+        addRestriction(byCode, 1L, "GLUTEN", "Gluten Intolerance", "ALLERGEN",
                 "Strictly avoid wheat, barley, rye, and oat gluten.");
-        addRestriction(byCode, 2L, "DAIRY", "Lactose / Dairy Intolerance", "ALLERGEN",
+        addRestriction(byCode, 2L, "DAIRY", "Lactose Intolerance", "ALLERGEN",
                 "Avoid milk solids, lactose, whey, and dairy fats.");
         addRestriction(byCode, 8L, "HALAL", "Halal Diet", "RELIGIOUS",
                 "Requires Halal-certified ingredients and no pork or alcohol.");

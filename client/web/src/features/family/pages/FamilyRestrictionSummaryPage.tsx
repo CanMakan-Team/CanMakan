@@ -55,7 +55,7 @@ export function FamilyRestrictionSummaryPage() {
           seen.add('DAIRY_FAMILY')
           result.push({
             key: 'DAIRY_FAMILY',
-            label: 'Dairy Free / Lactose Intolerant',
+            label: 'Lactose Intolerance',
             matchCodes: dairyFamilyCodes,
           })
           continue
@@ -122,7 +122,7 @@ export function FamilyRestrictionSummaryPage() {
                       // Any restriction present on the dietary profile counts as
                       // selected for this column; the grid does not grade by
                       // severity, it only reports what the profile has chosen.
-                      // Dairy Free and Lactose Intolerant share one column because
+                      // Lactose-family codes share one column because
                       // the backend treats those codes as dairy-family aliases.
                       const isSelected = member.restrictions.some((r) =>
                         column.matchCodes.has(r.code.trim().toUpperCase())

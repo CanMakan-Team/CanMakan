@@ -50,12 +50,12 @@ INSERT INTO dietary_profiles (id, family_id, linked_user_id, profile_name, relat
 --  DIETARY RESTRICTIONS (Reference Data)
 -- =============================================
 INSERT INTO dietary_restrictions (id, code, display_name, category, description) VALUES
-(1, 'GLUTEN', 'Gluten Free', 'ALLERGEN', 'Strictly avoid wheat, barley, rye, and oat gluten.'),
+(1, 'GLUTEN', 'Gluten Intolerance', 'ALLERGEN', 'Strictly avoid wheat, barley, rye, and oat gluten.'),
 -- Code stays 'DAIRY' (not 'DAIRY_FREE'): it is the same value stamped on every
 -- dairy-tagged ingredient's root_allergen column, and AllergenChecker matches
 -- restrictions to ingredients by exact code equality. Renaming it here without
 -- also touching ~30 ingredient rows would silently stop all dairy matching.
-(2, 'DAIRY', 'Dairy Free', 'ALLERGEN', 'Avoid milk solids, lactose, whey, and dairy fats.'),
+(2, 'DAIRY', 'Lactose Intolerance', 'ALLERGEN', 'Avoid milk solids, lactose, whey, and dairy fats.'),
 (3, 'PEANUT', 'Peanut Allergy', 'ALLERGEN', 'Severe reaction to peanuts and peanut derivatives.'),
 (4, 'SHELLFISH', 'Shellfish Allergy', 'ALLERGEN', 'Avoid crab, shrimp, lobster, and shellfish extracts.'),
 (5, 'FISH', 'Fish Allergy', 'ALLERGEN', 'Avoid bony fish, anchovies, bonito, and fish surimi.'),
@@ -73,7 +73,7 @@ INSERT INTO dietary_restrictions (id, code, display_name, category, description)
 -- ReligiousChecker only ever matches the HALAL code, ignoring everything
 -- else), so this is a safe rename rather than a DAIRY-style alias situation.
 (15, 'KOSHER', 'Kosher', 'RELIGIOUS', 'Requires kosher-certified ingredients; forbids pork and shellfish, and does not mix meat with dairy'),
--- New: mirrors the web portal, which offers Dairy Free and Lactose Intolerant
+-- New: mirrors the web portal lactose/dairy family (UI merges lactose alias into Lactose Intolerance)
 -- as two separate options. AllergenChecker and DietaryRuleEngine treat this
 -- code as an alias of DAIRY so it flags the same dairy ingredients (see the
 -- comment on id 2) rather than silently matching nothing.
