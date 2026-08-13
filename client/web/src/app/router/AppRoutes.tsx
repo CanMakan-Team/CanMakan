@@ -20,7 +20,6 @@ import { FamilyLoginPage } from '../../pages/FamilyLoginPage'
 import { FamilyRegisterPage } from '../../pages/FamilyRegisterPage'
 import { SystemAdminLoginPage } from '../../pages/SystemAdminLoginPage'
 import { InviteLandingPage } from '../../features/family/pages/InviteLandingPage'
-import { CopyInviteCodePage } from '../../features/family/pages/CopyInviteCodePage'
 import { NotFoundPage } from '../../pages/NotFoundPage'
 
 export function AppRoutes() {
@@ -29,7 +28,6 @@ export function AppRoutes() {
       <Route path="/" element={<Navigate to="/family-login" replace />} />
       <Route path="/family-login" element={<FamilyLoginPage />} />
       <Route path="/family-register" element={<FamilyRegisterPage />} />
-      <Route path="/invite/copy" element={<CopyInviteCodePage />} />
       <Route path="/invite/:token" element={<InviteLandingPage />} />
       <Route path="/system-admin-login" element={<SystemAdminLoginPage />} />
       <Route path="/access-denied" element={<AccessDenied />} />

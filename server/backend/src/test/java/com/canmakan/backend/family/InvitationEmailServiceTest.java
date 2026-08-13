@@ -34,15 +34,18 @@ class InvitationEmailServiceTest {
 
         String html = service.buildInvitationHtml("Wong Family", invitation, true);
 
-        assertThat(html).contains("Hello,");
+        assertThat(html).contains("Hello!");
         assertThat(html).contains("cid:mascot-wave");
+        assertThat(html).contains("align=\"center\"");
+        assertThat(html).contains("margin:0 auto");
         assertThat(html).contains("<br>");
         assertThat(html).contains("Good news");
         assertThat(html).contains("<strong>Wong Family</strong>");
         assertThat(html).contains("bgcolor=\"#1E7A5C\"");
         assertThat(html).contains("Accept the invitation");
         assertThat(html).contains("https://canmakan.space/invite/token");
-        assertThat(html).contains("https://canmakan.space/invite/copy?code=ABCD1234");
+        assertThat(html).doesNotContain("/invite/copy");
+        assertThat(html).contains("user-select:all");
         assertThat(html).contains("ABCD1234");
         assertThat(html).contains("16 Aug 2026, 8:00 AM SGT");
         assertThat(html).doesNotContain("UTC");

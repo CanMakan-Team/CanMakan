@@ -364,10 +364,9 @@ When Resend is enabled (`canmakan.email.resend.enabled=true` / env
 `CANMAKAN_EMAIL_RESEND_ENABLED=true`, non-blank `CANMAKAN_EMAIL_RESEND_API_KEY`, and
 `CANMAKAN_EMAIL_RESEND_FROM`), the server emails the invitee after create using the
 standard HTML template (friendly copy, waving mascot, primary-green Accept
-button, tap-to-copy invite code, expiry in SGT). Set
-`CANMAKAN_INVITES_PUBLIC_BASE_URL` to the public web origin used in accept links
-and in the `/invite/copy?code=` helper that copies the short code. The accept
-link is always HTTPS. On Android it hands off to `canmakan://invite/{token}`
+button, selectable invite code to copy, expiry in SGT). Set
+`CANMAKAN_INVITES_PUBLIC_BASE_URL` to the public web origin used in accept links.
+The accept link is always HTTPS. On Android it hands off to `canmakan://invite/{token}`
 (Chrome Intent URL); desktop browsers keep the web landing. Add `?web=1` to
 stay in the browser if the app is not installed.
 
