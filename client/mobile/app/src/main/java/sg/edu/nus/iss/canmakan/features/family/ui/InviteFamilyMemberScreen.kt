@@ -1,6 +1,6 @@
 package sg.edu.nus.iss.canmakan.features.family.ui
 
-import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,6 +22,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,10 +53,18 @@ fun InviteFamilyMemberScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val result = uiState.searchResult
-    val canInvite = result != null &&
-        result.familyLinkStatus != "ALREADY_LINKED" &&
-        result.familyLinkStatus != "PENDING"
+
+    LaunchedEffect(uiState.inviteSucceeded) {
+        if (!uiState.inviteSucceeded) return@LaunchedEffect
+        val message = if (uiState.emailSent) {
+            "Invitation sent."
+        } else {
+            "Invitation created, but the email could not be sent."
+        }
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        viewModel.consumeInviteResult()
+        onInviteCreated()
+    }
 
     Scaffold(
         topBar = {
@@ -97,7 +106,7 @@ fun InviteFamilyMemberScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Invite a registered CanMakan user or someone who does not have an account yet. They join when they register or sign in with this email.",
+                text = "Enter their email to send an invitation.",
                 color = TextSecondary,
             )
 
@@ -111,7 +120,7 @@ fun InviteFamilyMemberScreen(
                 placeholder = { Text("e.g. member@example.com") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                enabled = !uiState.isSearching && !uiState.isInviting,
+                enabled = !uiState.isInviting,
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -123,69 +132,17 @@ fun InviteFamilyMemberScreen(
                 OutlinedButton(
                     onClick = onCancelClick,
                     modifier = Modifier.weight(1f),
+                    enabled = !uiState.isInviting,
                 ) {
                     Text("Cancel")
                 }
                 Button(
-                    onClick = { viewModel.search() },
+                    onClick = { viewModel.invite() },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
                     modifier = Modifier.weight(1f),
-                    enabled = !uiState.isSearching && !uiState.isInviting,
+                    enabled = !uiState.isInviting,
                 ) {
-                    Text(if (uiState.isSearching) "Searching…" else "Search")
-                }
-            }
-
-            if (result != null) {
-                Spacer(modifier = Modifier.height(20.dp))
-                Text(
-                    text = result.displayName ?: if (result.accountStatus == "NOT_REGISTERED") {
-                        "Not registered yet"
-                    } else {
-                        "CanMakan user"
-                    },
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(text = result.maskedEmail, color = TextSecondary)
-                Text(text = "Account: ${result.accountStatus}", color = TextSecondary)
-                Text(text = "Link: ${result.familyLinkStatus}", color = TextSecondary)
-
-                if (canInvite) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = { viewModel.createInvite() },
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !uiState.isInviting,
-                    ) {
-                        Text(if (uiState.isInviting) "Creating invite…" else "Create invite")
-                    }
-                }
-            }
-
-            uiState.invitation?.let { invitation ->
-                Spacer(modifier = Modifier.height(20.dp))
-                Text(text = "Invitation ready", fontWeight = FontWeight.Bold)
-                Text(text = invitation.inviteUrl, color = TextSecondary)
-                Text(text = "Code: ${invitation.inviteCode}", fontWeight = FontWeight.Medium)
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = {
-                        val appDeepLink = "canmakan://invite/${invitation.invitationToken}"
-                        val shareText =
-                            "Join my CanMakan family:\n$appDeepLink\n" +
-                                "Web: ${invitation.inviteUrl}\nCode: ${invitation.inviteCode}"
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, shareText)
-                        }
-                        context.startActivity(Intent.createChooser(shareIntent, "Share invitation"))
-                        onInviteCreated()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Share invitation")
+                    Text(if (uiState.isInviting) "Inviting…" else "Invite")
                 }
             }
 
