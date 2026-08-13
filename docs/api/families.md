@@ -358,8 +358,10 @@ insert `family_members`. Response includes shareable fields and email status:
 When Resend is enabled (`canmakan.email.resend.enabled=true` / env
 `CANMAKAN_EMAIL_RESEND_ENABLED=true`, non-blank `CANMAKAN_EMAIL_RESEND_API_KEY`, and
 `CANMAKAN_EMAIL_RESEND_FROM`), the server emails the invitee after create using the
-standard HTML template (family name, accept link, invite code, expiry). Set
-`CANMAKAN_INVITES_PUBLIC_BASE_URL` to the public web origin used in accept links.
+standard HTML template (friendly copy, waving mascot, primary-green Accept
+button, tap-to-copy invite code, expiry in SGT). Set
+`CANMAKAN_INVITES_PUBLIC_BASE_URL` to the public web origin used in accept links
+and in the `/invite/copy?code=` helper that copies the short code.
 
 `emailSent` is `true` only when Resend accepted the send. A `PENDING` row is kept
 only after a successful send so the admin can retry the same email if delivery
