@@ -241,14 +241,25 @@ public class DietaryProfileService {
                 "Restriction severity must not exceed 20 characters."
             );
         }
+        RestrictionSeverity severity;
         try {
-            return RestrictionSeverity.valueOf(normalized).name();
+            severity = RestrictionSeverity.valueOf(normalized);
         } catch (IllegalArgumentException exception) {
             throw new IllegalArgumentException(
                 "Restriction severity must be STRICT_AVOID or INTOLERANCE.",
                 exception
             );
         }
+        // Self-setup only lets a user pick these two severities. PREFERENCE is a
+        // valid enum value used by seeded rules, so it is rejected explicitly here
+        // rather than relying on enum membership.
+        if (severity != RestrictionSeverity.STRICT_AVOID
+                && severity != RestrictionSeverity.INTOLERANCE) {
+            throw new IllegalArgumentException(
+                "Restriction severity must be STRICT_AVOID or INTOLERANCE."
+            );
+        }
+        return severity.name();
     }
 
     private static boolean isLinkedUserUniqueViolation(Throwable exception) {

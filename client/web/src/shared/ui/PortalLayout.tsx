@@ -33,6 +33,10 @@ export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
   const { session, logout } = useSession()
   const navigate = useNavigate()
   const location = useLocation()
+
+  // CMK-55 Read the Web Version, Falling Back for Local Development
+  const appVersion = import.meta.env.VITE_APP_VERSION || 'Local Development'
+
   const navigation = portal === 'family' ? familyNavigation : systemNavigation
   const portalName =
     portal === 'family' ? 'Family Admin Portal' : 'System Administration'
@@ -88,6 +92,12 @@ export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
           <button className="sidebar__signout" type="button" onClick={signOut}>
             Sign out
           </button>
+
+          {/* CMK-55 Display the Web Version, Falling Back for Local Development */}
+          <span style={{ fontSize: '0.65rem', color: '#91ada3', padding: '0 0.6rem' }}>
+            Version {appVersion}
+          </span>
+          
         </div>
       </aside>
       {menuOpen && (
