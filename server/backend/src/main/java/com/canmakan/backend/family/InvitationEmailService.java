@@ -28,11 +28,13 @@ public class InvitationEmailService {
 
     /**
      * Attempt to email the invitee. Safe to call when Resend is disabled.
+     *
+     * @return true when Resend accepted the send; false when skipped or failed
      */
-    public void sendInvitationEmail(String familyName, InvitationResponse invitation) {
+    public boolean sendInvitationEmail(String familyName, InvitationResponse invitation) {
         if (!isConfigured()) {
             log.debug("Skipping invitation email; Resend is not configured.");
-            return;
+            return false;
         }
 
         String subject = "You're invited to join " + familyName + " on CanMakan";
@@ -40,10 +42,13 @@ public class InvitationEmailService {
             ? ""
             : EXPIRY_FORMAT.format(invitation.expiresAt());
         String html = """
+            <p>Hello,</p>
             <p>You have been invited to join the family circle <strong>%s</strong> on CanMakan.</p>
+            <p>CanMakan helps your household check food products against dietary restrictions.</p>
             <p><a href="%s">Accept the invitation</a></p>
-            <p>Or use invite code: <strong>%s</strong></p>
+            <p>Or enter this invite code in the app: <strong>%s</strong></p>
             <p>This invitation expires at %s.</p>
+            <p>If you did not expect this email, you can ignore it.</p>
             """.formatted(
                 escape(familyName),
                 escape(invitation.inviteUrl()),
@@ -66,9 +71,11 @@ public class InvitationEmailService {
                 .retrieve()
                 .toBodilessEntity();
             log.info("Invitation email sent to {}", invitation.invitedEmail());
+            return true;
         } catch (Exception ex) {
             log.warn("Failed to send invitation email to {}: {}",
                 invitation.invitedEmail(), ex.getMessage());
+            return false;
         }
     }
 

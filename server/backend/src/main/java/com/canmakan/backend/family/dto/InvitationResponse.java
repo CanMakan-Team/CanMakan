@@ -12,6 +12,7 @@ public record InvitationResponse(
     String inviteUrl,
     InvitationStatus status,
     Instant expiresAt,
-    boolean inviteeRegistered
+    boolean inviteeRegistered,
+    boolean emailSent
 ) {
 }

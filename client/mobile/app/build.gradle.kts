@@ -70,7 +70,12 @@ val validateReleaseBaseUrlTask = tasks.register("validateReleaseBaseUrl") {
     }
 }
 
-tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+// Keep validation on shipping tasks only. Unit tests depend on release manifest/
+// resource packaging (UC19 transport checks) and must tolerate a local HTTP
+// BASE_URL used by the debug build.
+tasks.matching { task ->
+    task.name == "assembleRelease" || task.name == "bundleRelease"
+}.configureEach {
     dependsOn(validateReleaseBaseUrlTask)
 }
 
@@ -163,10 +168,11 @@ extensions.configure<ApplicationExtension> {
 }
 
 kotlin {
-    jvmToolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
-        vendor.set(JvmVendorSpec.AMAZON)
-    }
+    // jvmToolchain {
+    //     languageVersion.set(JavaLanguageVersion.of(21))
+    //     vendor.set(JvmVendorSpec.AMAZON)
+    // }
+    jvmToolchain(21)
 }
 
 dependencies {

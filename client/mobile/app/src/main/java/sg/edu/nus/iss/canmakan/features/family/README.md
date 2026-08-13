@@ -7,7 +7,7 @@ Family membership context and active profile switching on mobile.
 | Action | Mobile | Web | Notes |
 | --- | --- | --- | --- |
 | Create Family Circle (UC8) | Yes | Yes | Very simple |
-| Invite Member — link/code + share (UC9) | Yes | Yes | Mobile preferred for native share |
+| Invite Member — email invite (UC9) | Yes | Yes | Mobile: Cancel/Invite; email when Resend enabled |
 | Accept / Decline Invitation (UC10) | Yes | Optional | Mainly mobile |
 | Switch Profile (UC11) | Yes | — | Daily use |
 | Manage Family Circle (UC12) | Optional / limited | Primary | Roster, edit, remove, toggle active |
@@ -31,8 +31,14 @@ when `memberRole == PRIMARY_ADMIN`). That opens `ManageFamilyScreen`, which bran
 
 | Choice | Screen | Outcome |
 | --- | --- | --- |
-| Invite someone to join | `InviteFamilyMemberScreen` | Email search → PENDING invite → share link/code |
+| Invite someone to join | `InviteFamilyMemberScreen` | Email → Invite → PENDING + email (when Resend enabled) |
 | Add dependant profile | `CreateDependantProfileScreen` | Dependant dietary profile with no login |
+
+Invite flow on mobile is one step: enter email, then **Cancel** / **Invite**.
+`POST /api/families/me/invitations` rejects users already in a family (or duplicate
+PENDING) with **409** and red inline error text. Eligible new or existing users get a
+PENDING invite; the server emails them when Resend is configured (`emailSent` in the
+response). Success toasts and returns to Manage Family.
 
 Invitees preserve the token through register/login; claim runs only after
 authentication (post-login continuation or **Notifications** inbox).
@@ -41,10 +47,13 @@ authentication (post-login continuation or **Notifications** inbox).
 flowchart TD
   Hub[Manage family hub] --> Invite[InviteFamilyMemberScreen]
   Hub --> Dependant[CreateDependantProfileScreen]
-  Invite --> Share[Share link/code or Resend email]
-  Share --> PathA[New user: register, then login with token preserved]
-  Share --> PathB[Existing user: open link then login]
-  Share --> PathC[Already logged in: Notifications inbox or deep-link claim]
+  Invite --> Post[POST invitations]
+  Post -->|409 linked or pending| Err[Red error on screen]
+  Post -->|201| Email[Optional Resend email]
+  Email --> Done[Toast and back to hub]
+  Done --> PathA[New user: register, then login with token preserved]
+  Done --> PathB[Existing user: open link then login]
+  Done --> PathC[Already logged in: Notifications inbox or deep-link claim]
   PathA --> Join[MEMBER + SELF profile + ACCEPTED]
   PathB --> Join
   PathC --> Join
