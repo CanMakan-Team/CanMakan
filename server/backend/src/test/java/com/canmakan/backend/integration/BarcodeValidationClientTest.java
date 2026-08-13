@@ -221,6 +221,45 @@ class BarcodeValidationClientTest {
     }
 
     @Test
+    void flattensNestedCompoundIngredientsSoAllergenSourcesAreVisible() {
+        ClientHarness harness = clientHarness();
+        harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
+            .andExpect(method(GET))
+            .andRespond(withSuccess(nestedIngredientsJson(), MediaType.APPLICATION_JSON));
+
+        ProductLookupResult result = harness.client().fetchProduct(BARCODE);
+
+        List<String> names = result.ingredients().stream()
+            .map(ingredient -> ingredient.ingredientName())
+            .toList();
+        // "Cereals Grains" is a compound wrapper; its nested leaves (incl. the Wheat allergen
+        // source) must surface instead of being hidden inside the parent.
+        assertFalse(names.contains("Cereals Grains"));
+        assertTrue(names.contains("Oat Flakes"));
+        assertTrue(names.contains("Wheat"));
+        assertTrue(names.contains("Sugar"));
+        assertTrue(result.ingredientDataComplete());
+        harness.verify();
+    }
+
+    @Test
+    void injectsConfirmedAllergensFromOpenFoodFactsAllergenTags() {
+        ClientHarness harness = clientHarness();
+        harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
+            .andExpect(method(GET))
+            .andRespond(withSuccess(peanutButterJson(), MediaType.APPLICATION_JSON));
+
+        ProductLookupResult result = harness.client().fetchProduct(BARCODE);
+
+        // OFF declares "en:peanuts"; it must surface as a confirmed PEANUT allergen even though the
+        // ingredient text ("Roasted Peanuts") does not match the catalog's "Peanut" entry.
+        boolean peanutFlagged = result.ingredients().stream()
+            .anyMatch(ingredient -> "PEANUT".equals(ingredient.rootAllergen()));
+        assertTrue(peanutFlagged);
+        harness.verify();
+    }
+
+    @Test
     void classifiesProductNotFound() {
         ClientHarness harness = clientHarness();
         harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
@@ -395,6 +434,52 @@ class BarcodeValidationClientTest {
                   "sugars_100g": null,
                   "sodium_100g": 0
                 }
+              }
+            }
+            """;
+    }
+
+    private static String nestedIngredientsJson() {
+        return """
+            {
+              "status": "success",
+              "product": {
+                "product_name": "Granola",
+                "product_type": "food",
+                "ingredients_text": "Cereals Grains (Oat Flakes, Wheat), Sugar",
+                "ingredients": [
+                  {"id": "en:cereal", "text": "Cereals Grains", "ingredients": [
+                    {"id": "en:oat-flakes", "text": "Oat Flakes"},
+                    {"id": "en:wheat", "text": "Wheat"}
+                  ]},
+                  {"id": "en:sugar", "text": "Sugar"}
+                ],
+                "labels_tags": [],
+                "traces_tags": [],
+                "nutriments": {}
+              }
+            }
+            """;
+    }
+
+    private static String peanutButterJson() {
+        return """
+            {
+              "status": "success",
+              "product": {
+                "product_name": "Creamy Peanut Butter",
+                "product_type": "food",
+                "ingredients_text": "Roasted Peanuts, Sugar, Peanut Oil, Salt",
+                "ingredients": [
+                  {"id": "en:roasted-peanut", "text": "Roasted Peanuts"},
+                  {"id": "en:sugar", "text": "Sugar"},
+                  {"id": "en:peanut-oil", "text": "Peanut Oil"},
+                  {"id": "en:salt", "text": "Salt"}
+                ],
+                "labels_tags": [],
+                "allergens_tags": ["en:peanuts", "en:soybeans"],
+                "traces_tags": [],
+                "nutriments": {}
               }
             }
             """;

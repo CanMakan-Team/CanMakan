@@ -1,15 +1,11 @@
 package com.canmakan.backend.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.canmakan.backend.auth.dto.RegistrationRequest;
 import com.canmakan.backend.auth.dto.RegistrationResponse;
 import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
-import com.canmakan.backend.family.FamilyService;
-import com.canmakan.backend.family.exception.InvitationNotFoundException;
 import com.canmakan.backend.user.UserAccount;
 import com.canmakan.backend.user.UserAccountRepository;
 import java.util.HashSet;
@@ -19,6 +15,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @SpringBootTest
 class RegistrationPersistenceIntegrationTest {
@@ -27,30 +24,29 @@ class RegistrationPersistenceIntegrationTest {
     private AuthService authService;
 
     @Autowired
-    private FamilyService familyService;
-
-    @Autowired
     private UserAccountRepository userAccountRepository;
 
     @Autowired
     private DietaryProfileRepository dietaryProfileRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private final Set<String> createdEmails = new HashSet<>();
 
     @AfterEach
     void cleanUpAccounts() {
         for (String email : createdEmails) {
-            userAccountRepository.findByEmail(email).ifPresent(userAccountRepository::delete);
+            jdbcTemplate.update("delete from users where email = ?", email);
         }
-        userAccountRepository.flush();
     }
 
     @Test
-    void accountOnlyRegistrationPersistsUserWithoutDietaryProfile() {
+    void registrationPersistsOnlyAnActiveUserAccount() {
         String email = uniqueEmail("account-only");
 
         RegistrationResponse response = authService.register(
-            new RegistrationRequest(null, email, "Password1!", null)
+            new RegistrationRequest("Person Name", email, "Password1!", null)
         );
 
         UserAccount account = userAccountRepository.findByEmail(email).orElseThrow();
@@ -58,23 +54,19 @@ class RegistrationPersistenceIntegrationTest {
         assertEquals(email, response.email());
         assertTrue(account.isActive());
         assertEquals("USER", userAccountRepository.findRoleNameById(account.getRoleId()).orElseThrow());
-        assertFalse(dietaryProfileRepository.findByLinkedUser_Id(account.getId()).isPresent());
+
+        assertTrue(dietaryProfileRepository.findByLinkedUser_Id(account.getId()).isEmpty());
     }
 
     @Test
-    void laterInvitationFailureCannotRollBackCommittedAccount() {
-        String email = uniqueEmail("failed-claim");
+    void legacyNameAndInvitationTokenHaveNoProfileOrSessionSideEffect() {
+        String email = uniqueEmail("legacy-fields");
         RegistrationResponse response = authService.register(
-            new RegistrationRequest(null, email, "Password1!", "legacy-token")
-        );
-
-        assertThrows(
-            InvitationNotFoundException.class,
-            () -> familyService.acceptInvitation(response.userId(), "missing-" + UUID.randomUUID())
+            new RegistrationRequest("Person Name", email, "Password1!", "legacy-token")
         );
 
         assertTrue(userAccountRepository.findByEmail(email).isPresent());
-        assertFalse(dietaryProfileRepository.findByLinkedUser_Id(response.userId()).isPresent());
+        assertTrue(dietaryProfileRepository.findByLinkedUser_Id(response.userId()).isEmpty());
     }
 
     private String uniqueEmail(String prefix) {

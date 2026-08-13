@@ -18,8 +18,10 @@ sample presentation data.
 
 The application root now validates the encrypted authentication session before
 showing either the Login/Registration flow or the consumer mobile flow. UC18
-registration remains account creation only and returns to Login without
-automatically authenticating the new account.
+registration remains account creation only. After `201`, Android uses the normal
+login repository/session store and opens optional authenticated profile setup.
+Set Up Later creates no profile; profile failure leaves both account and session
+intact.
 
 An authenticated USER without a dietary profile enters the normal consumer
 shell. Scanner and History remain reachable and present in-context setup actions,

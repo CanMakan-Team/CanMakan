@@ -126,7 +126,13 @@ public class RecommendationHistoryService {
                         RecommendationLog::getRankScore,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(this::toAlternative)
-                .toList();
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toMap(
+                                RecommendationHistoryAlternativeDto::barcode,
+                                Function.identity(),
+                                (left, right) -> left,
+                                LinkedHashMap::new),
+                        map -> List.copyOf(map.values())));
 
         return new RecommendationHistoryEntryDto(
                 first.getScanId(),

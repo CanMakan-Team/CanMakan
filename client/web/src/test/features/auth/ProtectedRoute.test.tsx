@@ -7,7 +7,7 @@ import {
   type SessionContextValue,
 } from '../../../features/auth/SessionContext'
 import type { AuthenticatedSession } from '../../../shared/api/types'
-import { familyAdminSession, systemAdminSession } from '../../testUtils'
+import { appUserSession, systemAdminSession } from '../../testUtils'
 
 /** Test suite for ProtectedRoute.
  * 
@@ -17,7 +17,7 @@ import { familyAdminSession, systemAdminSession } from '../../testUtils'
 function renderWithSession(
   session: AuthenticatedSession | null,
   initialPath: string,
-  requiredRole: 'ROLE_FAMILY_ADMIN' | 'ROLE_SYSTEM_ADMIN',
+  requiredRole: 'ROLE_APP_USER' | 'ROLE_SYSTEM_ADMIN',
   state: Partial<SessionContextValue> = {},
 ) {
   const value: SessionContextValue = {
@@ -30,6 +30,9 @@ function renderWithSession(
       throw new Error('unused')
     },
     register: async () => {
+      throw new Error('unused')
+    },
+    registerAndLogin: async () => {
       throw new Error('unused')
     },
     logout: async () => undefined,
@@ -55,15 +58,15 @@ function renderWithSession(
 
 describe('ProtectedRoute', () => {
   it('redirects unauthenticated family visitors to family login', () => {
-    renderWithSession(null, '/family', 'ROLE_FAMILY_ADMIN')
+    renderWithSession(null, '/family', 'ROLE_APP_USER')
     expect(screen.getByText('Family login')).toBeInTheDocument()
   })
 
-  it('allows family admin into the family portal', () => {
+  it('allows a platform USER into personal and family navigation', () => {
     renderWithSession(
-      { ...familyAdminSession(), roles: [...familyAdminSession().roles] },
+      { ...appUserSession(), roles: [...appUserSession().roles] },
       '/family',
-      'ROLE_FAMILY_ADMIN',
+      'ROLE_APP_USER',
     )
     expect(screen.getByText('Family home')).toBeInTheDocument()
   })
@@ -72,7 +75,7 @@ describe('ProtectedRoute', () => {
     renderWithSession(
       { ...systemAdminSession(), roles: [...systemAdminSession().roles] },
       '/family',
-      'ROLE_FAMILY_ADMIN',
+      'ROLE_APP_USER',
     )
     expect(screen.getByText('Access denied')).toBeInTheDocument()
   })

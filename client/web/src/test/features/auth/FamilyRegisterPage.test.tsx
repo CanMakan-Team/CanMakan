@@ -5,12 +5,10 @@ import userEvent from '@testing-library/user-event'
 import { FamilyRegisterPage } from '../../../pages/FamilyRegisterPage'
 import { SessionProvider } from '../../../features/auth/SessionProvider'
 import { authService } from '../../../features/auth/authService'
+import { pendingRegistrationOnboardingStore } from '../../../features/auth/pendingRegistrationOnboardingStore'
+import { authSessionStore } from '../../../features/auth/authSessionStore'
 import { ApiError } from '../../../shared/api/apiErrors'
-
-/** Test suite for FamilyRegisterPage.
- * 
- * @author Amelia
- */
+import { appUserSession } from '../../testUtils'
 
 vi.mock('../../../features/auth/authService', () => ({
   authService: {
@@ -25,7 +23,7 @@ vi.mock('../../../features/auth/authService', () => ({
 
 function LocationProbe() {
   const location = useLocation()
-  return <p data-testid="login-location">Family login {location.search}</p>
+  return <p data-testid="location">{location.pathname}{location.search}</p>
 }
 
 function renderRegisterPage(initialEntry = '/family-register') {
@@ -34,6 +32,7 @@ function renderRegisterPage(initialEntry = '/family-register') {
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/family-register" element={<FamilyRegisterPage />} />
+          <Route path="/family/setup-profile" element={<p>Dietary setup</p>} />
           <Route path="/family" element={<p>Family destination</p>} />
           <Route path="/family-login" element={<LocationProbe />} />
         </Routes>
@@ -42,8 +41,17 @@ function renderRegisterPage(initialEntry = '/family-register') {
   )
 }
 
+async function enterRegistration(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
+  await user.type(screen.getByLabelText('Email'), 'person@example.com')
+  await user.type(screen.getByLabelText('Password'), 'Password1!')
+  await user.type(screen.getByLabelText('Confirm password'), 'Password1!')
+}
+
 describe('FamilyRegisterPage', () => {
   beforeEach(() => {
+    authSessionStore.clear()
+    pendingRegistrationOnboardingStore.clear()
     vi.mocked(authService.register).mockReset()
     vi.mocked(authService.loginWithCredentials).mockReset()
     vi.mocked(authService.refreshSession).mockReset()
@@ -52,17 +60,12 @@ describe('FamilyRegisterPage', () => {
     )
   })
 
-  it('does not collect a name that registration cannot persist', () => {
-    renderRegisterPage()
-
-    expect(screen.queryByLabelText('Full name')).not.toBeInTheDocument()
-    expect(screen.getByText(/Register with your email and password/)).toBeInTheDocument()
-  })
-
-  it('requires matching passwords', async () => {
+  it('collects Profile Name and requires matching passwords', async () => {
     const user = userEvent.setup()
     renderRegisterPage()
 
+    expect(screen.getByLabelText('Profile Name')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
     await user.type(screen.getByLabelText('Email'), 'person@example.com')
     await user.type(screen.getByLabelText('Password'), 'Password1!')
     await user.type(screen.getByLabelText('Confirm password'), 'Password2!')
@@ -72,68 +75,102 @@ describe('FamilyRegisterPage', () => {
     expect(authService.register).not.toHaveBeenCalled()
   })
 
-  it('registers without logging in and navigates to sign-in', async () => {
+  it('registers, performs normal login and opens authenticated dietary setup', async () => {
     const user = userEvent.setup()
     vi.mocked(authService.register).mockResolvedValue({
       userId: 14,
       email: 'person@example.com',
       active: true,
     })
+    vi.mocked(authService.loginWithCredentials).mockResolvedValue(appUserSession())
     renderRegisterPage()
+    await enterRegistration(user)
 
-    await user.type(screen.getByLabelText('Email'), 'person@example.com')
-    await user.type(screen.getByLabelText('Password'), 'Password1!')
-    await user.type(screen.getByLabelText('Confirm password'), 'Password1!')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
-    await waitFor(() => {
-      expect(screen.getByText('Family login')).toBeInTheDocument()
-    })
-    expect(authService.register).toHaveBeenCalled()
-    expect(authService.loginWithCredentials).not.toHaveBeenCalled()
-  })
-
-  it('preserves an invitation token for authenticated claim after sign-in', async () => {
-    const user = userEvent.setup()
-    vi.mocked(authService.register).mockResolvedValue({
-      userId: 14,
-      email: 'person@example.com',
-      active: true,
-    })
-    renderRegisterPage('/family-register?invitationToken=invite-token')
-
-    await user.type(screen.getByLabelText('Email'), 'person@example.com')
-    await user.type(screen.getByLabelText('Password'), 'Password1!')
-    await user.type(screen.getByLabelText('Confirm password'), 'Password1!')
-    await user.click(screen.getByRole('button', { name: 'Create account' }))
-
-    await waitFor(() => {
-      expect(screen.getByTestId('login-location')).toHaveTextContent(
-        'Family login ?invitationToken=invite-token',
-      )
-    })
+    await waitFor(() => expect(screen.getByText('Dietary setup')).toBeInTheDocument())
     expect(authService.register).toHaveBeenCalledWith({
       email: 'person@example.com',
       password: 'Password1!',
     })
+    expect(authService.loginWithCredentials).toHaveBeenCalledWith({
+      email: 'person@example.com',
+      password: 'Password1!',
+      portal: 'FAMILY',
+    })
+    expect(pendingRegistrationOnboardingStore.peekForEmail('person@example.com')).toEqual({
+      email: 'person@example.com',
+      profileName: 'Person Name',
+      invitationToken: undefined,
+    })
   })
 
-  it('shows backend duplicate-email failure', async () => {
+  it('models login failure after account creation without registering again', async () => {
     const user = userEvent.setup()
-    vi.mocked(authService.register).mockRejectedValue(
-      new Error('An account with this email already exists.'),
-    )
+    vi.mocked(authService.register).mockResolvedValue({
+      userId: 14,
+      email: 'person@example.com',
+      active: true,
+    })
+    vi.mocked(authService.loginWithCredentials).mockRejectedValue(new Error('offline'))
     renderRegisterPage()
+    await enterRegistration(user)
 
-    await user.type(screen.getByLabelText('Email'), 'person@example.com')
-    await user.type(screen.getByLabelText('Password'), 'Password1!')
-    await user.type(screen.getByLabelText('Confirm password'), 'Password1!')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
-    await waitFor(() => {
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Your account was created, but automatic sign-in failed.',
+      ),
+    )
+    expect(screen.getByRole('link', { name: 'Log in here' })).toHaveAttribute(
+      'href',
+      '/family-login?email=person%40example.com',
+    )
+    expect(screen.getByRole('button', { name: 'Account created' })).toBeDisabled()
+    expect(screen.getByLabelText('Password')).toHaveValue('')
+    expect(screen.getByLabelText('Confirm password')).toHaveValue('')
+    expect(authService.register).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the approved duplicate message and a prefilled login action', async () => {
+    const user = userEvent.setup()
+    vi.mocked(authService.register).mockRejectedValue(
+      new ApiError('An account with this email already exists.', 409),
+    )
+    renderRegisterPage()
+    await enterRegistration(user)
+
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
         'An account with this email already exists.',
-      )
+      ),
+    )
+    expect(screen.getByRole('link', { name: 'Log in here' })).toHaveAttribute(
+      'href',
+      '/family-login?email=person%40example.com',
+    )
+    expect(pendingRegistrationOnboardingStore.peekForEmail('person@example.com')).toBeNull()
+  })
+
+  it('keeps the invitation token in pending onboarding', async () => {
+    const user = userEvent.setup()
+    vi.mocked(authService.register).mockResolvedValue({
+      userId: 14,
+      email: 'person@example.com',
+      active: true,
     })
+    vi.mocked(authService.loginWithCredentials).mockResolvedValue(appUserSession())
+    renderRegisterPage('/family-register?invitationToken=invite-token')
+    await enterRegistration(user)
+
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    await waitFor(() => expect(screen.getByText('Dietary setup')).toBeInTheDocument())
+    expect(
+      pendingRegistrationOnboardingStore.peekForEmail('person@example.com')?.invitationToken,
+    ).toBe('invite-token')
   })
 })

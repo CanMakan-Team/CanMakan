@@ -7,7 +7,7 @@ import { SessionProvider } from '../../../features/auth/SessionProvider'
 import { useSession } from '../../../features/auth/useSession'
 import { authService } from '../../../features/auth/authService'
 import { authSessionStore } from '../../../features/auth/authSessionStore'
-import { familyAdminSession, SESSION_KEY } from '../../testUtils'
+import { appUserSession, SESSION_KEY } from '../../testUtils'
 import { jsonResponse } from '../../testUtils'
 
 vi.mock('../../../features/auth/authService', () => ({
@@ -30,6 +30,7 @@ function SessionProbe() {
     retryRestoration,
     loginWithCredentials,
     register,
+    registerAndLogin,
     logout,
   } = useSession()
 
@@ -61,6 +62,17 @@ function SessionProbe() {
         }
       >
         Register
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          void registerAndLogin({
+            email: 'person@example.com',
+            password: 'Password1!',
+          })
+        }
+      >
+        Register and login
       </button>
       <button type="button" onClick={() => void logout()}>
         Logout
@@ -99,7 +111,7 @@ describe('SessionProvider', () => {
   })
 
   it('restores a verified account from the refresh cookie', async () => {
-    vi.mocked(authService.refreshSession).mockResolvedValue(familyAdminSession())
+    vi.mocked(authService.refreshSession).mockResolvedValue(appUserSession())
 
     render(
       <SessionProvider>
@@ -118,7 +130,7 @@ describe('SessionProvider', () => {
   it('keeps a successful login in memory instead of localStorage', async () => {
     const user = userEvent.setup()
     vi.mocked(authService.loginWithCredentials).mockResolvedValue(
-      familyAdminSession(),
+      appUserSession(),
     )
     render(
       <SessionProvider>
@@ -139,8 +151,8 @@ describe('SessionProvider', () => {
   })
 
   it('shares one refresh across concurrent protected 401 responses', async () => {
-    const expired = { ...familyAdminSession(), accessToken: 'expired-token' }
-    const rotated = { ...familyAdminSession(), accessToken: 'rotated-token' }
+    const expired = { ...appUserSession(), accessToken: 'expired-token' }
+    const rotated = { ...appUserSession(), accessToken: 'rotated-token' }
     authSessionStore.replace(expired)
     vi.mocked(authService.refreshSession).mockResolvedValue(rotated)
     vi.stubGlobal(
@@ -164,13 +176,16 @@ describe('SessionProvider', () => {
     expect(authSessionStore.getAccessToken()).toBe('rotated-token')
   })
 
-  it('registers without logging in or creating a local session', async () => {
+  it('registers then establishes the normal in-memory login session', async () => {
     const user = userEvent.setup()
     vi.mocked(authService.register).mockResolvedValue({
       userId: 14,
       email: 'person@example.com',
       active: true,
     })
+    vi.mocked(authService.loginWithCredentials).mockResolvedValue(
+      appUserSession(),
+    )
     render(
       <SessionProvider>
         <SessionProbe />
@@ -180,20 +195,51 @@ describe('SessionProvider', () => {
       expect(screen.getByTestId('restoring')).toHaveTextContent('no'),
     )
 
-    await user.click(screen.getByRole('button', { name: 'Register' }))
+    await user.click(screen.getByRole('button', { name: 'Register and login' }))
 
     await waitFor(() => {
       expect(authService.register).toHaveBeenCalled()
-      expect(screen.getByTestId('session')).toHaveTextContent('none')
+      expect(screen.getByTestId('session')).toHaveTextContent('person')
     })
     expect(localStorage.getItem(SESSION_KEY)).toBeNull()
+    expect(authService.loginWithCredentials).toHaveBeenCalledWith({
+      email: 'person@example.com',
+      password: 'Password1!',
+      portal: 'FAMILY',
+    })
+  })
+
+  it('models account-created login failure without installing a session', async () => {
+    const user = userEvent.setup()
+    vi.mocked(authService.register).mockResolvedValue({
+      userId: 14,
+      email: 'person@example.com',
+      active: true,
+    })
+    vi.mocked(authService.loginWithCredentials).mockRejectedValue(
+      new Error('offline'),
+    )
+    render(
+      <SessionProvider>
+        <SessionProbe />
+      </SessionProvider>,
+    )
+    await waitFor(() =>
+      expect(screen.getByTestId('restoring')).toHaveTextContent('no'),
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Register and login' }))
+
+    await waitFor(() => expect(authService.register).toHaveBeenCalledTimes(1))
+    expect(screen.getByTestId('session')).toHaveTextContent('none')
+    expect(authSessionStore.getAccessToken()).toBeNull()
   })
 
   it('shows a retryable restoration error without a blank page', async () => {
     const user = userEvent.setup()
     vi.mocked(authService.refreshSession)
       .mockRejectedValueOnce(new Error('Service temporarily unavailable.'))
-      .mockResolvedValueOnce(familyAdminSession())
+      .mockResolvedValueOnce(appUserSession())
     render(
       <SessionProvider>
         <SessionProbe />
@@ -214,7 +260,7 @@ describe('SessionProvider', () => {
   })
 
   it('does not trust a legacy localStorage access token', async () => {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(familyAdminSession()))
+    localStorage.setItem(SESSION_KEY, JSON.stringify(appUserSession()))
     render(
       <SessionProvider>
         <SessionProbe />
@@ -230,7 +276,7 @@ describe('SessionProvider', () => {
 
   it('clears local session even if remote logout fails', async () => {
     const user = userEvent.setup()
-    vi.mocked(authService.refreshSession).mockResolvedValue(familyAdminSession())
+    vi.mocked(authService.refreshSession).mockResolvedValue(appUserSession())
     vi.mocked(authService.logout).mockRejectedValue(new Error('offline'))
     render(
       <SessionProvider>
@@ -250,8 +296,8 @@ describe('SessionProvider', () => {
   })
 
   it('clears stale identity when another tab logs out or changes account', async () => {
-    vi.mocked(authService.refreshSession).mockResolvedValue(familyAdminSession())
-    authSessionStore.replace(familyAdminSession())
+    vi.mocked(authService.refreshSession).mockResolvedValue(appUserSession())
+    authSessionStore.replace(appUserSession())
     render(
       <SessionProvider>
         <SessionProbe />
@@ -282,7 +328,7 @@ describe('SessionProvider', () => {
   })
 
   it('does not install a refresh response made stale by another-tab logout', async () => {
-    let resolveRefresh: ((session: ReturnType<typeof familyAdminSession>) => void) | undefined
+    let resolveRefresh: ((session: ReturnType<typeof appUserSession>) => void) | undefined
     vi.mocked(authService.refreshSession).mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -308,7 +354,7 @@ describe('SessionProvider', () => {
         }),
       }),
     )
-    resolveRefresh?.(familyAdminSession())
+    resolveRefresh?.(appUserSession())
 
     await waitFor(() =>
       expect(screen.getByTestId('restoring')).toHaveTextContent('no'),
@@ -320,7 +366,7 @@ describe('SessionProvider', () => {
   it('publishes only credential-free cross-tab coordination metadata', async () => {
     const storageSet = vi.spyOn(Storage.prototype, 'setItem')
 
-    authSessionStore.replace(familyAdminSession(), true)
+    authSessionStore.replace(appUserSession(), true)
 
     const eventWrite = storageSet.mock.calls.find(
       ([key]) => key === 'canmakan.session-event',

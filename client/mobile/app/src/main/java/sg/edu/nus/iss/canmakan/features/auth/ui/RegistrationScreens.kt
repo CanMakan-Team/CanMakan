@@ -1,7 +1,6 @@
 package sg.edu.nus.iss.canmakan.features.auth.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,28 +16,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -48,19 +43,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import sg.edu.nus.iss.canmakan.features.auth.RegistrationStep
 import sg.edu.nus.iss.canmakan.features.auth.RegistrationUiState
 import sg.edu.nus.iss.canmakan.features.auth.RegistrationViewModel
+import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
+import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationFailureType
 import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascot
 import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
 import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotSize
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
-import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightRedBackground
-import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextPrimary
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 @Composable
 fun RegistrationRoute(
-    onRegistrationComplete: () -> Unit,
+    onRegistrationAuthenticated: (AuthenticatedUser) -> Unit,
+    onLoginRequired: (String) -> Unit,
     onCancel: () -> Unit = {},
     invitationToken: String? = null,
     viewModel: RegistrationViewModel = hiltViewModel(),
@@ -70,28 +66,26 @@ fun RegistrationRoute(
     LaunchedEffect(invitationToken) {
         viewModel.setInvitationToken(invitationToken)
     }
+    LaunchedEffect(state.authenticatedUser) {
+        state.authenticatedUser?.let(onRegistrationAuthenticated)
+    }
 
     when (state.step) {
         RegistrationStep.ACCOUNT_INFORMATION -> AccountInformationScreen(
             state = state,
+            onNameChange = viewModel::updateName,
             onEmailChange = viewModel::updateEmail,
             onPasswordChange = viewModel::updatePassword,
             onConfirmPasswordChange = viewModel::updateConfirmPassword,
-            onNext = viewModel::continueToDietaryProfile,
+            onCreateAccount = viewModel::createAccount,
+            onLoginRequired = { onLoginRequired(state.email.trim()) },
             onCancel = onCancel,
         )
 
-        RegistrationStep.OPTIONAL_DIETARY_PROFILE -> OptionalDietaryIntentScreen(
-            state = state,
-            onBack = viewModel::backToAccountInformation,
-            onDietarySetupRequested = viewModel::setDietarySetupRequested,
-            onCreateAccount = viewModel::createAccount,
-        )
-
-        RegistrationStep.COMPLETE -> RegistrationCompleteScreen(
+        RegistrationStep.COMPLETE -> AutomaticLoginFailureScreen(
             email = state.account?.email.orEmpty(),
-            dietarySetupRequested = state.wantsDietarySetup,
-            onContinue = onRegistrationComplete,
+            message = state.registrationError.orEmpty(),
+            onLoginRequired = { onLoginRequired(state.account?.email.orEmpty()) },
         )
     }
 }
@@ -99,28 +93,56 @@ fun RegistrationRoute(
 @Composable
 private fun AccountInformationScreen(
     state: RegistrationUiState,
+    onNameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
-    onNext: () -> Unit,
+    onCreateAccount: () -> Unit,
+    onLoginRequired: () -> Unit,
     onCancel: () -> Unit,
 ) {
     RegistrationPage(
         title = "Create New Account",
-        subtitle = "Set up your CanMakan login credentials.",
+        subtitle = "Set up your login and name your optional personal dietary profile.",
         bottomBar = {
             RegistrationActionRow {
                 OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
                     Text("Cancel")
                 }
-                Button(onClick = onNext, modifier = Modifier.weight(1f)) {
-                    Text("Next")
+                Button(
+                    onClick = onCreateAccount,
+                    enabled = !state.isSubmitting,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    if (state.isSubmitting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text("Create Account")
+                    }
                 }
             }
         },
     ) {
-        state.registrationError?.let { ErrorMessage(it) }
+        state.registrationError?.let {
+            ErrorMessage(it)
+            if (state.registrationFailureType == RegistrationFailureType.DUPLICATE_EMAIL) {
+                TextButton(onClick = onLoginRequired) { Text("Log in here") }
+            }
+        }
 
+        LabeledTextField(
+            label = "Profile Name",
+            value = state.name,
+            onValueChange = onNameChange,
+            placeholder = "eg. Sarah Abdullah",
+            keyboardType = KeyboardType.Text,
+            isError = state.nameError != null,
+            supportingText = state.nameError,
+        )
         LabeledTextField(
             label = "Email address",
             value = state.email,
@@ -154,108 +176,18 @@ private fun AccountInformationScreen(
 }
 
 @Composable
-private fun OptionalDietaryIntentScreen(
-    state: RegistrationUiState,
-    onBack: () -> Unit,
-    onDietarySetupRequested: (Boolean) -> Unit,
-    onCreateAccount: () -> Unit,
-) {
-    RegistrationPage(
-        title = "Optional Dietary Setup",
-        subtitle = "Choose whether to configure dietary restrictions after you sign in. " +
-            "Your account is created separately and you can always configure them later.",
-        bottomBar = {
-            RegistrationActionRow {
-                OutlinedButton(
-                    onClick = onBack,
-                    enabled = !state.isSubmitting,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text("Back")
-                }
-                Button(
-                    onClick = onCreateAccount,
-                    enabled = !state.isSubmitting,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    if (state.isSubmitting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp,
-                        )
-                    } else {
-                        Text("Create Account")
-                    }
-                }
-            }
-        },
-    ) {
-        OnboardingChoice(
-            title = "Continue dietary setup after sign-in",
-            description = "Sign in first, then choose from the current CanMakan restriction catalog.",
-            selected = state.wantsDietarySetup,
-            enabled = !state.isSubmitting,
-            onClick = { onDietarySetupRequested(true) },
-        )
-        OnboardingChoice(
-            title = "Skip for now",
-            description = "Create only your account. No dietary profile will be created.",
-            selected = !state.wantsDietarySetup,
-            enabled = !state.isSubmitting,
-            onClick = { onDietarySetupRequested(false) },
-        )
-    }
-}
-
-@Composable
-private fun OnboardingChoice(
-    title: String,
-    description: String,
-    selected: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(enabled = enabled, onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) LightGreenBackground else MaterialTheme.colorScheme.surface,
-        ),
-    ) {
-        Row(
-            modifier = Modifier.padding(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            if (selected) {
-                Icon(Icons.Default.Check, contentDescription = null, tint = PrimaryGreen)
-            } else {
-                Spacer(modifier = Modifier.size(24.dp))
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(title, fontWeight = FontWeight.Bold, color = TextPrimary)
-                Text(description, color = TextSecondary)
-            }
-        }
-    }
-}
-
-@Composable
-private fun RegistrationCompleteScreen(
+private fun AutomaticLoginFailureScreen(
     email: String,
-    dietarySetupRequested: Boolean,
-    onContinue: () -> Unit,
+    message: String,
+    onLoginRequired: () -> Unit,
 ) {
     RegistrationPage(
         title = "Account created",
-        subtitle = "Your CanMakan account for $email is ready.",
+        subtitle = "Your CanMakan account for $email is ready, but automatic sign-in did not complete.",
         bottomBar = {
             RegistrationActionRow {
-                Button(onClick = onContinue, modifier = Modifier.fillMaxWidth()) {
-                    Text("Continue to Sign In")
+                Button(onClick = onLoginRequired, modifier = Modifier.fillMaxWidth()) {
+                    Text("Go to Login")
                 }
             }
         },
@@ -270,14 +202,7 @@ private fun RegistrationCompleteScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
         }
-        Text(
-            text = if (dietarySetupRequested) {
-                "Sign in explicitly to choose and save your dietary restrictions."
-            } else {
-                "No dietary profile was created. You can configure one later."
-            },
-            color = TextSecondary,
-        )
+        ErrorMessage(message)
     }
 }
 

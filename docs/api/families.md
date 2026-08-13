@@ -8,7 +8,7 @@
 | `POST /api/families` (PRIMARY_ADMIN + SELF profile) | Done |
 | `GET /api/families/me` | Done |
 | Request validation (`@Valid` family name) | Done |
-| Web create empty-state (`FamilyMeGate`) | Done |
+| Web explicit create entry (`/family/circle`) | Done |
 | JWT principal on family routes | Done (UC19) |
 | Mobile resolve via `/me` (AC10) | Done (create-when-empty) |
 | UC11 GET/PUT `/families/me/active-profile` | Done |
@@ -18,6 +18,11 @@
 | `GET /api/families/me/members` roster list | Done (UC12 list; manage CRUD later) |
 | UC10 invitee inbox list / accept / decline | Done (mobile primary; web inbox optional) |
 | UC10 Resend invitation email | Done (optional; no-op when disabled) |
+
+A `404` from `GET /api/families/me` is a valid personal-USER state. It does not
+authorize a global redirect or automatically open family creation. Web family
+creation is exposed only from the explicit `/family/circle` action; personal
+home and optional `POST /api/profiles/me` remain available without membership.
 
 ---
 

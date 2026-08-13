@@ -150,18 +150,16 @@ fun ScannerScreen(
                     onMenuClick = onMenuClick,
                     onNotificationsClick = onNotificationsClick,
                 )
-                activeProfile?.let {
-                    ActiveProfileChip(
-                        profile = it,
-                        onClick = onActiveProfileClick,
-                    )
-                } ?: run {
-                    // Show a setup prompt if no profile is active
+                // Registration is account-only, so either a missing profile or an empty
+                // restriction selection keeps the setup affordance visible.
+                if (activeProfile == null || activeRestrictions.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { onSetUpProfile() }
+                            .clickable {
+                                if (activeProfile != null) onActiveProfileClick() else onSetUpProfile()
+                            }
                             .padding(12.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -171,6 +169,12 @@ fun ScannerScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                }
+                activeProfile?.let {
+                    ActiveProfileChip(
+                        profile = it,
+                        onClick = onActiveProfileClick,
+                    )
                 }
             }
         },

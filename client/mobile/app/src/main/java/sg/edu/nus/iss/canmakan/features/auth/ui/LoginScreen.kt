@@ -62,6 +62,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 @Composable
 fun LoginRoute(
     invitationToken: String? = null,
+    prefillEmail: String? = null,
     onLoginSuccess: (AuthenticatedUser) -> Unit = {},
     onCreateAccount: () -> Unit = {},
     viewModel: LoginViewModel = hiltViewModel(),
@@ -71,6 +72,9 @@ fun LoginRoute(
 
     LaunchedEffect(invitationToken) {
         viewModel.setInvitationToken(invitationToken)
+    }
+    LaunchedEffect(prefillEmail) {
+        viewModel.prefillEmail(prefillEmail)
     }
 
     LaunchedEffect(state.authenticatedUser) {

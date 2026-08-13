@@ -17,14 +17,14 @@ export function jsonResponse(status: number, body?: unknown): Response {
   })
 }
 
-export function familyAdminSession(): AuthenticatedSession {
+export function appUserSession(): AuthenticatedSession {
   return {
     accessToken: 'test-access-token',
     userId: 14,
     email: 'person@example.com',
     active: true,
     displayName: 'person',
-    roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
+    roles: ['ROLE_APP_USER'],
     portal: 'FAMILY',
     prototype: false,
   }

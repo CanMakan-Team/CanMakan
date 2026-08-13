@@ -21,7 +21,9 @@ Login and register are owned by `AuthController` / `AuthService` (single mapping
 - Requires `email` and `password`. Deprecated optional `name` and
   `invitationToken` inputs remain accepted temporarily for older clients.
 - Creates only the `users` row; no dietary profile or family membership is created.
-- Does **not** create a family circle or issue tokens; clients must login after register.
+- Does **not** create a family circle or issue tokens. Current clients follow a
+  successful response with the normal login endpoint; registration never
+  duplicates login, JWT, refresh-token, or cookie logic.
 - `name` is not an account column and is neither stored nor returned. Durable
   `profileName` belongs exclusively to later authenticated SELF profile setup.
 - A transitional `invitationToken` is accepted but never claimed during registration;
@@ -34,6 +36,8 @@ The JWT principal supplies the account id; request bodies cannot choose a user.
 It creates the caller's one linked, standalone `SELF` profile and optional
 restriction selections in a separate transaction. This setup transaction can
 roll back without affecting the previously committed account.
+Clients that choose **Set Up Later** do not call this endpoint, so no empty
+profile is inserted.
 
 ## Roles
 
@@ -59,6 +63,9 @@ only with `Secure=true`, credentialed CORS, exact HTTPS origins, and no origin
 patterns. `Lax` is the default. Login, refresh, and logout require a non-secret
 session-intent request header. Browser requests additionally require an exact
 configured Origin; native requests may omit Origin but must retain the header.
+Confirmed refresh-authentication failures retain the uniform 401 response and
+expire the presented cookie with the same configured attributes. Unexpected
+server failures remain 5xx responses and preserve a potentially valid cookie.
 
 ## Ops note
 With `spring.sql.init.mode=always`, schema/seed reload wipes newly registered users on backend restart.

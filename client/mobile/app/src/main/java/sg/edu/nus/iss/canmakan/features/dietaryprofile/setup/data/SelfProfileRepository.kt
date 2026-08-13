@@ -2,7 +2,6 @@ package sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data
 
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
-import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 
 sealed interface SelfProfileSetupResult {
     data class Created(val profile: SelfProfileResponse) : SelfProfileSetupResult
@@ -18,31 +17,6 @@ interface SelfProfileRepository {
         profileName: String,
         restrictions: Map<Long, ProfileRestrictionSeverity>,
     ): SelfProfileSetupResult
-}
-
-interface ExistingSelfProfileResolver {
-    suspend fun resolveActiveSelfProfileId(): Long
-}
-
-class FamilyExistingSelfProfileResolver @Inject constructor(
-    private val familyProfileRepository: FamilyProfileRepository,
-) : ExistingSelfProfileResolver {
-    override suspend fun resolveActiveSelfProfileId(): Long {
-        val family = familyProfileRepository.getMyFamily()
-        if (family != null) {
-            return requirePositiveProfileId(family.selfProfileId)
-        }
-        val activeProfile = familyProfileRepository.getActiveProfile()
-        check(activeProfile.relationship.equals("SELF", ignoreCase = true)) {
-            "Active profile is not the caller's SELF profile."
-        }
-        return requirePositiveProfileId(activeProfile.profileId)
-    }
-
-    private fun requirePositiveProfileId(profileId: Long): Long {
-        check(profileId > 0) { "Resolved SELF profile id must be positive." }
-        return profileId
-    }
 }
 
 class ServerSelfProfileRepository @Inject constructor(

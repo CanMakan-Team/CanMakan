@@ -24,7 +24,6 @@ public final class NutritionChecker implements RestrictionChecker {
     private static final BigDecimal LOW_SUGAR_LIMIT = new BigDecimal("5.0");
     private static final BigDecimal LOW_FAT_LIMIT = new BigDecimal("3.0");
     private static final BigDecimal LOW_SODIUM_LIMIT = new BigDecimal("0.12");
-    private static final BigDecimal MILLIGRAMS_PER_GRAM = new BigDecimal("1000");
 
     @Override
     public boolean supports(RestrictionCategory category) {
@@ -107,12 +106,13 @@ public final class NutritionChecker implements RestrictionChecker {
         }
 
         if (value.compareTo(LOW_SODIUM_LIMIT) > 0) {
-            BigDecimal milligrams = value.multiply(MILLIGRAMS_PER_GRAM);
+            // Reported in grams for consistency with the other nutrient messages (sugar, fat),
+            // rather than converting to milligrams which reads awkwardly for large values.
             hits.add(new Finding(
                     code,
                     Finding.SUBJECT_NUTRITION,
-                    "Sodium is " + format(milligrams)
-                            + " mg per 100 g, above the LOW_SODIUM limit of 120 mg per 100 g."
+                    "Sodium is " + format(value)
+                            + " g per 100 g, above the LOW_SODIUM limit of 0.12 g per 100 g."
             ));
         }
     }

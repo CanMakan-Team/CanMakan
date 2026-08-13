@@ -23,7 +23,12 @@ internal object AuthResponseValidator {
         val email = response.email?.takeIf { it.isNotBlank() } ?: return null
         val role = response.role ?: return null
 
-        return AuthenticatedUser(userId = userId, email = email, role = role)
+        return AuthenticatedUser(
+            userId = userId,
+            name = response.name?.takeIf { it.isNotBlank() },
+            email = email,
+            role = role
+        )
     }
 
     private const val TOKEN_TYPE_BEARER = "Bearer"

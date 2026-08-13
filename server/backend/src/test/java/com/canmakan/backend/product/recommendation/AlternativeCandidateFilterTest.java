@@ -121,6 +121,24 @@ class AlternativeCandidateFilterTest {
     }
 
     @Test
+    void rejectsMilkTracesForDairyIntoleranceEvenWhenVerdictIsSafe() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("DAIRY", RestrictionCategory.ALLERGEN, RestrictionSeverity.INTOLERANCE)
+        );
+        CatalogProduct veganCoconut = catalogProduct(
+                "0797776401192",
+                "Ice cream tubs",
+                "ice-creams-and-sorbets",
+                null);
+        veganCoconut.setTracesTags("en:milk,en:nuts");
+
+        assertFalse(filter.isAcceptableAlternative(
+                rules,
+                SafetyVerdict.safe("ok", List.of()),
+                veganCoconut));
+    }
+
+    @Test
     void rejectsWheatFlourCategoryForGlutenProfileEvenWhenVerdictIsSafe() {
         List<RestrictionRule> rules = List.of(
                 new RestrictionRule("GLUTEN", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID)
@@ -155,6 +173,41 @@ class AlternativeCandidateFilterTest {
     }
 
     @Test
+    void acceptsWarningGlutenFreeFlourSubstituteForGlutenAvoidanceProfile() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("GLUTEN", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID),
+                new RestrictionRule("LOW_SUGAR", RestrictionCategory.DIET, RestrictionSeverity.PREFERENCE)
+        );
+        CatalogProduct buckwheatFlour = catalogProduct(
+                "8887501030697",
+                "Groceries",
+                "No gluten, Gluten-free, Gluten-free flour",
+                null);
+        SafetyVerdict unresolved = SafetyVerdict.warning(
+                "unresolved",
+                List.of(new Finding("UNRESOLVED", "Buckwheat Flour", "could not be analysed")));
+
+        assertTrue(filter.isAcceptableAlternative(rules, unresolved, buckwheatFlour));
+    }
+
+    @Test
+    void rejectsWarningGlutenFreeFlourWhenGlutenFindingPresent() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("GLUTEN", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID)
+        );
+        CatalogProduct taggedWheat = catalogProduct(
+                "999",
+                "Flours",
+                "Gluten free flour",
+                "en:gluten");
+        SafetyVerdict glutenWarning = SafetyVerdict.warning(
+                "gluten",
+                List.of(new Finding("GLUTEN", "wheat", "gluten")));
+
+        assertFalse(filter.isAcceptableAlternative(rules, glutenWarning, taggedWheat));
+    }
+
+    @Test
     void rejectsUnsafeCandidatesEvenWithIntoleranceProfile() {
         List<RestrictionRule> rules = List.of(
                 new RestrictionRule("PEANUT", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID),
@@ -165,6 +218,270 @@ class AlternativeCandidateFilterTest {
                 rules,
                 SafetyVerdict.unsafe("peanut", List.of(new Finding("PEANUT", "peanut", "peanut"))),
                 null));
+    }
+
+    @Test
+    void rejectsGlutenFreeSpreadForWheatFlourSubstituteDiscovery() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("GLUTEN", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID)
+        );
+        CatalogProduct tahini = catalogProduct(
+                "8888536703136",
+                "White tahini",
+                "en:spreads,en:white-tahini,Gluten free Breakfast cereals",
+                null);
+        tahini.setProductName("Organic Tahini (Unhulled)");
+
+        assertFalse(AlternativeCandidateFilter.isFlourSubstitute(tahini));
+        assertTrue(filter.isAcceptableAlternative(
+                rules,
+                SafetyVerdict.safe("ok", List.of()),
+                tahini));
+    }
+
+    @Test
+    void acceptsCornFlourAsFlourSubstitute() {
+        CatalogProduct cornFlour = catalogProduct(
+                "8888030023662",
+                "Corn starch",
+                "en:corn-starch,en:gluten-free-flour",
+                null);
+        cornFlour.setProductName("Corn Flour");
+
+        assertTrue(AlternativeCandidateFilter.isFlourSubstitute(cornFlour));
+    }
+
+    @Test
+    void rejectsPeanutButterForPeanutAllergyEvenWhenVerdictIsSafe() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("PEANUT", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID)
+        );
+        CatalogProduct peanutButter = catalogProduct(
+                "0045300005409",
+                "Crunchy peanut butters",
+                "en:spreads,en:peanut-butters,en:crunchy-peanut-butters",
+                "en:peanuts");
+
+        assertFalse(filter.isAcceptableAlternative(
+                rules,
+                SafetyVerdict.safe("ok", List.of()),
+                peanutButter));
+    }
+
+    @Test
+    void acceptsTahiniForPeanutAllergyProfile() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("PEANUT", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID)
+        );
+        CatalogProduct tahini = catalogProduct(
+                "8888536703136",
+                "White tahini",
+                "en:oilseed-purees,en:cereal-butters,en:tahini",
+                null);
+        tahini.setTracesTags(null);
+
+        assertTrue(AlternativeCandidateFilter.isPeanutFreeSpreadSubstitute(tahini));
+        assertTrue(filter.isAcceptableAlternative(
+                rules,
+                SafetyVerdict.safe("ok", List.of()),
+                tahini));
+    }
+
+    @Test
+    void rejectsJamAsPeanutFreeSpreadSubstitute() {
+        CatalogProduct strawberryJam = catalogProduct(
+                "0044936350150",
+                "Strawberry jams",
+                "en:spreads,en:strawberry-jams",
+                null);
+
+        assertFalse(AlternativeCandidateFilter.isPeanutFreeSpreadSubstitute(strawberryJam));
+    }
+
+    @Test
+    void rejectsHoneySpreadForPeanutAllergyProfile() {
+        CatalogProduct honey = catalogProduct(
+                "5000119120656",
+                "Honeys",
+                "en:spreads,en:honeys",
+                null);
+
+        assertFalse(AlternativeCandidateFilter.isPeanutFreeSpreadSubstitute(honey));
+    }
+
+    @Test
+    void rejectsSpreadWithPeanutTracesAsPeanutFreeSpreadSubstitute() {
+        CatalogProduct spread = catalogProduct(
+                "999",
+                "Mixed spreads",
+                "en:spreads,en:chocolate-spreads",
+                null);
+        spread.setTracesTags("en:peanuts");
+
+        assertFalse(AlternativeCandidateFilter.isPeanutFreeSpreadSubstitute(spread));
+    }
+
+    @Test
+    void acceptsGlutenFreeBreadTagAsBreadSubstitute() {
+        CatalogProduct gfBread = catalogProduct(
+                "9339423009064",
+                "Breads",
+                "Gluten free bread,en:breads",
+                null);
+
+        assertTrue(AlternativeCandidateFilter.isGlutenFreeBreadSubstitute(gfBread));
+    }
+
+    @Test
+    void rejectsFreshMilkAsGlutenFreeBreadSubstitute() {
+        CatalogProduct soyaMilk = catalogProduct(
+                "8888030019566",
+                "Fresh milks",
+                "en:fresh-milks",
+                null);
+        soyaMilk.setLabelsTags("en:no-gluten");
+
+        assertFalse(AlternativeCandidateFilter.isGlutenFreeBreadSubstitute(soyaMilk));
+    }
+
+    @Test
+    void acceptsBreadCategoryWithNoGlutenLabelAsGlutenFreeBreadSubstitute() {
+        CatalogProduct gfSourdough = catalogProduct(
+                "9339423009064",
+                "Breads",
+                "Gluten free bread,en:breads",
+                null);
+        gfSourdough.setLabelsTags("en:no-gluten");
+
+        assertTrue(AlternativeCandidateFilter.isGlutenFreeBreadSubstitute(gfSourdough));
+    }
+
+    @Test
+    void acceptsTaggedGlutenFreeBreakfastCerealWithoutOats() {
+        CatalogProduct ancientGrains = catalogProduct(
+                "9315090200706",
+                "Breakfast cereals",
+                "Gluten free Breakfast cereals,en:breakfast-cereals",
+                null);
+        ancientGrains.setProductName("Ancient grain flakes");
+        ancientGrains.setIngredientsText("rice flour, yellow corn flour, sorghum flour, buckwheat flour");
+
+        assertTrue(AlternativeCandidateFilter.isGlutenFreeBreakfastCerealSubstitute(ancientGrains));
+    }
+
+    @Test
+    void rejectsOatGranolaTaggedAsGlutenFreeBreakfastCereal() {
+        CatalogProduct oatGranola = catalogProduct(
+                "8886478600698",
+                "Breakfast cereals",
+                "Gluten free Breakfast cereals,en:breakfast-cereals",
+                null);
+        oatGranola.setProductName("Dairy-free Soy Granola Blueberry Pistachio");
+        oatGranola.setIngredientsText("Oats, Soy Pulps, Honey, Dried Blueberries");
+
+        assertFalse(AlternativeCandidateFilter.isGlutenFreeBreakfastCerealSubstitute(oatGranola));
+    }
+
+    @Test
+    void rejectsRolledOatsTaggedAsGlutenFreeBreakfastCereal() {
+        CatalogProduct rolledOats = catalogProduct(
+                "8887143802515",
+                "Breakfast cereals",
+                "Gluten free Breakfast cereals,en:breakfast-cereals",
+                null);
+        rolledOats.setProductName("Organic Rolled Oats");
+        rolledOats.setIngredientsText("Organic Rolled Oats");
+
+        assertFalse(AlternativeCandidateFilter.isGlutenFreeBreakfastCerealSubstitute(rolledOats));
+    }
+
+    @Test
+    void rejectsFlourForGlutenFreeBreakfastCerealSubstituteDiscovery() {
+        CatalogProduct cornFlour = catalogProduct(
+                "8888030023662",
+                "Corn starch",
+                "en:corn-starch,en:gluten-free-flour",
+                null);
+        cornFlour.setProductName("Corn Flour");
+
+        assertFalse(AlternativeCandidateFilter.isGlutenFreeBreakfastCerealSubstitute(cornFlour));
+    }
+
+    @Test
+    void rejectsMisTaggedPotatoChipsAsGlutenFreeBreakfastCerealSubstitute() {
+        CatalogProduct chips = catalogProduct(
+                "7750526000895",
+                "fr:chips-de-pommes-de-terre-classiques",
+                "Gluten free Breakfast cereals,en:potato-crisps",
+                null);
+        chips.setProductName("Salted Potato Chips");
+        chips.setIngredientsText("Potato, sunflower oil, salt");
+
+        assertFalse(AlternativeCandidateFilter.isGlutenFreeBreakfastCerealSubstitute(chips));
+    }
+
+    @Test
+    void acceptsWarningGlutenFreeBreakfastCerealWithoutGlutenFinding() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("GLUTEN", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID)
+        );
+        CatalogProduct ancientGrains = catalogProduct(
+                "9315090200706",
+                "Breakfast cereals",
+                "Gluten free Breakfast cereals,en:breakfast-cereals",
+                null);
+        ancientGrains.setProductName("Ancient grain flakes");
+        ancientGrains.setIngredientsText("rice flour, sorghum flour, buckwheat flour");
+        SafetyVerdict warning = SafetyVerdict.warning(
+                "unresolved",
+                List.of(new Finding("OTHER", "psyllium", "unknown ingredient")));
+
+        assertTrue(filter.isAcceptableAlternative(rules, warning, ancientGrains));
+    }
+
+    @Test
+    void acceptsReducedSaltSauceByProductNameAsLowSodiumSauceSubstitute() {
+        CatalogProduct oysterSauce = catalogProduct(
+                "0078895160482",
+                "Sauces",
+                "en:sauces",
+                null);
+        oysterSauce.setProductName("Reduced Salt Oyster Sauce");
+        oysterSauce.setIngredientsText("Oyster extract, water, salt, sugar");
+
+        assertTrue(AlternativeCandidateFilter.isLowSodiumSauceSubstitute(oysterSauce));
+    }
+
+    @Test
+    void rejectsRegularTomatoSauceAsLowSodiumSauceSubstitute() {
+        CatalogProduct tomatoSauce = catalogProduct(
+                "9556001068163",
+                "Groceries",
+                "en:condiments,en:sauces,en:tomato-sauces,en:groceries",
+                null);
+        tomatoSauce.setProductName("Tomato sauce");
+        tomatoSauce.setIngredientsText("Sugar, tomato paste, vinegar, salt");
+
+        assertFalse(AlternativeCandidateFilter.isLowSodiumSauceSubstitute(tomatoSauce));
+    }
+
+    @Test
+    void acceptsLowSodiumSauceForLowSodiumProfileEvenWhenVerdictIsWarning() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("LOW_SODIUM", RestrictionCategory.DIET, RestrictionSeverity.PREFERENCE)
+        );
+        CatalogProduct oysterSauce = catalogProduct(
+                "0078895160482",
+                "Sauces",
+                "en:sauces",
+                null);
+        oysterSauce.setProductName("Reduced Salt Oyster Sauce");
+        oysterSauce.setIngredientsText("Oyster extract, water, salt, sugar");
+        SafetyVerdict warning = SafetyVerdict.warning(
+                "sodium",
+                List.of(new Finding("LOW_SODIUM", "nutrition", "Sodium above limit")));
+
+        assertTrue(filter.isAcceptableAlternative(rules, warning, oysterSauce));
     }
 
     private static CatalogProduct catalogProduct(

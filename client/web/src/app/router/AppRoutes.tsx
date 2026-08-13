@@ -3,6 +3,10 @@ import { AccessDenied } from '../../features/auth/AccessDenied'
 import { ProtectedRoute } from '../../features/auth/ProtectedRoute'
 import { FamilyMeGate } from '../../features/family/FamilyMeGate'
 import { FamilyAccountPage } from '../../features/family/pages/FamilyAccountPage'
+import { FamilyCirclePage } from '../../features/family/pages/FamilyCirclePage'
+import { SelfProfileSetupPage } from '../../features/family/pages/SelfProfileSetupPage'
+import { PersonalHomePage } from '../../features/family/pages/PersonalHomePage'
+import { UserLandingPage } from '../../features/family/pages/UserLandingPage'
 import { FamilyDashboardPage } from '../../features/family/pages/FamilyDashboardPage'
 import { FamilyMembersPage } from '../../features/family/pages/FamilyMembersPage'
 import { FamilyRestrictionSummaryPage } from '../../features/family/pages/FamilyRestrictionSummaryPage'
@@ -30,10 +34,14 @@ export function AppRoutes() {
       <Route path="/system-admin-login" element={<SystemAdminLoginPage />} />
       <Route path="/access-denied" element={<AccessDenied />} />
 
-      <Route element={<ProtectedRoute requiredRole="ROLE_FAMILY_ADMIN" />}>
+      <Route element={<ProtectedRoute requiredRole="ROLE_APP_USER" />}>
         <Route path="/family" element={<PortalLayout portal="family" />}>
+          <Route index element={<UserLandingPage />} />
+          <Route path="personal" element={<PersonalHomePage />} />
+          <Route path="setup-profile" element={<SelfProfileSetupPage />} />
+          <Route path="circle" element={<FamilyCirclePage />} />
           <Route element={<FamilyMeGate />}>
-            <Route index element={<FamilyDashboardPage />} />
+            <Route path="dashboard" element={<FamilyDashboardPage />} />
             <Route path="members" element={<FamilyMembersPage />} />
             <Route
               path="restrictions"

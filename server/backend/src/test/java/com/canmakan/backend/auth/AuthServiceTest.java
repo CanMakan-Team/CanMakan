@@ -50,14 +50,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-/** UC18 -  19 test cases: AuthService
+/** AuthService authentication and UC18 public-registration tests.
  * 
  * @author YangMaowei
  * @author Amelia
  * 
 */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UC18 - 11 test cases: AuthService")
+@DisplayName("AuthService")
 class AuthServiceTest {
 
     private static final String PASSWORD_HASH = "$2a$10$test-password-hash";
@@ -241,8 +241,10 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("UC18 BE1b: registration remains account-only when profile and invitation data are present")
-        void registrationDoesNotCreateProfileClaimInvitationOrStartSession() {
+        @DisplayName(
+            "UC18 BE1b: registration ignores legacy profile name and does not "
+                + "claim invitations or start a session")
+        void registrationIgnoresLegacyNameAndDoesNotClaimInvitationOrStartSession() {
             RegistrationRequest request = new RegistrationRequest(
                 "Pending Profile Name",
                 "person@example.com",
@@ -256,7 +258,6 @@ class AuthServiceTest {
                 account.setId(14L);
                 return account;
             });
-
             RegistrationResponse response = authService.register(request);
 
             assertEquals(14L, response.userId());

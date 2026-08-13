@@ -15,8 +15,8 @@ import retrofit2.Response
 class ServerRegistrationRepositoryTest {
 
     @Test
-    @DisplayName("UC18 A1: request JSON contains only email and password and redacts its string form")
-    fun requestContainsOnlyFrozenFieldsAndRedactsPassword() {
+    @DisplayName("UC18 A1: request JSON contains only account fields and redacts its string form")
+    fun requestContainsOnlyAccountFieldsAndRedactsPassword() {
         val request = RegistrationRequest("person@example.com", "Password1!")
 
         assertEquals(

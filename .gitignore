@@ -26,6 +26,8 @@ captures/
 .kotlin/
 .navigation/
 .artifacts/
+server/machine-learning/artifacts/*
+!server/machine-learning/artifacts/.gitkeep
 *.apk
 *.aab
 *.ap_
@@ -145,3 +147,7 @@ $RECYCLE.BIN/
 *~
 *.orig
 *.rej
+
+# Playwright
+playwright-report/
+test-results/

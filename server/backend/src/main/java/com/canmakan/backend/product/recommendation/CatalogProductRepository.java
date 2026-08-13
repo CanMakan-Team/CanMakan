@@ -1,5 +1,6 @@
 package com.canmakan.backend.product.recommendation;
 
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -30,7 +31,7 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
     /**
      * Tier A tag-based substitute candidates: delimiter-safe match on {@code category_tags}.
      */
-    @Query(value = """
+    @Query("""
         select p from CatalogProduct p
         where p.barcode <> :excludeBarcode
           and p.ingredientsText is not null
@@ -41,6 +42,39 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
         """)
     List<CatalogProduct> findCandidatesByCategoryTag(
             @Param("categoryTag") String categoryTag,
+            @Param("excludeBarcode") String excludeBarcode
+    );
+
+    /**
+     * Expanded discovery: delimiter-safe match on {@code labels_tags}.
+     */
+    @Query("""
+        select p from CatalogProduct p
+        where p.barcode <> :excludeBarcode
+          and p.ingredientsText is not null
+          and trim(p.ingredientsText) <> ''
+          and p.labelsTags is not null
+          and concat(',', p.labelsTags, ',') like concat('%,', :labelTag, ',%')
+        order by coalesce(p.uniqueScansN, 0) desc, coalesce(p.completeness, 0) desc
+        """)
+    List<CatalogProduct> findCandidatesByLabelTag(
+            @Param("labelTag") String labelTag,
+            @Param("excludeBarcode") String excludeBarcode
+    );
+
+    /**
+     * Sibling-category candidates for expanded substitute discovery.
+     */
+    @Query("""
+        select p from CatalogProduct p
+        where p.barcode <> :excludeBarcode
+          and p.ingredientsText is not null
+          and trim(p.ingredientsText) <> ''
+          and p.mainCategoryEn in :categories
+        order by coalesce(p.uniqueScansN, 0) desc, coalesce(p.completeness, 0) desc
+        """)
+    List<CatalogProduct> findCandidatesByCategories(
+            @Param("categories") Collection<String> categories,
             @Param("excludeBarcode") String excludeBarcode
     );
 }

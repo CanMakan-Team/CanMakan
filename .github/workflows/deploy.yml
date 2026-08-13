@@ -74,32 +74,74 @@ jobs:
             # Ensure runtime destination directory exists
             mkdir -p /home/ubuntu/app
 
-            # Stop the existing Java process running on port 8080 cleanly
-            PID=$(lsof -t -i:8080 || true)
-            if [ -n "$PID" ]; then
-              echo "Stopping active process on port 8080 (PID: $PID)..."
-              kill -15 $PID || true
-              sleep 3
+            # Provision logrotate configuration if missing
+            if [ ! -f /etc/logrotate.d/canmakan-backend ]; then
+              echo "Provisioning logrotate profile..."
+              echo "/home/ubuntu/app/output-*.log {
+                  daily
+                  rotate 7
+                  size 50M
+                  compress
+                  delaycompress
+                  missingok
+                  notifempty
+                  copytruncate
+              }" | sudo tee /etc/logrotate.d/canmakan-backend > /dev/null
+              sudo chmod 644 /etc/logrotate.d/canmakan-backend
             fi
 
-            # Move new artifact into place
-            JAR_PATH="$(ls -t /home/ubuntu/app/deploy-temp/*.jar 2>/dev/null | grep -v '\.original$' | head -n 1)"
-            if [ -z "$JAR_PATH" ]; then echo "ERROR: No deployable JAR found in /home/ubuntu/app/deploy-temp"; exit 1; fi
-            mv "$JAR_PATH" /home/ubuntu/app/canmakan-backend.jar
-            # Force the non-interactive SSH session to load and export the environment variables
-            set -a
-            source /etc/environment
-            set +a
-            
-            # Launch app in background, routing logs to output.log while maintaining environment vars
-            echo "Starting CanMakan Spring Boot Backend Application..."
-            nohup java -jar /home/ubuntu/app/canmakan-backend.jar > /home/ubuntu/app/output.log 2>&1 &
-
-            # Brief check to verify background process initialisation
-            sleep 3
-            if ps aux | grep -v grep | grep canmakan-backend.jar > /dev/null; then
-              echo "Deployment Successful! Backend application is active."
+            # Determine active port and set the new port
+            ACTIVE_PORT=$(cat /home/ubuntu/app/active_port.txt 2>/dev/null || echo "8081")
+            if [ "$ACTIVE_PORT" = "8080" ]; then
+              NEW_PORT="8081"
             else
-              echo "ERROR: Application crashed on startup. Check /home/ubuntu/app/output.log for trace data."
+              NEW_PORT="8080"
+            fi
+            echo "Deploying new instance to port $NEW_PORT..."
+
+            # Move new artefact into place
+            JAR_PATH="$(ls -t /home/ubuntu/app/deploy-temp/*.jar | grep -v '\.original$' | head -n 1)"
+            if [ -z "$JAR_PATH" ]; then echo "ERROR: No deployable JAR found"; exit 1; fi
+            mv "$JAR_PATH" /home/ubuntu/app/canmakan-backend-$NEW_PORT.jar
+
+            # Start the new application
+            set -a; source /etc/environment 2>/dev/null || true; set +a
+            nohup java -jar /home/ubuntu/app/canmakan-backend-$NEW_PORT.jar --server.port=$NEW_PORT > /home/ubuntu/app/output-$NEW_PORT.log 2>&1 &
+            NEW_PID=$!
+
+            # Wait for the new application to become healthy
+            echo "Polling health check on port $NEW_PORT..."
+            TIMEOUT=60
+            while [ $TIMEOUT -gt 0 ]; do
+              if curl -s "http://localhost:$NEW_PORT/actuator/health" | grep '"status":"UP"' > /dev/null; then
+                echo "Instance is UP."
+                break
+              fi
+              sleep 5
+              TIMEOUT=$((TIMEOUT-5))
+            done
+
+            if [ $TIMEOUT -le 0 ]; then
+              echo "ERROR: Instance failed health check. Rolling back."
+              kill -9 $NEW_PID
               exit 1
             fi
+            
+            # Swap Nginx routing configuration
+            echo "Swapping Nginx to port $NEW_PORT..."
+            echo "upstream backend_pool { server 127.0.0.1:$NEW_PORT; }" | sudo tee /etc/nginx/conf.d/canmakan-upstream.conf
+            sudo systemctl reload nginx
+
+            # Gracefully terminate the old application
+            OLD_PID=$(lsof -t -i:$ACTIVE_PORT || true)
+            if [ -n "$OLD_PID" ]; then
+              kill -15 $OLD_PID || true
+            fi
+
+            # Save the new system state
+            echo $NEW_PORT > /home/ubuntu/app/active_port.txt
+
+            # Clean up old JAR files from previous inactive deployments
+            echo "Cleaning up inactive JAR files..."
+            find /home/ubuntu/app -maxdepth 1 -name "canmakan-backend-*.jar" ! -name "canmakan-backend-$NEW_PORT.jar" -delete
+            rm -rf /home/ubuntu/app/deploy-temp/*

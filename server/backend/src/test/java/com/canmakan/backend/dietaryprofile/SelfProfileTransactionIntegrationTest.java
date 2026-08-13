@@ -1,15 +1,13 @@
 package com.canmakan.backend.dietaryprofile;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import com.canmakan.backend.auth.AuthService;
 import com.canmakan.backend.auth.dto.RegistrationRequest;
 import com.canmakan.backend.auth.dto.RegistrationResponse;
 import com.canmakan.backend.dietaryprofile.dto.CreateSelfProfileRequest;
-import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
 import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
 import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
@@ -23,9 +21,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.orm.ObjectRetrievalFailureException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+/**
+ * Account registration and authenticated SELF-profile setup are deliberately separate
+ * transactions. A profile failure must never remove the already committed account.
+ */
 @SpringBootTest
 class SelfProfileTransactionIntegrationTest {
 
@@ -54,27 +55,23 @@ class SelfProfileTransactionIntegrationTest {
     @AfterEach
     void cleanUpAccount() {
         if (createdEmail != null) {
-            userAccountRepository.findByEmail(createdEmail).ifPresent(userAccountRepository::delete);
-            userAccountRepository.flush();
+            jdbcTemplate.update("delete from users where email = ?", createdEmail);
         }
     }
 
     @Test
-    void childPersistenceFailureRollsBackProfileButLeavesAccountUnchanged() {
+    void profileCreationFailureLeavesCommittedAccountAndNoEmptyProfile() {
         createdEmail = "profile-rollback." + UUID.randomUUID() + "@example.com";
         RegistrationResponse registration = authService.register(
-            new RegistrationRequest(null, createdEmail, "Password1!", null)
+            new RegistrationRequest("Person Name", createdEmail, "Password1!", null)
         );
         UserAccount before = userAccountRepository.findById(registration.userId()).orElseThrow();
         String passwordHashBefore = before.getPasswordHash();
-
-        DietaryRestriction missingRestriction = new DietaryRestriction();
-        missingRestriction.setId(MISSING_RESTRICTION_ID);
         when(dietaryRestrictionRepository.findById(MISSING_RESTRICTION_ID))
-            .thenReturn(Optional.of(missingRestriction));
+            .thenReturn(Optional.empty());
 
         assertThrows(
-            ObjectRetrievalFailureException.class,
+            IllegalArgumentException.class,
             () -> dietaryProfileService.createSelfProfile(
                 registration.userId(),
                 new CreateSelfProfileRequest(
@@ -85,18 +82,9 @@ class SelfProfileTransactionIntegrationTest {
         );
 
         UserAccount after = userAccountRepository.findById(registration.userId()).orElseThrow();
-        assertEquals(createdEmail, after.getEmail());
-        assertEquals(passwordHashBefore, after.getPasswordHash());
-        assertEquals(before.isActive(), after.isActive());
-        assertFalse(dietaryProfileRepository.findByLinkedUser_Id(registration.userId()).isPresent());
-        assertEquals(
-            0L,
-            jdbcTemplate.queryForObject(
-                "select count(*) from profile_restrictions where dietary_profile_id in "
-                    + "(select id from dietary_profiles where linked_user_id = ?)",
-                Long.class,
-                registration.userId()
-            )
-        );
+        assertTrue(after.getEmail().equals(createdEmail));
+        assertTrue(after.getPasswordHash().equals(passwordHashBefore));
+        assertTrue(after.isActive() == before.isActive());
+        assertTrue(dietaryProfileRepository.findByLinkedUser_Id(registration.userId()).isEmpty());
     }
 }

@@ -1,8 +1,10 @@
 package com.canmakan.backend.product.recommendation;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,7 +63,12 @@ public class RecommendationLogService {
         if (entries == null || entries.isEmpty()) {
             return;
         }
+        Set<String> seenBarcodes = new LinkedHashSet<>();
         for (RecommendationLogEntry entry : entries) {
+            if (entry.recommendedBarcode() == null
+                    || !seenBarcodes.add(entry.recommendedBarcode().trim())) {
+                continue;
+            }
             recordAlternative(entry);
         }
     }

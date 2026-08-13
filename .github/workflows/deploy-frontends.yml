@@ -1,16 +1,24 @@
 name: Deploy Frontends to Firebase
 
 on:
-  push:
+  workflow_run:
+    workflows: ["E2E Playwright Tests"]
     branches: [main]
+    types:
+      - completed
 
 concurrency:
   group: deploy-frontends-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   # 1. PATH DETECTION
   detect-frontend-changes:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       web: ${{ steps.filter.outputs.web }}
@@ -18,11 +26,24 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Resolve Comparison Base
+        id: base
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          BASE_SHA="$(git rev-parse "${HEAD_SHA}^1")"
+          echo "sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Detect File Changes
         uses: dorny/paths-filter@v4
         id: filter
         with:
+          base: ${{ steps.base.outputs.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
           filters: |
             web:
               - 'client/web/**'
@@ -40,6 +61,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set Up Node.js
         uses: actions/setup-node@v7
@@ -59,7 +82,7 @@ jobs:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           VITE_USE_MOCK_API: 'false'
           VITE_FIREBASE_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
-          VITE_APP_VERSION: 1.0.${{ github.run_number }}
+          VITE_APP_VERSION: 1.0.${{ github.event.workflow_run.run_number }}
 
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -81,6 +104,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set Up JDK 21
         uses: actions/setup-java@v5
@@ -110,9 +135,14 @@ jobs:
         run: |
           ./gradlew assembleRelease \
             -PBASE_URL="$MOBILE_BASE_URL" \
-            -PversionCode=${{ github.run_number }} \
-            -PversionName="1.0.${{ github.run_number }}"
+            -PversionCode=${{ github.event.workflow_run.run_number }} \
+            -PversionName="1.0.${{ github.event.workflow_run.run_number }}"
 
+      # Destruction of Decoded Keystore
+      - name: Shred Decoded Keystore
+        if: always()
+        run: rm -f app/canmakan-release.keystore
+      
       # Resolve the Signed Path
       - name: Resolve Release APK Path
         id: apk
@@ -133,4 +163,4 @@ jobs:
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
           groups: qa-team
           file: ${{ steps.apk.outputs.path }}
-          releaseNotes: "Automated Build v1.0.${{ github.run_number }} generated from GitHub Commit ${{ github.sha }}."
+          releaseNotes: "Automated Build v1.0.${{ github.event.workflow_run.run_number }} generated from GitHub Commit ${{ github.event.workflow_run.head_sha }}."
