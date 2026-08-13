@@ -337,9 +337,9 @@ UC2, UC3; UC8 for family list
 
 **Owner:** Chai Lee · **Package:** Core MVP · **Architecture:** Scanning & Verdicts / Mobile Client  
 **Tech:** Android; Spring Boot; Open Food Facts catalog; recommendation logic  
-**Current code state:** **Mostly complete (backend + mobile)** — live recommendations API + Alternatives tab; profile authorization on GET still open.
+**Current code state:** **Complete (backend + mobile)** — live recommendations API + Alternatives tab; profile authorization on GET wired (JWT + `assertProfileAuthorizedForScan`).
 
-- **Backend:** `GET /api/profiles/{profileId}/recommendations?sourceBarcode=&scanId=` (`RecommendationController` / `RecommendationService`) — same-category SAFE candidates (source excluded) → tag fallback via `SubstituteDiscoveryProfiles` (e.g. Fresh milks → oat/dairy substitutes; Wheat/White wheat flours → gluten-free flour tags); intolerance hardening in `AlternativeCandidateFilter`; ranked by `AlternativeProductRanker` (prior Safe scan history boost); best-effort write to `recommendation_logs` (UC17 read side). **Gap:** controller has no JWT / `assertProfileAuthorizedForScan` yet (unlike UC17 history).
+- **Backend:** `GET /api/profiles/{profileId}/recommendations?sourceBarcode=&scanId=` (`RecommendationController` / `RecommendationService`) — same-category SAFE candidates (source excluded) → tag fallback via `SubstituteDiscoveryProfiles` (e.g. Fresh milks → oat/dairy substitutes; Wheat/White wheat flours → gluten-free flour tags); intolerance hardening in `AlternativeCandidateFilter`; ranked by `AlternativeProductRanker` (prior Safe scan history boost); best-effort write to `recommendation_logs` (UC17 read side). Requires JWT and `assertProfileAuthorizedForScan` (same as UC17 history).
 - **Mobile:** `ScannerViewModel` calls recommendations after assess for WARNING/UNSAFE only; `FETCHING_ALTERNATIVES` overlay on scanner; `ProductDetailScreen` hides Alternatives tab for SAFE, shows empty/error on tab (`alternativesError`). Tests: `ScannerViewModelTest` UC5 M1–M3; backend `RecommendationServiceTest`, `RecommendationControllerTest`, filter/ranker tests.
 - **Schema:** `recommendation_logs` + seed `10_recommendation_logs.sql`.
 - **Boundary:** Listing **past** recommendations = UC17 (Enhanced); not built here (UC5-S3 done).
@@ -359,7 +359,7 @@ UC2, UC3; UC8 for family list
 | [x] | 4 | Returned alternatives are suitable for the active dietary profile under the agreed MVP algorithm (same-category SAFE → tag fallback; dairy/gluten hardening; prior Safe history ranking). |
 | [x] | 5 | Current barcode/product is excluded from the recommendation list. |
 | [x] | 6 | When no alternatives exist, API returns an empty list and UI shows an appropriate empty state. |
-| [ ] | 7 | Unauthorized profile access returns 403. *(endpoint is public today; wire family auth like UC17)* |
+| [x] | 7 | Unauthorized profile access returns 403. |
 | [x] | 8 | Loading and error states are handled on the Alternatives UI. |
 | [x] | 9 | This UC does not implement a separate recommendation-history screen (UC17). |
 
@@ -367,7 +367,7 @@ UC2, UC3; UC8 for family list
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC5-S1** | 1, 4–5 | Recommendations API + MVP algorithm — **done** *(AC7 auth open)* |
+| **UC5-S1** | 1, 4–5, 7 | Recommendations API + MVP algorithm — **done** |
 | **UC5-S2** | 2–3, 6, 8 | Alternatives tab UX — **done** |
 | **UC5-S3** | 9 | UC17 boundary — **done** |
 
@@ -615,7 +615,7 @@ UC19, UC8, UC1 · Related: UC10
 **Current code state:** Complete (MVP ACs) — **UC10-S1–S4 shipped** (inbox list/accept/decline + Resend optional; web inbox still optional residual)
 
 - **Backend:** `GET /api/invitations/me`, `POST /api/invitations/{token}/accept|decline`; claim path aligned (403 mismatch, 410 expired, 409 final/already-in-family). Optional Resend email on invite create when configured.
-- **Mobile:** Top-bar **Notifications** → `InvitationsScreen` (loading/empty/error; Accept/Decline). UC9 deep-link claim remains.
+- **Mobile:** Top-bar **Notifications** → `NotificationsInboxScreen` (loading/empty/error; Accept/Decline). UC9 deep-link claim remains.
 - **Web:** `/invite/:token` claim path remains; full inbox UI still optional.
 - **Workflow:** Invite → join diagram and path table in [`docs/api/families.md`](../api/families.md#invite--join-workflow-uc9--uc10).
 - **Out of this epic:** Creating invitations (UC9); web inbox parity.
@@ -631,7 +631,7 @@ As an invited app user, I want to accept or decline a family invitation on mobil
 ### Acceptance criteria
 
 | Done | # | Criterion |
-| --- | --- | --- |
+| --- | --- | --- | 
 | [x] | 1 | Authenticated invitee can list pending invitations for their account/email (GET /api/invitations/me). |
 | [x] | 2 | Each pending invitation displays family information needed to decide. |
 | [x] | 3 | Accepting a valid PENDING invitation adds the user as MEMBER and links/creates their dietary profile in that family. |

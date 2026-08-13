@@ -30,6 +30,8 @@ public class AuthExceptionHandler {
     private static final String REGISTRATION_FAILED_MESSAGE = "Registration could not be completed.";
     private static final String AUTH_OPERATION_FAILURE_MESSAGE =
         "Authentication request could not be completed.";
+    private static final String UNTRUSTED_SESSION_REQUEST_MESSAGE =
+        "Authentication request origin could not be verified.";
 
     // Handle duplicate email exception
     @ExceptionHandler(DuplicateEmailException.class)
@@ -64,6 +66,12 @@ public class AuthExceptionHandler {
     public ResponseEntity<Map<String, String>> handleRefreshFailure() {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
             .body(Map.of("message", REFRESH_FAILURE_MESSAGE));
+    }
+
+    @ExceptionHandler(AuthSessionRequestRejectedException.class)
+    public ResponseEntity<Map<String, String>> handleUntrustedSessionRequest() {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(Map.of("message", UNTRUSTED_SESSION_REQUEST_MESSAGE));
     }
 
     // Handle registration failure exception

@@ -1,6 +1,7 @@
 package sg.edu.nus.iss.canmakan.shared.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -22,12 +23,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
+import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.shared.ui.theme.CardWhite
+import sg.edu.nus.iss.canmakan.shared.ui.theme.OnDark
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextPrimary
 
@@ -68,20 +71,25 @@ fun AppTopBar(
                     .size(8.dp)
                     .align(Alignment.TopEnd)
                     .clip(CircleShape)
-                    .background(Color.Red)
+                    .background(AvoidRed)
             )
         }
     }
 }
 
 // Small pill showing the currently active profile, for example "ME Sarah".
+// Tap opens dietary restrictions for that profile (same as drawer edit/view).
 @Composable
-fun ActiveProfileChip(profile: DietaryProfile) {
+fun ActiveProfileChip(
+    profile: DietaryProfile,
+    onClick: () -> Unit = {},
+) {
     Row(
         modifier = Modifier
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
+            .background(CardWhite)
+            .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -94,7 +102,7 @@ fun ActiveProfileChip(profile: DietaryProfile) {
         ) {
             Text(
                 text = profile.initials,
-                color = Color.White,
+                color = OnDark,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center

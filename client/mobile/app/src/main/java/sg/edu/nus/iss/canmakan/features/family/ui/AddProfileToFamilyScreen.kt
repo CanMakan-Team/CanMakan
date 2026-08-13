@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -25,23 +25,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
-import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
+import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
+import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 @Composable
 fun AddProfileToFamilyScreen(
-    activeProfile: DietaryProfile?,
-    activeRestrictions: List<String> = emptyList(),
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
@@ -60,13 +58,10 @@ fun AddProfileToFamilyScreen(
 
     Scaffold(
         topBar = {
-            Column {
-                AppTopBar(
-                    onMenuClick = onMenuClick,
-                    onNotificationsClick = onNotificationsClick,
-                )
-                activeProfile?.let { ActiveProfileChip(profile = it) }
-            }
+            AppTopBar(
+                onMenuClick = onMenuClick,
+                onNotificationsClick = onNotificationsClick,
+            )
         },
         bottomBar = {
             AppBottomNavBar(
@@ -89,7 +84,7 @@ fun AddProfileToFamilyScreen(
                     .clickable { onBackClick() }
                     .padding(bottom = 24.dp)
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Go back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("Back")
             }
@@ -102,7 +97,7 @@ fun AddProfileToFamilyScreen(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Invite a registered CanMakan user or someone who does not have an account yet. They join when they register or sign in with this email.",
-                color = Color.Gray
+                color = TextSecondary
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -132,7 +127,7 @@ fun AddProfileToFamilyScreen(
                 }
                 Button(
                     onClick = { viewModel.search() },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E7A4C)),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
                     modifier = Modifier.weight(1f),
                     enabled = !uiState.isSearching && !uiState.isInviting
                 ) {
@@ -150,15 +145,15 @@ fun AddProfileToFamilyScreen(
                     },
                     fontWeight = FontWeight.SemiBold
                 )
-                Text(text = result.maskedEmail, color = Color.Gray)
-                Text(text = "Account: ${result.accountStatus}", color = Color.Gray)
-                Text(text = "Link: ${result.familyLinkStatus}", color = Color.Gray)
+                Text(text = result.maskedEmail, color = TextSecondary)
+                Text(text = "Account: ${result.accountStatus}", color = TextSecondary)
+                Text(text = "Link: ${result.familyLinkStatus}", color = TextSecondary)
 
                 if (canInvite) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         onClick = { viewModel.createInvite() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E7A4C)),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !uiState.isInviting
                     ) {
@@ -170,7 +165,7 @@ fun AddProfileToFamilyScreen(
             uiState.invitation?.let { invitation ->
                 Spacer(modifier = Modifier.height(20.dp))
                 Text(text = "Invitation ready", fontWeight = FontWeight.Bold)
-                Text(text = invitation.inviteUrl, color = Color.Gray)
+                Text(text = invitation.inviteUrl, color = TextSecondary)
                 Text(text = "Code: ${invitation.inviteCode}", fontWeight = FontWeight.Medium)
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
@@ -186,7 +181,7 @@ fun AddProfileToFamilyScreen(
                         context.startActivity(Intent.createChooser(shareIntent, "Share invitation"))
                         onInviteCreated()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E7A4C)),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Share invitation")
@@ -195,7 +190,7 @@ fun AddProfileToFamilyScreen(
 
             uiState.errorMessage?.let { message ->
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(text = message, color = Color.Red)
+                Text(text = message, color = AvoidRed)
             }
         }
     }
@@ -207,7 +202,7 @@ private fun FormLabel(text: String, isRequired: Boolean) {
         Text(text = text, fontWeight = FontWeight.Medium)
         if (isRequired) {
             Spacer(modifier = Modifier.width(2.dp))
-            Text(text = "*", color = Color.Red)
+            Text(text = "*", color = AvoidRed)
         }
     }
 }

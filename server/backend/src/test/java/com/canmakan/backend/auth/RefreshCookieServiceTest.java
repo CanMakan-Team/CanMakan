@@ -17,7 +17,7 @@ class RefreshCookieServiceTest {
     private static final String COOKIE_NAME = "canmakan_refresh";
 
     @Test
-    void createsSecureNarrowlyScopedHttpOnlyStrictCookie() {
+    void createsSecureNarrowlyScopedHttpOnlyCrossSiteCookie() {
         RefreshCookieService service = service(true);
 
         ResponseCookie cookie = service.createRefreshCookie("raw-refresh-token");
@@ -26,7 +26,7 @@ class RefreshCookieServiceTest {
         assertEquals("raw-refresh-token", cookie.getValue());
         assertTrue(cookie.isHttpOnly());
         assertTrue(cookie.isSecure());
-        assertEquals("Strict", cookie.getSameSite());
+        assertEquals("None", cookie.getSameSite());
         assertEquals("/api/auth", cookie.getPath());
         assertEquals(Duration.ofDays(7), cookie.getMaxAge());
         assertNull(cookie.getDomain());
@@ -45,7 +45,7 @@ class RefreshCookieServiceTest {
         assertEquals("", cookie.getValue());
         assertTrue(cookie.isHttpOnly());
         assertTrue(cookie.isSecure());
-        assertEquals("Strict", cookie.getSameSite());
+        assertEquals("None", cookie.getSameSite());
         assertEquals("/api/auth", cookie.getPath());
         assertEquals(Duration.ZERO, cookie.getMaxAge());
         assertNull(cookie.getDomain());
@@ -82,7 +82,8 @@ class RefreshCookieServiceTest {
         return new RefreshCookieService(new RefreshTokenProperties(
             Duration.ofDays(7),
             COOKIE_NAME,
-            secure
+            secure,
+            secure ? "None" : "Strict"
         ));
     }
 

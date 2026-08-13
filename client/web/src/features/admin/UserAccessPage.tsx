@@ -118,7 +118,7 @@ export function UserAccessPage() {
     <>
       <header className="page-header page-header--system">
         <div>
-          <p className="eyebrow">UC13 · System Admin only</p>
+          <p className="eyebrow">System administrators only</p>
           <h1>User Accounts & Access</h1>
           <p>
             Search existing accounts and manage Active or Suspended status.

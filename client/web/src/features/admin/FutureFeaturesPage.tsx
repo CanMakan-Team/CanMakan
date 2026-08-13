@@ -1,6 +1,6 @@
 const futureFeatures = [
-  ['Assessment Review Queue', 'Manual review workflow is outside Sprint 1.'],
-  ['Product Data Issues', 'Product correction operations require future backend contracts.'],
+  ['Assessment Review Queue', 'Manual review workflows are planned for a later release.'],
+  ['Product Data Issues', 'Product correction tools are planned for a later release.'],
   ['Ingredient Alias Repository', 'Alias governance remains a future administrative capability.'],
   ['System Logs & Health', 'Operational telemetry and health views are not connected.'],
   ['AI Reasoning Review', 'Reasoning review is not represented as completed functionality.'],
@@ -12,11 +12,11 @@ export function FutureFeaturesPage() {
     <>
       <header className="page-header page-header--system">
         <div>
-          <p className="eyebrow">Prototype navigation only</p>
+          <p className="eyebrow">Coming later</p>
           <h1>Future Features</h1>
           <p>
-            These Figma-era concepts are retained to preserve product direction,
-            but are not completed Sprint 1 functionality.
+            These administration tools are planned but are not currently
+            available.
           </p>
         </div>
       </header>
@@ -27,7 +27,7 @@ export function FutureFeaturesPage() {
             <h2>{title}</h2>
             <p>{description}</p>
             <button className="button button--secondary" type="button" disabled>
-              Not available in Sprint 1
+              Not yet available
             </button>
           </article>
         ))}

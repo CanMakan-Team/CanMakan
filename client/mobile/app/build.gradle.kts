@@ -74,6 +74,16 @@ tasks.matching { it.name == "preReleaseBuild" }.configureEach {
     dependsOn(validateReleaseBaseUrlTask)
 }
 
+// UC19 unit verification reads Android Gradle Plugin's merged variant outputs.
+tasks.matching { it.name == "testDebugUnitTest" }.configureEach {
+    dependsOn(
+        "processDebugManifest",
+        "processReleaseManifest",
+        "packageDebugResources",
+        "packageReleaseResources",
+    )
+}
+
 extensions.configure<ApplicationExtension> {
     namespace = "sg.edu.nus.iss.canmakan"
     compileSdk = 37

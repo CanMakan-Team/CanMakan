@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { FamilyRegisterPage } from '../../../pages/FamilyRegisterPage'
 import { SessionProvider } from '../../../features/auth/SessionProvider'
 import { authService } from '../../../features/auth/authService'
+import { ApiError } from '../../../shared/api/apiErrors'
 
 /** Test suite for FamilyRegisterPage.
  * 
@@ -15,6 +16,9 @@ vi.mock('../../../features/auth/authService', () => ({
   authService: {
     loginWithCredentials: vi.fn(),
     register: vi.fn(),
+    refreshSession: vi.fn(),
+    getCurrentUser: vi.fn(),
+    synchronizeCurrentUser: vi.fn(),
     logout: vi.fn(),
   },
 }))
@@ -42,6 +46,10 @@ describe('FamilyRegisterPage', () => {
   beforeEach(() => {
     vi.mocked(authService.register).mockReset()
     vi.mocked(authService.loginWithCredentials).mockReset()
+    vi.mocked(authService.refreshSession).mockReset()
+    vi.mocked(authService.refreshSession).mockRejectedValue(
+      new ApiError('Authentication required.', 401),
+    )
   })
 
   it('does not collect a name that registration cannot persist', () => {

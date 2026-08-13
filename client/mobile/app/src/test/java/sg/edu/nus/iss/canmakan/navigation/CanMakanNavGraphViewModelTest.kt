@@ -268,6 +268,7 @@ class CanMakanNavGraphViewModelTest {
         assertEquals(77L, activeProfileManager.currentProfileId.value)
 
         viewModel.switchProfile(88L)
+        assertEquals(88L, activeProfileManager.currentProfileId.value)
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(1, familyApi.setActiveProfileCalls)
@@ -298,6 +299,7 @@ class CanMakanNavGraphViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         viewModel.switchProfile(88L)
+        assertEquals(88L, activeProfileManager.currentProfileId.value)
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(1, familyApi.setActiveProfileCalls)

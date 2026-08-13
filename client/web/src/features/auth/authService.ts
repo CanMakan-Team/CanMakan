@@ -1,24 +1,23 @@
+import { ApiError } from '../../shared/api/apiErrors'
 import { apiRequest } from '../../shared/api/apiClient'
 import type {
   AuthenticatedSession,
   AuthLoginResponse,
+  CurrentUserResponse,
   Portal,
   RegistrationResponse,
   Role,
 } from '../../shared/api/types'
 
-/** Live auth against Spring Boot UC19 JWT login. */
 export const authEndpoints = {
   login: '/api/auth/login',
   register: '/api/auth/register',
+  refresh: '/api/auth/refresh',
   logout: '/api/auth/logout',
+  me: '/api/auth/me',
 } as const
 
-export type RegisterInput = {
-  email: string
-  password: string
-}
-
+export type RegisterInput = { email: string; password: string }
 export type CredentialLoginInput = {
   email: string
   password: string
@@ -26,11 +25,9 @@ export type CredentialLoginInput = {
 }
 
 function mapSystemRoleToPortalRoles(role: 'USER' | 'ADMIN'): Role[] {
-  if (role === 'ADMIN') {
-    return ['ROLE_SYSTEM_ADMIN']
-  }
-  // Family portal access for normal accounts (membership PRIMARY_ADMIN is separate).
-  return ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN']
+  return role === 'ADMIN'
+    ? ['ROLE_SYSTEM_ADMIN']
+    : ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN']
 }
 
 function displayNameFromEmail(email: string): string {
@@ -38,16 +35,39 @@ function displayNameFromEmail(email: string): string {
   return at > 0 ? email.slice(0, at) : email
 }
 
-function toSession(
-  response: AuthLoginResponse,
-  portal: Portal,
-): AuthenticatedSession {
+function validateUser(user: CurrentUserResponse): CurrentUserResponse {
+  if (
+    !Number.isSafeInteger(user?.userId) ||
+    user.userId <= 0 ||
+    typeof user.email !== 'string' ||
+    !user.email.trim() ||
+    (user.role !== 'USER' && user.role !== 'ADMIN') ||
+    user.active !== true
+  ) {
+    throw new ApiError('Your session could not be verified. Please sign in again.', 401)
+  }
+  return user
+}
+
+function toSession(response: AuthLoginResponse): AuthenticatedSession {
+  if (
+    typeof response?.accessToken !== 'string' ||
+    !response.accessToken.trim() ||
+    response.tokenType?.toLowerCase() !== 'bearer' ||
+    !Number.isFinite(response.expiresIn) ||
+    response.expiresIn <= 0
+  ) {
+    throw new ApiError('Sign-in could not be completed. Please try again.')
+  }
+  const user = validateUser(response.user)
   return {
     accessToken: response.accessToken,
-    userId: response.user.userId,
-    displayName: displayNameFromEmail(response.user.email),
-    roles: mapSystemRoleToPortalRoles(response.user.role),
-    portal,
+    userId: user.userId,
+    email: user.email,
+    active: user.active,
+    displayName: displayNameFromEmail(user.email),
+    roles: mapSystemRoleToPortalRoles(user.role),
+    portal: user.role === 'ADMIN' ? 'SYSTEM' : 'FAMILY',
     prototype: false,
   }
 }
@@ -56,30 +76,65 @@ export const authService = {
   register(input: RegisterInput): Promise<RegistrationResponse> {
     return apiRequest<RegistrationResponse>(authEndpoints.register, {
       method: 'POST',
-      body: JSON.stringify({
-        email: input.email,
-        password: input.password,
-      }),
+      body: JSON.stringify(input),
+      authentication: 'none',
+      retryAuthentication: false,
     })
   },
 
-  loginWithCredentials(
+  async loginWithCredentials(
     input: CredentialLoginInput,
   ): Promise<AuthenticatedSession> {
-    return apiRequest<AuthLoginResponse>(authEndpoints.login, {
+    const response = await apiRequest<AuthLoginResponse>(authEndpoints.login, {
       method: 'POST',
-      body: JSON.stringify({
-        email: input.email,
-        password: input.password,
-      }),
-    }).then((response) => toSession(response, input.portal))
+      body: JSON.stringify({ email: input.email, password: input.password }),
+      authentication: 'none',
+      retryAuthentication: false,
+      sessionMutation: true,
+    })
+    return toSession(response)
   },
 
-  async logout(): Promise<void> {
-    try {
-      await apiRequest<void>(authEndpoints.logout, { method: 'POST' })
-    } catch {
-      // Local session clear remains authoritative for the browser.
+  async refreshSession(): Promise<AuthenticatedSession> {
+    const response = await apiRequest<AuthLoginResponse>(authEndpoints.refresh, {
+      method: 'POST',
+      authentication: 'none',
+      retryAuthentication: false,
+      sessionMutation: true,
+    })
+    return toSession(response)
+  },
+
+  getCurrentUser(): Promise<CurrentUserResponse> {
+    return apiRequest<CurrentUserResponse>(authEndpoints.me, {
+      retryAuthentication: false,
+    }).then(validateUser)
+  },
+
+  synchronizeCurrentUser(
+    session: AuthenticatedSession,
+    currentUser: CurrentUserResponse,
+  ): AuthenticatedSession {
+    const user = validateUser(currentUser)
+    if (user.userId !== session.userId) {
+      throw new ApiError('Your session could not be verified. Please sign in again.', 401)
     }
+    return {
+      ...session,
+      email: user.email,
+      active: user.active,
+      displayName: displayNameFromEmail(user.email),
+      roles: mapSystemRoleToPortalRoles(user.role),
+      portal: user.role === 'ADMIN' ? 'SYSTEM' : 'FAMILY',
+    }
+  },
+
+  logout(): Promise<void> {
+    return apiRequest<void>(authEndpoints.logout, {
+      method: 'POST',
+      authentication: 'none',
+      retryAuthentication: false,
+      sessionMutation: true,
+    })
   },
 }

@@ -1,12 +1,76 @@
+import { useCallback, useEffect, useState } from 'react'
+import { authService } from '../../auth/authService'
 import { useSession } from '../../auth/useSession'
+import { getErrorMessage } from '../../../shared/api/apiErrors'
+import type { CurrentUserResponse, FamilyMe } from '../../../shared/api/types'
+import { ErrorState, LoadingState } from '../../../shared/ui/PageState'
+import {
+  familyApiService,
+  type FamilyProfileSummary,
+} from '../api/familyApiService'
 
-/**
- * Account settings — current live JWT session.
- *
- * @author Amelia
- */
+interface AccountDetails {
+  account: CurrentUserResponse
+  family: FamilyMe
+  selfProfile: FamilyProfileSummary | null
+}
+
+function readableValue(value: string | null | undefined) {
+  if (!value?.trim()) return 'Not available'
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+/** Server-authoritative identity, account, family and profile details. */
 export function FamilyAccountPage() {
   const { session } = useSession()
+  const [details, setDetails] = useState<AccountDetails | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const [account, family, profiles] = await Promise.all([
+        authService.getCurrentUser(),
+        familyApiService.getMyFamily(),
+        familyApiService.getAccountProfiles(),
+      ])
+      setDetails({
+        account,
+        family,
+        selfProfile:
+          profiles.find((profile) => profile.id === family.selfProfileId) ?? null,
+      })
+    } catch (caughtError) {
+      setDetails(null)
+      setError(getErrorMessage(caughtError))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void load(), 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [load])
+
+  if (loading) return <LoadingState label="Loading account settings…" />
+  if (error) return <ErrorState message={error} onRetry={load} />
+  if (!details) {
+    return (
+      <ErrorState
+        message="Your account information is not available."
+        onRetry={load}
+      />
+    )
+  }
+
+  const { account, family, selfProfile } = details
 
   return (
     <>
@@ -14,40 +78,51 @@ export function FamilyAccountPage() {
         <div>
           <p className="eyebrow">Account</p>
           <h1>Account Settings</h1>
-          <p>
-            Session identity comes from live JWT login. API calls send
-            Authorization Bearer.
-          </p>
+          <p>Review the account and family information linked to your sign-in.</p>
         </div>
       </header>
 
       <section className="panel account-panel">
         <span className="avatar avatar--large" aria-hidden="true">
-          {session?.displayName.slice(0, 1)}
+          {(selfProfile?.initials || session?.displayName || 'C').slice(0, 1)}
         </span>
         <dl className="detail-grid">
           <div>
-            <dt>Display name</dt>
-            <dd>{session?.displayName}</dd>
+            <dt>Email</dt>
+            <dd>{account.email}</dd>
           </div>
           <div>
-            <dt>User id</dt>
-            <dd>{session?.userId}</dd>
+            <dt>Account status</dt>
+            <dd>{account.active ? 'Active' : 'Suspended'}</dd>
           </div>
           <div>
-            <dt>Role</dt>
-            <dd>{session?.roles.join(', ')}</dd>
+            <dt>System role</dt>
+            <dd>{account.role === 'ADMIN' ? 'System administrator' : 'User'}</dd>
           </div>
           <div>
-            <dt>Portal</dt>
-            <dd>{session?.portal}</dd>
+            <dt>User ID</dt>
+            <dd>{account.userId}</dd>
           </div>
           <div>
-            <dt>Authentication</dt>
+            <dt>Family circle</dt>
+            <dd>{family.familyName}</dd>
+          </div>
+          <div>
+            <dt>Family role</dt>
+            <dd>{readableValue(family.memberRole)}</dd>
+          </div>
+          <div>
+            <dt>Profile name</dt>
+            <dd>{selfProfile?.profileName ?? 'Not available'}</dd>
+          </div>
+          <div>
+            <dt>Relationship</dt>
+            <dd>{readableValue(selfProfile?.relationship)}</dd>
+          </div>
+          <div>
+            <dt>Profile status</dt>
             <dd>
-              {session?.accessToken
-                ? 'Bearer token session'
-                : 'Not signed in'}
+              {selfProfile ? (selfProfile.active ? 'Active' : 'Inactive') : 'Not available'}
             </dd>
           </div>
         </dl>

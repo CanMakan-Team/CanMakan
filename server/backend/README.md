@@ -107,11 +107,15 @@ Refresh-session configuration:
 | `REFRESH_TOKEN_TTL` | `7d` | Opaque refresh-session and cookie lifetime |
 | `REFRESH_COOKIE_NAME` | `canmakan_refresh` | HttpOnly refresh-cookie name |
 | `REFRESH_COOKIE_SECURE` | `true` | Require HTTPS for the refresh cookie. For local HTTP (`http://localhost:5173`) set `REFRESH_COOKIE_SECURE=false` or browsers will drop the cookie. |
+| `REFRESH_COOKIE_SAME_SITE` | `Lax` | Safe default. Separately hosted HTTPS web/API deployments must explicitly use `None` with Secure cookies, credentialed CORS, exact HTTPS origins, and no origin patterns. |
 
 `POST /api/auth/login` and `POST /api/auth/refresh` return the access token in
-JSON and set the opaque refresh token only as an HttpOnly, SameSite=Strict
-cookie scoped to `/api/auth`. Set `REFRESH_COOKIE_SECURE=false` only for an
-explicit local HTTP environment; production should retain the secure default.
+JSON and set the opaque refresh token only as an HttpOnly cookie scoped to
+`/api/auth`. The default is `SameSite=Lax`. Cross-site HTTPS deployments must
+explicitly select `None` and satisfy the stricter startup validation above.
+Login, refresh, and logout also require the non-secret session-intent header;
+browser Origins must exactly match the configured allow-list, while native
+clients omit Origin but still send the header.
 
 Optional env vars (only needed when exercising those features):
 

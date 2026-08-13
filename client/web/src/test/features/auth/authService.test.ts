@@ -18,7 +18,12 @@ describe('authService', () => {
         accessToken: 'jwt-access',
         tokenType: 'Bearer',
         expiresIn: 900,
-        user: { userId: 14, email: 'person@example.com', role: 'USER' },
+        user: {
+          userId: 14,
+          email: 'person@example.com',
+          role: 'USER',
+          active: true,
+        },
       }),
     )
 
@@ -31,6 +36,8 @@ describe('authService', () => {
     expect(session).toEqual({
       accessToken: 'jwt-access',
       userId: 14,
+      email: 'person@example.com',
+      active: true,
       displayName: 'person',
       roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
       portal: 'FAMILY',
@@ -40,6 +47,8 @@ describe('authService', () => {
       'http://localhost:8080/api/auth/login',
       expect.objectContaining({ method: 'POST' }),
     )
+    const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
+    expect(headers.get('X-CanMakan-Session-Request')).toBe('1')
   })
 
   it('maps JWT ADMIN login to system portal role', async () => {
@@ -48,7 +57,12 @@ describe('authService', () => {
         accessToken: 'admin-jwt',
         tokenType: 'Bearer',
         expiresIn: 900,
-        user: { userId: 1, email: 'admin@example.com', role: 'ADMIN' },
+        user: {
+          userId: 1,
+          email: 'admin@example.com',
+          role: 'ADMIN',
+          active: true,
+        },
       }),
     )
 
@@ -89,9 +103,37 @@ describe('authService', () => {
     })
   })
 
-  it('swallows logout API failures so local clear remains authoritative', async () => {
+  it('sends session intent on refresh and never enters recursive recovery', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse(401, { message: 'Authentication required.' }),
+    )
+
+    await expect(authService.refreshSession()).rejects.toMatchObject({
+      status: 401,
+    })
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+    const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
+    expect(headers.get('X-CanMakan-Session-Request')).toBe('1')
+  })
+
+  it('does not recursively refresh /me after an authentication failure', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse(401, { message: 'Authentication required.' }),
+    )
+
+    await expect(authService.getCurrentUser()).rejects.toMatchObject({
+      status: 401,
+    })
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('propagates logout API failures for the session coordinator to handle', async () => {
     vi.mocked(fetch).mockRejectedValue(new TypeError('offline'))
 
-    await expect(authService.logout()).resolves.toBeUndefined()
+    await expect(authService.logout()).rejects.toThrow('currently unreachable')
+    const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
+    expect(headers.get('X-CanMakan-Session-Request')).toBe('1')
   })
 })

@@ -47,10 +47,11 @@ flowchart TD
 | --- | --- |
 | Register then claim | Invite landing → Register (token offered) → Login → `PostLoginContinuationViewModel` claim |
 | Deep link / login claim | `canmakan://invite/{token}` → `PendingInvitationStore` → Login offer → post-login claim |
-| Inbox accept / decline | Top-bar **Notifications** bell → notifications inbox (`InvitationsScreen`) |
+| Inbox accept / decline | Top-bar **Notifications** bell → `features/notifications` (`NotificationsInboxScreen`) |
 
 The inbox is account-wide (not admin-only): family invitations today, with room for
-profile-update notices later. It is not listed under Manage Family in the drawer.
+profile-update notices later. It lives under `features/notifications` so any shell screen
+can open it; it is not listed under Family in the drawer.
 
 Full API contract and HTTP guards: `docs/api/families.md` (Invite → join workflow).
 
@@ -60,10 +61,12 @@ mobile profile switcher and UC6 summary once created.
 ## Switch profile (UC11)
 
 On login/startup, `CanMakanNavGraphViewModel` loads `GET /api/families/me/active-profile`
-after `/me` and family profiles. Drawer profile selection calls
-`PUT /api/families/me/active-profile`; failed PUT (403 outside family, 409 inactive)
-shows an inline error without changing the current selection. `ActiveProfileManager`
-uses `UNSET_PROFILE_ID = 0` until the server (or registration `profileId`) resolves.
+after `/me` and family profiles. Drawer profile selection updates
+`ActiveProfileManager` immediately (optimistic), then confirms with
+`PUT /api/families/me/active-profile`. Failed PUT (403 outside family, 409 inactive,
+or network error) rolls back to the previous profile and shows an inline error.
+`ActiveProfileManager` uses `UNSET_PROFILE_ID = 0` until the server (or registration
+`profileId`) resolves.
 
 ## Manage members (UC12)
 

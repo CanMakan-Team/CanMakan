@@ -22,7 +22,6 @@ family/
     FamilyMembersPage.tsx
     FamilyRestrictionSummaryPage.tsx
     FamilyScanHistoryPage.tsx
-    FamilyTestPage.tsx
   components/
     ActiveProfileSelector.tsx
     CreateFamilyProfileModal.tsx
@@ -47,7 +46,7 @@ family/
 | `FamilyMeGate` | Loads `GET /api/families/me`; **404** → create-circle UI |
 | `pages/CreateFamilyCirclePage` | Name field + loading / validation / error; `POST /api/families` |
 | `api/familyService.getMyFamily` / `createFamily` | **Always live** (Bearer JWT); not mocked |
-| `apiClient` | Sends `Authorization: Bearer` from session `accessToken` |
+| `apiClient` | Sends the memory-only access credential and includes the refresh cookie |
 | UC18 register | `/family-register` → live login → this gate |
 
 **Create-circle tip:** seeded users 4–13 already have families; register a new account to see empty-state create.
@@ -67,6 +66,8 @@ family/
 Contract: `docs/api/families.md`
 
 ## Notes
+- `FamilyAccountPage` loads the authoritative `/api/auth/me`, family context,
+  and SELF profile; it does not expose token or request-header details.
 - Aligns with backend `family` package
 - Dietary details may also touch `dietaryprofile`
 - Uses shared layout (`PortalLayout`) for the portal shell

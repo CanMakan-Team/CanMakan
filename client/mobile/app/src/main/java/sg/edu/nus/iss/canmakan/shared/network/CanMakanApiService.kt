@@ -37,11 +37,11 @@ data class AssessmentResponse(
 )
 
 data class AlternativeProductDto(
-    val barcode: String,
-    val productName: String,
-    val brand: String?,
-    val matchReason: String?,
-    val rankScore: Double?
+    val barcode: String? = null,
+    val productName: String? = null,
+    val brand: String? = null,
+    val matchReason: String? = null,
+    val rankScore: Double? = null
 )
 
 data class RecommendationResponse(

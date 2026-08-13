@@ -39,27 +39,33 @@ import sg.edu.nus.iss.canmakan.shared.di.NetworkModule
 class DedicatedRefreshNetworkTest {
 
     @Test
-    fun refreshContractHasNoBodyOrInternalControlHeader() {
+    fun refreshContractHasNoBodyAndDeclaresSessionIntent() {
         val method = RefreshApiService::class.java.getDeclaredMethod("refresh")
 
         assertEquals(
             "auth/refresh",
             requireNotNull(method.getAnnotation(POST::class.java)).value,
         )
-        assertNull(method.getAnnotation(Headers::class.java))
+        assertEquals(
+            listOf(SESSION_REQUEST_HEADER),
+            method.getAnnotation(Headers::class.java).value.toList(),
+        )
         assertFalse(method.parameterAnnotations.flatten().any { it is Body })
         assertEquals(0, method.parameterCount)
     }
 
     @Test
-    fun logoutContractHasNoBodyOrInternalControlHeader() {
+    fun logoutContractHasNoBodyAndDeclaresSessionIntent() {
         val method = RefreshApiService::class.java.getDeclaredMethod("logout")
 
         assertEquals(
             "auth/logout",
             requireNotNull(method.getAnnotation(POST::class.java)).value,
         )
-        assertNull(method.getAnnotation(Headers::class.java))
+        assertEquals(
+            listOf(SESSION_REQUEST_HEADER),
+            method.getAnnotation(Headers::class.java).value.toList(),
+        )
         assertFalse(method.parameterAnnotations.flatten().any { it is Body })
         assertEquals(0, method.parameterCount)
     }
@@ -87,6 +93,7 @@ class DedicatedRefreshNetworkTest {
         assertEquals("/api/auth/refresh", capture.path)
         assertNull(capture.authorization)
         assertNull(capture.internalNoRetryHeader)
+        assertEquals("1", capture.sessionRequestHeader)
         assertFalse(success.toString().contains("test-access-token-B"))
     }
 
@@ -123,6 +130,7 @@ class DedicatedRefreshNetworkTest {
         assertEquals("/api/auth/logout", capture.path)
         assertNull(capture.authorization)
         assertNull(capture.internalNoRetryHeader)
+        assertEquals("1", capture.sessionRequestHeader)
     }
 
     @Test
@@ -192,6 +200,7 @@ class DedicatedRefreshNetworkTest {
                 capture.path = request.url.encodedPath
                 capture.authorization = request.header("Authorization")
                 capture.internalNoRetryHeader = request.header("X-CanMakan-No-Retry")
+                capture.sessionRequestHeader = request.header("X-CanMakan-Session-Request")
                 capture.exception?.let { throw it }
                 Response.Builder()
                     .request(request)
@@ -224,6 +233,7 @@ class DedicatedRefreshNetworkTest {
         var path: String? = null,
         var authorization: String? = null,
         var internalNoRetryHeader: String? = null,
+        var sessionRequestHeader: String? = null,
     )
 
     private class FakeSessionPersistence : AuthSessionPersistence {
@@ -259,6 +269,7 @@ class DedicatedRefreshNetworkTest {
     }
 
     private companion object {
+        const val SESSION_REQUEST_HEADER = "X-CanMakan-Session-Request: 1"
         const val NOW = 1_800_000_000_000L
         val API_BASE_URL = "https://api.example.test/api/".toHttpUrl()
         val JSON_MEDIA_TYPE = "application/json".toMediaType()

@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -31,8 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
-import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
@@ -44,7 +42,6 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
  */
 @Composable
 fun CreateFamilyCircleScreen(
-    activeProfile: DietaryProfile?,
     isSubmitting: Boolean,
     errorMessage: String?,
     onMenuClick: () -> Unit,
@@ -59,13 +56,10 @@ fun CreateFamilyCircleScreen(
 
     Scaffold(
         topBar = {
-            Column {
-                AppTopBar(
-                    onMenuClick = onMenuClick,
-                    onNotificationsClick = onNotificationsClick,
-                )
-                activeProfile?.let { ActiveProfileChip(profile = it) }
-            }
+            AppTopBar(
+                onMenuClick = onMenuClick,
+                onNotificationsClick = onNotificationsClick,
+            )
         },
         bottomBar = {
             AppBottomNavBar(
@@ -88,7 +82,7 @@ fun CreateFamilyCircleScreen(
                     .clickable(enabled = !isSubmitting, onClick = onBackClick)
                     .padding(bottom = 24.dp),
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Go back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("Back")
             }

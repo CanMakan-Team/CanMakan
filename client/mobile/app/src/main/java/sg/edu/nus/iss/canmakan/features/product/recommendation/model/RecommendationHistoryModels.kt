@@ -14,9 +14,9 @@ data class RecommendationHistoryResponse(
 
 data class RecommendationHistoryEntry(
     val scanId: Long?,
-    val sourceBarcode: String,
-    val sourceProductName: String,
-    val sourceBrand: String,
+    val sourceBarcode: String? = null,
+    val sourceProductName: String? = null,
+    val sourceBrand: String? = null,
     val sourceVerdict: String?,
     val recommendedAt: String?,
     val alternatives: List<RecommendationHistoryAlternative> = emptyList()
@@ -24,7 +24,7 @@ data class RecommendationHistoryEntry(
     fun sourceProduct(): Product = Product(
         productName = sourceProductName,
         brand = sourceBrand,
-        barcode = sourceBarcode
+        barcode = sourceBarcode,
     )
 
     fun verdict(): ScanVerdict = sourceVerdict
@@ -47,16 +47,16 @@ data class RecommendationHistoryEntry(
 }
 
 data class RecommendationHistoryAlternative(
-    val barcode: String,
-    val productName: String,
-    val brand: String,
-    val matchReason: String?,
-    val rankScore: Double?,
-    val discoveryTier: String?
+    val barcode: String? = null,
+    val productName: String? = null,
+    val brand: String? = null,
+    val matchReason: String? = null,
+    val rankScore: Double? = null,
+    val discoveryTier: String? = null,
 ) {
     fun toUiModel() = AlternativeProduct(
-        name = productName,
-        brand = brand,
-        description = matchReason ?: "Same category alternative"
+        name = productName?.takeIf { it.isNotBlank() } ?: "Alternative product",
+        brand = brand.orEmpty(),
+        description = matchReason?.takeIf { it.isNotBlank() } ?: "Same category alternative",
     )
 }

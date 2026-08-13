@@ -25,7 +25,7 @@ and `POST /api/scan/assess`. It restricts `POST /api/profiles/me` to `USER`,
 restricts `/api/admin/**` to `ADMIN`, and keeps
 registration, login, refresh, logout, and health public at the bearer-authorization
 layer. The refresh endpoint authenticates an opaque, hashed-at-rest, one-time
-refresh session from an HttpOnly, SameSite=Strict cookie. Remaining business
+refresh session from a path-scoped HttpOnly cookie. Remaining business
 routes stay temporarily permitted until their owning Use Cases adopt resource
 authorization.
 
@@ -49,13 +49,14 @@ cross-origin. `CorsFilter` allows:
 
 | Client | How it is covered |
 | --- | --- |
-| Web Vite / preview | Exact origins `localhost` + `127.0.0.1` on ports 5173 and 4173 |
+| Web Vite / preview | Exact origins on 5173/5174/4173 **plus** patterns `http://localhost:[*]` / `127.0.0.1:[*]` |
 | LAN / physical device browser | Origin patterns `10.*`, `192.168.*`, `172.*` any port |
 | Android Retrofit (emulator `10.0.2.2`, device LAN IP) | Usually **no** `Origin` header — CORS does not apply; server already binds `0.0.0.0:8080` |
 
-Allowed request headers include `Authorization`, `Content-Type`, and `Accept`.
-Credentials mode is off (access token is stored in localStorage; refresh cookies
-are path-scoped to `/api/auth` for native clients).
+Allowed request headers include `Authorization`, `Content-Type`, `Accept`, and
+the auth session-intent header.
+Credentials mode is enabled so approved browser origins can send the HttpOnly
+refresh cookie. Access tokens remain in browser memory, not Web Storage.
 
 ### Configuration (local defaults + deploy overrides)
 
@@ -66,8 +67,8 @@ a rebuild:
 | Property | Environment variable | Local default |
 | --- | --- | --- |
 | `allowed-origins` | `CANMAKAN_CORS_ALLOWED_ORIGINS` | Vite/preview localhost origins |
-| `allowed-origin-patterns` | `CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS` | Private LAN patterns |
-| `allow-credentials` | `CANMAKAN_CORS_ALLOW_CREDENTIALS` | `false` |
+| `allowed-origin-patterns` | `CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS` | Empty (opt in for local LAN testing) |
+| `allow-credentials` | `CANMAKAN_CORS_ALLOW_CREDENTIALS` | `true` |
 | `max-age-seconds` | `CANMAKAN_CORS_MAX_AGE_SECONDS` | `3600` |
 
 Example production deploy:
@@ -75,11 +76,20 @@ Example production deploy:
 ```bash
 export CANMAKAN_CORS_ALLOWED_ORIGINS=https://app.example.com,https://www.example.com
 export CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS=
+export CANMAKAN_CORS_ALLOW_CREDENTIALS=true
 ```
 
 Empty `CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS` disables LAN wildcards; only exact
 origins remain. If web and API share the same origin behind a reverse proxy,
 CORS is unused by the browser but these settings remain harmless.
+
+The refresh cookie defaults to `SameSite=Lax`. For an HTTPS web client hosted
+on a different site from the API, explicitly set `REFRESH_COOKIE_SECURE=true`
+and `REFRESH_COOKIE_SAME_SITE=None`, enable credentials, configure only exact
+HTTPS origins, and leave origin patterns empty. Invalid combinations fail
+startup. Cookie-changing auth endpoints require the session-intent header and
+validate every supplied browser Origin against the exact list; Android sends
+the same header without an Origin.
 
 ## Note
 The actual **login / logout / session** endpoints and flow live in the `auth` package.

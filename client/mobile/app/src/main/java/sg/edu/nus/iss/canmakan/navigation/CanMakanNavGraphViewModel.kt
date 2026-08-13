@@ -327,18 +327,18 @@ class CanMakanNavGraphViewModel @Inject constructor(
         }
         if (activeProfileManager.isCurrent(accountKey, profileId)) return
 
-        val expectedSelection = activeProfileManager.selection.value
+        val previousProfileId = activeProfileManager.currentProfileId.value
+            .takeIf { it > ActiveProfileManager.UNSET_PROFILE_ID }
         switchJob?.cancel()
         val generation = ++switchGeneration
+        _switchProfileError.value = null
+        // Optimistic highlight; roll back only if this attempt's PUT fails while still selected.
+        applyActiveProfileId(accountKey, profileId)
         switchJob = viewModelScope.launch {
             _isSwitchingProfile.value = true
-            _switchProfileError.value = null
             try {
                 val selected = familyProfileRepository.setActiveProfile(profileId)
-                if (!isCurrentAccount(accountKey) ||
-                    generation != switchGeneration ||
-                    activeProfileManager.selection.value != expectedSelection
-                ) return@launch
+                if (!isCurrentAccount(accountKey) || generation != switchGeneration) return@launch
                 require(selected.profileId == profileId && selected.profileId > 0) {
                     "Active-profile update returned an unexpected profile id."
                 }
@@ -348,6 +348,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
             } catch (exception: CreateFamilyException) {
                 if (!isCurrentAccount(accountKey) || generation != switchGeneration) return@launch
                 Timber.w(exception, "Switch profile failed")
+                rollbackOptimisticSwitch(accountKey, profileId, previousProfileId)
                 _switchProfileError.value = when (exception.statusCode) {
                     403 -> "That profile is not in your family circle."
                     409 -> "That profile is inactive and cannot be selected."
@@ -356,6 +357,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
             } catch (exception: Exception) {
                 if (!isCurrentAccount(accountKey) || generation != switchGeneration) return@launch
                 Timber.w(exception, "Switch profile failed")
+                rollbackOptimisticSwitch(accountKey, profileId, previousProfileId)
                 _switchProfileError.value =
                     "Could not switch profile. Check your connection and try again."
             } finally {
@@ -363,6 +365,17 @@ class CanMakanNavGraphViewModel @Inject constructor(
                     _isSwitchingProfile.value = false
                 }
             }
+        }
+    }
+
+    private fun rollbackOptimisticSwitch(
+        accountKey: AuthAccountKey,
+        attemptedProfileId: Long,
+        previousProfileId: Long?,
+    ) {
+        if (!activeProfileManager.isCurrent(accountKey, attemptedProfileId)) return
+        if (previousProfileId != null && previousProfileId > ActiveProfileManager.UNSET_PROFILE_ID) {
+            applyActiveProfileId(accountKey, previousProfileId)
         }
     }
 

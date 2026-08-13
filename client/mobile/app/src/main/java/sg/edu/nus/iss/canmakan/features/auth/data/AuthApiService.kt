@@ -47,7 +47,10 @@ data class AuthResponse(
 }
 
 interface AuthApiService {
-    @Headers("X-CanMakan-No-Retry: true")
+    @Headers(
+        "X-CanMakan-No-Retry: true",
+        "X-CanMakan-Session-Request: 1",
+    )
     @POST("auth/login")
     suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
 
