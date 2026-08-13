@@ -30,11 +30,17 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
+      - name: Resolve Comparison Base
+        id: base
+        run: |
+          BASE_SHA="$(git rev-parse '${{ github.event.workflow_run.head_sha }}^1')"
+          echo "sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+
       - name: Detect File Changes
         uses: dorny/paths-filter@v4
         id: filter
         with:
-          base: ${{ github.event.workflow_run.head_sha }}~1
+          base: ${{ steps.base.outputs.sha }}
           ref: ${{ github.event.workflow_run.head_sha }}
           filters: |
             web:
