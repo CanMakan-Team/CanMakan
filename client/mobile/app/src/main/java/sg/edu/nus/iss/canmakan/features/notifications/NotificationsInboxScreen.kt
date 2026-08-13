@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.family.ui
+package sg.edu.nus.iss.canmakan.features.notifications
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,11 +43,11 @@ import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 /**
- * Authenticated notifications inbox (top-bar bell).
+ * Account-wide notifications inbox (top-bar bell).
  * Currently lists family invitations; other notice types can share this screen later.
  */
 @Composable
-fun InvitationsScreen(
+fun NotificationsInboxScreen(
     activeProfile: DietaryProfile?,
     hasFamily: Boolean = false,
     onMenuClick: () -> Unit,
@@ -56,7 +56,7 @@ fun InvitationsScreen(
     onHistoryClick: () -> Unit,
     onBackClick: () -> Unit = {},
     onAccepted: () -> Unit = {},
-    viewModel: InvitationsViewModel = hiltViewModel(),
+    viewModel: NotificationsInboxViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val hasInvitations = uiState.invitations.isNotEmpty()
@@ -152,7 +152,7 @@ fun InvitationsScreen(
                         items = uiState.invitations,
                         key = { it.invitationId },
                     ) { invitation ->
-                        InvitationCard(
+                        FamilyInvitationNotificationCard(
                             invitation = invitation,
                             isActing = uiState.actingToken == invitation.invitationToken,
                             onAccept = {
@@ -186,7 +186,7 @@ fun InvitationsScreen(
 }
 
 @Composable
-private fun InvitationCard(
+private fun FamilyInvitationNotificationCard(
     invitation: PendingInvitationResponse,
     isActing: Boolean,
     onAccept: () -> Unit,

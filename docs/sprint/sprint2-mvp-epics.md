@@ -615,7 +615,7 @@ UC19, UC8, UC1 · Related: UC10
 **Current code state:** Complete (MVP ACs) — **UC10-S1–S4 shipped** (inbox list/accept/decline + Resend optional; web inbox still optional residual)
 
 - **Backend:** `GET /api/invitations/me`, `POST /api/invitations/{token}/accept|decline`; claim path aligned (403 mismatch, 410 expired, 409 final/already-in-family). Optional Resend email on invite create when configured.
-- **Mobile:** Top-bar **Notifications** → `InvitationsScreen` (loading/empty/error; Accept/Decline). UC9 deep-link claim remains.
+- **Mobile:** Top-bar **Notifications** → `NotificationsInboxScreen` (loading/empty/error; Accept/Decline). UC9 deep-link claim remains.
 - **Web:** `/invite/:token` claim path remains; full inbox UI still optional.
 - **Workflow:** Invite → join diagram and path table in [`docs/api/families.md`](../api/families.md#invite--join-workflow-uc9--uc10).
 - **Out of this epic:** Creating invitations (UC9); web inbox parity.

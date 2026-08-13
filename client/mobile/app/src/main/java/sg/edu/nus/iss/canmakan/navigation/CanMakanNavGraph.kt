@@ -50,7 +50,7 @@ import sg.edu.nus.iss.canmakan.features.family.ui.CreateFamilyCircleScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.CreateNewProfileScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryViewModel
-import sg.edu.nus.iss.canmakan.features.family.ui.InvitationsScreen
+import sg.edu.nus.iss.canmakan.features.notifications.NotificationsInboxScreen
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
@@ -419,7 +419,7 @@ fun CanMakanNavGraph(
                 )
             }
             composable(ROUTE_NOTIFICATIONS) {
-                InvitationsScreen(
+                NotificationsInboxScreen(
                     activeProfile = activeProfile,
                     hasFamily = hasFamily,
                     onMenuClick = { openDrawer() },
