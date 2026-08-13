@@ -105,7 +105,7 @@ class RegistrationViewModelTest {
 
         assertEquals("person@example.com", pendingOnboardingStore.peek()?.accountEmail)
         assertEquals(
-            listOf("accountEmail", "requestId"),
+            listOf("accountEmail", "accountName", "requestId"),
             pendingOnboardingStore.peek()!!::class.java.declaredFields
                 .filterNot { it.isSynthetic || it.name.startsWith("$") }
                 .map { it.name },
@@ -140,6 +140,7 @@ class RegistrationViewModelTest {
     @Test
     fun requestNormalizesEmailButPreservesPasswordExactly() {
         val password = "  KeepCase Password1!  "
+        viewModel.updateName("  Person Name  ")
         viewModel.updateEmail("  Person@Example.COM  ")
         viewModel.updatePassword(password)
         viewModel.updateConfirmPassword(password)
@@ -148,6 +149,7 @@ class RegistrationViewModelTest {
         viewModel.createAccount()
         testDispatcher.scheduler.advanceUntilIdle()
 
+        assertEquals("Person Name", repository.lastName)
         assertEquals("person@example.com", repository.lastEmail)
         assertEquals(password, repository.lastPassword)
     }
@@ -194,7 +196,19 @@ class RegistrationViewModelTest {
         assertTrue(rendered.contains("password=<redacted>"))
     }
 
+    @Test
+    fun accountValidationRejectsAMissingNameAndKeepsTheEnteredEmailAndPassword() {
+        viewModel.updateEmail("person@example.com")
+        viewModel.updatePassword("Password1!")
+        viewModel.updateConfirmPassword("Password1!")
+        viewModel.continueToDietaryProfile()
+
+        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals("Name is required.", viewModel.uiState.value.nameError)
+    }
+
     private fun enterValidAccountInformation() {
+        viewModel.updateName("  Person Name  ")
         viewModel.updateEmail("  Person@Example.COM  ")
         viewModel.updatePassword("Password1!")
         viewModel.updateConfirmPassword("Password1!")
@@ -207,14 +221,17 @@ class RegistrationViewModelTest {
         )
         var gate: CompletableDeferred<Unit>? = null
         var callCount = 0
+        var lastName: String? = null
         var lastEmail: String? = null
         var lastPassword: String? = null
 
         override suspend fun register(
+            name: String,
             email: String,
             password: String,
         ): RegistrationResult {
             callCount++
+            lastName = name
             lastEmail = email
             lastPassword = password
             gate?.await()

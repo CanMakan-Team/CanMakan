@@ -4,6 +4,7 @@ data class AuthenticatedUser(
     val userId: Long,
     val email: String,
     val role: AuthRole,
+    val name: String? = null,
 )
 
 data class AuthenticatedSession(

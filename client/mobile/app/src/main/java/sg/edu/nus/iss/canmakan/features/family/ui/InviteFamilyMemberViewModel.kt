@@ -13,28 +13,25 @@ import sg.edu.nus.iss.canmakan.features.auth.session.AuthAccountKey
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
-import sg.edu.nus.iss.canmakan.features.family.data.InvitationResponse
-import sg.edu.nus.iss.canmakan.features.family.data.UserSearchResponse
 import javax.inject.Inject
 
-data class AddProfileToFamilyUiState(
+data class InviteFamilyMemberUiState(
     val email: String = "",
-    val isSearching: Boolean = false,
     val isInviting: Boolean = false,
-    val searchResult: UserSearchResponse? = null,
-    val invitation: InvitationResponse? = null,
+    /** One-shot success; screen consumes then clears via [InviteFamilyMemberViewModel.consumeInviteResult]. */
+    val inviteSucceeded: Boolean = false,
+    val emailSent: Boolean = false,
     val errorMessage: String? = null,
 )
 
 @HiltViewModel
-class AddProfileToFamilyViewModel @Inject constructor(
+class InviteFamilyMemberViewModel @Inject constructor(
     private val familyProfileRepository: FamilyProfileRepository,
     private val authSessionStore: AuthSessionStore,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(AddProfileToFamilyUiState())
-    val uiState: StateFlow<AddProfileToFamilyUiState> = _uiState.asStateFlow()
-    private var searchJob: Job? = null
+    private val _uiState = MutableStateFlow(InviteFamilyMemberUiState())
+    val uiState: StateFlow<InviteFamilyMemberUiState> = _uiState.asStateFlow()
     private var inviteJob: Job? = null
     private var accountObserved = false
     private var observedAccountKey: AuthAccountKey? = null
@@ -50,51 +47,12 @@ class AddProfileToFamilyViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             email = email,
             errorMessage = null,
-            invitation = null,
+            inviteSucceeded = false,
+            emailSent = false,
         )
     }
 
-    fun search() {
-        val accountKey = authSessionStore.accountKey.value
-        if (accountKey == null) {
-            bindAccount(null)
-            _uiState.value = _uiState.value.copy(errorMessage = "Sign in before searching.")
-            return
-        }
-        bindAccount(accountKey)
-        val email = _uiState.value.email.trim()
-        if (email.isBlank()) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Enter an email address.")
-            return
-        }
-        searchJob?.cancel()
-        searchJob = viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isSearching = true,
-                errorMessage = null,
-                searchResult = null,
-                invitation = null,
-            )
-            try {
-                val result = familyProfileRepository.searchUserByEmail(email)
-                if (!isCurrentAccount(accountKey)) return@launch
-                _uiState.value = _uiState.value.copy(
-                    isSearching = false,
-                    searchResult = result,
-                )
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                if (!isCurrentAccount(accountKey)) return@launch
-                _uiState.value = _uiState.value.copy(
-                    isSearching = false,
-                    errorMessage = exception.message ?: "Search failed.",
-                )
-            }
-        }
-    }
-
-    fun createInvite() {
+    fun invite() {
         val accountKey = authSessionStore.accountKey.value
         if (accountKey == null) {
             bindAccount(null)
@@ -109,13 +67,19 @@ class AddProfileToFamilyViewModel @Inject constructor(
         }
         inviteJob?.cancel()
         inviteJob = viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isInviting = true, errorMessage = null)
+            _uiState.value = _uiState.value.copy(
+                isInviting = true,
+                errorMessage = null,
+                inviteSucceeded = false,
+                emailSent = false,
+            )
             try {
                 val invitation = familyProfileRepository.createInvitation(email)
                 if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     isInviting = false,
-                    invitation = invitation,
+                    inviteSucceeded = true,
+                    emailSent = invitation.emailSent,
                 )
             } catch (exception: CancellationException) {
                 throw exception
@@ -135,14 +99,20 @@ class AddProfileToFamilyViewModel @Inject constructor(
         }
     }
 
+    fun consumeInviteResult() {
+        _uiState.value = _uiState.value.copy(
+            inviteSucceeded = false,
+            emailSent = false,
+        )
+    }
+
     private fun isCurrentAccount(accountKey: AuthAccountKey): Boolean =
         authSessionStore.accountKey.value == accountKey
 
     private fun bindAccount(accountKey: AuthAccountKey?) {
         if (accountObserved && observedAccountKey == accountKey) return
-        searchJob?.cancel()
         inviteJob?.cancel()
-        _uiState.value = AddProfileToFamilyUiState()
+        _uiState.value = InviteFamilyMemberUiState()
         observedAccountKey = accountKey
         accountObserved = true
     }

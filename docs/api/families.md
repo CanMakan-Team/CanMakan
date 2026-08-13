@@ -301,10 +301,14 @@ outside the family.
 
 ```mermaid
 flowchart TD
-  Admin[PRIMARY_ADMIN creates PENDING invite] --> Share[Share link/code or Resend email]
-  Share --> PathA[New user: register, then login with token preserved]
-  Share --> PathB[Existing user: open link then login/claim]
-  Share --> PathC[Already logged in: Notifications inbox]
+  Admin[PRIMARY_ADMIN creates PENDING invite] --> Email[Resend email when enabled]
+  Admin --> Share[Share link or code]
+  Email --> PathA[New user: register, then login with token preserved]
+  Share --> PathA
+  Email --> PathB[Existing user: open link then login/claim]
+  Share --> PathB
+  Email --> PathC[Already logged in: Notifications inbox]
+  Share --> PathC
   PathA --> Join[MEMBER + SELF profile + ACCEPTED]
   PathB --> Join
   PathC --> Join
@@ -333,7 +337,7 @@ household profile context for scanning (active-profile persistence is UC11).
 ```
 
 Creates a `PENDING` invitation for a **registered or unknown** email. Does **not**
-insert `family_members`. Response includes shareable fields:
+insert `family_members`. Response includes shareable fields and email status:
 
 ```json
 {
@@ -344,16 +348,25 @@ insert `family_members`. Response includes shareable fields:
   "inviteUrl": "http://localhost:5173/invite/<opaque>",
   "status": "PENDING",
   "expiresAt": "2026-08-16T00:00:00Z",
-  "inviteeRegistered": false
+  "inviteeRegistered": false,
+  "emailSent": true
 }
 ```
 
 `inviteUrl` base comes from `canmakan.invites.public-base-url` (default local Vite).
 
-When Resend is enabled (`canmakan.email.resend.enabled=true` and a non-blank
-`canmakan.email.resend.api-key`), the server also emails the invitee after create.
-Email failures are logged and do **not** fail the create response; shareable
-`inviteUrl` / `inviteCode` remain available.
+When Resend is enabled (`canmakan.email.resend.enabled=true` / env
+`CANMAKAN_EMAIL_RESEND_ENABLED=true`, non-blank `CANMAKAN_EMAIL_RESEND_API_KEY`, and
+`CANMAKAN_EMAIL_RESEND_FROM`), the server emails the invitee after create using the
+standard HTML template (family name, accept link, invite code, expiry). Set
+`CANMAKAN_INVITES_PUBLIC_BASE_URL` to the public web origin used in accept links.
+
+`emailSent` is `true` only when Resend accepted the send. Email failures or a disabled
+provider are logged and do **not** fail the create response (`emailSent: false`);
+shareable `inviteUrl` / `inviteCode` remain available.
+
+Mobile invite UI calls this endpoint directly (Cancel / Invite). HTTP **409** messages
+are shown as red inline errors (already in a family circle, or duplicate PENDING).
 
 | Status | Meaning |
 | --- | --- |

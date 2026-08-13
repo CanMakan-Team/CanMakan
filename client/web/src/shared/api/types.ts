@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Setting up the DTO interfaces to match the backend payloads,
  * {RegistrationResponse, AuthLoginResponse, FamilyMe, FamilyMember, FamilyProfileInput, ActiveProfile, ExistingUserSearchResult, InvitationResponse, DependantProfileResponse, ScanVerdict, Verdict, DataCompleteness, ScanRecord, ConsumerTrendResponse}
  * from backend/auth/dto
@@ -159,6 +159,7 @@ export interface InvitationResponse {
   status: string // status of the invitation
   expiresAt: string // timestamp of the expiration
   inviteeRegistered: boolean // true if the invited user is registered
+  emailSent: boolean // true if Resend accepted the invitation email
 }
 
 // Define the dependant profile response type

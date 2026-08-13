@@ -45,19 +45,21 @@ import sg.edu.nus.iss.canmakan.features.product.history.ui.HistoryScreen
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.features.product.scan.ScannerScreen
 import sg.edu.nus.iss.canmakan.features.product.verdict.ProductDetailScreen
-import sg.edu.nus.iss.canmakan.features.family.ui.AddProfileToFamilyScreen
+import sg.edu.nus.iss.canmakan.features.family.ui.CreateDependantProfileScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.CreateFamilyCircleScreen
-import sg.edu.nus.iss.canmakan.features.family.ui.CreateNewProfileScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryViewModel
+import sg.edu.nus.iss.canmakan.features.family.ui.InviteFamilyMemberScreen
+import sg.edu.nus.iss.canmakan.features.family.ui.ManageFamilyScreen
 import sg.edu.nus.iss.canmakan.features.notifications.NotificationsInboxScreen
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
 private const val ROUTE_PRODUCT_DETAIL = "product_detail"
 private const val ROUTE_CREATE_FAMILY = "create_family"
-private const val ROUTE_CREATE_NEW = "create_new"
-private const val ROUTE_ADD_PROFILE = "add_profile"
+private const val ROUTE_MANAGE_FAMILY = "family/manage"
+private const val ROUTE_INVITE_MEMBER = "family/invite"
+private const val ROUTE_DEPENDANT_PROFILE = "family/dependant"
 private const val ROUTE_NOTIFICATIONS = "notifications"
 
 /* The top-level screen. It wires together the navigation between the
@@ -209,13 +211,9 @@ fun CanMakanNavGraph(
                         navGraphViewModel.clearCreateFamilyError()
                         navController.navigate(ROUTE_CREATE_FAMILY)
                     },
-                    onCreateNewClick = {
+                    onManageFamilyClick = {
                         closeDrawer()
-                        navController.navigate(ROUTE_CREATE_NEW)
-                    },
-                    onAddProfileClick = {
-                        closeDrawer()
-                        navController.navigate(ROUTE_ADD_PROFILE)
+                        navController.navigate(ROUTE_MANAGE_FAMILY)
                     },
                 )
             }
@@ -320,7 +318,9 @@ fun CanMakanNavGraph(
                     profiles = profiles,
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
-                    onNavigateToEditMembers = { navController.popBackStack() }
+                    onNavigateToEditMembers = {
+                        navController.navigate(ROUTE_MANAGE_FAMILY)
+                    },
                 )
             }
             composable(ROUTE_HISTORY) {
@@ -395,8 +395,19 @@ fun CanMakanNavGraph(
                     )
                 }
             }
-            composable(ROUTE_CREATE_NEW) {
-                CreateNewProfileScreen(
+            composable(ROUTE_MANAGE_FAMILY) {
+                ManageFamilyScreen(
+                    onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
+                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
+                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onBackClick = { navController.popBackStack() },
+                    onInviteClick = { navController.navigate(ROUTE_INVITE_MEMBER) },
+                    onDependantClick = { navController.navigate(ROUTE_DEPENDANT_PROFILE) },
+                )
+            }
+            composable(ROUTE_DEPENDANT_PROFILE) {
+                CreateDependantProfileScreen(
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
@@ -411,8 +422,8 @@ fun CanMakanNavGraph(
                     },
                 )
             }
-            composable(ROUTE_ADD_PROFILE) {
-                AddProfileToFamilyScreen(
+            composable(ROUTE_INVITE_MEMBER) {
+                InviteFamilyMemberScreen(
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
@@ -422,7 +433,7 @@ fun CanMakanNavGraph(
                     onInviteCreated = {
                         navController.popBackStack()
                         navGraphViewModel.refreshRestrictions()
-                    }
+                    },
                 )
             }
             composable(ROUTE_NOTIFICATIONS) {

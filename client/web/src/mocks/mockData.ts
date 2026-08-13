@@ -137,7 +137,7 @@ export const scanRecords: ScanRecord[] = [
     verdict: 'WARNING',
     detectedIngredient: 'Milk solids',
     resolvedIngredient: 'Milk',
-    matchedRestriction: 'Dairy Free',
+    matchedRestriction: 'Lactose Intolerance',
     explanation:
       'The supplied assessment identified a dairy ingredient relevant to this profile.',
     dataCompleteness: 'PARTIAL',

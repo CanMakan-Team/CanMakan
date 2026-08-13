@@ -10,13 +10,13 @@ package sg.edu.nus.iss.canmakan.features.family.model
  * This set and its display names intentionally mirror the web app's
  * `Relationship` type (client/web/src/shared/api/types.ts) and
  * `relationshipOptions` (client/web/src/features/family/lib/profileOptions.ts),
- * minus `SELF`: only the family admin can reach the Create New Family Member
+ * minus `SELF`: only the family admin can reach the Add dependant profile
  * screen, and `SELF` is auto-assigned by the backend to the admin's own
  * profile rather than something chosen for a dependant. Keep the remaining
  * values in sync with web by hand if either list changes.
  *
  * Declaration order is also the display order used in the "Relationship to
- * Admin" dropdown on the Create New Family Member screen.
+ * Admin" dropdown on the Add dependant profile screen.
  */
 enum class RelationshipToAdmin(val displayName: String) {
     SPOUSE("Spouse"),

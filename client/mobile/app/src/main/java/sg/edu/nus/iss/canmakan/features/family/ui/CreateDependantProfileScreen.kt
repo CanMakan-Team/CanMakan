@@ -1,10 +1,8 @@
 package sg.edu.nus.iss.canmakan.features.family.ui
 
 import android.widget.Toast
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -38,7 +35,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,24 +43,17 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import sg.edu.nus.iss.canmakan.features.family.model.RelationshipToAdmin
-import sg.edu.nus.iss.canmakan.features.product.model.ScanHistoryEntry
-import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
-import sg.edu.nus.iss.canmakan.shared.ui.StatusBadge
-import sg.edu.nus.iss.canmakan.shared.ui.statusAccentColor
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
-import sg.edu.nus.iss.canmakan.shared.ui.theme.CardWhite
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
-import sg.edu.nus.iss.canmakan.shared.ui.theme.WarningAmber
-import sg.edu.nus.iss.canmakan.shared.util.toScanHistoryDisplayString
 
 /** Creates a dependant dietary profile (no login) via POST /families/me/profiles. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreateNewProfileScreen(
+fun CreateDependantProfileScreen(
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
@@ -72,14 +61,14 @@ fun CreateNewProfileScreen(
     onBackClick: () -> Unit = {},
     onCancelClick: () -> Unit = {},
     onCreated: () -> Unit = {},
-    viewModel: CreateNewProfileViewModel = hiltViewModel(),
+    viewModel: CreateDependantProfileViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     LaunchedEffect(uiState.created) {
         if (uiState.created) {
-            Toast.makeText(context, "New family member created successfully.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Dependant profile created successfully.", Toast.LENGTH_SHORT).show()
             delay(1500)
             onCreated()
         }
@@ -125,7 +114,7 @@ fun CreateNewProfileScreen(
             }
 
             Text(
-                text = "Create New Family Member",
+                text = "Add dependant profile",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
             )
@@ -137,7 +126,7 @@ fun CreateNewProfileScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            FormLabel(text = "Name of family member", isRequired = true)
+            DependantFormLabel(text = "Name of family member", isRequired = true)
             Spacer(modifier = Modifier.height(6.dp))
             OutlinedTextField(
                 value = uiState.profileName,
@@ -150,7 +139,7 @@ fun CreateNewProfileScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            FormLabel(text = "Relationship to Admin", isRequired = true)
+            DependantFormLabel(text = "Relationship to Admin", isRequired = true)
             Spacer(modifier = Modifier.height(6.dp))
             var relationshipMenuExpanded by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(
@@ -223,7 +212,7 @@ fun CreateNewProfileScreen(
                     modifier = Modifier.weight(1f),
                     enabled = !uiState.isSubmitting,
                 ) {
-                    Text(if (uiState.isSubmitting) "Creating…" else "Create Member")
+                    Text(if (uiState.isSubmitting) "Creating…" else "Create profile")
                 }
             }
         }
@@ -231,52 +220,12 @@ fun CreateNewProfileScreen(
 }
 
 @Composable
-private fun FormLabel(text: String, isRequired: Boolean) {
+private fun DependantFormLabel(text: String, isRequired: Boolean) {
     Row {
         Text(text = text, fontWeight = FontWeight.Medium)
         if (isRequired) {
             Spacer(modifier = Modifier.width(2.dp))
             Text(text = "*", color = AvoidRed)
-        }
-    }
-}
-
-@Composable
-fun ScanHistoryRow(entry: ScanHistoryEntry, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(CardWhite)
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .width(4.dp)
-                .height(56.dp)
-                .background(statusAccentColor(entry.verdict)),
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-        ) {
-            Text(entry.product.displayName, fontWeight = FontWeight.Medium)
-            Text(
-                text = listOfNotNull(
-                    entry.product.displayBrand.takeIf { it.isNotEmpty() },
-                    entry.scannedAt.toScanHistoryDisplayString(),
-                ).joinToString(" \u00B7 "),
-                color = TextSecondary,
-            )
-            entry.aiExplanation?.takeIf { it.isNotBlank() }?.let { note ->
-                val noteColor = if (entry.verdict == ScanVerdict.UNSAFE) AvoidRed else WarningAmber
-                Text(note, color = noteColor)
-            }
-        }
-        Box(modifier = Modifier.padding(end = 12.dp)) {
-            StatusBadge(status = entry.verdict)
         }
     }
 }

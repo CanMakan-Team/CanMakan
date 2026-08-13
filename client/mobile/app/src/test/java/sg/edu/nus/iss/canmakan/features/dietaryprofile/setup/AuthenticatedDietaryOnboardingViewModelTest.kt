@@ -26,11 +26,14 @@ import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.Dietary
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.ExistingSelfProfileResolver
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.ProfileRestrictionSeverity
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.SelfProfileRepository
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.SelfProfileResponse
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.SelfProfileSetupResult
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 
+/**
+ * Registration always creates the account's linked SELF profile up front, so this screen
+ * only ever resolves that existing profile id and calls the same [DietaryRestrictionRepository]
+ * methods [sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DietaryRestrictionViewModel]
+ * (backing DietaryRestrictionSheet) uses — no self-profile creation call is involved here.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AuthenticatedDietaryOnboardingViewModelTest {
     private val dispatcher = StandardTestDispatcher()
@@ -38,7 +41,6 @@ class AuthenticatedDietaryOnboardingViewModelTest {
     private lateinit var sessionStore: AuthSessionStore
     private lateinit var pendingStore: PendingOnboardingStore
     private lateinit var dietaryRepository: FakeDietaryRepository
-    private lateinit var selfProfileRepository: FakeSelfProfileRepository
     private lateinit var existingResolver: FakeExistingProfileResolver
     private lateinit var activeProfileManager: ActiveProfileManager
     private lateinit var viewModel: AuthenticatedDietaryOnboardingViewModel
@@ -53,7 +55,6 @@ class AuthenticatedDietaryOnboardingViewModelTest {
             it.requestDietarySetup("person@example.com")
         }
         dietaryRepository = FakeDietaryRepository()
-        selfProfileRepository = FakeSelfProfileRepository()
         existingResolver = FakeExistingProfileResolver()
         activeProfileManager = ActiveProfileManager()
         viewModel = newViewModel()
@@ -72,8 +73,8 @@ class AuthenticatedDietaryOnboardingViewModelTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(1, dietaryRepository.catalogCalls)
+        assertEquals(1, existingResolver.calls)
         assertEquals(3, viewModel.uiState.value.restrictions.size)
-        assertEquals("", viewModel.uiState.value.profileName)
     }
 
     @Test
@@ -92,39 +93,48 @@ class AuthenticatedDietaryOnboardingViewModelTest {
     }
 
     @Test
-    fun successfulSetupUsesCatalogIdsSwitchesProfileAndKeepsSession() {
+    fun profileResolutionFailureSurfacesLoadErrorAndSkipsCatalogFetch() {
+        existingResolver.failure = IllegalStateException("not resolvable")
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
-        viewModel.updateProfileName("Person Name")
+
+        assertEquals(0, dietaryRepository.catalogCalls)
+        assertTrue(
+            viewModel.uiState.value.errorMessage?.contains("Unable to load dietary options") == true,
+        )
+    }
+
+    @Test
+    fun successfulSaveUsesResolvedProfileIdSwitchesProfileAndKeepsSession() {
+        existingResolver.profileId = 88L
+        viewModel.beginPendingSetup()
+        dispatcher.scheduler.advanceUntilIdle()
         viewModel.toggleRestriction(2L)
         viewModel.setSeverity(2L, ProfileRestrictionSeverity.INTOLERANCE)
 
-        viewModel.createProfile()
+        viewModel.saveRestrictions()
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals("Person Name", selfProfileRepository.lastProfileName)
-        assertEquals(
-            mapOf(2L to ProfileRestrictionSeverity.INTOLERANCE),
-            selfProfileRepository.lastRestrictions,
-        )
-        assertEquals(77L, activeProfileManager.currentProfileId.value)
+        assertEquals(1, dietaryRepository.saveCalls)
+        assertEquals(88L, dietaryRepository.lastSavedProfileId)
+        assertEquals(mapOf(2L to "INTOLERANCE"), dietaryRepository.lastSavedSelections)
+        assertEquals(88L, activeProfileManager.currentProfileId.value)
         assertNull(pendingStore.peek())
         assertEquals(TEST_ACCESS_TOKEN, sessionStore.currentAccessToken())
         assertTrue(viewModel.uiState.value.resolved)
     }
 
     @Test
-    fun setupFailureKeepsIntentSessionAndUnsetActiveProfile() {
-        selfProfileRepository.result = SelfProfileSetupResult.Failure("Try again")
+    fun saveFailureKeepsIntentSessionAndUnsetActiveProfile() {
+        dietaryRepository.saveResult = false
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
-        viewModel.updateProfileName("Person Name")
         viewModel.toggleRestriction(2L)
 
-        viewModel.createProfile()
+        viewModel.saveRestrictions()
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals("Try again", viewModel.uiState.value.errorMessage)
+        assertTrue(viewModel.uiState.value.errorMessage?.contains("Unable to save") == true)
         assertEquals("person@example.com", pendingStore.peek()?.accountEmail)
         assertEquals(TEST_ACCESS_TOKEN, sessionStore.currentAccessToken())
         assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
@@ -132,42 +142,15 @@ class AuthenticatedDietaryOnboardingViewModelTest {
     }
 
     @Test
-    fun conflictResolvesExistingActiveProfileInsteadOfRetryingCreate() {
-        selfProfileRepository.result = SelfProfileSetupResult.AlreadyExists
-        existingResolver.profileId = 88L
+    fun emptySelectionDoesNotSave() {
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
-        viewModel.updateProfileName("Person Name")
-        viewModel.toggleRestriction(2L)
 
-        viewModel.createProfile()
+        viewModel.saveRestrictions()
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals(1, selfProfileRepository.calls)
-        assertEquals(1, existingResolver.calls)
-        assertEquals(1, dietaryRepository.saveCalls)
-        assertEquals(88L, dietaryRepository.lastSavedProfileId)
-        assertEquals(mapOf(2L to "STRICT_AVOID"), dietaryRepository.lastSavedSelections)
-        assertEquals(88L, activeProfileManager.currentProfileId.value)
-        assertNull(pendingStore.peek())
-        assertTrue(viewModel.uiState.value.resolved)
-    }
-
-    @Test
-    fun unresolvedConflictKeepsPendingStateAndDoesNotInventProfileId() {
-        selfProfileRepository.result = SelfProfileSetupResult.AlreadyExists
-        existingResolver.failure = IllegalStateException("not resolvable")
-        viewModel.beginPendingSetup()
-        dispatcher.scheduler.advanceUntilIdle()
-        viewModel.updateProfileName("Person Name")
-        viewModel.toggleRestriction(2L)
-
-        viewModel.createProfile()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
-        assertEquals("person@example.com", pendingStore.peek()?.accountEmail)
-        assertTrue(viewModel.uiState.value.errorMessage?.contains("could not be resolved") == true)
+        assertEquals(0, dietaryRepository.saveCalls)
+        assertTrue(viewModel.uiState.value.errorMessage?.contains("Select at least one") == true)
     }
 
     @Test
@@ -183,94 +166,18 @@ class AuthenticatedDietaryOnboardingViewModelTest {
     }
 
     @Test
-    fun failedRestrictionSaveAfterConflictKeepsPendingAndDoesNotSwitchProfile() {
-        selfProfileRepository.result = SelfProfileSetupResult.AlreadyExists
-        existingResolver.profileId = 88L
-        dietaryRepository.saveResult = false
-        viewModel.beginPendingSetup()
-        dispatcher.scheduler.advanceUntilIdle()
-        viewModel.updateProfileName("Person Name")
-        viewModel.toggleRestriction(2L)
-
-        viewModel.createProfile()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
-        assertEquals("person@example.com", pendingStore.peek()?.accountEmail)
-        assertTrue(viewModel.uiState.value.errorMessage?.contains("could not be saved") == true)
-    }
-
-    @Test
-    fun emptySelectionDoesNotCreateAnEmptyProfile() {
-        viewModel.beginPendingSetup()
-        dispatcher.scheduler.advanceUntilIdle()
-        viewModel.updateProfileName("Person Name")
-
-        viewModel.createProfile()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(0, selfProfileRepository.calls)
-        assertTrue(viewModel.uiState.value.errorMessage?.contains("Select at least one") == true)
-    }
-
-    @Test
-    fun laterSetupAcceptsAnExplicitProfileNameBeforeCreate() {
-        pendingStore.requestDietarySetup("person@example.com")
-        viewModel = newViewModel()
-        viewModel.beginPendingSetup()
-        dispatcher.scheduler.advanceUntilIdle()
-        viewModel.updateProfileName("  Later Name  ")
-        viewModel.toggleRestriction(3L)
-
-        viewModel.createProfile()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals("Later Name", selfProfileRepository.lastProfileName)
-        assertEquals(77L, activeProfileManager.currentProfileId.value)
-        assertNull(pendingStore.peek())
-    }
-
-    @Test
-    fun profileNameLength100IsAcceptedAnd101IsBlocked() {
+    fun logoutWhileSavingIsInFlightCannotSwitchProfile() {
+        dietaryRepository.gate = CompletableDeferred()
+        dietaryRepository.ignoreCancellation = true
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
         viewModel.toggleRestriction(2L)
-        viewModel.updateProfileName("a".repeat(100))
-
-        viewModel.createProfile()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(1, selfProfileRepository.calls)
-
-        pendingStore.requestDietarySetup("person@example.com")
-        viewModel = newViewModel()
-        viewModel.beginPendingSetup()
-        dispatcher.scheduler.advanceUntilIdle()
-        viewModel.updateProfileName("Person Name")
-        viewModel.toggleRestriction(2L)
-        viewModel.updateProfileName("b".repeat(101))
-
-        viewModel.createProfile()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(1, selfProfileRepository.calls)
-        assertTrue(viewModel.uiState.value.errorMessage?.contains("100") == true)
-    }
-
-    @Test
-    fun logoutWhileCreationIsInFlightCannotSwitchProfile() {
-        selfProfileRepository.gate = CompletableDeferred()
-        selfProfileRepository.ignoreCancellation = true
-        viewModel.beginPendingSetup()
-        dispatcher.scheduler.advanceUntilIdle()
-        viewModel.updateProfileName("Person Name")
-        viewModel.toggleRestriction(2L)
-        viewModel.createProfile()
+        viewModel.saveRestrictions()
         dispatcher.scheduler.runCurrent()
 
         sessionStore.clearSession()
         dispatcher.scheduler.runCurrent()
-        selfProfileRepository.gate?.complete(Unit)
+        dietaryRepository.gate?.complete(Unit)
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
@@ -278,20 +185,19 @@ class AuthenticatedDietaryOnboardingViewModelTest {
     }
 
     @Test
-    fun staleCreationResultCannotClearNewAccountsOnboarding() {
-        selfProfileRepository.gate = CompletableDeferred()
-        selfProfileRepository.ignoreCancellation = true
+    fun staleSaveResultCannotClearNewAccountsOnboarding() {
+        dietaryRepository.gate = CompletableDeferred()
+        dietaryRepository.ignoreCancellation = true
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
-        viewModel.updateProfileName("Person Name")
         viewModel.toggleRestriction(2L)
-        viewModel.createProfile()
+        viewModel.saveRestrictions()
         dispatcher.scheduler.runCurrent()
 
         sessionStore.saveSession(sessionFor(22L, "other@example.com"))
         pendingStore.requestDietarySetup("other@example.com")
         dispatcher.scheduler.runCurrent()
-        selfProfileRepository.gate?.complete(Unit)
+        dietaryRepository.gate?.complete(Unit)
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
@@ -299,19 +205,18 @@ class AuthenticatedDietaryOnboardingViewModelTest {
     }
 
     @Test
-    fun staleCreationCannotClearOrSwitchPastNewerSameAccountIntent() {
-        selfProfileRepository.gate = CompletableDeferred()
-        selfProfileRepository.ignoreCancellation = true
+    fun staleSaveCannotClearOrSwitchPastNewerSameAccountIntent() {
+        dietaryRepository.gate = CompletableDeferred()
+        dietaryRepository.ignoreCancellation = true
         viewModel.beginPendingSetup()
         dispatcher.scheduler.advanceUntilIdle()
-        viewModel.updateProfileName("Person Name")
         viewModel.toggleRestriction(2L)
-        viewModel.createProfile()
+        viewModel.saveRestrictions()
         dispatcher.scheduler.runCurrent()
 
         val oldRequestId = requireNotNull(pendingStore.peek()).requestId
         pendingStore.requestDietarySetup("person@example.com")
-        selfProfileRepository.gate?.complete(Unit)
+        dietaryRepository.gate?.complete(Unit)
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
@@ -319,15 +224,10 @@ class AuthenticatedDietaryOnboardingViewModelTest {
     }
 
     @Test
-    fun accountChangeDuring409ResolutionPreventsRestrictionSaveAndSwitch() {
-        selfProfileRepository.result = SelfProfileSetupResult.AlreadyExists
+    fun accountChangeDuringProfileResolutionPreventsCatalogFetchAndSave() {
         existingResolver.gate = CompletableDeferred()
         existingResolver.ignoreCancellation = true
         viewModel.beginPendingSetup()
-        dispatcher.scheduler.advanceUntilIdle()
-        viewModel.updateProfileName("Person Name")
-        viewModel.toggleRestriction(2L)
-        viewModel.createProfile()
         dispatcher.scheduler.runCurrent()
 
         sessionStore.saveSession(sessionFor(22L, "other@example.com"))
@@ -336,6 +236,7 @@ class AuthenticatedDietaryOnboardingViewModelTest {
         existingResolver.gate?.complete(Unit)
         dispatcher.scheduler.advanceUntilIdle()
 
+        assertEquals(0, dietaryRepository.catalogCalls)
         assertEquals(0, dietaryRepository.saveCalls)
         assertEquals(ActiveProfileManager.UNSET_PROFILE_ID, activeProfileManager.currentProfileId.value)
         assertEquals("other@example.com", pendingStore.peek()?.accountEmail)
@@ -345,7 +246,6 @@ class AuthenticatedDietaryOnboardingViewModelTest {
         authSessionStore = sessionStore,
         pendingOnboardingStore = pendingStore,
         dietaryRestrictionRepository = dietaryRepository,
-        selfProfileRepository = selfProfileRepository,
         existingSelfProfileResolver = existingResolver,
         activeProfileManager = activeProfileManager,
     )
@@ -356,6 +256,8 @@ class AuthenticatedDietaryOnboardingViewModelTest {
         var saveResult = true
         var lastSavedProfileId: Long? = null
         var lastSavedSelections: Map<Long, String>? = null
+        var gate: CompletableDeferred<Unit>? = null
+        var ignoreCancellation = false
 
         override suspend fun getAllDietaryRestrictions(): List<DietaryRestriction> {
             catalogCalls++
@@ -376,33 +278,12 @@ class AuthenticatedDietaryOnboardingViewModelTest {
             saveCalls++
             lastSavedProfileId = profileId
             lastSavedSelections = selections
-            return saveResult
-        }
-    }
-
-    private class FakeSelfProfileRepository : SelfProfileRepository {
-        var result: SelfProfileSetupResult = SelfProfileSetupResult.Created(
-            SelfProfileResponse(77L, "Person Name", "SELF", true, emptyMap()),
-        )
-        var calls = 0
-        var lastProfileName: String? = null
-        var lastRestrictions: Map<Long, ProfileRestrictionSeverity>? = null
-        var gate: CompletableDeferred<Unit>? = null
-        var ignoreCancellation = false
-
-        override suspend fun createSelfProfile(
-            profileName: String,
-            restrictions: Map<Long, ProfileRestrictionSeverity>,
-        ): SelfProfileSetupResult {
-            calls++
-            lastProfileName = profileName
-            lastRestrictions = restrictions
             if (ignoreCancellation) {
                 withContext(NonCancellable) { gate?.await() }
             } else {
                 gate?.await()
             }
-            return result
+            return saveResult
         }
     }
 

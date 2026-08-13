@@ -150,18 +150,16 @@ fun ScannerScreen(
                     onMenuClick = onMenuClick,
                     onNotificationsClick = onNotificationsClick,
                 )
-                activeProfile?.let {
-                    ActiveProfileChip(
-                        profile = it,
-                        onClick = onActiveProfileClick,
-                    )
-                } ?: run {
-                    // Show a setup prompt if no profile is active
+                // Registration always creates a linked profile now, so a missing profile is
+                // rare; the real "not set up yet" signal is having no restrictions selected.
+                if (activeProfile == null || activeRestrictions.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { onSetUpProfile() }
+                            .clickable {
+                                if (activeProfile != null) onActiveProfileClick() else onSetUpProfile()
+                            }
                             .padding(12.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -171,6 +169,12 @@ fun ScannerScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                }
+                activeProfile?.let {
+                    ActiveProfileChip(
+                        profile = it,
+                        onClick = onActiveProfileClick,
+                    )
                 }
             }
         },

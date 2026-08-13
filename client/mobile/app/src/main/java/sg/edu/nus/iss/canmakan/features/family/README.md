@@ -7,7 +7,7 @@ Family membership context and active profile switching on mobile.
 | Action | Mobile | Web | Notes |
 | --- | --- | --- | --- |
 | Create Family Circle (UC8) | Yes | Yes | Very simple |
-| Invite Member — link/code + share (UC9) | Yes | Yes | Mobile preferred for native share |
+| Invite Member — email invite (UC9) | Yes | Yes | Mobile: Cancel/Invite; email when Resend enabled |
 | Accept / Decline Invitation (UC10) | Yes | Optional | Mainly mobile |
 | Switch Profile (UC11) | Yes | — | Daily use |
 | Manage Family Circle (UC12) | Optional / limited | Primary | Roster, edit, remove, toggle active |
@@ -24,20 +24,36 @@ When `/families/me` returns 404 and the user is signed in, the drawer shows a sh
 
 Create is hidden when the user already has a family. Without a UC19 session, the drawer asks the user to sign in.
 
-## Invite (UC9) and accept (UC10)
+## Manage family hub (limited UC12) + invite (UC9) / dependant create
 
-PRIMARY_ADMIN can open **Invite to Family** from the drawer (`showManageFamilyActions`
-when `memberRole == PRIMARY_ADMIN`). `AddProfileToFamilyScreen` searches by email,
-creates a PENDING invitation, and opens the system share sheet with `inviteUrl` +
-`inviteCode`. Invitees preserve the token through register/login; claim runs only after
+PRIMARY_ADMIN sees a single drawer item **Manage family** (`showManageFamilyActions`
+when `memberRole == PRIMARY_ADMIN`). That opens `ManageFamilyScreen`, which branches to:
+
+| Choice | Screen | Outcome |
+| --- | --- | --- |
+| Invite someone to join | `InviteFamilyMemberScreen` | Email → Invite → PENDING + email (when Resend enabled) |
+| Add dependant profile | `CreateDependantProfileScreen` | Dependant dietary profile with no login |
+
+Invite flow on mobile is one step: enter email, then **Cancel** / **Invite**.
+`POST /api/families/me/invitations` rejects users already in a family (or duplicate
+PENDING) with **409** and red inline error text. Eligible new or existing users get a
+PENDING invite; the server emails them when Resend is configured (`emailSent` in the
+response). Success toasts and returns to Manage Family.
+
+Invitees preserve the token through register/login; claim runs only after
 authentication (post-login continuation or **Notifications** inbox).
 
 ```mermaid
 flowchart TD
-  Admin[PRIMARY_ADMIN creates PENDING invite] --> Share[Share link/code or Resend email]
-  Share --> PathA[New user: register, then login with token preserved]
-  Share --> PathB[Existing user: open link then login]
-  Share --> PathC[Already logged in: Notifications inbox or deep-link claim]
+  Hub[Manage family hub] --> Invite[InviteFamilyMemberScreen]
+  Hub --> Dependant[CreateDependantProfileScreen]
+  Invite --> Post[POST invitations]
+  Post -->|409 linked or pending| Err[Red error on screen]
+  Post -->|201| Email[Optional Resend email]
+  Email --> Done[Toast and back to hub]
+  Done --> PathA[New user: register, then login with token preserved]
+  Done --> PathB[Existing user: open link then login]
+  Done --> PathC[Already logged in: Notifications inbox or deep-link claim]
   PathA --> Join[MEMBER + SELF profile + ACCEPTED]
   PathB --> Join
   PathC --> Join
@@ -55,8 +71,8 @@ can open it; it is not listed under Family in the drawer.
 
 Full API contract and HTTP guards: `docs/api/families.md` (Invite → join workflow).
 
-Dependant profile create is live on mobile for PRIMARY_ADMIN; dependants appear in the
-mobile profile switcher and UC6 summary once created.
+Dependant profiles appear in the mobile profile switcher and UC6 summary once created.
+Dietary Summary empty state can open the same Manage family hub.
 
 ## Switch profile (UC11)
 
@@ -70,8 +86,8 @@ or network error) rolls back to the previous profile and shows an inline error.
 
 ## Manage members (UC12)
 
-Full roster admin is **web-primary**; mobile manage stays limited to invite (UC9)
-and dependant create.
+Full roster admin (edit/remove/toggle active) is **web-primary**. Mobile manage stays
+limited to the hub above: invite (UC9) and dependant create.
 
 ## Notes
 The actual dietary data of each member lives in `dietaryprofile`.
