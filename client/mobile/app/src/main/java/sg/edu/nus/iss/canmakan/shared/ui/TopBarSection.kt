@@ -22,12 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
+import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.shared.ui.theme.CardWhite
+import sg.edu.nus.iss.canmakan.shared.ui.theme.OnDark
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextPrimary
 
@@ -68,7 +70,7 @@ fun AppTopBar(
                     .size(8.dp)
                     .align(Alignment.TopEnd)
                     .clip(CircleShape)
-                    .background(Color.Red)
+                    .background(AvoidRed)
             )
         }
     }
@@ -81,7 +83,7 @@ fun ActiveProfileChip(profile: DietaryProfile) {
         modifier = Modifier
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
+            .background(CardWhite)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -94,7 +96,7 @@ fun ActiveProfileChip(profile: DietaryProfile) {
         ) {
             Text(
                 text = profile.initials,
-                color = Color.White,
+                color = OnDark,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center

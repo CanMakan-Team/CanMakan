@@ -27,7 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +38,8 @@ import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotEmptyState
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 /**
@@ -164,6 +165,19 @@ fun InvitationsScreen(
                         HorizontalDivider()
                     }
                 }
+
+                else -> {
+                    item {
+                        CanMakanMascotEmptyState(
+                            title = "No notifications yet",
+                            body = "Family invitations and updates will show up here.",
+                            pose = CanMakanMascotPose.Wave,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 40.dp, bottom = 24.dp),
+                        )
+                    }
+                }
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -187,7 +201,7 @@ private fun InvitationCard(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = "Invited by ${invitation.invitedByDisplayName}",
-            color = Color.Gray,
+            color = TextSecondary,
         )
         invitation.expiresAt?.let { expiresAt ->
             Spacer(modifier = Modifier.height(2.dp))
@@ -200,7 +214,7 @@ private fun InvitationCard(
                 color = if (invitation.expired) {
                     MaterialTheme.colorScheme.error
                 } else {
-                    Color.Gray
+                    TextSecondary
                 },
                 fontSize = 12.sp,
             )

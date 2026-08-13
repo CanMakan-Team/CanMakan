@@ -1,6 +1,5 @@
 package sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -47,6 +45,9 @@ import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.Dietar
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.AuthenticatedDietaryOnboardingUiState
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.AuthenticatedDietaryOnboardingViewModel
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.ProfileRestrictionSeverity
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascot
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotSize
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightRedBackground
@@ -285,17 +286,15 @@ private fun OnboardingTopBar() {
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(vertical = 12.dp),
+                .padding(vertical = 10.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(PrimaryGreen),
+            CanMakanMascot(
+                pose = CanMakanMascotPose.Wave,
+                size = CanMakanMascotSize.Compact,
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             Text("CanMakan", fontWeight = FontWeight.Bold, color = TextPrimary)
         }
     }

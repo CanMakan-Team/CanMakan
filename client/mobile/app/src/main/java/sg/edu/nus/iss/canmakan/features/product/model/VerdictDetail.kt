@@ -17,17 +17,13 @@ data class VerdictDetail(
             entry: ScanHistoryEntry,
             alternatives: List<AlternativeProduct> = emptyList()
         ): VerdictDetail {
-            val flags = buildList {
-                entry.findingsJson.matchedRules.forEach {
-                    rule -> add(ProductFlag("RULE", rule))
-                }
-                entry.findingsJson.allergensFound.forEach {
-                    allergen -> add(ProductFlag("ALLERGEN", allergen))
-                }
-                entry.aiExplanation
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { add(ProductFlag("SUMMARY", it)) }
-            }
+            // History only stores rule codes + ingredient names (not Finding.reason),
+            // so map codes into plain-language titles and default bodies.
+            val flags = ProductFlagCopy.flagsFromHistoryFindings(
+                matchedRules = entry.findingsJson.matchedRules,
+                allergensFound = entry.findingsJson.allergensFound,
+                summary = entry.aiExplanation,
+            )
 
             return VerdictDetail(
                 product = entry.product,

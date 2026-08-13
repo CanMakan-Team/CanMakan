@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "npm run typecheck && npm run lint && npm run test",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "tokens:generate": "node ../../design-tokens/generate.mjs",
+    "tokens:migrate-css": "node ../../design-tokens/migrate-web-css.mjs"
   },
   "dependencies": {
     "firebase": "^12.17.1",

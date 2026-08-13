@@ -11,15 +11,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,21 +30,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import sg.edu.nus.iss.canmakan.features.product.model.AlternativeProduct
 import sg.edu.nus.iss.canmakan.features.product.model.Product
 import sg.edu.nus.iss.canmakan.features.product.model.ProductFlag
 import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascot
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
+import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotSize
 import sg.edu.nus.iss.canmakan.shared.ui.statusAccentColor
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.shared.ui.theme.CardWhite
+import sg.edu.nus.iss.canmakan.shared.ui.theme.InfoBlue
+import sg.edu.nus.iss.canmakan.shared.ui.theme.InfoBlueContainer
+import sg.edu.nus.iss.canmakan.shared.ui.theme.LightAmberBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
+import sg.edu.nus.iss.canmakan.shared.ui.theme.LightPurpleBackground
+import sg.edu.nus.iss.canmakan.shared.ui.theme.LightRedBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
+import sg.edu.nus.iss.canmakan.shared.ui.theme.RulePurple
+import sg.edu.nus.iss.canmakan.shared.ui.theme.SurfaceMuted
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 private enum class DetailTab { FLAGS, ALTERNATIVES }
@@ -74,7 +79,13 @@ fun ProductDetailScreen(
     var selectedTab by remember { mutableStateOf(DetailTab.FLAGS) }
     val showAlternativesTab = verdict != ScanVerdict.SAFE
     val accent = statusAccentColor(verdict)
-    val (icon, label) = verdictPresentation(verdict)
+    val label = verdictLabel(verdict)
+    val mascotPose = mascotPoseFor(verdict)
+    val verdictBackdrop = when (verdict) {
+        ScanVerdict.SAFE -> LightGreenBackground
+        ScanVerdict.WARNING -> LightAmberBackground
+        ScanVerdict.UNSAFE -> LightRedBackground
+    }
     val scrollState = rememberScrollState()
 
     Scaffold(
@@ -105,65 +116,62 @@ fun ProductDetailScreen(
                 Text("Back", color = TextSecondary)
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(verdictBackdrop)
+                    .padding(horizontal = 14.dp, vertical = 16.dp),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(65.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(accent),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(icon, contentDescription = label, tint = Color.White)
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(label, color = accent, fontWeight = FontWeight.Bold, fontSize = 25.sp)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    product.productName,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 30.sp,
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
+                CanMakanMascot(
+                    pose = mascotPose,
+                    size = CanMakanMascotSize.Banner,
+                    contentDescription = "$label verdict",
                 )
-                if (product.brand.isNotBlank()) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        product.brand,
-                        color = TextSecondary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
+                        text = label,
+                        color = accent,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
                     )
-                }
-                Text(
-                    product.barcode,
-                    color = TextSecondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (!explanation.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        explanation,
-                        color = TextSecondary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
+                        text = product.displayName,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 2,
                     )
+                    if (product.displayBrand.isNotEmpty()) {
+                        Text(
+                            text = product.displayBrand,
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                        )
+                    }
+                    if (product.displayBarcode.isNotEmpty()) {
+                        Text(
+                            text = product.displayBarcode,
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFFEDEAE2))
+                    .background(SurfaceMuted)
             ) {
                 DetailTabButton(
-                    label = "Flags & Details",
+                    label = "Details",
                     isSelected = selectedTab == DetailTab.FLAGS,
                     modifier = Modifier.weight(1f)
                 ) { selectedTab = DetailTab.FLAGS }
@@ -176,7 +184,7 @@ fun ProductDetailScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Box(modifier = Modifier.weight(1f)) {
                 when (selectedTab) {
                     DetailTab.FLAGS -> Column(
@@ -184,7 +192,10 @@ fun ProductDetailScreen(
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
                     ) {
-                        FlagsAndDetailsTab(flags = flags, profileName = profileName)
+                        FlagsAndDetailsTab(
+                            flags = flags,
+                            profileName = profileName,
+                        )
                     }
                     DetailTab.ALTERNATIVES -> Column(
                         modifier = Modifier
@@ -203,13 +214,17 @@ fun ProductDetailScreen(
     }
 }
 
-// Returns the appropriate icon and label based on the verdict
-private fun verdictPresentation(verdict: ScanVerdict): Pair<ImageVector, String> {
-    return when (verdict) {
-        ScanVerdict.SAFE -> Icons.Default.Check to "SAFE"
-        ScanVerdict.WARNING -> Icons.Default.Warning to "WARNING"
-        ScanVerdict.UNSAFE -> Icons.Default.Close to "UNSAFE"
-    }
+// Returns the verdict label shown under the mascot.
+private fun verdictLabel(verdict: ScanVerdict): String = when (verdict) {
+    ScanVerdict.SAFE -> "SAFE"
+    ScanVerdict.WARNING -> "WARNING"
+    ScanVerdict.UNSAFE -> "UNSAFE"
+}
+
+private fun mascotPoseFor(verdict: ScanVerdict): CanMakanMascotPose = when (verdict) {
+    ScanVerdict.SAFE -> CanMakanMascotPose.Safe
+    ScanVerdict.WARNING -> CanMakanMascotPose.Warning
+    ScanVerdict.UNSAFE -> CanMakanMascotPose.Unsafe
 }
 
 // Button to switch between tabs in the detail screen
@@ -224,7 +239,7 @@ private fun DetailTabButton(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(24.dp))
-            .background(if (isSelected) Color.White else Color.Transparent)
+            .background(if (isSelected) CardWhite else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center
@@ -235,7 +250,10 @@ private fun DetailTabButton(
 
 // Tab 1: Shows the flags and details for the product
 @Composable
-private fun FlagsAndDetailsTab(flags: List<ProductFlag>, profileName: String) {
+private fun FlagsAndDetailsTab(
+    flags: List<ProductFlag>,
+    profileName: String,
+) {
     Column {
 
         // Display a message if there are no flags
@@ -250,9 +268,21 @@ private fun FlagsAndDetailsTab(flags: List<ProductFlag>, profileName: String) {
 
         // Display each flag as a separate box
         flags.forEach { flag ->
-            val isAllergen = flag.category.equals("ALLERGEN", ignoreCase = true)
-            val background = if (isAllergen) Color(0xFFFBE4E3) else Color(0xFFE3EBF7)
-            val labelColor = if (isAllergen) AvoidRed else Color(0xFF2B5FA8)
+            val category = flag.category.orEmpty()
+            val isAllergen = category.equals("Allergen", ignoreCase = true)
+            val isRule = category.equals("Rule", ignoreCase = true)
+            val background = when {
+                isAllergen -> LightRedBackground
+                isRule -> LightPurpleBackground
+                else -> InfoBlueContainer
+            }
+            val labelColor = when {
+                isAllergen -> AvoidRed
+                isRule -> RulePurple
+                else -> InfoBlue
+            }
+            val title = category.ifBlank { "Info" }
+            val body = flag.label.orEmpty().ifBlank { "Flagged by dietary rules" }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -261,14 +291,28 @@ private fun FlagsAndDetailsTab(flags: List<ProductFlag>, profileName: String) {
                     .background(background)
                     .padding(14.dp)
             ) {
-                Text(flag.category, color = labelColor)
-                Text(flag.label, color = labelColor, fontWeight = FontWeight.Bold)
+                Text(
+                    text = title,
+                    color = labelColor,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                // Skip duplicate body when title and label are the same raw code.
+                if (!body.equals(title, ignoreCase = true)) {
+                    Text(
+                        text = body,
+                        color = labelColor,
+                        fontWeight = FontWeight.Normal,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             "Matched against $profileName's profile",
             color = TextSecondary,
+            style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center
         )
@@ -309,14 +353,15 @@ private fun AlternativesTab(
                     .fillMaxWidth()
                     .padding(vertical = 6.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color.White)
+                    .background(CardWhite)
                     .padding(14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(alternative.name, fontWeight = FontWeight.Bold)
-                    Text(alternative.brand, color = TextSecondary)
-                    Text(alternative.description, color = TextSecondary)
+                    if (alternative.brand.isNotEmpty()) {
+                        Text(alternative.brand, color = TextSecondary)
+                    }
                 }
                 Text(
                     "SAFE",
