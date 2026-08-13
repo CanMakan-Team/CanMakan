@@ -100,6 +100,30 @@ class AlternativeProductRankerTest {
         assertEquals(new BigDecimal("0.98"), ranked.getFirst().score());
     }
 
+    @Test
+    void tahiniOutranksNonBoostNutButterSubstituteForPeanutButterProfile() {
+        SubstituteDiscoveryProfile peanutProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Peanut butters").orElseThrow();
+        CatalogProduct genericOilseed = product(
+                "999",
+                "Generic oilseed spread",
+                "en:oilseed-purees");
+        CatalogProduct tahini = product(
+                "8888536703136",
+                "Organic Tahini (Unhulled)",
+                "en:oilseed-purees,en:cereal-butters,en:tahini");
+
+        List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rankSubstituteTags(
+                List.of(genericOilseed, tahini),
+                Set.of(),
+                peanutProfile
+        );
+
+        assertEquals("8888536703136", ranked.get(0).product().getBarcode());
+        assertEquals("substitute_category", ranked.get(0).matchReason());
+        assertEquals(new BigDecimal("0.97"), ranked.get(0).score());
+    }
+
     private static CatalogProduct product(String barcode, String name, String categoryTags) {
         CatalogProduct product = new CatalogProduct();
         product.setBarcode(barcode);

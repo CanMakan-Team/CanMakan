@@ -81,8 +81,11 @@ public class DietaryKnowledgeMcpClient implements IngredientResolver {
             }
             IngredientAliasResult alias = lookupAlias(name);
             aliasByName.put(name, alias);
+            if (ingredientAliasTool.isKnownNonAllergenLabel(name)) {
+                continue;
+            }
             if (alias != null && alias.matched() && hasRoot(alias.rootAllergen())) {
-                continue;   // fast path: no hierarchy lookup needed
+                continue;
             }
             hierarchyQueries.add(hierarchyQueryFor(alias, name));
         }
@@ -124,6 +127,10 @@ public class DietaryKnowledgeMcpClient implements IngredientResolver {
             AllergenRelationshipResult prefetchedHierarchy) {
         if (ingredientName == null || ingredientName.isBlank()) {
             return IngredientResolution.unknown();
+        }
+
+        if (ingredientAliasTool.isKnownNonAllergenLabel(ingredientName)) {
+            return IngredientResolution.knownSafe();
         }
 
         // Fast path: catalog already knows the root allergen.
@@ -253,10 +260,13 @@ public class DietaryKnowledgeMcpClient implements IngredientResolver {
                 continue;
             }
             boolean nameMatches = match.ingredientName() == null
-                || normalize(match.ingredientName()).equals(wanted)
-                || normalize(match.ingredientName()).contains(wanted)
-                || wanted.contains(normalize(match.ingredientName()));
-            if (!nameMatches && (strictName || matches.size() > 1)) {
+                || normalize(match.ingredientName()).equals(wanted);
+            if (!nameMatches && !strictName) {
+                String normalizedMatch = normalize(match.ingredientName());
+                nameMatches = wanted.contains(normalizedMatch)
+                        || normalizedMatch.contains(wanted);
+            }
+            if (!nameMatches) {
                 continue;
             }
             String root = match.rootAllergen().trim().toUpperCase(Locale.ROOT);

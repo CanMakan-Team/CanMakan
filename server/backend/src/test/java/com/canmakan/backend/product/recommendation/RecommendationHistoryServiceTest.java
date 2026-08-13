@@ -122,6 +122,46 @@ class RecommendationHistoryServiceTest {
         assertEquals("Unknown product", entry.sourceProductName());
     }
 
+    @Test
+    void dedupesDuplicateRecommendedBarcodesWithinSameScanSession() {
+        RecommendationLog first = log(
+                1L,
+                2L,
+                "9555064500016",
+                "8888263533730",
+                "Coconut Flour",
+                "Redman",
+                new BigDecimal("0.9900"),
+                "substitute_category",
+                LocalDateTime.of(2026, 8, 13, 10, 5, 0)
+        );
+        RecommendationLog duplicate = log(
+                2L,
+                2L,
+                "9555064500016",
+                "8888263533730",
+                "Coconut Flour",
+                "Redman",
+                new BigDecimal("0.9800"),
+                "ml_similarity",
+                LocalDateTime.of(2026, 8, 13, 10, 6, 0)
+        );
+
+        CatalogProduct source = catalogProduct("9555064500016", "Superfine Wheat Flour", "Baker Choice");
+        Scan scan = scan(2L, "9555064500016", "UNSAFE", LocalDateTime.of(2026, 8, 13, 10, 4, 30));
+
+        when(recommendationLogService.listHistoryForProfile(1L)).thenReturn(List.of(first, duplicate));
+        when(scanRepository.findAllById(Set.of(2L))).thenReturn(List.of(scan));
+        when(catalogProductRepository.findAllById(Set.of("9555064500016"))).thenReturn(List.of(source));
+
+        RecommendationHistoryResponse response = historyService.getHistoryForProfile(1L);
+
+        assertEquals(1, response.history().size());
+        assertEquals(1, response.history().getFirst().alternatives().size());
+        assertEquals("8888263533730", response.history().getFirst().alternatives().getFirst().barcode());
+        assertEquals(new BigDecimal("0.9900"), response.history().getFirst().alternatives().getFirst().rankScore());
+    }
+
     private static RecommendationLog log(
             Long id,
             Long scanId,

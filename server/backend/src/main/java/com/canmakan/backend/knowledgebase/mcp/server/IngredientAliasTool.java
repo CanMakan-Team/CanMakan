@@ -55,4 +55,8 @@ public class IngredientAliasTool {
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
     }
+
+    public boolean isKnownNonAllergenLabel(String ingredientName) {
+        return repository.isKnownNonAllergenLabel(ingredientName);
+    }
 }
