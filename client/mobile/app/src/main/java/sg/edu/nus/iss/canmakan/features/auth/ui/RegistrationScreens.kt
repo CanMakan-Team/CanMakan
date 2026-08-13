@@ -157,7 +157,13 @@ private fun AccountInformationScreen(
             placeholder = "e.g. sarah@example.com",
             keyboardType = KeyboardType.Email,
             isError = state.emailError != null,
-            supportingText = state.emailError,
+            supportingText = state.emailError
+                ?: if (state.emailLocked) {
+                    "This invitation was sent to this email."
+                } else {
+                    null
+                },
+            enabled = !state.emailLocked && !state.isSubmitting,
         )
         LabeledTextField(
             label = "Password",
@@ -297,6 +303,7 @@ private fun LabeledTextField(
     isPassword: Boolean = false,
     isError: Boolean = false,
     supportingText: String? = null,
+    enabled: Boolean = true,
 ) {
     Column {
         Text(label, fontWeight = FontWeight.Medium, color = TextPrimary)
@@ -306,6 +313,7 @@ private fun LabeledTextField(
             onValueChange = onValueChange,
             placeholder = { Text(placeholder, color = TextSecondary) },
             modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             visualTransformation = if (isPassword) {
                 PasswordVisualTransformation()

@@ -1,8 +1,9 @@
-import { useState, type SubmitEvent as ReactSubmitEvent } from 'react'
+import { useEffect, useState, type SubmitEvent as ReactSubmitEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError, getErrorMessage } from '../shared/api/apiErrors'
 import { pendingRegistrationOnboardingStore } from '../features/auth/pendingRegistrationOnboardingStore'
 import { useSession } from '../features/auth/useSession'
+import { familyApiService } from '../features/family/api/familyApiService'
 import { PasswordField } from '../shared/ui/PasswordField'
 import { getRegistrationPasswordError } from '../shared/validation/authFields'
 import { getEmailValidationError } from '../shared/validation/email'
@@ -14,6 +15,7 @@ export function FamilyRegisterPage() {
   const invitationToken = searchParams.get('invitationToken')?.trim() || undefined
   const [profileName, setProfileName] = useState('')
   const [email, setEmail] = useState('')
+  const [emailLocked, setEmailLocked] = useState(false)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [validationError, setValidationError] = useState('')
@@ -22,6 +24,21 @@ export function FamilyRegisterPage() {
   const [showLoginAction, setShowLoginAction] = useState(false)
   const { session, registerAndLogin, loading } = useSession()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!invitationToken) return
+    let cancelled = false
+    void familyApiService.previewInvitation(invitationToken).then((preview) => {
+      if (cancelled || !preview?.invitedEmail) return
+      setEmail(preview.invitedEmail)
+      setEmailLocked(true)
+    }).catch(() => {
+      // Leave the email editable when the invite cannot be loaded.
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [invitationToken])
 
   if (session?.roles.includes('ROLE_APP_USER')) {
     return (
@@ -85,7 +102,11 @@ export function FamilyRegisterPage() {
       invitationToken,
     })
     try {
-      const result = await registerAndLogin({ email: trimmedEmail, password })
+      const result = await registerAndLogin({
+        email: trimmedEmail,
+        password,
+        invitationToken,
+      })
       setAccountCreated(true)
       setPassword('')
       setConfirmPassword('')
@@ -150,11 +171,16 @@ export function FamilyRegisterPage() {
               autoComplete="email"
               value={email}
               onChange={(event) => {
+                if (emailLocked) return
                 setEmail(event.target.value)
                 clearValidationError()
               }}
-              disabled={loading || accountCreated}
+              disabled={loading || accountCreated || emailLocked}
+              readOnly={emailLocked}
             />
+            {emailLocked ? (
+              <p>This invitation was sent to this email.</p>
+            ) : null}
             <PasswordField
               id="register-password"
               label="Password"

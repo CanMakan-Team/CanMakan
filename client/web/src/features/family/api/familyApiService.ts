@@ -9,6 +9,7 @@ import type {
   FamilyMember,
   FamilyProfileInput,
   InvitationResponse,
+  InvitationPreviewResponse,
   ScanRecord,
   FamilyRestrictionSumRes,
 } from '../../../shared/api/types'
@@ -37,6 +38,8 @@ export const familyEndpoints = {
   userSearch: '/api/families/me/user-search',
   invitations: '/api/families/me/invitations',
   claimInvitation: '/api/families/me/invitations/claim',
+  invitationPreview: (token: string) =>
+    `/api/invitations/${encodeURIComponent(token)}/preview`,
   profiles: '/api/families/me/profiles',
   activeProfile: '/api/families/me/active-profile',
   restrictionSummary: '/api/families/me/restriction-summary',
@@ -106,6 +109,14 @@ export const familyApiService = {
           method: 'POST',
           body: JSON.stringify({ invitationToken }),
         }),
+
+  previewInvitation: (invitationToken: string) =>
+    useMockApi
+      ? mockFamilyRepository.previewInvitation(invitationToken)
+      : apiRequest<InvitationPreviewResponse>(
+          familyEndpoints.invitationPreview(invitationToken),
+          { authentication: 'none' },
+        ),
 
   /** Create a new profile. */
   createProfile: (input: FamilyProfileInput) =>

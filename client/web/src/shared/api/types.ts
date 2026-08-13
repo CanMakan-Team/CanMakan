@@ -161,6 +161,12 @@ export interface InvitationResponse {
   emailSent: boolean // true if Resend accepted the invitation email
 }
 
+export interface InvitationPreviewResponse {
+  invitedEmail: string
+  familyName: string
+  expired: boolean
+}
+
 // Define the dependant profile response type
 export interface DependantProfileResponse {
   profileId: number // id of the profile

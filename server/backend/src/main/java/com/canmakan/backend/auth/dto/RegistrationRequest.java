@@ -31,8 +31,8 @@ public record RegistrationRequest(
     String password,
 
     /**
-     * Transitional deep-link token accepted for client compatibility.
-     * Registration never claims it; clients must claim after authentication.
+     * Transitional deep-link token. When it matches a pending invitation,
+     * registration email must be the invited address.
      */
     @Size(max = 100, message = "Invitation token must not exceed 100 characters.")
     String invitationToken

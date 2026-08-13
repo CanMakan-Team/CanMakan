@@ -21,7 +21,7 @@ class ServerRegistrationRepositoryTest {
 
         assertEquals(
             "{\"email\":\"person@example.com\",\"password\":\"Password1!\"}",
-            Gson().toJson(request),
+            Gson().toJson(RegistrationRequest("person@example.com", "Password1!")),
         )
         assertFalse(request.toString().contains("Password1!"))
     }
@@ -39,6 +39,7 @@ class ServerRegistrationRepositoryTest {
         val result = ServerRegistrationRepository(api).register(
             "person@example.com",
             "Password1!",
+            null,
         )
 
         val success = assertInstanceOf(RegistrationResult.Success::class.java, result)
@@ -57,17 +58,17 @@ class ServerRegistrationRepositoryTest {
     @Test
     @DisplayName("UC18 A3: 400 response maps to invalid registration")
     fun badRequestMapsToInvalidRegistration() = kotlinx.coroutines.test.runTest {
-        val result = repositoryForStatus(400).register("person@example.com", "Password1!")
+        val result = repositoryForStatus(400).register("person@example.com", "Password1!", null)
 
         val failure = assertInstanceOf(RegistrationResult.Failure::class.java, result)
         assertEquals(RegistrationFailureType.INVALID_REQUEST, failure.type)
-        assertEquals("Invalid registration request.", failure.message)
+        assertEquals("internal detail", failure.message)
     }
 
     @Test
     @DisplayName("UC18 A4: 409 response maps to the frozen duplicate-email message")
     fun conflictMapsToDuplicateEmail() = kotlinx.coroutines.test.runTest {
-        val result = repositoryForStatus(409).register("person@example.com", "Password1!")
+        val result = repositoryForStatus(409).register("person@example.com", "Password1!", null)
 
         val failure = assertInstanceOf(RegistrationResult.Failure::class.java, result)
         assertEquals(RegistrationFailureType.DUPLICATE_EMAIL, failure.type)
@@ -77,7 +78,7 @@ class ServerRegistrationRepositoryTest {
     @Test
     @DisplayName("UC18 A5: 500 response maps to a safe generic failure")
     fun serverErrorMapsToSafeFailure() = kotlinx.coroutines.test.runTest {
-        val result = repositoryForStatus(500).register("person@example.com", "Password1!")
+        val result = repositoryForStatus(500).register("person@example.com", "Password1!", null)
 
         val failure = assertInstanceOf(RegistrationResult.Failure::class.java, result)
         assertEquals(RegistrationFailureType.SERVER, failure.type)
@@ -92,6 +93,7 @@ class ServerRegistrationRepositoryTest {
         val result = ServerRegistrationRepository(api).register(
             "person@example.com",
             "Password1!",
+            null,
         )
 
         val failure = assertInstanceOf(RegistrationResult.Failure::class.java, result)
@@ -119,6 +121,12 @@ class ServerRegistrationRepositoryTest {
             lastRequest = request
             exception?.let { throw it }
             return requireNotNull(response)
+        }
+
+        override suspend fun previewInvitation(
+            token: String,
+        ): Response<InvitationPreviewResponse> {
+            return Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
         }
     }
 }

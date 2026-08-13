@@ -19,6 +19,7 @@ import com.canmakan.backend.family.dto.FamilyMeRestrictionDetail;
 import com.canmakan.backend.family.dto.FamilyMeRestrictionSum;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
 import com.canmakan.backend.family.dto.FamilyScanHistoryDto;
+import com.canmakan.backend.family.dto.InvitationPreviewResponse;
 import com.canmakan.backend.family.dto.InvitationResponse;
 import com.canmakan.backend.family.dto.PendingInvitationResponse;
 import com.canmakan.backend.family.dto.UpdateProfileRequest;
@@ -889,6 +890,27 @@ public class FamilyService {
             ));
         }
         return results;
+    }
+
+    /**
+     * Public lookup so invite registration can lock the email field.
+     */
+    @Transactional(readOnly = true)
+    public InvitationPreviewResponse previewInvitation(String invitationToken) {
+        if (invitationToken == null || invitationToken.isBlank()) {
+            throw new InvitationNotFoundException("Invitation was not found.");
+        }
+        FamilyInvitation invitation = familyInvitationRepository
+            .findByInvitationToken(invitationToken.strip())
+            .orElseThrow(() -> new InvitationNotFoundException("Invitation was not found."));
+        String familyName = familyRepository.findById(invitation.getFamilyId())
+            .map(Family::getFamilyName)
+            .orElse("a family circle");
+        return new InvitationPreviewResponse(
+            invitation.getInvitedEmail(),
+            familyName,
+            isExpired(invitation)
+        );
     }
 
     // Create a dependant profile

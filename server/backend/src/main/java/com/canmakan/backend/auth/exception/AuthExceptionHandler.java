@@ -3,6 +3,7 @@ package com.canmakan.backend.auth.exception;
 import com.canmakan.backend.auth.AuthController;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.InvitationConflictException;
+import com.canmakan.backend.family.exception.InvitationEmailMismatchException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
@@ -38,6 +39,13 @@ public class AuthExceptionHandler {
     public ResponseEntity<Map<String, String>> handleDuplicateEmail() {
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(Map.of("message", "An account with this email already exists."));
+    }
+
+    @ExceptionHandler(InvitationEmailMismatchException.class)
+    public ResponseEntity<Map<String, String>> handleInvitationEmailMismatch(
+            InvitationEmailMismatchException ex) {
+        return ResponseEntity.badRequest()
+            .body(Map.of("message", ex.getMessage()));
     }
 
     // Handle invalid request exception

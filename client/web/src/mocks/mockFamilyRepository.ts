@@ -103,6 +103,15 @@ export const mockFamilyRepository = {
     }
   },
 
+  async previewInvitation(_invitationToken: string) {
+    await delay(50)
+    return {
+      invitedEmail: 'invitee@example.com',
+      familyName: 'Mock Family',
+      expired: false,
+    }
+  },
+
   // Link an existing user
   async linkExistingUser(userId: number): Promise<FamilyMember> {
     await delay(650)

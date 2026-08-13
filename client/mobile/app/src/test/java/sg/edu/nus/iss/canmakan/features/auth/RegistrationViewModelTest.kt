@@ -21,6 +21,7 @@ import sg.edu.nus.iss.canmakan.features.auth.data.AuthResult
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthRole
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedSession
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
+import sg.edu.nus.iss.canmakan.features.auth.data.InvitationPreviewResponse
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationFailureType
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationRepository
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResponse
@@ -175,6 +176,23 @@ class RegistrationViewModelTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals("invite-token", pendingInvitationStore.peek())
+        assertEquals("invite-token", registrationRepository.lastInvitationToken)
+    }
+
+    @Test
+    fun invitationPreviewLocksEmailToInvitedAddress() {
+        registrationRepository.preview = InvitationPreviewResponse(
+            invitedEmail = "jamie@example.com",
+            familyName = "Wong Family",
+            expired = false,
+        )
+        viewModel.setInvitationToken("invite-token")
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("jamie@example.com", viewModel.uiState.value.email)
+        assertTrue(viewModel.uiState.value.emailLocked)
+        viewModel.updateEmail("other@example.com")
+        assertEquals("jamie@example.com", viewModel.uiState.value.email)
     }
 
     @Test
@@ -209,13 +227,24 @@ class RegistrationViewModelTest {
         var callCount = 0
         var lastEmail: String? = null
         var lastPassword: String? = null
+        var lastInvitationToken: String? = null
+        var preview: InvitationPreviewResponse? = null
 
-        override suspend fun register(email: String, password: String): RegistrationResult {
+        override suspend fun register(
+            email: String,
+            password: String,
+            invitationToken: String?,
+        ): RegistrationResult {
             callCount++
             lastEmail = email
             lastPassword = password
+            lastInvitationToken = invitationToken
             gate?.await()
             return result
+        }
+
+        override suspend fun previewInvitation(invitationToken: String): InvitationPreviewResponse? {
+            return preview
         }
     }
 

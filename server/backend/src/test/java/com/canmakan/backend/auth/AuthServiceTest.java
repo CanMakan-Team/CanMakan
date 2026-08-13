@@ -24,6 +24,7 @@ import com.canmakan.backend.auth.exception.RegistrationFailedException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
 import com.canmakan.backend.family.FamilyInviteNotifier;
+import com.canmakan.backend.family.InvitationRegistrationGuard;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
 import com.canmakan.backend.shared.security.JwtService;
@@ -78,6 +79,9 @@ class AuthServiceTest {
     @Mock
     private FamilyInviteNotifier familyInviteNotifier;
 
+    @Mock
+    private InvitationRegistrationGuard invitationRegistrationGuard;
+
     private PasswordEncoder passwordEncoder;
     private AuthService authService;
 
@@ -90,7 +94,8 @@ class AuthServiceTest {
             authenticationManager,
             jwtService,
             refreshTokenService,
-            familyInviteNotifier
+            familyInviteNotifier,
+            invitationRegistrationGuard
         );
     }
 
@@ -269,7 +274,35 @@ class AuthServiceTest {
             assertEquals(14L, response.userId());
             assertEquals(3, RegistrationResponse.class.getRecordComponents().length);
             verify(familyInviteNotifier).hydrateIncomingInvites(14L, "person@example.com");
+            verify(invitationRegistrationGuard).requireEmailMatchesPendingInvite(
+                "pending-invitation-token",
+                "person@example.com"
+            );
             verifyNoInteractions(authenticationManager, jwtService, refreshTokenService);
+        }
+
+        @Test
+        @DisplayName("invite registration rejects an email that does not match the invitation")
+        void rejectsEmailThatDoesNotMatchPendingInvitation() {
+            RegistrationRequest request = new RegistrationRequest(
+                null,
+                "other@example.com",
+                "Password1!",
+                "pending-invitation-token"
+            );
+            org.mockito.Mockito.doThrow(
+                    new com.canmakan.backend.family.exception.InvitationEmailMismatchException(
+                        InvitationRegistrationGuard.MISMATCH_MESSAGE
+                    )
+                )
+                .when(invitationRegistrationGuard)
+                .requireEmailMatchesPendingInvite("pending-invitation-token", "other@example.com");
+
+            assertThrows(
+                com.canmakan.backend.family.exception.InvitationEmailMismatchException.class,
+                () -> authService.register(request)
+            );
+            verify(userAccountRepository, never()).saveAndFlush(any());
         }
 
         @Test

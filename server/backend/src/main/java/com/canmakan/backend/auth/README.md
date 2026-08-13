@@ -18,16 +18,17 @@ Public account registration plus login, refresh, logout, and `/me` against Sprin
 Login and register are owned by `AuthController` / `AuthService` (single mapping for each path).
 
 ## Registration boundary
-- Requires `email` and `password`. Deprecated optional `name` and
-  `invitationToken` inputs remain accepted temporarily for older clients.
+- Requires `email` and `password`. Optional `invitationToken` locks
+  registration to the invited email when the token is a pending invite.
+  Deprecated optional `name` remains accepted for older clients.
 - Creates only the `users` row; no dietary profile or family membership is created.
 - Does **not** create a family circle or issue tokens. Current clients follow a
   successful response with the normal login endpoint; registration never
   duplicates login, JWT, refresh-token, or cookie logic.
 - `name` is not an account column and is neither stored nor returned. Durable
   `profileName` belongs exclusively to later authenticated SELF profile setup.
-- A transitional `invitationToken` is accepted but never claimed during registration;
-  the authenticated UC9 claim endpoint owns that side effect after login.
+- Registration never claims the invitation; the authenticated UC9 claim
+  endpoint owns that side effect after login.
 
 ## Authenticated SELF profile setup
 

@@ -322,7 +322,7 @@ flowchart TD
 
 | Path | How | APIs |
 | --- | --- | --- |
-| **A. Register then claim** | New account with matching email; client preserves `invitationToken` through explicit login | `POST /api/auth/register`, `POST /api/auth/login`, then `POST /api/families/me/invitations/claim` |
+| **A. Register then claim** | New account using the invited email; client preserves `invitationToken` through explicit login | `GET /api/invitations/{token}/preview`, `POST /api/auth/register` (token + matching email), `POST /api/auth/login`, then `POST /api/families/me/invitations/claim` |
 | **B. Deep link / login claim** | Open `…/invite/{token}` (desktop stays on web; Android opens the app) or `canmakan://invite/{token}`, then register or sign in | `POST /api/families/me/invitations/claim` |
 | **C. Inbox accept** | Signed-in invitee opens Notifications and Accepts (or Declines) | `GET /api/notifications/me`, `POST /api/invitations/{token}/accept` or `…/decline` |
 
@@ -408,11 +408,11 @@ There is **no** production `POST /api/families/me/members/link` silent-link endp
 
 Same membership rules as UC10 accept (below). Used by register/login deep-link flows.
 
-Registration does not claim invitations. `POST /api/auth/register` temporarily
-accepts an optional `invitationToken` for older clients but creates only the
-account. Clients preserve the token, complete explicit login, and then call this
-authenticated claim endpoint. Invalid or expired claims cannot roll back the
-already committed account.
+Registration does not claim invitations. `POST /api/auth/register` accepts
+optional `invitationToken`; when that token is a pending invite, the email
+must match the invited address. Clients preserve the token, complete explicit
+login, and then call this authenticated claim endpoint. Invalid or expired
+claims cannot roll back the already committed account.
 
 | Status | Meaning |
 | --- | --- |
@@ -428,6 +428,8 @@ already committed account.
 ## Invitation inbox (UC10)
 
 Authenticated invitee APIs (Bearer JWT). Protected under `/api/invitations/**`.
+`GET /api/invitations/{token}/preview` is public so registration can lock the
+email field (`invitedEmail`, `familyName`, `expired`).
 
 ### List pending
 

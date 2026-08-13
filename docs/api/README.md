@@ -47,11 +47,14 @@ Request:
 }
 ```
 
-Two deprecated optional fields remain accepted temporarily for older clients:
-`name` and `invitationToken`. Neither has a registration side effect. `name` is
-not durable account state; the durable `profileName` belongs to authenticated
-SELF-profile setup. New clients preserve invitation tokens until explicit login
-and then call the authenticated UC9 claim endpoint.
+Two deprecated optional fields remain accepted for older clients: `name`
+(ignored) and `invitationToken`. When `invitationToken` matches a pending
+invitation, the email must be the invited address or the request returns
+**400** `"Use the email address this invitation was sent to."`
+
+`GET /api/invitations/{token}/preview` (public) returns `invitedEmail` so
+clients can lock the email field. Registration still does not claim the
+invite; clients claim after login.
 
 The backend normalizes email, hashes the password with BCrypt, assigns the
 existing `USER` role, and creates only an active account. It does not create a
