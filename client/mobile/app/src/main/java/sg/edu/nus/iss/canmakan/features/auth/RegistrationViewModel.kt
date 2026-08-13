@@ -9,16 +9,20 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationFailureType
+import sg.edu.nus.iss.canmakan.features.auth.data.AuthRepository
+import sg.edu.nus.iss.canmakan.features.auth.data.AuthResult
+import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationRepository
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResponse
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResult
 import sg.edu.nus.iss.canmakan.features.auth.onboarding.PendingOnboardingStore
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
 
 enum class RegistrationStep {
     ACCOUNT_INFORMATION,
-    OPTIONAL_DIETARY_PROFILE,
     COMPLETE,
 }
 
@@ -32,22 +36,25 @@ data class RegistrationUiState(
     val passwordError: String? = null,
     val confirmPasswordError: String? = null,
     val step: RegistrationStep = RegistrationStep.ACCOUNT_INFORMATION,
-    val wantsDietarySetup: Boolean = false,
     val isSubmitting: Boolean = false,
     val registrationError: String? = null,
     val registrationFailureType: RegistrationFailureType? = null,
     val account: RegistrationResponse? = null,
+    val authenticatedUser: AuthenticatedUser? = null,
+    val accountCreatedButLoginFailed: Boolean = false,
 ) {
     override fun toString(): String {
         return "RegistrationUiState(name=$name, email=$email, password=<redacted>, " +
             "confirmPassword=<redacted>, step=$step, isSubmitting=$isSubmitting, " +
-            "accountCreated=${account != null}, wantsDietarySetup=$wantsDietarySetup)"
+            "accountCreated=${account != null}, authenticated=${authenticatedUser != null})"
     }
 }
 
 @HiltViewModel
 class RegistrationViewModel @Inject constructor(
     private val registrationRepository: RegistrationRepository,
+    private val authRepository: AuthRepository,
+    private val authSessionStore: AuthSessionStore,
     private val pendingOnboardingStore: PendingOnboardingStore,
     private val pendingInvitationStore: PendingInvitationStore,
 ) : ViewModel() {
@@ -100,13 +107,14 @@ class RegistrationViewModel @Inject constructor(
         )
     }
 
-    fun continueToDietaryProfile() {
+    fun createAccount() {
         val state = _uiState.value
+        if (state.isSubmitting || state.account != null) return
         val normalizedName = state.name.trim()
         val normalizedEmail = state.email.trim()
         val nameError = when {
-            normalizedName.isEmpty() -> "Name is required."
-            normalizedName.length > MAX_NAME_LENGTH -> "Name must not exceed 100 characters."
+            normalizedName.isEmpty() -> "Profile Name is required."
+            normalizedName.length > MAX_NAME_LENGTH -> "Profile Name must not exceed 100 characters."
             else -> null
         }
         val emailError = when {
@@ -130,6 +138,18 @@ class RegistrationViewModel @Inject constructor(
             else -> null
         }
 
+        if (nameError != null || emailError != null || passwordError != null || confirmPasswordError != null) {
+            _uiState.value = state.copy(
+                nameError = nameError,
+                emailError = emailError,
+                passwordError = passwordError,
+                confirmPasswordError = confirmPasswordError,
+                registrationError = null,
+                registrationFailureType = null,
+            )
+            return
+        }
+
         _uiState.value = state.copy(
             nameError = nameError,
             emailError = emailError,
@@ -137,49 +157,15 @@ class RegistrationViewModel @Inject constructor(
             confirmPasswordError = confirmPasswordError,
             registrationError = null,
             registrationFailureType = null,
-            step = if (nameError == null && emailError == null && passwordError == null && confirmPasswordError == null) {
-                RegistrationStep.OPTIONAL_DIETARY_PROFILE
-            } else {
-                RegistrationStep.ACCOUNT_INFORMATION
-            },
-        )
-    }
-
-    fun backToAccountInformation() {
-        if (_uiState.value.account == null && !_uiState.value.isSubmitting) {
-            _uiState.value = _uiState.value.copy(step = RegistrationStep.ACCOUNT_INFORMATION)
-        }
-    }
-
-    fun setDietarySetupRequested(requested: Boolean) {
-        val state = _uiState.value
-        if (state.account == null && !state.isSubmitting) {
-            _uiState.value = state.copy(wantsDietarySetup = requested)
-        }
-    }
-
-    fun createAccount() {
-        val state = _uiState.value
-        if (state.step != RegistrationStep.OPTIONAL_DIETARY_PROFILE ||
-            state.isSubmitting || state.account != null
-        ) {
-            return
-        }
-
-        // Set synchronously so two taps in one UI frame cannot create two accounts.
-        _uiState.value = state.copy(
             isSubmitting = true,
-            registrationError = null,
-            registrationFailureType = null,
         )
 
         viewModelScope.launch {
             when (val result = registrationRepository.register(
-                name = state.name.trim(),
                 email = state.email.trim().lowercase(Locale.ROOT),
                 password = state.password,
             )) {
-                is RegistrationResult.Success -> handleAccountCreated(result.account)
+                is RegistrationResult.Success -> handleAccountCreated(result.account, state)
                 is RegistrationResult.Failure -> {
                     _uiState.value = _uiState.value.copy(
                         step = RegistrationStep.ACCOUNT_INFORMATION,
@@ -192,22 +178,42 @@ class RegistrationViewModel @Inject constructor(
         }
     }
 
-    private fun handleAccountCreated(account: RegistrationResponse) {
-        val state = _uiState.value
-        if (state.wantsDietarySetup) {
-            pendingOnboardingStore.requestDietarySetup(
-                accountEmail = account.email,
-                accountName = state.name,
-            )
-        } else {
-            pendingOnboardingStore.clear()
+    private suspend fun handleAccountCreated(
+        account: RegistrationResponse,
+        submittedState: RegistrationUiState,
+    ) {
+        pendingOnboardingStore.requestDietarySetup(
+            accountEmail = account.email,
+            accountName = submittedState.name,
+        )
+        val loginResult = try {
+            authRepository.login(account.email, submittedState.password)
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (_: Exception) {
+            null
         }
-        _uiState.value = state.copy(
+        if (loginResult is AuthResult.Success && authSessionStore.saveSession(loginResult.value)) {
+            _uiState.value = _uiState.value.copy(
+                step = RegistrationStep.COMPLETE,
+                isSubmitting = false,
+                password = "",
+                confirmPassword = "",
+                account = account,
+                authenticatedUser = loginResult.value.user,
+                accountCreatedButLoginFailed = false,
+            )
+            return
+        }
+        _uiState.value = _uiState.value.copy(
             step = RegistrationStep.COMPLETE,
             isSubmitting = false,
             password = "",
             confirmPassword = "",
             account = account,
+            authenticatedUser = null,
+            accountCreatedButLoginFailed = true,
+            registrationError = AUTO_LOGIN_FAILURE_MESSAGE,
         )
     }
 
@@ -219,6 +225,8 @@ class RegistrationViewModel @Inject constructor(
         private val EMAIL_PATTERN = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
         private const val PASSWORD_STRENGTH_MESSAGE =
             "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character."
+        const val AUTO_LOGIN_FAILURE_MESSAGE =
+            "Your account was created, but automatic sign-in failed. Log in to continue."
 
         private fun utf8ByteLength(value: String): Int =
             value.toByteArray(Charsets.UTF_8).size

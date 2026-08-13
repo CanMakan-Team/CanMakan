@@ -14,7 +14,11 @@ interface NavigationItem {
 }
 
 const familyNavigation: NavigationItem[] = [
-  { label: 'Dashboard', to: '/family', icon: '⌂' },
+  { label: 'Home', to: '/family', icon: '⌂' },
+  { label: 'Personal Home', to: '/family/personal', icon: '◇' },
+  { label: 'Dietary Profile', to: '/family/setup-profile', icon: '◇' },
+  { label: 'Family Circle', to: '/family/circle', icon: '♙' },
+  { label: 'Family Dashboard', to: '/family/dashboard', icon: '⌂' },
   { label: 'Family Members', to: '/family/members', icon: '♙' },
   { label: 'Restriction Summary', to: '/family/restrictions', icon: '▦' },
   { label: 'Family Scan History', to: '/family/history', icon: '◷' },
@@ -39,7 +43,7 @@ export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
 
   const navigation = portal === 'family' ? familyNavigation : systemNavigation
   const portalName =
-    portal === 'family' ? 'Family Admin Portal' : 'System Administration'
+    portal === 'family' ? 'CanMakan User Portal' : 'System Administration'
 
   const signOut = () => {
     void logout()
@@ -85,7 +89,7 @@ export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
             <div>
               <strong>{session?.displayName}</strong>
               <span>
-                {portal === 'family' ? 'Family Admin' : 'System Admin'}
+                {portal === 'family' ? 'CanMakan User' : 'System Admin'}
               </span>
             </div>
           </div>

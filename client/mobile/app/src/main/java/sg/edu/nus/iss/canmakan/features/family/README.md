@@ -81,8 +81,8 @@ after `/me` and family profiles. Drawer profile selection updates
 `ActiveProfileManager` immediately (optimistic), then confirms with
 `PUT /api/families/me/active-profile`. Failed PUT (403 outside family, 409 inactive,
 or network error) rolls back to the previous profile and shows an inline error.
-`ActiveProfileManager` uses `UNSET_PROFILE_ID = 0` until the server (or registration
-`profileId`) resolves.
+`ActiveProfileManager` uses `UNSET_PROFILE_ID = 0` until the server resolves a
+profile or authenticated optional setup creates one.
 
 ## Manage members (UC12)
 

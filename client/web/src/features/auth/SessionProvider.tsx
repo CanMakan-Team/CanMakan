@@ -11,6 +11,7 @@ import { authService } from './authService'
 import type { CredentialLoginInput, RegisterInput } from './authService'
 import { authSessionStore } from './authSessionStore'
 import { SessionContext } from './SessionContext'
+import type { RegisterAndLoginResult } from './SessionContext'
 import { withSessionMutationLock } from './sessionMutationCoordinator'
 
 let refreshInFlight: Promise<AuthenticatedSession | null> | null = null
@@ -131,6 +132,34 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const registerAndLogin = async (
+    input: RegisterInput,
+  ): Promise<RegisterAndLoginResult> => {
+    setLoading(true)
+    try {
+      const account = await authService.register(input)
+      try {
+        const authenticatedSession = await withSessionMutationLock(
+          'login',
+          async () => {
+            const established = await authService.loginWithCredentials({
+              ...input,
+              portal: 'FAMILY',
+            })
+            authSessionStore.replace(established, true)
+            setRestorationError('')
+            return established
+          },
+        )
+        return { status: 'authenticated', account, session: authenticatedSession }
+      } catch {
+        return { status: 'account-created-login-failed', account }
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const logout = async () => {
     authSessionStore.clear(true)
     try {
@@ -160,6 +189,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         retryRestoration,
         loginWithCredentials,
         register,
+        registerAndLogin,
         logout,
       }}
     >

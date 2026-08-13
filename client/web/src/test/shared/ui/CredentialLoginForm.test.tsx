@@ -6,6 +6,7 @@ import { CredentialLoginForm } from '../../../shared/ui/CredentialLoginForm'
 import { SessionProvider } from '../../../features/auth/SessionProvider'
 import { authService } from '../../../features/auth/authService'
 import { authSessionStore } from '../../../features/auth/authSessionStore'
+import { pendingRegistrationOnboardingStore } from '../../../features/auth/pendingRegistrationOnboardingStore'
 import { familyApiService } from '../../../features/family/api/familyApiService'
 import { ApiError } from '../../../shared/api/apiErrors'
 
@@ -41,7 +42,7 @@ function renderFamilyLogin(initialEntry = '/family-login') {
             element={
               <CredentialLoginForm
                 portal="FAMILY"
-                expectedRole="ROLE_FAMILY_ADMIN"
+                expectedRole="ROLE_APP_USER"
                 destination="/family"
                 buttonLabel="Sign in to Family Portal"
                 buttonClassName="button--primary"
@@ -50,6 +51,7 @@ function renderFamilyLogin(initialEntry = '/family-login') {
             }
           />
           <Route path="/family" element={<p>Family destination</p>} />
+          <Route path="/family/setup-profile" element={<p>Dietary setup</p>} />
           <Route path="/family-register" element={<p>Register page</p>} />
         </Routes>
       </MemoryRouter>
@@ -60,6 +62,7 @@ function renderFamilyLogin(initialEntry = '/family-login') {
 describe('CredentialLoginForm', () => {
   beforeEach(() => {
     authSessionStore.clear()
+    pendingRegistrationOnboardingStore.clear()
     vi.mocked(authService.loginWithCredentials).mockReset()
     vi.mocked(authService.logout).mockReset()
     vi.mocked(authService.refreshSession).mockReset()
@@ -81,6 +84,39 @@ describe('CredentialLoginForm', () => {
       screen.getByRole('alert'),
     ).toHaveTextContent('Enter your email and password to continue.')
     expect(authService.loginWithCredentials).not.toHaveBeenCalled()
+  })
+
+  it('prefills email supplied by registration recovery navigation', async () => {
+    renderFamilyLogin('/family-login?email=person%40example.com')
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Email')).toHaveValue('person@example.com')
+      expect(authService.refreshSession).toHaveBeenCalled()
+    })
+  })
+
+  it('continues a partially successful registration into dietary setup', async () => {
+    const user = userEvent.setup()
+    pendingRegistrationOnboardingStore.request({
+      email: 'person@example.com',
+      profileName: 'Person Name',
+    })
+    vi.mocked(authService.loginWithCredentials).mockResolvedValue({
+      accessToken: 'jwt',
+      userId: 14,
+      email: 'person@example.com',
+      active: true,
+      displayName: 'person',
+      roles: ['ROLE_APP_USER'],
+      portal: 'FAMILY',
+      prototype: false,
+    })
+    renderFamilyLogin('/family-login?email=person%40example.com')
+
+    await user.type(screen.getByLabelText('Password'), 'Password1!')
+    await user.click(screen.getByRole('button', { name: 'Sign in to Family Portal' }))
+
+    await waitFor(() => expect(screen.getByText('Dietary setup')).toBeInTheDocument())
   })
 
   it('rejects invalid email format before calling the API', async () => {
@@ -107,7 +143,7 @@ describe('CredentialLoginForm', () => {
       email: 'person@example.com',
       active: true,
       displayName: 'person',
-      roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
+      roles: ['ROLE_APP_USER'],
       portal: 'FAMILY',
       prototype: false,
     })
@@ -132,7 +168,7 @@ describe('CredentialLoginForm', () => {
       email: 'person@example.com',
       active: true,
       displayName: 'person',
-      roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
+      roles: ['ROLE_APP_USER'],
       portal: 'FAMILY',
       prototype: false,
     })
@@ -163,7 +199,7 @@ describe('CredentialLoginForm', () => {
       email: 'person@example.com',
       active: true,
       displayName: 'person',
-      roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
+      roles: ['ROLE_APP_USER'],
       portal: 'FAMILY',
       prototype: false,
     })
@@ -209,7 +245,7 @@ describe('CredentialLoginForm', () => {
       email: 'person@example.com',
       active: true,
       displayName: 'person',
-      roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
+      roles: ['ROLE_APP_USER'],
       portal: 'FAMILY',
       prototype: false,
     })
@@ -245,7 +281,7 @@ describe('CredentialLoginForm', () => {
       email: 'person@example.com',
       active: true,
       displayName: 'person',
-      roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
+      roles: ['ROLE_APP_USER'],
       portal: 'FAMILY',
       prototype: false,
     })

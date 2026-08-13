@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.features.auth
 
+import com.google.gson.Gson
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -14,197 +15,183 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import sg.edu.nus.iss.canmakan.features.auth.data.AuthFailureType
+import sg.edu.nus.iss.canmakan.features.auth.data.AuthRepository
+import sg.edu.nus.iss.canmakan.features.auth.data.AuthResult
+import sg.edu.nus.iss.canmakan.features.auth.data.AuthRole
+import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedSession
+import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationFailureType
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationRepository
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResponse
 import sg.edu.nus.iss.canmakan.features.auth.data.RegistrationResult
 import sg.edu.nus.iss.canmakan.features.auth.onboarding.PendingOnboardingStore
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionPersistence
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
 
 @OptIn(ExperimentalCoroutinesApi::class)
-@DisplayName("UC18: account-only Android registration")
+@DisplayName("UC18: account-only registration followed by normal login")
 class RegistrationViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
-    private lateinit var repository: FakeRegistrationRepository
+    private val dispatcher = StandardTestDispatcher()
+    private lateinit var registrationRepository: FakeRegistrationRepository
+    private lateinit var authRepository: FakeAuthRepository
+    private lateinit var sessionStore: AuthSessionStore
     private lateinit var pendingOnboardingStore: PendingOnboardingStore
     private lateinit var pendingInvitationStore: PendingInvitationStore
     private lateinit var viewModel: RegistrationViewModel
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(testDispatcher)
-        repository = FakeRegistrationRepository()
+        Dispatchers.setMain(dispatcher)
+        registrationRepository = FakeRegistrationRepository()
+        authRepository = FakeAuthRepository()
+        sessionStore = AuthSessionStore(FakeSessionPersistence(), Gson())
         pendingOnboardingStore = PendingOnboardingStore()
         pendingInvitationStore = PendingInvitationStore()
         viewModel = RegistrationViewModel(
-            repository,
+            registrationRepository,
+            authRepository,
+            sessionStore,
             pendingOnboardingStore,
             pendingInvitationStore,
         )
     }
 
     @AfterEach
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
+    fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun validAccountInputAdvancesWithoutNetworkCall() {
-        enterValidAccountInformation()
-
-        assertEquals(RegistrationStep.OPTIONAL_DIETARY_PROFILE, viewModel.uiState.value.step)
-        assertEquals(0, repository.callCount)
-    }
-
-    @Test
-    fun accountValidationStillRejectsInvalidEmailAndPassword() {
-        viewModel.updateEmail("not-an-email")
-        viewModel.updatePassword("weak")
-        viewModel.updateConfirmPassword("different")
-        viewModel.continueToDietaryProfile()
-
-        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
-        assertEquals("Enter a valid email address.", viewModel.uiState.value.emailError)
-        assertTrue(viewModel.uiState.value.passwordError != null)
-        assertEquals("Passwords do not match.", viewModel.uiState.value.confirmPasswordError)
-    }
-
-    @Test
-    fun successfulRegistrationCompletesWithNewAccountOnlyResponse() {
+    fun validSubmissionRegistersThenUsesAuthoritativeLoginAndStoresPendingProfileName() {
         enterValidAccountInformation()
 
         viewModel.createAccount()
-        testDispatcher.scheduler.advanceUntilIdle()
+        dispatcher.scheduler.advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertEquals(RegistrationStep.COMPLETE, state.step)
-        assertEquals(RegistrationResponse(14L, "person@example.com", true), state.account)
-        assertEquals("", state.password)
-        assertEquals("", state.confirmPassword)
-    }
-
-    @Test
-    fun registrationHasNoSecuredProfileSessionOrActiveProfileDependency() {
-        val fieldTypes = RegistrationViewModel::class.java.declaredFields.map { it.type }
-
-        assertFalse(fieldTypes.contains(DietaryRestrictionRepository::class.java))
-        assertFalse(fieldTypes.contains(ActiveProfileManager::class.java))
-        assertFalse(fieldTypes.contains(AuthSessionStore::class.java))
-    }
-
-    @Test
-    fun requestingDietarySetupStoresOnlyAccountBoundIntentAfterAccountCreation() {
-        enterValidAccountInformation()
-        viewModel.setDietarySetupRequested(true)
-
-        viewModel.createAccount()
-        testDispatcher.scheduler.advanceUntilIdle()
-
+        assertEquals(1, registrationRepository.callCount)
+        assertEquals(1, authRepository.loginCalls)
+        assertEquals("person@example.com", authRepository.lastEmail)
+        assertEquals("Password1!", authRepository.lastPassword)
+        assertEquals(14L, sessionStore.authenticatedUser.value?.userId)
+        assertEquals("Person Name", pendingOnboardingStore.peek()?.accountName)
         assertEquals("person@example.com", pendingOnboardingStore.peek()?.accountEmail)
-        assertEquals(
-            listOf("accountEmail", "accountName", "requestId"),
-            pendingOnboardingStore.peek()!!::class.java.declaredFields
-                .filterNot { it.isSynthetic || it.name.startsWith("$") }
-                .map { it.name },
-        )
-        assertTrue(viewModel.uiState.value.wantsDietarySetup)
+        assertEquals(14L, state.authenticatedUser?.userId)
+        assertEquals("", state.password)
     }
 
     @Test
-    fun skippingDietarySetupCreatesNoPendingProfileIntent() {
-        pendingOnboardingStore.requestDietarySetup("stale@example.com")
-        enterValidAccountInformation()
-        viewModel.setDietarySetupRequested(false)
-
-        viewModel.createAccount()
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertNull(pendingOnboardingStore.peek())
-    }
-
-    @Test
-    fun invitationTokenIsRetainedForPostLoginClaimAndExcludedFromRegistrationRequest() {
-        viewModel.setInvitationToken("  invite-token  ")
+    fun automaticLoginFailureKeepsAccountPendingSetupAndCannotRegisterTwice() {
+        authRepository.result = AuthResult.Failure(AuthFailureType.NETWORK)
         enterValidAccountInformation()
 
         viewModel.createAccount()
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals("invite-token", pendingInvitationStore.peek())
-        assertEquals(1, repository.callCount)
-    }
-
-    @Test
-    fun requestNormalizesEmailButPreservesPasswordExactly() {
-        val password = "  KeepCase Password1!  "
-        viewModel.updateName("  Person Name  ")
-        viewModel.updateEmail("  Person@Example.COM  ")
-        viewModel.updatePassword(password)
-        viewModel.updateConfirmPassword(password)
-        viewModel.continueToDietaryProfile()
-
+        dispatcher.scheduler.advanceUntilIdle()
         viewModel.createAccount()
-        testDispatcher.scheduler.advanceUntilIdle()
+        dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals("Person Name", repository.lastName)
-        assertEquals("person@example.com", repository.lastEmail)
-        assertEquals(password, repository.lastPassword)
+        val state = viewModel.uiState.value
+        assertEquals(1, registrationRepository.callCount)
+        assertEquals(RegistrationResponse(14L, "person@example.com", true), state.account)
+        assertTrue(state.accountCreatedButLoginFailed)
+        assertEquals(RegistrationViewModel.AUTO_LOGIN_FAILURE_MESSAGE, state.registrationError)
+        assertNull(state.authenticatedUser)
+        assertNull(sessionStore.authenticatedUser.value)
+        assertEquals("Person Name", pendingOnboardingStore.peek()?.accountName)
     }
 
     @Test
-    fun duplicateEmailReturnsToAccountStepWithoutCreatingPendingOnboarding() {
-        repository.result = RegistrationResult.Failure(
+    fun duplicateEmailShowsApprovedMessageAndDoesNotLoginOrCreateOnboarding() {
+        registrationRepository.result = RegistrationResult.Failure(
             RegistrationFailureType.DUPLICATE_EMAIL,
             "An account with this email already exists.",
         )
         enterValidAccountInformation()
-        viewModel.setDietarySetupRequested(true)
 
         viewModel.createAccount()
-        testDispatcher.scheduler.advanceUntilIdle()
+        dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
+        assertEquals("An account with this email already exists.", viewModel.uiState.value.registrationError)
+        assertEquals(RegistrationFailureType.DUPLICATE_EMAIL, viewModel.uiState.value.registrationFailureType)
+        assertEquals(0, authRepository.loginCalls)
         assertNull(pendingOnboardingStore.peek())
         assertEquals("Password1!", viewModel.uiState.value.password)
     }
 
     @Test
+    fun invalidInputDoesNotCallRegistration() {
+        viewModel.updateName("")
+        viewModel.updateEmail("not-an-email")
+        viewModel.updatePassword("weak")
+        viewModel.updateConfirmPassword("different")
+
+        viewModel.createAccount()
+
+        assertEquals(0, registrationRepository.callCount)
+        assertEquals("Profile Name is required.", viewModel.uiState.value.nameError)
+        assertEquals("Enter a valid email address.", viewModel.uiState.value.emailError)
+        assertEquals("Passwords do not match.", viewModel.uiState.value.confirmPasswordError)
+    }
+
+    @Test
     fun duplicateSubmissionWhileLoadingCallsRegistrationOnce() {
-        repository.gate = CompletableDeferred()
+        registrationRepository.gate = CompletableDeferred()
         enterValidAccountInformation()
 
         viewModel.createAccount()
         viewModel.createAccount()
-        testDispatcher.scheduler.runCurrent()
+        dispatcher.scheduler.runCurrent()
 
-        assertEquals(1, repository.callCount)
-        repository.gate?.complete(Unit)
-        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, registrationRepository.callCount)
+        registrationRepository.gate?.complete(Unit)
+        dispatcher.scheduler.advanceUntilIdle()
     }
 
     @Test
-    fun registrationStateNeverPrintsPasswords() {
-        viewModel.updatePassword("Password1!")
-        viewModel.updateConfirmPassword("Password1!")
+    fun requestNormalizesEmailPreservesPasswordAndDoesNotSendProfileName() {
+        val password = "  KeepCase Password1!  "
+        viewModel.updateName("  Person Name  ")
+        viewModel.updateEmail("  Person@Example.COM  ")
+        viewModel.updatePassword(password)
+        viewModel.updateConfirmPassword(password)
 
-        val rendered = viewModel.uiState.value.toString()
+        viewModel.createAccount()
+        dispatcher.scheduler.advanceUntilIdle()
 
-        assertFalse(rendered.contains("Password1!"))
-        assertTrue(rendered.contains("password=<redacted>"))
+        assertEquals("person@example.com", registrationRepository.lastEmail)
+        assertEquals(password, registrationRepository.lastPassword)
+        assertEquals("Person Name", pendingOnboardingStore.peek()?.accountName)
     }
 
     @Test
-    fun accountValidationRejectsAMissingNameAndKeepsTheEnteredEmailAndPassword() {
-        viewModel.updateEmail("person@example.com")
+    fun invitationTokenRemainsPendingAcrossRegistrationAndAutomaticLogin() {
+        viewModel.setInvitationToken("  invite-token  ")
+        enterValidAccountInformation()
+
+        viewModel.createAccount()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("invite-token", pendingInvitationStore.peek())
+    }
+
+    @Test
+    fun registrationDoesNotDependOnDietaryOrActiveProfileRepositories() {
+        val fieldTypes = RegistrationViewModel::class.java.declaredFields.map { it.type }
+
+        assertFalse(fieldTypes.contains(DietaryRestrictionRepository::class.java))
+        assertFalse(fieldTypes.contains(ActiveProfileManager::class.java))
+        assertTrue(fieldTypes.contains(AuthSessionStore::class.java))
+    }
+
+    @Test
+    fun stateNeverPrintsPasswords() {
         viewModel.updatePassword("Password1!")
         viewModel.updateConfirmPassword("Password1!")
-        viewModel.continueToDietaryProfile()
 
-        assertEquals(RegistrationStep.ACCOUNT_INFORMATION, viewModel.uiState.value.step)
-        assertEquals("Name is required.", viewModel.uiState.value.nameError)
+        assertFalse(viewModel.uiState.value.toString().contains("Password1!"))
     }
 
     private fun enterValidAccountInformation() {
@@ -212,7 +199,6 @@ class RegistrationViewModelTest {
         viewModel.updateEmail("  Person@Example.COM  ")
         viewModel.updatePassword("Password1!")
         viewModel.updateConfirmPassword("Password1!")
-        viewModel.continueToDietaryProfile()
     }
 
     private class FakeRegistrationRepository : RegistrationRepository {
@@ -221,21 +207,54 @@ class RegistrationViewModelTest {
         )
         var gate: CompletableDeferred<Unit>? = null
         var callCount = 0
-        var lastName: String? = null
         var lastEmail: String? = null
         var lastPassword: String? = null
 
-        override suspend fun register(
-            name: String,
-            email: String,
-            password: String,
-        ): RegistrationResult {
+        override suspend fun register(email: String, password: String): RegistrationResult {
             callCount++
-            lastName = name
             lastEmail = email
             lastPassword = password
             gate?.await()
             return result
         }
+    }
+
+    private class FakeAuthRepository : AuthRepository {
+        var result: AuthResult<AuthenticatedSession> = AuthResult.Success(validSession())
+        var loginCalls = 0
+        var lastEmail: String? = null
+        var lastPassword: String? = null
+
+        override suspend fun login(email: String, password: String): AuthResult<AuthenticatedSession> {
+            loginCalls++
+            lastEmail = email
+            lastPassword = password
+            return result
+        }
+
+        override suspend fun getCurrentUser(): AuthResult<AuthenticatedUser> =
+            AuthResult.Failure(AuthFailureType.UNAUTHENTICATED)
+    }
+
+    private class FakeSessionPersistence : AuthSessionPersistence {
+        private var value: String? = null
+        override fun readSession(): String? = value
+        override fun writeSession(serializedSession: String): Boolean {
+            value = serializedSession
+            return true
+        }
+        override fun clearSession(): Boolean {
+            value = null
+            return true
+        }
+    }
+
+    private companion object {
+        fun validSession() = AuthenticatedSession(
+            accessToken = "access-token",
+            tokenType = "Bearer",
+            expiresIn = 900,
+            user = AuthenticatedUser(14L, "person@example.com", AuthRole.USER),
+        )
     }
 }

@@ -26,6 +26,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -74,6 +75,7 @@ fun AuthenticatedDietaryOnboardingRoute(
 
     AuthenticatedDietaryOnboardingScreen(
         state = state,
+        onProfileNameChange = viewModel::updateProfileName,
         onToggle = viewModel::toggleRestriction,
         onRetry = viewModel::retryCatalog,
         onSaveRestrictions = viewModel::saveRestrictions,
@@ -84,6 +86,7 @@ fun AuthenticatedDietaryOnboardingRoute(
 @Composable
 fun AuthenticatedDietaryOnboardingScreen(
     state: AuthenticatedDietaryOnboardingUiState,
+    onProfileNameChange: (String) -> Unit,
     onToggle: (Long) -> Unit,
     onRetry: () -> Unit,
     onSaveRestrictions: () -> Unit,
@@ -140,8 +143,21 @@ fun AuthenticatedDietaryOnboardingScreen(
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                "Select the dietary restriction options that are relevant to your requirements, or continue without creating a profile.",
+                "You can complete this later. Select the dietary options relevant to you, or continue without creating a profile.",
                 color = TextSecondary,
+            )
+
+            OutlinedTextField(
+                value = state.profileName,
+                onValueChange = onProfileNameChange,
+                label = { Text("Profile Name") },
+                supportingText = {
+                    Text("This is the name for your personal dietary profile.")
+                },
+                readOnly = !state.profileNameEditable,
+                enabled = !state.isSubmitting,
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
             )
 
             state.errorMessage?.let { message ->

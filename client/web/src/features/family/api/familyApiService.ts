@@ -1,5 +1,6 @@
 import { mockFamilyRepository } from '../../../mocks/mockFamilyRepository'
 import { apiRequest, useMockApi } from '../../../shared/api/apiClient'
+import { ApiError } from '../../../shared/api/apiErrors'
 import type {
   ActiveProfile,
   DependantProfileResponse,
@@ -46,6 +47,16 @@ export const familyEndpoints = {
 export const familyApiService = {
   /** Get the family of the current user. */
   getMyFamily: () => apiRequest<FamilyMe>(familyEndpoints.me),
+
+  /** Resolve optional membership without turning a normal 404 into a UI error. */
+  async getMyFamilyOrNull(): Promise<FamilyMe | null> {
+    try {
+      return await apiRequest<FamilyMe>(familyEndpoints.me)
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null
+      throw error
+    }
+  },
 
   /** Create a new family. */
   createFamily: (familyName: string) =>

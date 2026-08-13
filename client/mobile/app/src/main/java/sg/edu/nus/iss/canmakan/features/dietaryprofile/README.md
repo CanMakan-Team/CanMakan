@@ -7,23 +7,21 @@ Individual dietary needs and restrictions.
 - Manage preset constraints (Halal, peanut-free, dairy-free, etc.)
 - Manage custom constraints
 - Provide the active dietary profile to the product flow
-- After explicit Login, load the authoritative restriction catalog and create
+- After normal client-side login, load the authoritative restriction catalog and create
   the caller's SELF profile through `POST /api/profiles/me`
 
 ## Authenticated onboarding
 
-Registration does not fetch restrictions or create a profile. When requested,
-authenticated onboarding loads `GET /api/restrictions`, submits only catalog ids
-with `STRICT_AVOID` or `INTOLERANCE`, and switches `ActiveProfileManager` only
-after an exact `201 Created` response containing a positive profile id, or safe
-resolution of an existing SELF profile. Names are nonblank and at most 100
-characters. Other 2xx responses and nonpositive ids are rejected.
+Registration does not fetch restrictions or create a profile. After normal
+client-side login, authenticated onboarding loads `GET /api/restrictions` and
+creates the SELF profile only through `POST /api/profiles/me`, using the pending
+Profile Name and catalog ids with `STRICT_AVOID` or `INTOLERANCE`. Only an exact
+`201 Created` response containing a positive profile id switches
+`ActiveProfileManager` or clears pending setup. Other 2xx responses and
+nonpositive ids are rejected.
 
-An HTTP 409 never creates a duplicate or guesses ownership. Family
-`selfProfileId` is authoritative when available; otherwise the standalone active
-profile must explicitly be `SELF`. The selected restrictions are saved to that
-positive existing profile before the app switches it or clears pending setup.
-Failure keeps setup retryable. Every async completion rechecks the initiating
+An HTTP 409 never creates a duplicate or guesses ownership. Profile creation
+failure keeps the account, authenticated session and setup retryable. Every async completion rechecks the initiating
 authenticated account before saving, switching, clearing, or continuing.
 
 If setup was previously deferred and no active profile exists, the drawer's

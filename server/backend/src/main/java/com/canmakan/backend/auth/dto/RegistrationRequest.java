@@ -12,9 +12,7 @@ import java.util.Locale;
 
 /** Request body for public user registration. */
 public record RegistrationRequest(
-    /** Used to create the account's linked SELF dietary profile (dietary_profiles.profile_name). */
-    @NotBlank(message = "Name is required.")
-    @Size(max = 100, message = "Name must not exceed 100 characters.")
+    /** Deprecated compatibility field. Profile names belong to authenticated profile setup. */
     String name,
 
     @NotBlank(message = "Email is required.")
@@ -43,7 +41,9 @@ public record RegistrationRequest(
     private static final int MAX_BCRYPT_PASSWORD_BYTES = 72;
 
     public RegistrationRequest {
-        name = name == null || name.isBlank() ? null : name.strip();
+        // Retain the legacy JSON field for compatibility, but never carry it into
+        // account registration. Profile names belong to authenticated profile setup.
+        name = null;
         email = email == null ? null : email.strip().toLowerCase(Locale.ROOT);
         invitationToken = invitationToken == null || invitationToken.isBlank()
             ? null

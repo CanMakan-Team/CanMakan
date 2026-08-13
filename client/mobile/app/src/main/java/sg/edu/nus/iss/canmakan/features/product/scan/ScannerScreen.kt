@@ -150,8 +150,8 @@ fun ScannerScreen(
                     onMenuClick = onMenuClick,
                     onNotificationsClick = onNotificationsClick,
                 )
-                // Registration always creates a linked profile now, so a missing profile is
-                // rare; the real "not set up yet" signal is having no restrictions selected.
+                // Registration is account-only, so either a missing profile or an empty
+                // restriction selection keeps the setup affordance visible.
                 if (activeProfile == null || activeRestrictions.isEmpty()) {
                     Box(
                         modifier = Modifier

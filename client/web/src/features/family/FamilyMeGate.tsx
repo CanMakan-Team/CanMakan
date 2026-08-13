@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Link, Outlet } from 'react-router-dom'
 import { ApiError, getErrorMessage } from '../../shared/api/apiErrors'
 import type { FamilyMe } from '../../shared/api/types'
 import { ErrorState, LoadingState } from '../../shared/ui/PageState'
 import { familyApiService } from './api/familyApiService'
-import { CreateFamilyCirclePage } from './pages/CreateFamilyCirclePage'
 
 /**
- * Loads GET /families/me before family portal pages.
- * 404 → UC8 create-circle empty state; 200 → child routes.
+ * Loads GET /families/me only for family-scoped pages.
+ * A 404 offers Family Circle options without opening the creation form automatically.
  *
  * @author Amelia
  */
@@ -20,7 +19,7 @@ export function FamilyMeGate() {
 
   // load my family
   // This function is used to load the family information from the server.
-  // If the family information is not found, it will redirect to the create family circle page.
+  // Missing membership leaves personal routes available and requires an explicit family action.
   // If the family information is found, it will set the family information to the state.
   const loadMe = useCallback(async () => {
     setLoading(true)
@@ -55,7 +54,24 @@ export function FamilyMeGate() {
     return <ErrorState message={error} onRetry={loadMe} />
   }
   if (needsCreate || !family) {
-    return <CreateFamilyCirclePage onCreated={() => void loadMe()} />
+    return (
+      <section className="panel" aria-labelledby="family-required-heading">
+        <p className="eyebrow">Optional Family Circle</p>
+        <h1 id="family-required-heading">This feature uses a Family Circle</h1>
+        <p>
+          Your personal account and Dietary Profile remain available without one.
+          Open Family Circle management only if you want household features.
+        </p>
+        <div className="page-header__actions">
+          <Link className="button button--primary" to="/family/circle">
+            Open Family Circle options
+          </Link>
+          <Link className="button button--secondary" to="/family/personal">
+            Return to personal home
+          </Link>
+        </div>
+      </section>
+    )
   }
 
   return <Outlet />

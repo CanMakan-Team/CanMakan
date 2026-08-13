@@ -10,7 +10,6 @@
 // Define the role type
 export type Role =
   | 'ROLE_APP_USER'
-  | 'ROLE_FAMILY_ADMIN'
   | 'ROLE_SYSTEM_ADMIN'
 
 // Define the portal type

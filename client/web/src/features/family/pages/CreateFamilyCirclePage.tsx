@@ -7,7 +7,7 @@ type CreateFamilyCirclePageProps = {
 }
 
 /**
- * UC8 empty-state: create a family circle when GET /families/me is 404.
+ * UC8 explicit family-management action for creating a family circle.
  * 
  * @author Amelia
  */
@@ -73,11 +73,11 @@ export function CreateFamilyCirclePage({ onCreated }: CreateFamilyCirclePageProp
     <section className="panel" aria-labelledby="create-family-heading">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Get started</p>
+          <p className="eyebrow">Optional family management</p>
           <h1 id="create-family-heading">Create your family circle</h1>
           <p>
-            You are not in a family circle yet. Choose a name to become the Family
-            Admin and create your dietary profile.
+            Create a separate household group only if you want to manage or invite
+            family members. Your personal Dietary Profile does not require a Family Circle.
           </p>
         </div>
       </header>

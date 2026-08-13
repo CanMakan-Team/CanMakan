@@ -6,7 +6,7 @@ Authentication and session management.
 Handles live login/register, session context, and route protection against UC19 JWT login.
 
 ## Contains
-- Session context / provider (`loginWithCredentials`, `register`, restore, logout)
+- Session context / provider (`loginWithCredentials`, `registerAndLogin`, restore, logout)
 - `authService` — live register/login/refresh/logout and `/api/auth/me`
 - `useSession` hook
 - Protected route helpers
@@ -14,9 +14,14 @@ Handles live login/register, session context, and route protection against UC19 
 
 ## UC18 web registration
 - Public route `/family-register`
-- Collects only durable account credentials (`email`, `password`); profile name
-  is deferred to authenticated SELF-profile setup
-- After success, client returns to `/family-login`; registration does not create a session
+- Collects email, password confirmation and pending personal Profile Name; only
+  email/password are sent to public registration
+- After `201`, calls the authoritative UC19 login path and opens protected
+  `/family/setup-profile`
+- Profile Name remains in credential-free memory until authenticated
+  `POST /api/profiles/me`; Set Up Later creates no profile
+- If automatic login fails, registration is not retried and normal login is
+  offered with email prefilled
 - Invitation links preserve their token through registration so the existing
   authenticated login flow can claim the invitation after sign-in
 - Invitation login remains on the page while claiming and exposes a retry when
@@ -32,7 +37,7 @@ Do **not** confuse these three ideas:
 
 | Account | Mapped web roles | `/family-login` | `/system-admin-login` |
 | --- | --- | --- | --- |
-| Platform **USER** | `ROLE_APP_USER` + `ROLE_FAMILY_ADMIN` | Allowed | Blocked |
+| Platform **USER** | `ROLE_APP_USER` | Allowed | Blocked |
 | Platform **ADMIN** | `ROLE_SYSTEM_ADMIN` | Blocked | Allowed |
 
 ## Testing
@@ -58,4 +63,6 @@ Vitest suites live under `src/test/` (mirroring features/shared). Coverage inclu
   BroadcastChannel event, with a transient storage-event fallback, so other
   open tabs discard their in-memory identity and account data.
 - Family/scan APIs no longer use `X-User-Id`
+- Family membership authority comes from `family_members.member_role`; the
+  client does not infer `PRIMARY_ADMIN` from a platform `USER` login.
 - No prototype/demo one-click login

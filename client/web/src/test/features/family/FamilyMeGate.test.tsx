@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { FamilyMeGate } from '../../../features/family/FamilyMeGate'
 import { familyApiService } from '../../../features/family/api/familyApiService'
 import { ApiError } from '../../../shared/api/apiErrors'
@@ -52,7 +51,7 @@ describe('FamilyMeGate', () => {
     })
   })
 
-  it('shows create-circle empty state on 404', async () => {
+  it('keeps personal navigation available on 404 without opening family creation', async () => {
     vi.mocked(familyApiService.getMyFamily).mockRejectedValue(
       new ApiError('Family not found.', 404),
     )
@@ -61,45 +60,15 @@ describe('FamilyMeGate', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: 'Create your family circle' }),
+        screen.getByRole('heading', { name: 'This feature uses a Family Circle' }),
       ).toBeInTheDocument()
     })
-  })
-
-  it('creates a family and reloads /me after successful submit', async () => {
-    const user = userEvent.setup()
-    vi.mocked(familyApiService.getMyFamily)
-      .mockRejectedValueOnce(new ApiError('Family not found.', 404))
-      .mockResolvedValueOnce({
-        familyId: 9,
-        familyName: 'Wong Family',
-        memberRole: 'PRIMARY_ADMIN',
-        selfProfileId: 77,
-        createdByUserId: 14,
-      })
-    vi.mocked(familyApiService.createFamily).mockResolvedValue({
-      familyId: 9,
-      familyName: 'Wong Family',
-      memberRole: 'PRIMARY_ADMIN',
-      selfProfileId: 77,
-      createdByUserId: 14,
-    })
-
-    renderGate()
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('heading', { name: 'Create your family circle' }),
-      ).toBeInTheDocument()
-    })
-
-    await user.type(screen.getByLabelText(/family name/i), 'Wong Family')
-    await user.click(screen.getByRole('button', { name: /create family circle/i }))
-
-    await waitFor(() => {
-      expect(familyApiService.createFamily).toHaveBeenCalledWith('Wong Family')
-      expect(screen.getByText('Family portal content')).toBeInTheDocument()
-    })
+    expect(screen.getByRole('link', { name: 'Return to personal home' })).toHaveAttribute(
+      'href',
+      '/family/personal',
+    )
+    expect(screen.queryByLabelText(/family name/i)).not.toBeInTheDocument()
+    expect(familyApiService.createFamily).not.toHaveBeenCalled()
   })
 
   it('shows retryable error when /me fails for a non-404 reason', async () => {

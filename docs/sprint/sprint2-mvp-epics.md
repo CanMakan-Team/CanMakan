@@ -99,7 +99,7 @@ flowchart TB
 
 - **Backend:** `DietaryProfileController` — live `GET /api/restrictions` and `GET|PUT /api/profiles/{profileId}/restrictions`; JWT required (`SecurityConfig`); GET uses `FamilyAuthorizationService.assertProfileAuthorizedForScan`; PUT uses D3 (`assertMayEditRestrictions`: self, or any family profile for PRIMARY_ADMIN).
 - **Mobile:** `DietaryRestrictionSheet` + ViewModel wired from the drawer; loads/saves against the live API for the active profile. Severity is fixed to `STRICT_AVOID` in the VM (no PREFERENCE / INTOLERANCE picker). Loading/error paths exist.
-- **Missing:** unknown-code → consistent HTTP 400 mapping; severity picker (AC4); empty-state polish (AC14). SELF bootstrap after registration is via **UC8** create-circle (register leaves `family_id` NULL until then).
+- **Missing:** unknown-code → consistent HTTP 400 mapping; severity picker (AC4); empty-state polish (AC14). Optional SELF bootstrap after normal login uses authenticated `POST /api/profiles/me` and does not require UC8.
 
 ### User story
 
@@ -107,13 +107,13 @@ As an app user, I want to change my personal restrictions, allergens, and prefer
 
 ### Alignment
 
-Account registration is profile-free. After explicit login, authenticated
+Account registration is profile-free. After the client completes normal login, authenticated
 `POST /api/profiles/me` may create a standalone SELF profile because
 `dietary_profiles.family_id` is nullable; UC8/UC9 also bootstrap it when missing.
 
 ### Context
 
-**Design:** Mobile restriction editor (catalog + severity); create/onboarding flow tied to registration + family bootstrap.  
+**Design:** Mobile restriction editor (catalog + severity); optional standalone SELF onboarding after account registration and normal login.
 **Diagrams:** DietaryProfileController, service, entities; sequences for load catalog → PUT restrictions; create path.  
 **Backend:** `GET /api/restrictions`; `GET|PUT /api/profiles/{id}/restrictions`; ownership authz.  
 **Mobile:** DietaryRestrictionSheet; wire create path without family-less orphans.  
@@ -131,7 +131,7 @@ Account registration is profile-free. After explicit login, authenticated
 | [x] | 5 | User can remove a restriction from their authorized profile. |
 | [x] | 6 | `PUT /api/profiles/{profileId}/restrictions` persists changes and a subsequent GET returns the saved set. |
 | [x] | 7 | The next successful scan/assess for that profile uses the updated restrictions (not a stale set). |
-| [x] | 8 | Registration creates only the account; after explicit login, the user obtains a SELF profile via authenticated `/api/profiles/me` or UC8/UC9 bootstrap. |
+| [x] | 8 | Registration creates only the account; after client-side normal login, the user may obtain a SELF profile via authenticated `/api/profiles/me` or UC8/UC9 bootstrap. |
 | [x] | 9 | Standalone SELF setup may use `family_id` NULL and remains a separate atomic transaction from the already committed account. |
 | [ ] | 10 | Unknown restriction codes are rejected with HTTP 400. |
 | [x] | 11 | Unauthorized profile access (other adult’s linked profile under default D3) returns HTTP 403. |
@@ -148,14 +148,14 @@ Account registration is profile-free. After explicit login, authenticated
 | **UC1-S1** | 1–2, 10–12, 16 | Authz + catalog/load — **mostly done** (AC10 unknown-code → 400 open) |
 | **UC1-S2** | supports 3–6 | Codes / PREFERENCE (D8/M6) — **open** (severity picker) |
 | **UC1-S3** | 3–7 | Mobile editor + save + next-scan — **mostly done** (AC4 severity open) |
-| **UC1-S4** | 8–9 | Create-after-registration / UC8 bootstrap — **done** |
+| **UC1-S4** | 8–9 | Optional standalone SELF create after registration/login — **done** |
 | **UC1-S5** | 13–15 | Loading / empty / error — **partial** (empty state polish) |
 
 Full table: [backlog §5 UC1](sprint2-jira-backlog.md#uc1--dietary-profile).
 
 ### Dependencies
 
-UC19, UC8 · Related: UC11, UC12
+UC19 · Related: UC8, UC11, UC12
 
 ---
 
@@ -502,12 +502,12 @@ UC19 · Related: UC22
 - **Schema:** `UNIQUE(family_members.user_id)` via `uq_family_members_user_id` in `00_schema.sql` (D2 / one circle per user). Seeds remain one membership per user.
 - **Backend:** `POST /api/families` and `GET /api/families/me` via `FamilyService` / `FamilyController`. Create is transactional: `families` (`created_by_user_id`) + `PRIMARY_ADMIN` membership + SELF `dietary_profiles` (`linked_user_id`, `family_id`, `is_primary`). Package layout: `family/dto/`, `model/`, `repository/`, `exception/`. Contract: `docs/api/families.md`.
 - **Identity:** Controllers take `@AuthenticationPrincipal AuthUserDetails` (Bearer JWT). Unauthenticated family calls return 401.
-- **Role model:** DB `family_members.member_role = PRIMARY_ADMIN`; web portal maps JWT `USER` → `ROLE_FAMILY_ADMIN` for the family gate. Full RBAC alignment remains shared with UC13.
-- **Web:** Register (`/family-register`) / login → `/family` → `FamilyMeGate` loads `/families/me`; **404** → `CreateFamilyCirclePage` (name + loading/validation/error). `apiClient` sends `Authorization: Bearer`. Feature packaged under `features/family/{api,components,pages,lib}`.
+- **Role model:** DB `family_members.member_role = PRIMARY_ADMIN`; web maps JWT `USER` to client `ROLE_APP_USER`. Family authority comes only from membership responses, never a system role.
+- **Web:** Register (`/family-register`) / login → optional SELF setup → personal USER home. `/family` resolves existing membership to the dashboard or a family-independent personal home. Only explicit `/family/circle` selection may show `CreateFamilyCirclePage`. `apiClient` sends `Authorization: Bearer`.
 - **Mobile:** Resolves `/families/me` with Bearer from `AuthSessionStore`. When 404 and a session exists, drawer CTA → `CreateFamilyCircleScreen` (`POST /api/families`); create is hidden once the user already has a family. Invite (UC9) and limited manage (UC12) follow the ownership matrix above.
 - **Tests:** Backend create success, blank name 400, second create 409, missing/invalid JWT 401 (`FamilyControllerTest` / `FamilyServiceTest`). Mobile repository + nav ViewModel cover `/me`, create, and session gates.
 - **Diagrams:** Class/sequence under `docs/architecture/` for create-circle still **open** (planned `domain-family.mmd`).
-- **Demo tip:** Seeded users 4–13 already have families — register a new account to hit empty-state create.
+- **Demo tip:** Seeded users 4–13 already have families. A new account enters optional dietary setup and personal home; select Family Circle explicitly to test UC8 create.
 - **Gaps:** Architecture diagrams still open (`domain-family.mmd`). UC9–UC12 shipped on their intended clients.
 
 ### User story
@@ -965,12 +965,12 @@ UC5
 
 **Owner:** Maowei · **Package:** Enhanced · **Architecture:** Authentication & Security  
 **Tech:** Mobile + Web + Spring Boot Auth API; Security; JWT; RDS  
-**Current code state:** Complete — register API + mobile/web UIs; **does not auto-login** (UC19 owns session)
+**Current code state:** Complete — account-only register API + mobile/web UIs; clients follow success with the authoritative UC19 login/session path and optional dietary setup
 
-- **Backend:** `POST /api/auth/register` on combined `AuthController` / `AuthService` creates `users` + SELF `dietary_profiles` with `family_id` NULL (circle later via UC8). Password BCrypt; email dotted-domain; registration password strength + 72-byte BCrypt limit. No JWT issued on register.
-- **Web:** `/family-register` → then credential login (UC19) → `/family` → UC8 `FamilyMeGate` when no circle.
-- **Mobile:** Registration UI/ViewModel; success does **not** write `AuthSessionStore` (user must login).
-- **Gaps:** polish only; family circle remains UC8.
+- **Backend:** `POST /api/auth/register` creates only an active `USER` account. Password BCrypt; email dotted-domain; registration password strength + 72-byte BCrypt limit. No JWT or DietaryProfile is issued on register.
+- **Web:** `/family-register` calls normal UC19 login after `201`, then opens protected `/family/setup-profile`; Set Up Later creates no profile and the family navigation allows later completion.
+- **Mobile:** Registration UI/ViewModel calls the existing auth repository after `201`, writes the normal `AuthSessionStore`, and opens authenticated dietary setup directly.
+- **Failure boundary:** registration may remain successful if automatic login or later profile creation fails; the account is never retried, deleted, or rolled back by those failures.
 
 ### User story
 
@@ -1013,8 +1013,8 @@ UC19 (login after register) · Unblocks demo of UC8 empty-state create
 - **Backend:** Spring Security + JWT filter (`SecurityConfig`). Single `AuthController` / `AuthService`: `POST /api/auth/login` (access JWT + refresh cookie), `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me`. Auth package layout: `dto/` / `model/` / `exception/` / `repository/`. Platform roles `USER` / `ADMIN` (not Family Admin).
 - **Protected today:** `/api/families/**`, `/api/invitations/**`, `POST /api/scan/assess`, `GET /api/scan/history/**`, `/api/profiles/**`, `GET /api/restrictions`, `GET /api/auth/me`, `/api/admin/**` (ADMIN). **Still transitional public (`anyRequest.permitAll`):** `POST /api/scan/validate` and other unmatched routes.
 - **Mobile:** `AuthSessionStore` (encrypted prefs); Bearer interceptor + authenticator; dedicated cookie refresh/logout client; `AppAuthViewModel` restore/login/logout; Login/Registration graphs. Unit tests cover login, session, refresh, logout, nav session gates.
-- **Web:** JWT session in `canmakan.session`; `Authorization: Bearer`; login/logout UX; portal maps `USER`→`ROLE_FAMILY_ADMIN`. Vitest suite under `client/web/src/test/`. Web does **not** yet auto-call refresh on 401 (mobile does).
-- **Gaps:** distinct HTTP 403 for suspended accounts (today often same safe 401); finish UC19-S3 for remaining public routes (notably validate); web refresh/rotation parity.
+- **Web:** Access JWT remains memory-only; `Authorization: Bearer`; refresh-cookie restore/recovery; login/logout UX; client maps `USER`→`ROLE_APP_USER` and `ADMIN`→`ROLE_SYSTEM_ADMIN`. Vitest suite under `client/web/src/test/`.
+- **Gaps:** distinct HTTP 403 for suspended accounts (today often same safe 401); finish UC19-S3 for remaining public routes (notably validate).
 
 ### User stories
 
@@ -1246,7 +1246,9 @@ Canonical with [backlog §5b](sprint2-jira-backlog.md#5b-recommended-delivery-se
 5. Enhanced: UC14-S1/S2, UC15–UC17  
 6. Nice-to-Have: UC20-S1/S2 … UC24-S1/S2 
 
-Seeded families remain useful for demo data; new users create a circle via UC8 and persist active profile via UC11.
+Seeded families remain useful for family demo data. New users may remain personal
+users; UC8 creation and UC11 family active-profile persistence apply only after
+an explicit Family Circle action.
 
 ---
 

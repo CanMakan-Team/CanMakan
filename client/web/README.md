@@ -1,9 +1,9 @@
 # CanMakan Web
 
 This React, TypeScript and Vite client contains two deliberately separate web
-portals:
+entry areas:
 
-- Family Admin Portal
+- USER portal with separate personal and optional Family Circle areas
 - System Admin Portal
 
 The implementation is an evolutionary Sprint 1 / Sprint 2 client. **Auth and
@@ -35,21 +35,26 @@ represented as completed Sprint 1 functions.
 
 Public/supporting routes:
 
-- `/` — redirects to the Family Admin entry at `/family-login`
-- `/family-login` — Family Admin email/password sign-in (live)
+- `/` — redirects to the USER entry at `/family-login`
+- `/family-login` — platform USER email/password sign-in (live)
 - `/family-register` — UC18 create account (same family login theme)
+- `/family/setup-profile` — protected optional SELF-profile onboarding after registration
 - `/system-admin-login` — System Admin email/password sign-in (live)
 - `/access-denied` — role boundary notice
 
 There is no public combined portal chooser. The Family and System login pages
 are separate compositions and do not link to one another. The System
 Administrator entry remains available only at its dedicated route. Family login
-links to `/family-register`; registration does not create a family circle
-(UC8 empty-state does).
+links to `/family-register`; registration does not create a Family Circle.
+Authenticated users may select the explicit `/family/circle` action later.
 
-Protected Family Admin routes:
+Protected USER routes:
 
-- `/family` — selected-feature dashboard
+- `/family` — membership-aware USER landing
+- `/family/personal` — family-independent authenticated USER home
+- `/family/setup-profile` — optional standalone SELF-profile setup
+- `/family/circle` — explicit optional Family Circle entry
+- `/family/dashboard` — existing Family Circle dashboard
 - `/family/members` — link, create, edit and active-profile flows
 - `/family/restrictions` — dynamic family restriction summary
 - `/family/history` — supplied scan-assessment history
@@ -62,8 +67,8 @@ Protected System Admin routes:
 - `/system/users` — User Accounts & Access
 - `/system/future` — clearly labelled future/prototype-only concepts
 
-`ROLE_FAMILY_ADMIN` cannot navigate to System pages and
-`ROLE_SYSTEM_ADMIN` cannot use `/family` as a Family Admin. There is no
+`ROLE_APP_USER` cannot navigate to System pages and
+`ROLE_SYSTEM_ADMIN` cannot use USER routes. There is no
 Family/System role switch. The React guards improve navigation only:
 **Spring Security must enforce the same access rules on every production API
 endpoint.**
@@ -181,16 +186,27 @@ System Admin Portal:
 
 Auth (live DB, UC19 JWT):
 
-- `POST /api/auth/register` — name, email, password → user + SELF profile
+- `POST /api/auth/register` — email, password → active USER account only
 - `POST /api/auth/login` — email, password → `AuthResponse` (access JWT + user) + refresh cookie
+- `POST /api/profiles/me` — authenticated optional SELF profile + restrictions
 - `POST /api/auth/refresh` — rotates the HttpOnly refresh session and returns a new access response
 - `POST /api/auth/logout` — clears refresh cookie / session server-side
 - `GET /api/auth/me` — authoritative account id, email, platform role and active status
 
-Registration and authentication are separate: after successful registration,
-the browser returns to `/family-login` without issuing an access token. On login,
-the access credential stays in memory; startup restoration uses the HttpOnly
-refresh cookie and verifies `/api/auth/me` before protected pages render.
+Registration and authentication remain separate backend operations. After
+successful account-only registration, the browser calls the normal login path,
+keeps the access credential in memory and opens optional dietary setup. Profile
+Name remains credential-free pending data until authenticated
+`POST /api/profiles/me`; **Set Up Later** makes no profile request. If automatic
+login fails, the account remains and normal login is offered with email prefilled.
+The family navigation keeps `/family/setup-profile` available so an authenticated
+user can complete skipped setup later.
+Save and Set Up Later finish at `/family/personal`, which performs no family
+creation or membership request. `/family` checks optional membership only to
+route existing members to `/family/dashboard`; a 404 routes to personal home.
+The Family Circle form opens only from the explicit `/family/circle` action.
+Startup restoration still uses the HttpOnly refresh cookie and verifies
+`/api/auth/me` before protected pages render.
 Cookie-changing login, refresh, and logout operations require Web Locks so all
 same-origin tabs share one mutation boundary. Cross-tab invalidation messages
 contain coordination metadata only; no credential or account data is persisted.
@@ -211,7 +227,8 @@ GET   /api/admin/users?query={query}&role={USER|ADMIN}&active={true|false}
 PATCH /api/admin/users/{userId}/status
 ```
 
-Web: `FamilyMeGate` + `CreateFamilyCirclePage` when `/me` is 404. Details:
+Web: `FamilyMeGate` protects family-only routes. The create form is available
+only through the explicit `/family/circle` entry when `/me` is 404. Details:
 [`docs/api/families.md`](../../docs/api/families.md).
 
 ## Proposed backend contracts requiring confirmation

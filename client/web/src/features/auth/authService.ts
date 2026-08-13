@@ -27,7 +27,7 @@ export type CredentialLoginInput = {
 function mapSystemRoleToPortalRoles(role: 'USER' | 'ADMIN'): Role[] {
   return role === 'ADMIN'
     ? ['ROLE_SYSTEM_ADMIN']
-    : ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN']
+    : ['ROLE_APP_USER']
 }
 
 function displayNameFromEmail(email: string): string {
