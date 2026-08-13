@@ -32,8 +32,10 @@ jobs:
 
       - name: Resolve Comparison Base
         id: base
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          BASE_SHA="$(git rev-parse '${{ github.event.workflow_run.head_sha }}^1')"
+          BASE_SHA="$(git rev-parse "${HEAD_SHA}^1")"
           echo "sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Detect File Changes
