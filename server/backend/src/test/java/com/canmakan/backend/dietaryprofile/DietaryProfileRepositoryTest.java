@@ -87,14 +87,14 @@ class DietaryProfileRepositoryTest {
         List<DietaryRestriction> all = dietaryRestrictionRepository.findAllOrderedByDisplayName();
 
         assertThat(all).hasSize((int) RESTRICTION_COUNT);
-        // "Dairy Free" (2) < "Egg Allergy" (7) < "Fish Allergy" (5) < "Gluten Free" (1)
-        // < "Halal" (8) < "Keto" (20) < "Kosher" (15) < "Lactose Intolerant" (16)
-        // < "Low Cholesterol" (19) < "Low Fat" (12) < "Low Salt" (14) < "Low Sugar" (11)
-        // < "Low Trans Fat" (13) < "Peanut Allergy" (3) < "Sesame Allergy" (18)
-        // < "Shellfish Allergy" (4) < "Soy Allergy" (6) < "Tree Nut Allergy" (17)
-        // < "Vegan" (10) < "Vegetarian" (9)
+        // "Egg Allergy" (7) < "Fish Allergy" (5) < "Gluten Intolerance" (1)
+        // < "Halal" (8) < "Keto" (20) < "Kosher" (15) < "Lactose Intolerance" (2)
+        // < "Lactose Intolerant" (16) < "Low Cholesterol" (19) < "Low Fat" (12)
+        // < "Low Salt" (14) < "Low Sugar" (11) < "Low Trans Fat" (13)
+        // < "Peanut Allergy" (3) < "Sesame Allergy" (18) < "Shellfish Allergy" (4)
+        // < "Soy Allergy" (6) < "Tree Nut Allergy" (17) < "Vegan" (10) < "Vegetarian" (9)
         assertThat(all.stream().map(restriction -> restriction.getId()).toList())
-            .containsExactly(2L, 7L, 5L, 1L, 8L, 20L, 15L, 16L, 19L, 12L, 14L, 11L, 13L, 3L, 18L, 4L, 6L, 17L, 10L, 9L);
+            .containsExactly(7L, 5L, 1L, 8L, 20L, 15L, 2L, 16L, 19L, 12L, 14L, 11L, 13L, 3L, 18L, 4L, 6L, 17L, 10L, 9L);
     }
 
     @Test
@@ -148,7 +148,7 @@ class DietaryProfileRepositoryTest {
                 pr -> pr.getDietaryRestriction().getDisplayName(),
                 pr -> pr.getSeverityLevel())
             .containsExactlyInAnyOrder(
-                tuple("Gluten Free", "STRICT_AVOID"),
+                tuple("Gluten Intolerance", "STRICT_AVOID"),
                 tuple("Low Sugar", "PREFERENCE")
             );
     }
@@ -228,7 +228,7 @@ class DietaryProfileRepositoryTest {
     @Test
     @DisplayName("UC1-AC4: changing severity for an existing profile restriction updates it in place, not a duplicate")
     void changingSeverityForExistingRestrictionUpdatesInPlace() {
-        // Sarah Tan (profile 1) is seeded with Gluten Free STRICT_AVOID and Low
+        // Sarah Tan (profile 1) is seeded with Gluten Intolerance STRICT_AVOID and Low
         // Sugar PREFERENCE. Re-submitting the same restriction ids with Gluten's
         // severity changed mirrors what PUT /profiles/{id}/restrictions does when
         // a user changes severity in the Sheet rather than adding/removing.

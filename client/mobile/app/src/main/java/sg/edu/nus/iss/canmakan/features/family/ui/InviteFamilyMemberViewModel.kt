@@ -17,7 +17,7 @@ import sg.edu.nus.iss.canmakan.features.family.data.InvitationResponse
 import sg.edu.nus.iss.canmakan.features.family.data.UserSearchResponse
 import javax.inject.Inject
 
-data class AddProfileToFamilyUiState(
+data class InviteFamilyMemberUiState(
     val email: String = "",
     val isSearching: Boolean = false,
     val isInviting: Boolean = false,
@@ -27,13 +27,13 @@ data class AddProfileToFamilyUiState(
 )
 
 @HiltViewModel
-class AddProfileToFamilyViewModel @Inject constructor(
+class InviteFamilyMemberViewModel @Inject constructor(
     private val familyProfileRepository: FamilyProfileRepository,
     private val authSessionStore: AuthSessionStore,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(AddProfileToFamilyUiState())
-    val uiState: StateFlow<AddProfileToFamilyUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(InviteFamilyMemberUiState())
+    val uiState: StateFlow<InviteFamilyMemberUiState> = _uiState.asStateFlow()
     private var searchJob: Job? = null
     private var inviteJob: Job? = null
     private var accountObserved = false
@@ -142,7 +142,7 @@ class AddProfileToFamilyViewModel @Inject constructor(
         if (accountObserved && observedAccountKey == accountKey) return
         searchJob?.cancel()
         inviteJob?.cancel()
-        _uiState.value = AddProfileToFamilyUiState()
+        _uiState.value = InviteFamilyMemberUiState()
         observedAccountKey = accountKey
         accountObserved = true
     }

@@ -15,6 +15,7 @@ import sg.edu.nus.iss.canmakan.features.auth.onboarding.PendingOnboardingStore
 import sg.edu.nus.iss.canmakan.features.auth.onboarding.PendingDietaryOnboarding
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthAccountKey
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DairyRestrictionPresentation
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.ProfileRestrictionSeverity
@@ -215,7 +216,9 @@ class AuthenticatedDietaryOnboardingViewModel @Inject constructor(
         catalogJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoadingCatalog = true, errorMessage = null)
             try {
-                val restrictions = dietaryRestrictionRepository.getAllDietaryRestrictions()
+                val restrictions = DairyRestrictionPresentation.presentCatalog(
+                    dietaryRestrictionRepository.getAllDietaryRestrictions(),
+                )
                 if (isCurrentSetup(initiatingUser)) {
                     _uiState.value = _uiState.value.copy(restrictions = restrictions)
                 }

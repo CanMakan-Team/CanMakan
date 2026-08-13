@@ -164,7 +164,7 @@ Family Portal:
 3. Open **Family Members** and choose **Add Existing App User**.
 4. Search `jamie@example.com`, confirm the link and verify Jamie appears.
 5. Choose **Create New Profile** and create Chloe as a Child.
-6. Add Peanut Allergy and Dairy Free; verify the summary updates.
+6. Add Peanut Allergy and Lactose Intolerance; verify the summary updates.
 7. Select Chloe as the active assessment profile.
 8. Edit Chloe and add Low Sugar; verify the profile and summary refresh.
 9. Open **Family Scan History** and filter by profile.

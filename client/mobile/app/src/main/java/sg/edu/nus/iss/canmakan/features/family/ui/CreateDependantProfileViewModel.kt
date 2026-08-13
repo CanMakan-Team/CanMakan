@@ -16,7 +16,7 @@ import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.family.model.RelationshipToAdmin
 import javax.inject.Inject
 
-data class CreateNewProfileUiState(
+data class CreateDependantProfileUiState(
     val profileName: String = "",
     val relationship: RelationshipToAdmin? = null,
     val isSubmitting: Boolean = false,
@@ -25,13 +25,13 @@ data class CreateNewProfileUiState(
 )
 
 @HiltViewModel
-class CreateNewProfileViewModel @Inject constructor(
+class CreateDependantProfileViewModel @Inject constructor(
     private val familyProfileRepository: FamilyProfileRepository,
     private val authSessionStore: AuthSessionStore,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(CreateNewProfileUiState())
-    val uiState: StateFlow<CreateNewProfileUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(CreateDependantProfileUiState())
+    val uiState: StateFlow<CreateDependantProfileUiState> = _uiState.asStateFlow()
     private var createJob: Job? = null
     private var accountObserved = false
     private var observedAccountKey: AuthAccountKey? = null
@@ -92,13 +92,13 @@ class CreateNewProfileViewModel @Inject constructor(
                 if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     isSubmitting = false,
-                    errorMessage = "We are unable to save new family member. Please try again later.",
+                    errorMessage = "We are unable to save the dependant profile. Please try again later.",
                 )
             } catch (_: Exception) {
                 if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     isSubmitting = false,
-                    errorMessage = "We are unable to save new family member. Please try again later.",
+                    errorMessage = "We are unable to save the dependant profile. Please try again later.",
                 )
             }
         }
@@ -110,7 +110,7 @@ class CreateNewProfileViewModel @Inject constructor(
     private fun bindAccount(accountKey: AuthAccountKey?) {
         if (accountObserved && observedAccountKey == accountKey) return
         createJob?.cancel()
-        _uiState.value = CreateNewProfileUiState()
+        _uiState.value = CreateDependantProfileUiState()
         observedAccountKey = accountKey
         accountObserved = true
     }

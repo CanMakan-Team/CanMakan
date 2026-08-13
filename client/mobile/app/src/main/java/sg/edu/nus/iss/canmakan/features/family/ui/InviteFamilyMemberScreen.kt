@@ -38,8 +38,9 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
+/** UC9: invite someone who will join with their own CanMakan account. */
 @Composable
-fun AddProfileToFamilyScreen(
+fun InviteFamilyMemberScreen(
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
@@ -47,7 +48,7 @@ fun AddProfileToFamilyScreen(
     onBackClick: () -> Unit = {},
     onCancelClick: () -> Unit = {},
     onInviteCreated: () -> Unit = {},
-    viewModel: AddProfileToFamilyViewModel = hiltViewModel(),
+    viewModel: InviteFamilyMemberViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -67,22 +68,22 @@ fun AddProfileToFamilyScreen(
             AppBottomNavBar(
                 selectedTab = BottomTab.SCAN,
                 onScanClick = onScanClick,
-                onHistoryClick = onHistoryClick
+                onHistoryClick = onHistoryClick,
             )
-        }
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(20.dp)
+                .padding(20.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .clickable { onBackClick() }
-                    .padding(bottom = 24.dp)
+                    .padding(bottom = 24.dp),
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
                 Spacer(modifier = Modifier.width(4.dp))
@@ -90,19 +91,19 @@ fun AddProfileToFamilyScreen(
             }
 
             Text(
-                text = "Invite to Family",
+                text = "Invite to family",
                 fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Invite a registered CanMakan user or someone who does not have an account yet. They join when they register or sign in with this email.",
-                color = TextSecondary
+                color = TextSecondary,
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            FormLabel(text = "Email address", isRequired = true)
+            InviteFormLabel(text = "Email address", isRequired = true)
             Spacer(modifier = Modifier.height(6.dp))
             OutlinedTextField(
                 value = uiState.email,
@@ -110,18 +111,18 @@ fun AddProfileToFamilyScreen(
                 placeholder = { Text("e.g. member@example.com") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                enabled = !uiState.isSearching && !uiState.isInviting
+                enabled = !uiState.isSearching && !uiState.isInviting,
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 OutlinedButton(
                     onClick = onCancelClick,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text("Cancel")
                 }
@@ -129,7 +130,7 @@ fun AddProfileToFamilyScreen(
                     onClick = { viewModel.search() },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
                     modifier = Modifier.weight(1f),
-                    enabled = !uiState.isSearching && !uiState.isInviting
+                    enabled = !uiState.isSearching && !uiState.isInviting,
                 ) {
                     Text(if (uiState.isSearching) "Searching…" else "Search")
                 }
@@ -143,7 +144,7 @@ fun AddProfileToFamilyScreen(
                     } else {
                         "CanMakan user"
                     },
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
                 Text(text = result.maskedEmail, color = TextSecondary)
                 Text(text = "Account: ${result.accountStatus}", color = TextSecondary)
@@ -155,7 +156,7 @@ fun AddProfileToFamilyScreen(
                         onClick = { viewModel.createInvite() },
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !uiState.isInviting
+                        enabled = !uiState.isInviting,
                     ) {
                         Text(if (uiState.isInviting) "Creating invite…" else "Create invite")
                     }
@@ -182,7 +183,7 @@ fun AddProfileToFamilyScreen(
                         onInviteCreated()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Share invitation")
                 }
@@ -197,7 +198,7 @@ fun AddProfileToFamilyScreen(
 }
 
 @Composable
-private fun FormLabel(text: String, isRequired: Boolean) {
+private fun InviteFormLabel(text: String, isRequired: Boolean) {
     Row {
         Text(text = text, fontWeight = FontWeight.Medium)
         if (isRequired) {

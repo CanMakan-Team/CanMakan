@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -23,7 +22,8 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Settings
@@ -36,11 +36,14 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
@@ -77,9 +80,13 @@ fun ProfileDrawerContent(
     onSignOutClick: () -> Unit,
     onCloseClick: () -> Unit,
     onCreateFamilyCircleClick: () -> Unit,
-    onCreateNewClick: () -> Unit,
-    onAddProfileClick: () -> Unit,
+    onManageFamilyClick: () -> Unit,
 ) {
+    // Session-local expand/collapse; all sections start open. Not persisted across process death.
+    var profilesExpanded by remember { mutableStateOf(true) }
+    var navigateExpanded by remember { mutableStateOf(true) }
+    var familyExpanded by remember { mutableStateOf(true) }
+
     Column(
         modifier = Modifier
             .fillMaxHeight()
@@ -111,118 +118,117 @@ fun ProfileDrawerContent(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = if (profiles.size > 1) "PROFILES" else "PROFILE",
-                color = DrawerTextMuted,
-                style = MaterialTheme.typography.titleSmall,
-            )
-            if (isSwitchingProfile) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = PrimaryGreen,
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
+        DrawerSectionHeader(
+            title = if (profiles.size > 1) "PROFILES" else "PROFILE",
+            expanded = profilesExpanded,
+            onToggle = { profilesExpanded = !profilesExpanded },
+            trailing = {
+                if (isSwitchingProfile) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = PrimaryGreen,
+                    )
+                }
+            },
+        )
 
-        if (profiles.isEmpty()) {
-            Text(
-                text = "No profile selected",
-                color = DrawerTextMuted,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(10.dp),
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            OutlinedButton(onClick = onEditDietaryClick, modifier = Modifier.fillMaxWidth()) {
-                Text(editDietaryButtonLabel, color = DrawerTextMuted)
-            }
-        } else {
-            profiles.forEach { profile ->
-                val isActive = profile.id == activeProfile?.id
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isActive) PrimaryGreen.copy(alpha = 0.25f) else Color.Transparent)
-                        .padding(10.dp),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
+        if (profilesExpanded) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (profiles.isEmpty()) {
+                Text(
+                    text = "No profile selected",
+                    color = DrawerTextMuted,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(10.dp),
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(onClick = onEditDietaryClick, modifier = Modifier.fillMaxWidth()) {
+                    Text(editDietaryButtonLabel, color = DrawerTextMuted)
+                }
+            } else {
+                profiles.forEach { profile ->
+                    val isActive = profile.id == activeProfile?.id
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onProfileSelected(profile) },
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isActive) PrimaryGreen.copy(alpha = 0.25f) else Color.Transparent)
+                            .padding(10.dp),
                     ) {
-                        InitialsAvatar(
-                            initials = profile.initials,
-                            background = if (isActive) PrimaryGreen else avatarColorFor(profile),
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = profile.profileName,
-                                    color = OnDark,
-                                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                                    style = if (isActive) {
-                                        MaterialTheme.typography.titleMedium
-                                    } else {
-                                        MaterialTheme.typography.bodyMedium
-                                    },
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                if (profile.isPrimary) AdminTag()
-                            }
-                            Text(
-                                text = formatRelationshipLabel(profile.relationship),
-                                color = DrawerTextMuted,
-                                style = MaterialTheme.typography.labelSmall,
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onProfileSelected(profile) },
+                        ) {
+                            InitialsAvatar(
+                                initials = profile.initials,
+                                background = if (isActive) PrimaryGreen else avatarColorFor(profile),
                             )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = profile.profileName,
+                                        color = OnDark,
+                                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                                        style = if (isActive) {
+                                            MaterialTheme.typography.titleMedium
+                                        } else {
+                                            MaterialTheme.typography.bodyMedium
+                                        },
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    if (profile.isPrimary) AdminTag()
+                                }
+                                Text(
+                                    text = formatRelationshipLabel(profile.relationship),
+                                    color = DrawerTextMuted,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                            if (isActive) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(PrimaryGreen),
+                                )
+                            }
                         }
                         if (isActive) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(PrimaryGreen),
-                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedButton(
+                                onClick = onEditDietaryClick,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(editDietaryButtonLabel, color = DrawerTextMuted)
+                            }
                         }
                     }
-                    if (isActive) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedButton(
-                            onClick = onEditDietaryClick,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(editDietaryButtonLabel, color = DrawerTextMuted)
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
-                Spacer(modifier = Modifier.height(4.dp))
             }
-        }
 
-        if (!hasFamily) {
-            Spacer(modifier = Modifier.height(12.dp))
-            if (!noFamilyMessage.isNullOrBlank()) {
-                Text(
-                    text = noFamilyMessage,
-                    color = DrawerTextMuted,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-            if (hasUserSession) {
-                OutlinedButton(
-                    onClick = onCreateFamilyCircleClick,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Create family circle", color = DrawerTextMuted)
+            if (!hasFamily) {
+                Spacer(modifier = Modifier.height(12.dp))
+                if (!noFamilyMessage.isNullOrBlank()) {
+                    Text(
+                        text = noFamilyMessage,
+                        color = DrawerTextMuted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                if (hasUserSession) {
+                    OutlinedButton(
+                        onClick = onCreateFamilyCircleClick,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Create family circle", color = DrawerTextMuted)
+                    }
                 }
             }
         }
@@ -236,100 +242,121 @@ fun ProfileDrawerContent(
         )
 
         Spacer(modifier = Modifier.height(10.dp))
-        Text("NAVIGATE", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        val isScannerSelected = currentRoute == "scanner"
-        NavigationDrawerItem(
-            label = {
-                Text(
-                    text = "Scanner",
-                    // Switch to a dark color when selected, otherwise remain White
-                    color = if (isScannerSelected) Divider else OnDark,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Normal
-                )
-            },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.CropFree,
-                    contentDescription = "Scanner",
-                    // You can also apply the same conditional logic to the Icon tint if desired
-                    tint = if (isScannerSelected) Divider else OnDark
-                )
-            },
-            selected = isScannerSelected,
-            onClick = onScannerClick
+        DrawerSectionHeader(
+            title = "NAVIGATE",
+            expanded = navigateExpanded,
+            onToggle = { navigateExpanded = !navigateExpanded },
         )
 
-        val isHistorySelected = currentRoute == "history"
-        NavigationDrawerItem(
-            label = {
-                Text(
-                    text = "History",
-                    color = if (isHistorySelected) Divider else OnDark,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Normal
-                )
-            },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.AccessTime,
-                    contentDescription = "History",
-                    tint = if (isHistorySelected) Divider else OnDark
-                )
-            },
-            selected = isHistorySelected,
-            onClick = onHistoryClick
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Family section: dietary summary for all members; manage actions for PRIMARY_ADMIN.
-        if (hasFamily) {
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                thickness = 1.dp,
-                color = Divider
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Text("FAMILY", color = DrawerTextMuted, style = MaterialTheme.typography.titleSmall)
+        if (navigateExpanded) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            val isFamilySelected = currentRoute?.startsWith("family/restrictions") == true
+            val isScannerSelected = currentRoute == "scanner"
             NavigationDrawerItem(
                 label = {
                     Text(
-                        text = "Dietary Summary",
-                        color = if (isFamilySelected) Divider else OnDark,
+                        text = "Scanner",
+                        color = if (isScannerSelected) Divider else OnDark,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Normal
                     )
                 },
                 icon = {
                     Icon(
-                        imageVector = Icons.Default.People,
-                        contentDescription = "Dietary Summary",
-                        tint = if (isFamilySelected) Divider else OnDark
+                        imageVector = Icons.Default.CropFree,
+                        contentDescription = "Scanner",
+                        tint = if (isScannerSelected) Divider else OnDark
                     )
                 },
-                selected = isFamilySelected,
-                onClick = onFamilyAllergySummaryClick
+                selected = isScannerSelected,
+                onClick = onScannerClick
             )
 
-            if (showManageFamilyActions) {
-                Spacer(modifier = Modifier.height(4.dp))
-                DrawerNavRow(
-                    icon = Icons.Default.PersonAdd,
-                    label = "Create New Family Member",
-                    onClick = onCreateNewClick,
+            val isHistorySelected = currentRoute == "history"
+            NavigationDrawerItem(
+                label = {
+                    Text(
+                        text = "History",
+                        color = if (isHistorySelected) Divider else OnDark,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Normal
+                    )
+                },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.AccessTime,
+                        contentDescription = "History",
+                        tint = if (isHistorySelected) Divider else OnDark
+                    )
+                },
+                selected = isHistorySelected,
+                onClick = onHistoryClick
+            )
+        }
+
+        // Family section: dietary summary for all members; manage actions for PRIMARY_ADMIN.
+        if (hasFamily) {
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                thickness = 1.dp,
+                color = Divider
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            DrawerSectionHeader(
+                title = "FAMILY",
+                expanded = familyExpanded,
+                onToggle = { familyExpanded = !familyExpanded },
+            )
+
+            if (familyExpanded) {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val isFamilySelected = currentRoute?.startsWith("family/restrictions") == true
+                NavigationDrawerItem(
+                    label = {
+                        Text(
+                            text = "Dietary Summary",
+                            color = if (isFamilySelected) Divider else OnDark,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Normal
+                        )
+                    },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.People,
+                            contentDescription = "Dietary Summary",
+                            tint = if (isFamilySelected) Divider else OnDark
+                        )
+                    },
+                    selected = isFamilySelected,
+                    onClick = onFamilyAllergySummaryClick
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                DrawerNavRow(
-                    icon = Icons.Default.Group,
-                    label = "Add Profile to Family",
-                    onClick = onAddProfileClick,
-                )
+
+                if (showManageFamilyActions) {
+                    val isManageSelected = currentRoute?.startsWith("family/manage") == true ||
+                        currentRoute?.startsWith("family/invite") == true ||
+                        currentRoute?.startsWith("family/dependant") == true
+                    NavigationDrawerItem(
+                        label = {
+                            Text(
+                                text = "Manage Family",
+                                color = if (isManageSelected) Divider else OnDark,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Normal,
+                            )
+                        },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.PersonAdd,
+                                contentDescription = "Manage Family",
+                                tint = if (isManageSelected) Divider else OnDark,
+                            )
+                        },
+                        selected = isManageSelected,
+                        onClick = onManageFamilyClick,
+                    )
+                }
             }
         }
         }
@@ -362,6 +389,40 @@ fun ProfileDrawerContent(
 }
 
 @Composable
+private fun DrawerSectionHeader(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    trailing: @Composable (() -> Unit)? = null,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onToggle)
+            .padding(vertical = 4.dp),
+    ) {
+        Text(
+            text = title,
+            color = DrawerTextMuted,
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.weight(1f),
+        )
+        if (trailing != null) {
+            trailing()
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        Icon(
+            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+            tint = DrawerTextMuted,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+@Composable
 private fun InitialsAvatar(initials: String, background: Color) {
     Box(
         modifier = Modifier
@@ -385,28 +446,6 @@ private fun AdminTag() {
             .background(PrimaryGreen)
             .padding(horizontal = 6.dp, vertical = 2.dp)
     )
-}
-
-@Composable
-private fun DrawerNavRow(
-    icon: ImageVector,
-    label: String,
-    isSelected: Boolean = false,
-    onClick: () -> Unit
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (isSelected) PrimaryGreen else Color.Transparent)
-            .clickable { onClick() }
-            .padding(10.dp)
-    ) {
-        Icon(icon, contentDescription = label, tint = OnDark)
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(label, color = OnDark, style = MaterialTheme.typography.bodyMedium)
-    }
 }
 
 // Derive a stable avatar color from the profile's identity instead of
