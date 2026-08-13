@@ -15,23 +15,23 @@ export function FamilyLoginPage() {
           <span className="portal-icon portal-icon--family" aria-hidden="true">
             ♡
           </span>
-          <p className="eyebrow">Family Portal</p>
-          <h1 id="family-entry-title">Dietary support for your household.</h1>
+          <p className="eyebrow">User Portal</p>
+          <h1 id="family-entry-title">Personal dietary support, with family tools when you choose.</h1>
           <p>
-            Manage family profiles, dietary requirements and supplied scan
-            assessment history in one private family workspace.
+            Use your personal dietary profile independently. Family Circle
+            features remain available as an optional household workspace.
           </p>
         </section>
 
         <section className="login-card" aria-labelledby="family-login-title">
-          <p className="eyebrow">Family Portal</p>
-          <h2 id="family-login-title">Family Admin sign in</h2>
+          <p className="eyebrow">User Portal</p>
+          <h2 id="family-login-title">Sign in</h2>
           <p>Sign in with the email and password for your CanMakan account.</p>
           <CredentialLoginForm
             portal="FAMILY"
-            expectedRole="ROLE_FAMILY_ADMIN"
+            expectedRole="ROLE_APP_USER"
             destination="/family"
-            buttonLabel="Enter Family Portal"
+            buttonLabel="Enter CanMakan"
             buttonClassName="button--primary"
             registerPath="/family-register"
           />

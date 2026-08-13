@@ -55,6 +55,14 @@ class LoginViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(invitationToken = value)
     }
 
+    fun prefillEmail(email: String?) {
+        val normalized = email?.trim().orEmpty()
+        val state = _uiState.value
+        if (normalized.isNotEmpty() && state.email.isEmpty() && !state.isSubmitting) {
+            _uiState.value = state.copy(email = normalized)
+        }
+    }
+
     fun updateEmail(email: String) {
         val state = _uiState.value
         if (state.isSubmitting || state.authenticatedUser != null) return

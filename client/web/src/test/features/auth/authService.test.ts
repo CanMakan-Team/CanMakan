@@ -12,7 +12,7 @@ describe('authService', () => {
     vi.stubGlobal('fetch', vi.fn())
   })
 
-  it('maps JWT USER login to family portal roles and display name', async () => {
+  it('maps JWT USER login to the platform USER role without inferring family membership', async () => {
     vi.mocked(fetch).mockResolvedValue(
       jsonResponse(200, {
         accessToken: 'jwt-access',
@@ -39,7 +39,7 @@ describe('authService', () => {
       email: 'person@example.com',
       active: true,
       displayName: 'person',
-      roles: ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN'],
+      roles: ['ROLE_APP_USER'],
       portal: 'FAMILY',
       prototype: false,
     })

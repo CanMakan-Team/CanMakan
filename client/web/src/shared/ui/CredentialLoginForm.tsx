@@ -7,6 +7,7 @@ import { familyApiService } from '../../features/family/api/familyApiService'
 import { isPasswordWithinBcryptLimit } from '../validation/authFields'
 import { getEmailValidationError } from '../validation/email'
 import { PasswordField } from './PasswordField'
+import { pendingRegistrationOnboardingStore } from '../../features/auth/pendingRegistrationOnboardingStore'
 
 /**
  * Email/password login form shared by portal entry pages.
@@ -36,7 +37,7 @@ export function CredentialLoginForm({
 }: CredentialLoginFormProps) {
   const [searchParams] = useSearchParams()
   const invitationToken = searchParams.get('invitationToken')?.trim() || undefined
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(searchParams.get('email')?.trim() ?? '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [invitationClaimStatus, setInvitationClaimStatus] =
@@ -52,7 +53,11 @@ export function CredentialLoginForm({
     authenticatedForPortal &&
     (!invitationClaimRequired || invitationClaimStatus === 'succeeded')
   ) {
-    return <Navigate to={destination} replace />
+    const pendingSetup =
+      portal === 'FAMILY' && session
+        ? pendingRegistrationOnboardingStore.peekForEmail(session.email)
+        : null
+    return <Navigate to={pendingSetup ? '/family/setup-profile' : destination} replace />
   }
 
   const claimInvitation = async () => {
@@ -118,6 +123,13 @@ export function CredentialLoginForm({
         void logout()
         setInvitationClaimStatus('idle')
         setError('This account cannot access this portal.')
+        return
+      }
+      if (
+        portal === 'FAMILY' &&
+        pendingRegistrationOnboardingStore.peekForEmail(authenticated.email)
+      ) {
+        navigate('/family/setup-profile', { replace: true })
         return
       }
       // If the portal is family and there is an invitation token, claim the invitation

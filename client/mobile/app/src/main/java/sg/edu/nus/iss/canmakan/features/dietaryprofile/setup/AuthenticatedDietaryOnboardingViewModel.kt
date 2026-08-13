@@ -19,10 +19,13 @@ import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.DairyRestric
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.ProfileRestrictionSeverity
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.ExistingSelfProfileResolver
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.SelfProfileRepository
+import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.SelfProfileSetupResult
 
 data class AuthenticatedDietaryOnboardingUiState(
+    val profileName: String = "",
+    val profileNameEditable: Boolean = false,
     val restrictions: List<DietaryRestriction> = emptyList(),
     val selections: Map<Long, ProfileRestrictionSeverity> = emptyMap(),
     val isLoadingCatalog: Boolean = false,
@@ -32,21 +35,16 @@ data class AuthenticatedDietaryOnboardingUiState(
 )
 
 /**
- * Drives the post-registration dietary setup screen. Registration always creates the
- * account's linked SELF profile up front, so this screen only ever loads the restriction
- * catalog and saves selections onto that existing profile — the same
- * [DietaryRestrictionRepository] calls
- * [sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui.DietaryRestrictionSheet]
- * uses to view/edit an existing profile's restrictions. Every action still requires the
- * caller to be the currently bound, authenticated account (see [isCurrentSetup]) — reusing
- * the repository does not relax that.
+ * Drives optional SELF-profile creation after account-only registration and normal login.
+ * Catalog presentation is shared with the edit flow, while profile creation remains a
+ * separate authenticated transaction. Every action is bound to the current account.
  */
 @HiltViewModel
 class AuthenticatedDietaryOnboardingViewModel @Inject constructor(
     private val authSessionStore: AuthSessionStore,
     private val pendingOnboardingStore: PendingOnboardingStore,
     private val dietaryRestrictionRepository: DietaryRestrictionRepository,
-    private val existingSelfProfileResolver: ExistingSelfProfileResolver,
+    private val selfProfileRepository: SelfProfileRepository,
     private val activeProfileManager: ActiveProfileManager,
 ) : ViewModel() {
 
@@ -60,7 +58,6 @@ class AuthenticatedDietaryOnboardingViewModel @Inject constructor(
     private var boundAccountKey: AuthAccountKey? = null
     private var boundAccountEmail: String? = null
     private var boundPending: PendingDietaryOnboarding? = null
-    private var resolvedProfileId: Long? = null
 
     init {
         viewModelScope.launch {
@@ -75,7 +72,6 @@ class AuthenticatedDietaryOnboardingViewModel @Inject constructor(
                     boundAccountKey = null
                     boundAccountEmail = null
                     boundPending = null
-                    resolvedProfileId = null
                     _uiState.value = AuthenticatedDietaryOnboardingUiState(
                         errorMessage = SESSION_CHANGED_MESSAGE,
                     )
@@ -98,9 +94,17 @@ class AuthenticatedDietaryOnboardingViewModel @Inject constructor(
             return
         }
         bindTo(user, pending)
-        resolvedProfileId = null
-        _uiState.value = AuthenticatedDietaryOnboardingUiState()
+        _uiState.value = AuthenticatedDietaryOnboardingUiState(
+            profileName = pending.accountName.orEmpty(),
+            profileNameEditable = pending.accountName.isNullOrBlank(),
+        )
         loadRestrictions(user)
+    }
+
+    fun updateProfileName(profileName: String) {
+        val state = _uiState.value
+        if (!state.profileNameEditable || state.isSubmitting || state.resolved) return
+        _uiState.value = state.copy(profileName = profileName, errorMessage = null)
     }
 
     fun retryCatalog() {
@@ -137,11 +141,7 @@ class AuthenticatedDietaryOnboardingViewModel @Inject constructor(
         )
     }
 
-    /**
-     * Saves the caller's selections onto the SELF profile registration already created.
-     * Requires the caller to still be the authenticated, currently bound account
-     * ([isCurrentSetup]) — the same guard every other mutating action here uses.
-     */
+    /** Creates the caller's SELF profile through the authenticated setup endpoint. */
     fun saveRestrictions() {
         val state = _uiState.value
         if (state.isSubmitting || state.resolved) return
@@ -156,31 +156,52 @@ class AuthenticatedDietaryOnboardingViewModel @Inject constructor(
             )
             return
         }
-        val profileId = resolvedProfileId
-        if (profileId == null || profileId <= 0) {
-            _uiState.value = state.copy(errorMessage = SESSION_REQUIRED_MESSAGE)
+        val profileName = state.profileName.trim()
+        if (profileName.isEmpty()) {
+            _uiState.value = state.copy(errorMessage = "Enter a profile name.")
+            return
+        }
+        if (profileName.length > MAX_PROFILE_NAME_LENGTH) {
+            _uiState.value = state.copy(
+                errorMessage = "Profile name must not exceed 100 characters.",
+            )
             return
         }
 
-        val selections = state.selections.mapValues { it.value.name }
         _uiState.value = state.copy(isSubmitting = true, errorMessage = null)
         setupJob = viewModelScope.launch {
-            val saved = try {
-                dietaryRestrictionRepository.saveDietaryRestrictionSelections(
-                    profileId = profileId,
-                    selections = selections,
+            val result = try {
+                selfProfileRepository.createSelfProfile(
+                    profileName = profileName,
+                    restrictions = state.selections,
                 )
             } catch (exception: CancellationException) {
                 throw exception
             } catch (_: Exception) {
-                false
+                SelfProfileSetupResult.Failure(
+                    "Unable to create your dietary profile. Check your connection and try again.",
+                )
             }
             if (!isCurrentSetup(initiatingUser)) return@launch
-            if (!saved) {
-                showError("Unable to save your dietary restrictions. Check your connection and try again.")
-                return@launch
+            when (result) {
+                is SelfProfileSetupResult.Created -> {
+                    val profileId = result.profile.profileId
+                    if (profileId == null || profileId <= 0) {
+                        showError("Dietary profile setup returned an invalid response. Try again.")
+                    } else {
+                        completeWithProfile(profileId, initiatingUser)
+                    }
+                }
+                is SelfProfileSetupResult.InvalidRequest -> showError(result.message)
+                SelfProfileSetupResult.Unauthenticated -> showError(SESSION_REQUIRED_MESSAGE)
+                SelfProfileSetupResult.Forbidden -> showError(
+                    "This account cannot create a dietary profile.",
+                )
+                SelfProfileSetupResult.AlreadyExists -> showError(
+                    "A dietary profile already exists for this account.",
+                )
+                is SelfProfileSetupResult.Failure -> showError(result.message)
             }
-            completeWithProfile(profileId, initiatingUser)
         }
     }
 
@@ -206,24 +227,10 @@ class AuthenticatedDietaryOnboardingViewModel @Inject constructor(
         catalogJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoadingCatalog = true, errorMessage = null)
             try {
-                // Same profile lookup DietaryRestrictionSheet relies on: registration
-                // already created this account's SELF profile, so it always resolves.
-                val profileId = existingSelfProfileResolver.resolveActiveSelfProfileId()
-                if (!isCurrentSetup(initiatingUser)) return@launch
-
                 val catalog = dietaryRestrictionRepository.getAllDietaryRestrictions()
                 if (!isCurrentSetup(initiatingUser)) return@launch
-
-                val savedSelections =
-                    dietaryRestrictionRepository.getDietaryRestrictionsForProfile(profileId)
-                if (!isCurrentSetup(initiatingUser)) return@launch
-
-                resolvedProfileId = profileId
                 _uiState.value = _uiState.value.copy(
                     restrictions = DairyRestrictionPresentation.presentCatalog(catalog),
-                    selections = toSelfSetupSelections(
-                        DairyRestrictionPresentation.presentSelections(catalog, savedSelections),
-                    ),
                 )
             } catch (exception: CancellationException) {
                 throw exception
@@ -240,14 +247,6 @@ class AuthenticatedDietaryOnboardingViewModel @Inject constructor(
             }
         }
     }
-
-    /** Self-setup only supports STRICT_AVOID/INTOLERANCE; drop anything else defensively. */
-    private fun toSelfSetupSelections(saved: Map<Long, String>): Map<Long, ProfileRestrictionSeverity> =
-        saved.mapNotNull { (restrictionId, severity) ->
-            runCatching { ProfileRestrictionSeverity.valueOf(severity) }
-                .getOrNull()
-                ?.let { restrictionId to it }
-        }.toMap()
 
     private fun completeWithProfile(profileId: Long, initiatingUser: AuthenticatedUser) {
         if (profileId <= 0) {
@@ -321,5 +320,6 @@ class AuthenticatedDietaryOnboardingViewModel @Inject constructor(
         const val SESSION_CHANGED_MESSAGE =
             "Dietary profile setup stopped because the authenticated account changed."
         private const val RELIGIOUS_CATEGORY = "RELIGIOUS"
+        private const val MAX_PROFILE_NAME_LENGTH = 100
     }
 }

@@ -1,52 +1,67 @@
 import { useState, type SubmitEvent as ReactSubmitEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import { getErrorMessage } from '../shared/api/apiErrors'
+import { ApiError, getErrorMessage } from '../shared/api/apiErrors'
+import { pendingRegistrationOnboardingStore } from '../features/auth/pendingRegistrationOnboardingStore'
 import { useSession } from '../features/auth/useSession'
 import { PasswordField } from '../shared/ui/PasswordField'
 import { getRegistrationPasswordError } from '../shared/validation/authFields'
 import { getEmailValidationError } from '../shared/validation/email'
+import { getProfileNameError } from '../shared/validation/profileFields'
 
-/**
- * UC18 family-portal registration. Matches FamilyLoginPage theme.
- * Optional UC9 invitationToken is preserved for authenticated claim after login.
- * 
- * @author Amelia
- * @author YangMaowei
- */
-
-/* Define the FamilyRegisterPage component */
+/** UC18 account registration followed by the authoritative UC19 login flow. */
 export function FamilyRegisterPage() {
   const [searchParams] = useSearchParams()
-  /* Define the invitation token */
   const invitationToken = searchParams.get('invitationToken')?.trim() || undefined
-  /* Define the state variables */
+  const [profileName, setProfileName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [validationError, setValidationError] = useState('')
   const [submitError, setSubmitError] = useState('')
-  /* Define the session and navigation */
-  const { session, register, loading } = useSession()
+  const [accountCreated, setAccountCreated] = useState(false)
+  const [showLoginAction, setShowLoginAction] = useState(false)
+  const { session, registerAndLogin, loading } = useSession()
   const navigate = useNavigate()
 
-  /* If the session has the family admin role, navigate to the family page */
-  if (session?.roles.includes('ROLE_FAMILY_ADMIN')) {
-    return <Navigate to="/family" replace />
+  if (session?.roles.includes('ROLE_APP_USER')) {
+    return (
+      <Navigate
+        to={
+          pendingRegistrationOnboardingStore.peekForEmail(session.email)
+            ? '/family/setup-profile'
+            : '/family'
+        }
+        replace
+      />
+    )
   }
 
-  /* Define the clear validation error function */
+  const familyLoginPath = () => {
+    const parameters = new URLSearchParams()
+    const normalizedEmail = email.trim()
+    if (normalizedEmail) parameters.set('email', normalizedEmail)
+    if (invitationToken) parameters.set('invitationToken', invitationToken)
+    const query = parameters.toString()
+    return query ? `/family-login?${query}` : '/family-login'
+  }
+
   const clearValidationError = () => {
     if (validationError) setValidationError('')
   }
 
-  /* Define the handle submit function */
   const handleSubmit = async (event: ReactSubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (accountCreated) return
     setSubmitError('')
+    setShowLoginAction(false)
 
-    // Validate the form data (mirror backend limits to avoid failed API calls)
+    const trimmedProfileName = profileName.trim()
     const trimmedEmail = email.trim()
-
+    const profileNameError = getProfileNameError(trimmedProfileName)
+    if (profileNameError) {
+      setValidationError(profileNameError)
+      return
+    }
     const emailError = getEmailValidationError(trimmedEmail)
     if (emailError) {
       setValidationError(emailError)
@@ -63,26 +78,32 @@ export function FamilyRegisterPage() {
     }
     setValidationError('')
 
-    // Register without establishing an authenticated session.
-    // On success, return to sign-in.
-    // On error, set the submit error
+    // Store only non-secret onboarding data before login installs the session.
+    pendingRegistrationOnboardingStore.request({
+      email: trimmedEmail,
+      profileName: trimmedProfileName,
+      invitationToken,
+    })
     try {
-      await register({
-        email: trimmedEmail,
-        password,
-      })
-      navigate(
-        invitationToken
-          ? `/family-login?invitationToken=${encodeURIComponent(invitationToken)}`
-          : '/family-login',
-        { replace: true },
-      )
+      const result = await registerAndLogin({ email: trimmedEmail, password })
+      setAccountCreated(true)
+      setPassword('')
+      setConfirmPassword('')
+      if (result.status === 'authenticated') {
+        navigate('/family/setup-profile', { replace: true })
+      } else {
+        setSubmitError(
+          'Your account was created, but automatic sign-in failed. Log in to continue.',
+        )
+        setShowLoginAction(true)
+      }
     } catch (caughtError) {
+      pendingRegistrationOnboardingStore.clear()
       setSubmitError(getErrorMessage(caughtError))
+      setShowLoginAction(caughtError instanceof ApiError && caughtError.status === 409)
     }
   }
 
-  /* Define the render function */
   return (
     <main className="login-page login-page--family">
       <div className="login-composition login-composition--family">
@@ -91,20 +112,14 @@ export function FamilyRegisterPage() {
           aria-labelledby="family-register-intro-title"
         >
           <div className="login-brand">
-            <span className="brand-mark" aria-hidden="true">
-              CM
-            </span>
+            <span className="brand-mark" aria-hidden="true">CM</span>
             <strong>CanMakan</strong>
           </div>
-          <span className="portal-icon portal-icon--family" aria-hidden="true">
-            ♡
-          </span>
           <p className="eyebrow">Family Portal</p>
           <h1 id="family-register-intro-title">Create your CanMakan account.</h1>
           <p>
-            {invitationToken
-              ? 'Register with the invited email, then sign in to join the family circle.'
-              : 'Register with your email and password. You can create a family circle after sign-in — registration does not start a household by itself.'}
+            Create your account, then optionally set up one personal dietary profile.
+            You can complete dietary setup later.
           </p>
         </section>
 
@@ -114,6 +129,20 @@ export function FamilyRegisterPage() {
           <p>Use an email that is not already registered.</p>
 
           <form onSubmit={(event) => void handleSubmit(event)} noValidate>
+            <label htmlFor="register-profile-name">Profile Name</label>
+            <input
+              id="register-profile-name"
+              autoComplete="name"
+              value={profileName}
+              maxLength={100}
+              onChange={(event) => {
+                setProfileName(event.target.value)
+                clearValidationError()
+              }}
+              disabled={loading || accountCreated}
+            />
+            <p>This name is used only if you choose to create your personal dietary profile.</p>
+
             <label htmlFor="register-email">Email</label>
             <input
               id="register-email"
@@ -124,7 +153,7 @@ export function FamilyRegisterPage() {
                 setEmail(event.target.value)
                 clearValidationError()
               }}
-              disabled={loading}
+              disabled={loading || accountCreated}
             />
             <PasswordField
               id="register-password"
@@ -135,7 +164,7 @@ export function FamilyRegisterPage() {
                 setPassword(next)
                 clearValidationError()
               }}
-              disabled={loading}
+              disabled={loading || accountCreated}
             />
             <PasswordField
               id="register-confirm-password"
@@ -146,33 +175,25 @@ export function FamilyRegisterPage() {
                 setConfirmPassword(next)
                 clearValidationError()
               }}
-              disabled={loading}
+              disabled={loading || accountCreated}
             />
-            {(validationError || submitError) && (
-              <p className="form-message form-message--error" role="alert">
-                {validationError || submitError}
-              </p>
-            )}
+            {validationError || submitError ? (
+              <div className="form-message form-message--error" role="alert">
+                <p>{validationError || submitError}</p>
+                {showLoginAction ? <Link to={familyLoginPath()}>Log in here</Link> : null}
+              </div>
+            ) : null}
             <button
               className="button button--primary button--full"
               type="submit"
-              disabled={loading}
+              disabled={loading || accountCreated}
             >
-              {loading ? 'Creating account…' : 'Create account'}
+              {loading ? 'Creating account…' : accountCreated ? 'Account created' : 'Create account'}
             </button>
           </form>
 
           <p className="login-card__footer">
-            Already have an account?{' '}
-            <Link
-              to={
-                invitationToken
-                  ? `/family-login?invitationToken=${encodeURIComponent(invitationToken)}`
-                  : '/family-login'
-              }
-            >
-              Sign in
-            </Link>
+            Already have an account? <Link to={familyLoginPath()}>Sign in</Link>
           </p>
         </section>
       </div>

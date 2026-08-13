@@ -10,6 +10,7 @@ import {
   relationshipOptions,
   restrictionGroups,
 } from '../lib/profileOptions'
+import { getProfileNameError } from '../../../shared/validation/profileFields'
 
 /**
  * ProfileForm component for editing a family profile
@@ -64,8 +65,9 @@ export function ProfileForm({
   const handleSubmit = async (event: ReactSubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
     const trimmedName = form.profileName.trim()
-    if (!trimmedName) {
-      setNameError('Enter a profile name.')
+    const nextNameError = getProfileNameError(trimmedName)
+    if (nextNameError) {
+      setNameError(nextNameError)
       return
     }
     setNameError('')
@@ -80,6 +82,7 @@ export function ProfileForm({
           <input
             id="profile-name"
             value={form.profileName}
+            maxLength={100}
             aria-invalid={Boolean(nameError)}
             aria-describedby={nameError ? 'profile-name-error' : undefined}
             onChange={(event) =>

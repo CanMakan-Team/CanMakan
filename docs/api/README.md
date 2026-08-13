@@ -45,6 +45,12 @@ existing `USER` role, and creates only an active account. It does not create a
 dietary profile, family membership, access token, refresh session, or login
 session.
 
+After `201 Created`, current web and Android clients call the normal
+`POST /api/auth/login` endpoint with the submitted credentials. That separate
+request establishes the same access-token, refresh-cookie/session and current-user
+state as any other login. If this follow-up login fails, the account remains
+created and clients direct the user to normal login without retrying registration.
+
 The current `users` schema has no name column. Legacy clients may still send an
 optional `name`, but registration does not store or return it.
 
@@ -116,7 +122,8 @@ Errors use `{"message":"..."}`:
 - `409 Conflict` when the caller already has a linked SELF profile.
 
 Failure of this endpoint rolls back only profile setup. The previously
-committed account remains valid.
+committed account and authenticated session remain valid. Skipping client-side
+setup does not call this endpoint and creates no empty profile.
 
 ## Login (UC19 JWT)
 
@@ -156,13 +163,14 @@ Invalid or inactive accounts return `401` with
 | --- | --- |
 | Platform `USER` / JWT `role: USER` | Normal registered app account |
 | Platform `ADMIN` / JWT `role: ADMIN` | System staff |
-| Web `ROLE_FAMILY_ADMIN` | Portal gate mapped from JWT `USER` on the web client |
+| Web `ROLE_APP_USER` | USER-route gate mapped from JWT `USER` on the web client |
 | Web `ROLE_SYSTEM_ADMIN` | Portal gate mapped from JWT `ADMIN` on the web client |
 | DB `PRIMARY_ADMIN` / `MEMBER` | Real family-circle role on `family_members` after join/create |
 
 Web clients reject the wrong portal (e.g. `ADMIN` on `/family-login`) with a client-side
-message and clear the session. A platform `USER` with no circle still enters `/family`
-and sees create-circle (`GET /api/families/me` → 404).
+message and clear the session. A platform `USER` with no circle enters the personal
+USER area. `GET /api/families/me` returning 404 never opens family creation unless
+the user explicitly selected `/family/circle`.
 
 Web clients keep the access token and mapped portal roles in memory only. On
 startup they call `POST /api/auth/refresh` with the path-scoped HttpOnly cookie,

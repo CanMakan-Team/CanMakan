@@ -328,7 +328,6 @@ class AuthControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""
                         {
-                          "name": "Person Name",
                           "email": "  Person@Example.COM  ",
                           "password": "Password1!"
                         }
@@ -346,7 +345,7 @@ class AuthControllerTest {
                 .andExpect(header().doesNotExist("Set-Cookie"));
 
             verify(authService).register(
-                new RegistrationRequest("Person Name", "person@example.com", "Password1!", null)
+                new RegistrationRequest(null, "person@example.com", "Password1!", null)
             );
         }
 
@@ -403,27 +402,38 @@ class AuthControllerTest {
         }
 
         @Test
-        @DisplayName("UC18 HTTP4b: missing name returns 400 without calling the service")
-        void missingNameReturnsBadRequest() throws Exception {
+        @DisplayName("UC18 HTTP4b: legacy name is optional and ignored")
+        void missingNameRemainsContractCompatible() throws Exception {
+            when(authService.register(any(RegistrationRequest.class)))
+                .thenReturn(new RegistrationResponse(14L, "person@example.com", true));
+
             mockMvc.perform(post("/api/auth/register")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Invalid registration request."));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value("person@example.com"))
+                .andExpect(header().doesNotExist("Set-Cookie"));
 
-            verify(authService, never()).register(any());
+            verify(authService).register(
+                new RegistrationRequest(null, "person@example.com", "Password1!", null)
+            );
         }
 
         @Test
-        @DisplayName("UC18 HTTP4c: name still respects the schema-sized limit")
-        void oversizedNameReturnsBadRequest() throws Exception {
+        @DisplayName("UC18 HTTP4c: legacy name content is ignored")
+        void oversizedLegacyNameIsIgnored() throws Exception {
+            when(authService.register(any(RegistrationRequest.class)))
+                .thenReturn(new RegistrationResponse(14L, "person@example.com", true));
+
             mockMvc.perform(post("/api/auth/register")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"name\":\"" + "A".repeat(101)
                         + "\",\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isCreated());
 
-            verify(authService, never()).register(any());
+            verify(authService).register(
+                new RegistrationRequest(null, "person@example.com", "Password1!", null)
+            );
         }
 
         @Test

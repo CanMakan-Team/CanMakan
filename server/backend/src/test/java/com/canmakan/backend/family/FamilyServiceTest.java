@@ -158,8 +158,8 @@ class FamilyServiceTest {
     }
 
     @Test
-    @DisplayName("reuses the profile created at registration rather than duplicating it")
-    void createFamilyReusesExistingProfileFromRegistration() {
+    @DisplayName("reuses an existing standalone SELF profile rather than duplicating it")
+    void createFamilyReusesExistingStandaloneProfile() {
         when(familyMemberRepository.existsByIdUserId(14L)).thenReturn(false);
 
         UserAccount user = new UserAccount();

@@ -43,6 +43,14 @@ describe('familyApiService live UC8 calls', () => {
     expect(headers.get('Authorization')).toBe('Bearer jwt')
   })
 
+  it('maps a normal no-family 404 to null for USER landing resolution', async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(404, { message: 'Family not found.' }))
+
+    await expect(familyApiService.getMyFamilyOrNull()).resolves.toBeNull()
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
   it('POSTs create family with familyName body', async () => {
     vi.mocked(fetch).mockResolvedValue(
       jsonResponse(201, {

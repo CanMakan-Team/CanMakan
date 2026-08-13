@@ -1,9 +1,10 @@
 # features/family
 
-Family accounts and member management (Family Portal).
+Personal USER onboarding plus optional Family Circle management.
 
 ## Purpose
-Manages family membership, profiles, and family-level views.
+Keeps a USER's optional SELF profile independent from Family Circle membership,
+while preserving family membership, profiles, and family-level views.
 
 ## Layout
 
@@ -17,11 +18,15 @@ family/
     profileOptions.ts   # Form/option helpers
   pages/
     CreateFamilyCirclePage.tsx
+    FamilyCirclePage.tsx
     FamilyAccountPage.tsx
     FamilyDashboardPage.tsx
     FamilyMembersPage.tsx
     FamilyRestrictionSummaryPage.tsx
     FamilyScanHistoryPage.tsx
+    PersonalHomePage.tsx
+    SelfProfileSetupPage.tsx
+    UserLandingPage.tsx
   components/
     ActiveProfileSelector.tsx
     CreateFamilyProfileModal.tsx
@@ -43,13 +48,16 @@ family/
 
 | Piece | Notes |
 | --- | --- |
-| `FamilyMeGate` | Loads `GET /api/families/me`; **404** → create-circle UI |
-| `pages/CreateFamilyCirclePage` | Name field + loading / validation / error; `POST /api/families` |
+| `UserLandingPage` | Resolves optional membership; member → dashboard, **404** → personal home |
+| `FamilyMeGate` | Protects family-only routes; **404** offers personal/explicit-family links, never an inline create form |
+| `pages/FamilyCirclePage` | Explicit optional family entry; a **404** opens `CreateFamilyCirclePage` |
+| `pages/CreateFamilyCirclePage` | Family name + loading / validation / error; `POST /api/families` |
 | `api/familyService.getMyFamily` / `createFamily` | **Always live** (Bearer JWT); not mocked |
 | `apiClient` | Sends the memory-only access credential and includes the refresh cookie |
-| UC18 register | `/family-register` → live login → this gate |
+| UC18 register | `/family-register` → live login → `/family/setup-profile` → personal home |
 
-**Create-circle tip:** seeded users 4–13 already have families; register a new account to see empty-state create.
+Creating a Family Circle is an explicit action at `/family/circle`. Registration,
+SELF-profile save/skip, and session restoration never open the family form.
 
 ## UC12 manage family circle
 

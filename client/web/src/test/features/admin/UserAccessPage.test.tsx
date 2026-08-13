@@ -56,6 +56,9 @@ function renderPage(currentUserId = 1) {
     register: async () => {
       throw new Error('unused')
     },
+    registerAndLogin: async () => {
+      throw new Error('unused')
+    },
     logout: async () => undefined,
   }
 

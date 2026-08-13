@@ -82,6 +82,9 @@ test.describe('Authentication and Route Guarding', () => {
   }
 
   test('Unauthenticated Users are Redirected to Login', async ({ page }) => {
+    await page.route('**/api/auth/refresh', route => {
+      route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Unauthorized' }) });
+    });
     await page.goto('/family');
     await expect(page).toHaveURL(/.*\/family-login/);
   });
