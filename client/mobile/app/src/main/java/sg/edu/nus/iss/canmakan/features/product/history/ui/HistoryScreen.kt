@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -26,10 +25,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import sg.edu.nus.iss.canmakan.features.product.model.ScanHistoryEntry
-import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
@@ -39,11 +39,8 @@ import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotEmptyState
 import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
 import sg.edu.nus.iss.canmakan.shared.ui.StatusBadge
 import sg.edu.nus.iss.canmakan.shared.ui.statusAccentColor
-import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
 import sg.edu.nus.iss.canmakan.shared.ui.theme.CardWhite
-import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
-import sg.edu.nus.iss.canmakan.shared.ui.theme.WarningAmber
 import sg.edu.nus.iss.canmakan.shared.util.toScanHistoryDisplayString
 
 // Shows the list of previously scanned products for the active profile.
@@ -173,12 +170,15 @@ fun HistoryScreen(
     }
 }
 
+private val ScanHistoryRowHeight = 104.dp
+
 @Composable
 private fun ScanHistoryRow(entry: ScanHistoryEntry, onClick: () -> Unit) {
+    val brand = entry.product.displayBrand
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(IntrinsicSize.Min)
+            .height(ScanHistoryRowHeight)
             .clip(RoundedCornerShape(12.dp))
             .background(CardWhite)
             .clickable(onClick = onClick),
@@ -193,22 +193,32 @@ private fun ScanHistoryRow(entry: ScanHistoryEntry, onClick: () -> Unit) {
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.Center,
         ) {
-            Text(entry.product.displayName, fontWeight = FontWeight.Medium)
-            val brand = entry.product.displayBrand
-            if (brand.isNotEmpty()) {
-                Text(brand, color = TextSecondary)
-            }
-            entry.aiExplanation?.takeIf { it.isNotBlank() }?.let { note ->
-                val noteColor = if (entry.verdict == ScanVerdict.UNSAFE) {
-                    AvoidRed
-                } else if (entry.verdict == ScanVerdict.WARNING) {
-                    WarningAmber
-                } else PrimaryGreen
-                Text(note, color = noteColor)
-            }
-            Text(entry.scannedAt.toScanHistoryDisplayString(), color = TextSecondary)
+            Text(
+                text = entry.product.displayName,
+                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+                minLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            // Always reserve one brand line so rows stay the same height when brand is missing.
+            Text(
+                text = brand.ifBlank { " " },
+                color = if (brand.isBlank()) Color.Transparent else TextSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = entry.scannedAt.toScanHistoryDisplayString(),
+                color = TextSecondary,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         Box(modifier = Modifier.padding(end = 12.dp)) {
             StatusBadge(status = entry.verdict)
