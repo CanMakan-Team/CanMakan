@@ -3,6 +3,8 @@ package com.canmakan.backend.family;
 import com.canmakan.backend.family.dto.InvitationResponse;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
@@ -106,6 +108,7 @@ public class InvitationEmailService {
             ? ""
             : EXPIRY_FORMAT.format(invitation.expiresAt());
         String inviteUrl = escape(invitation.inviteUrl());
+        String appInviteUrl = escape(appInviteDeepLink(invitation));
         String inviteCode = escape(invitation.inviteCode());
         String mascotSrc = inlineMascot
             ? "cid:mascot-wave"
@@ -137,7 +140,8 @@ public class InvitationEmailService {
             </tr>
             </table>
             <br>
-            <p style="color:%s;font-size:14px;margin:0 0 8px 0;">Joining in the app instead? Long-press or select the code to copy it, then paste it when you sign up or log in.</p>
+            <p style="color:%s;font-size:14px;margin:0 0 8px 0;">That button opens the CanMakan app. On a computer, <a href="%s" style="color:%s;">continue in the browser</a>.</p>
+            <p style="color:%s;font-size:14px;margin:0 0 8px 0;">If the app does not open, long-press or select the code to copy it, then paste it when you sign up or log in.</p>
             <p style="margin:8px 0 16px 0;">
             <span style="font-family:Consolas,Monaco,monospace;font-size:20px;font-weight:bold;letter-spacing:0.12em;color:%s;background-color:%s;padding:8px 16px;border-radius:8px;display:inline-block;-webkit-user-select:all;user-select:all;">%s</span>
             </p>
@@ -150,8 +154,11 @@ public class InvitationEmailService {
                 mascotSrc,
                 escape(familyName),
                 PRIMARY_GREEN,
-                inviteUrl,
+                appInviteUrl,
                 ON_PRIMARY,
+                TEXT_SECONDARY,
+                inviteUrl,
+                PRIMARY_GREEN,
                 TEXT_SECONDARY,
                 PRIMARY_GREEN,
                 PRIMARY_CONTAINER,
@@ -160,6 +167,17 @@ public class InvitationEmailService {
                 expiryLine,
                 TEXT_SECONDARY
             );
+    }
+
+    static String appInviteDeepLink(InvitationResponse invitation) {
+        String token = invitation.invitationToken() == null
+            ? ""
+            : invitation.invitationToken().strip();
+        if (token.isEmpty()) {
+            return invitation.inviteUrl() == null ? "#" : invitation.inviteUrl();
+        }
+        return "canmakan://invite/"
+            + URLEncoder.encode(token, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     private static String hostedMascotUrl(InvitationResponse invitation) {

@@ -25,7 +25,7 @@ class InvitationEmailServiceTest {
             "guest@example.com",
             "token",
             "ABCD1234",
-            "https://canmakan.space/invite/token",
+            "https://canmakan-project.web.app/invite/token",
             InvitationStatus.PENDING,
             Instant.parse("2026-08-16T00:00:00Z"),
             false,
@@ -43,7 +43,8 @@ class InvitationEmailServiceTest {
         assertThat(html).contains("<strong>Wong Family</strong>");
         assertThat(html).contains("bgcolor=\"#1E7A5C\"");
         assertThat(html).contains("Accept the invitation");
-        assertThat(html).contains("https://canmakan.space/invite/token");
+        assertThat(html).contains("href=\"canmakan://invite/token\"");
+        assertThat(html).contains("https://canmakan-project.web.app/invite/token");
         assertThat(html).doesNotContain("/invite/copy");
         assertThat(html).contains("user-select:all");
         assertThat(html).contains("ABCD1234");
@@ -58,7 +59,7 @@ class InvitationEmailServiceTest {
             "guest@example.com",
             "token",
             "ABCD1234",
-            "https://canmakan.space/invite/token",
+            "https://canmakan-project.web.app/invite/token",
             InvitationStatus.PENDING,
             null,
             false,
@@ -67,7 +68,7 @@ class InvitationEmailServiceTest {
 
         String html = service.buildInvitationHtml("Wong Family", invitation, false);
 
-        assertThat(html).contains("https://canmakan.space/email/canmakan-mascot-wave.png");
+        assertThat(html).contains("https://canmakan-project.web.app/email/canmakan-mascot-wave.png");
         assertThat(html).doesNotContain("cid:mascot-wave");
         assertThat(html).contains("will not wait forever");
     }

@@ -63,7 +63,7 @@ flowchart TD
 | Path | Mobile entry |
 | --- | --- |
 | Register then claim | Invite landing → Register (token offered) → Login → `PostLoginContinuationViewModel` claim |
-| Deep link / login claim | `canmakan://invite/{token}` → `PendingInvitationStore` → Login offer → post-login claim |
+| Deep link / login claim | `canmakan://invite/{token}` or HTTPS hosts from `WEB_INVITE_BASE_URLS` → `PendingInvitationStore` → Login offer → post-login claim |
 | Inbox accept / decline | Top-bar **Notifications** bell → `features/notifications` (`NotificationsInboxScreen`) |
 
 The inbox is account-wide (not admin-only): family invitations today, with room for

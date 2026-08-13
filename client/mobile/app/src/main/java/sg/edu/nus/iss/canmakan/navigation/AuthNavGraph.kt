@@ -107,10 +107,9 @@ fun AuthNavGraph(
         composable(
             route = ROUTE_INVITE,
             arguments = listOf(navArgument("token") { type = NavType.StringType }),
-            deepLinks = listOf(
-                navDeepLink { uriPattern = "https://canmakan.local/invite/{token}" },
-                navDeepLink { uriPattern = "canmakan://invite/{token}" },
-            ),
+            deepLinks = InviteWebDeepLinks.uriPatterns().map { pattern ->
+                navDeepLink { uriPattern = pattern }
+            },
         ) { entry ->
             val token = entry.arguments?.getString("token").orEmpty()
             InviteLandingScreen(
