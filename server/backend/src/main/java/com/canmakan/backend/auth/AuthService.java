@@ -12,6 +12,8 @@ import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
 import com.canmakan.backend.auth.exception.RegistrationFailedException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
+import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
+import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.JwtService;
 import com.canmakan.backend.user.UserAccount;
@@ -44,8 +46,10 @@ public class AuthService {
 
     private static final String TOKEN_TYPE = "Bearer";
     static final String PUBLIC_REGISTRATION_ROLE = "USER";
+    private static final String SELF_PROFILE_RELATIONSHIP = "SELF";
 
     private final UserAccountRepository userAccountRepository;
+    private final DietaryProfileRepository dietaryProfileRepository;
     private final PasswordEncoder passwordEncoder;
 
     private final AuthenticationManager authenticationManager;
@@ -126,6 +130,15 @@ public class AuthService {
             account.setActive(true);
 
             UserAccount savedAccount = userAccountRepository.saveAndFlush(account);
+
+            // Registration creates the linked SELF dietary profile in the same
+            // transaction as the account so both rows succeed or fail together.
+            DietaryProfile selfProfile = new DietaryProfile();
+            selfProfile.setLinkedUser(savedAccount);
+            selfProfile.setProfileName(request.name());
+            selfProfile.setRelationship(SELF_PROFILE_RELATIONSHIP);
+            selfProfile.setPrimary(true);
+            dietaryProfileRepository.saveAndFlush(selfProfile);
 
             return new RegistrationResponse(
                 savedAccount.getId(),

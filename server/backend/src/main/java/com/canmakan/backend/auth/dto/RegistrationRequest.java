@@ -12,7 +12,8 @@ import java.util.Locale;
 
 /** Request body for public user registration. */
 public record RegistrationRequest(
-    /** Deprecated transitional input; it is accepted but is not account state. */
+    /** Used to create the account's linked SELF dietary profile (dietary_profiles.profile_name). */
+    @NotBlank(message = "Name is required.")
     @Size(max = 100, message = "Name must not exceed 100 characters.")
     String name,
 
@@ -54,15 +55,6 @@ public record RegistrationRequest(
     public boolean isPasswordWithinBcryptLimit() {
         return password == null
             || password.getBytes(StandardCharsets.UTF_8).length <= MAX_BCRYPT_PASSWORD_BYTES;
-    }
-
-    /**
-     * @deprecated Registration does not persist account names. Use
-     * authenticated SELF-profile setup for durable {@code profileName}.
-     */
-    @Deprecated(forRemoval = true)
-    public String name() {
-        return name;
     }
 
     @Override

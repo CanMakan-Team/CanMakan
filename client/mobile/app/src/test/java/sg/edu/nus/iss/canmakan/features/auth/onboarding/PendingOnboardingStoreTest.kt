@@ -22,7 +22,7 @@ class PendingOnboardingStoreTest {
             .filterNot { it.isSynthetic || it.name.startsWith("$") }
             .map { it.name }
 
-        assertEquals(listOf("accountEmail", "requestId"), fields)
+        assertEquals(listOf("accountEmail", "accountName", "requestId"), fields)
         assertFalse(fields.any { it.contains("password", true) })
         assertFalse(fields.any { it.contains("token", true) })
         assertFalse(fields.any { it.contains("userId", true) })

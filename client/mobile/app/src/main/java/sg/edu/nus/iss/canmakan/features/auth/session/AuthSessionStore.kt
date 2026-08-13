@@ -112,7 +112,12 @@ class AuthSessionStore @Inject constructor(
 
         return validatedSnapshot(
             accessToken,
-            AuthenticatedUser(validUserId, validEmail, validRole),
+            AuthenticatedUser(
+                userId = validUserId,
+                name = name?.takeIf { it.isNotBlank() },
+                email = validEmail,
+                role = validRole
+            ),
         )
     }
 
@@ -139,6 +144,7 @@ class AuthSessionStore @Inject constructor(
         val record = StoredSessionRecord(
             encodedAccessToken = encodeSecret(snapshot.accessToken),
             userId = snapshot.user.userId,
+            name = snapshot.user.name,
             email = snapshot.user.email,
             role = snapshot.user.role.name,
         )
@@ -169,12 +175,13 @@ class AuthSessionStore @Inject constructor(
     private class StoredSessionRecord(
         val encodedAccessToken: String?,
         val userId: Long?,
+        val name: String?,
         val email: String?,
         val role: String?,
     ) {
         override fun toString(): String {
             return "StoredSessionRecord(encodedAccessToken=<redacted>, userId=$userId, " +
-                "email=$email, role=$role)"
+                "name=$name, email=$email, role=$role)"
         }
     }
 

@@ -403,27 +403,20 @@ class AuthControllerTest {
         }
 
         @Test
-        @DisplayName("UC18 HTTP4b: registration succeeds when deprecated name is omitted")
-        void missingDeprecatedNameStillRegisters() throws Exception {
-            when(authService.register(any(RegistrationRequest.class)))
-                .thenReturn(new RegistrationResponse(14L, "person@example.com", true));
-
+        @DisplayName("UC18 HTTP4b: missing name returns 400 without calling the service")
+        void missingNameReturnsBadRequest() throws Exception {
             mockMvc.perform(post("/api/auth/register")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.userId").value(14))
-                .andExpect(jsonPath("$.name").doesNotExist())
-                .andExpect(jsonPath("$.profileId").doesNotExist());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid registration request."));
 
-            verify(authService).register(
-                new RegistrationRequest(null, "person@example.com", "Password1!", null)
-            );
+            verify(authService, never()).register(any());
         }
 
         @Test
-        @DisplayName("UC18 HTTP4c: deprecated name still respects the schema-sized limit")
-        void oversizedDeprecatedNameReturnsBadRequest() throws Exception {
+        @DisplayName("UC18 HTTP4c: name still respects the schema-sized limit")
+        void oversizedNameReturnsBadRequest() throws Exception {
             mockMvc.perform(post("/api/auth/register")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"name\":\"" + "A".repeat(101)

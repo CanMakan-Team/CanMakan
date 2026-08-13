@@ -23,6 +23,8 @@ import com.canmakan.backend.auth.exception.DuplicateEmailException;
 import com.canmakan.backend.auth.exception.RegistrationFailedException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
+import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
+import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
 import com.canmakan.backend.shared.security.JwtService;
@@ -66,6 +68,9 @@ class AuthServiceTest {
     private UserAccountRepository userAccountRepository;
 
     @Mock
+    private DietaryProfileRepository dietaryProfileRepository;
+
+    @Mock
     private AuthenticationManager authenticationManager;
 
     @Mock
@@ -82,6 +87,7 @@ class AuthServiceTest {
         passwordEncoder = new BCryptPasswordEncoder(10);
         authService = new AuthService(
             userAccountRepository,
+            dietaryProfileRepository,
             passwordEncoder,
             authenticationManager,
             jwtService,
@@ -217,6 +223,9 @@ class AuthServiceTest {
                 account.setId(14L);
                 return account;
             });
+            when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
             RegistrationResponse response = authService.register(request);
 
             ArgumentCaptor<UserAccount> accountCaptor = ArgumentCaptor.forClass(UserAccount.class);
@@ -233,6 +242,15 @@ class AuthServiceTest {
             assertFalse(persisted.toString().contains(persisted.getPasswordHash()));
             assertFalse(request.toString().contains(rawPassword));
 
+            ArgumentCaptor<DietaryProfile> profileCaptor = ArgumentCaptor.forClass(DietaryProfile.class);
+            verify(dietaryProfileRepository).saveAndFlush(profileCaptor.capture());
+            DietaryProfile persistedProfile = profileCaptor.getValue();
+
+            assertSame(persisted, persistedProfile.getLinkedUser());
+            assertEquals("Person Name", persistedProfile.getProfileName());
+            assertEquals("SELF", persistedProfile.getRelationship());
+            assertTrue(persistedProfile.isPrimary());
+
             assertEquals(14L, response.userId());
             assertEquals("person@example.com", response.email());
             assertTrue(response.active());
@@ -241,8 +259,10 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("UC18 BE1b: registration remains account-only when profile and invitation data are present")
-        void registrationDoesNotCreateProfileClaimInvitationOrStartSession() {
+        @DisplayName(
+            "UC18 BE1b: registration creates the linked SELF profile but does not "
+                + "claim invitations or start a session")
+        void registrationCreatesSelfProfileButDoesNotClaimInvitationOrStartSession() {
             RegistrationRequest request = new RegistrationRequest(
                 "Pending Profile Name",
                 "person@example.com",
@@ -256,11 +276,14 @@ class AuthServiceTest {
                 account.setId(14L);
                 return account;
             });
+            when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
             RegistrationResponse response = authService.register(request);
 
             assertEquals(14L, response.userId());
             assertEquals(3, RegistrationResponse.class.getRecordComponents().length);
+            verify(dietaryProfileRepository).saveAndFlush(any(DietaryProfile.class));
             verifyNoInteractions(authenticationManager, jwtService, refreshTokenService);
         }
 
