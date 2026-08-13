@@ -168,10 +168,11 @@ extensions.configure<ApplicationExtension> {
 }
 
 kotlin {
-    jvmToolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
-        vendor.set(JvmVendorSpec.AMAZON)
-    }
+    // jvmToolchain {
+    //     languageVersion.set(JavaLanguageVersion.of(21))
+    //     vendor.set(JvmVendorSpec.AMAZON)
+    // }
+    jvmToolchain(21)
 }
 
 dependencies {
