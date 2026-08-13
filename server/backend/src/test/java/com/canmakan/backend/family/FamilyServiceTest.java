@@ -362,17 +362,64 @@ class FamilyServiceTest {
     }
 
     @Test
-    @DisplayName("invite rejects duplicate pending")
-    void inviteDuplicatePending() {
+    @DisplayName("invite resends email when a pending invitation already exists")
+    void inviteResendsExistingPending() {
         stubPrimaryAdmin(10L, 1L);
+        FamilyInvitation existing = new FamilyInvitation();
+        existing.setId(5L);
+        existing.setFamilyId(1L);
+        existing.setInvitedEmail("dup@example.com");
+        existing.setInvitationToken("existing-token");
+        existing.setInviteCode("ABCD1234");
+        existing.setStatus(InvitationStatus.PENDING);
+        existing.setExpiresAt(Instant.parse("2026-01-01T00:00:00Z"));
         when(userAccountRepository.findByEmail("dup@example.com")).thenReturn(Optional.empty());
         when(familyInvitationRepository.findPendingByFamilyAndEmail(1L, "dup@example.com"))
-            .thenReturn(Optional.of(new FamilyInvitation()));
+            .thenReturn(Optional.of(existing));
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(invitationEmailService.sendInvitationEmail(eq("Host Family"), any(InvitationResponse.class)))
+            .thenReturn(true);
 
-        assertThrows(
-            InvitationConflictException.class,
-            () -> familyService.createInvitation(10L, new CreateInvitationRequest("dup@example.com"))
-        );
+        InvitationResponse response = familyService.createInvitation(
+            10L, new CreateInvitationRequest("dup@example.com"));
+
+        assertEquals(5L, response.invitationId());
+        assertTrue(response.emailSent());
+        assertTrue(response.inviteUrl().contains("existing-token"));
+        verify(familyInvitationRepository, never()).saveAndFlush(any());
+        verify(familyInvitationRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("invite does not keep PENDING when email send fails")
+    void inviteDoesNotKeepPendingWhenEmailFails() {
+        stubPrimaryAdmin(10L, 1L);
+        when(userAccountRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
+        when(familyInvitationRepository.findPendingByFamilyAndEmail(1L, "new@example.com"))
+            .thenReturn(Optional.empty());
+        when(familyInvitationRepository.existsByInvitationToken(any())).thenReturn(false);
+        when(familyInvitationRepository.existsByInviteCode(any())).thenReturn(false);
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class))).thenAnswer(invocation -> {
+            FamilyInvitation invitation = invocation.getArgument(0);
+            invitation.setId(88L);
+            return invitation;
+        });
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(invitationEmailService.sendInvitationEmail(eq("Host Family"), any(InvitationResponse.class)))
+            .thenReturn(false);
+
+        InvitationResponse response = familyService.createInvitation(
+            10L, new CreateInvitationRequest("new@example.com"));
+
+        assertFalse(response.emailSent());
+        verify(familyInvitationRepository).delete(any(FamilyInvitation.class));
+        verify(familyInvitationRepository).flush();
     }
 
     @Test

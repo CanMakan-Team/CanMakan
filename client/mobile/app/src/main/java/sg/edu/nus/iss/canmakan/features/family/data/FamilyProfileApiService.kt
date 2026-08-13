@@ -4,6 +4,7 @@ import com.google.gson.annotations.SerializedName
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -108,6 +109,7 @@ interface FamilyProfileApiService {
         @Query("email") email: String,
     ): Response<UserSearchResponse>
 
+    @Headers("X-CanMakan-No-Retry: true")
     @POST("families/me/invitations")
     suspend fun createInvitation(
         @Body request: CreateInvitationRequestBody,

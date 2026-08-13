@@ -210,6 +210,12 @@ public class FamilyService {
 
         List<FamilyMemberRosterDto> rows = new ArrayList<>();
 
+        // List active members
+        // Find the dietary profile for the member
+        // If the dietary profile is not found, continue
+        // Get the name, relationship, and restriction codes
+        // Mask the email
+        // Add the member to the rows
         for (FamilyMember member : familyMemberRepository.findActiveMembersByFamilyId(familyId)) {
             Optional<DietaryProfile> dietaryProfileOpt =
                 dietaryProfileRepository.findByLinkedUser_Id(member.getUserId());
@@ -603,6 +609,7 @@ public class FamilyService {
         return toActiveProfileResponse(profile);
     }
 
+    // Resolve the effective active profile id
     private Long resolveEffectiveActiveProfileId(long userId) {
         Optional<UserPreference> preferenceOpt = userPreferenceRepository.findById(userId);
         if (preferenceOpt.isPresent() && preferenceOpt.get().getActiveProfileId() != null) {
@@ -617,6 +624,7 @@ public class FamilyService {
         return resolveDefaultActiveProfileId(userId);
     }
 
+    // Resolve the default active profile id
     private Long resolveDefaultActiveProfileId(long userId) {
         Optional<FamilyMember> membershipOpt =
             familyMemberRepository.findMembershipByUserId(userId);
@@ -648,6 +656,7 @@ public class FamilyService {
         return selfProfile.getId();
     }
 
+    // Clear the stored active profile
     private void clearStoredActiveProfile(long userId) {
         userPreferenceRepository.findById(userId).ifPresent(preference -> {
             preference.setActiveProfileId(null);
@@ -655,6 +664,7 @@ public class FamilyService {
         });
     }
 
+    // Convert the active profile response
     private ActiveProfileResponse toActiveProfileResponse(DietaryProfile profile) {
         Long familyId = profile.getFamily() == null ? null : profile.getFamily().getId();
         return new ActiveProfileResponse(
@@ -754,22 +764,14 @@ public class FamilyService {
                 "That user already belongs to a family circle.");
         }
 
-        // Check if a pending invitation already exists for the email
-        if (familyInvitationRepository
-                .findPendingByFamilyAndEmail(adminMembership.getFamilyId(), email)
-                .isPresent()) {
-            throw new InvitationConflictException(
-                "A pending invitation already exists for this email.");
+        // Check if the user has a pending invitation for the family
+        Optional<FamilyInvitation> existingPending = familyInvitationRepository
+            .findPendingByFamilyAndEmail(adminMembership.getFamilyId(), email);
+        if (existingPending.isPresent()) {
+            return deliverInvitationEmail(existingPending.get(), invitee.isPresent());
         }
 
-        // Set the invitation details: 
-        // - Family id
-        // - Invited by user id
-        // - Invited email
-        // - Invitation token
-        // - Invite code
-        // - Status
-        // - Expires at
+        // Create a new invitation
         Instant expiresAt = Instant.now()
             .plus(inviteProperties.getExpiryDays(), ChronoUnit.DAYS);
         FamilyInvitation invitation = new FamilyInvitation();
@@ -784,11 +786,25 @@ public class FamilyService {
         // Save the invitation
         FamilyInvitation saved = familyInvitationRepository.saveAndFlush(invitation);
 
-        InvitationResponse pendingResponse = toInvitationResponse(saved, invitee.isPresent(), false);
-        Family family = familyRepository.findById(adminMembership.getFamilyId()).orElse(null);
+        // Deliver the invitation email
+        InvitationResponse response = deliverInvitationEmail(saved, invitee.isPresent());
+        if (!response.emailSent()) {
+            familyInvitationRepository.delete(saved);
+            familyInvitationRepository.flush();
+        }
+
+        // Return the invitation response
+        return response;
+    }
+
+    // Deliver an invitation email
+    private InvitationResponse deliverInvitationEmail(
+            FamilyInvitation invitation, boolean inviteeRegistered) {
+        InvitationResponse pendingResponse = toInvitationResponse(invitation, inviteeRegistered, false);
+        Family family = familyRepository.findById(invitation.getFamilyId()).orElse(null);
         String familyName = family == null ? "a family circle" : family.getFamilyName();
         boolean emailSent = invitationEmailService.sendInvitationEmail(familyName, pendingResponse);
-        return toInvitationResponse(saved, invitee.isPresent(), emailSent);
+        return toInvitationResponse(invitation, inviteeRegistered, emailSent);
     }
 
     // Claim an invitation (UC9 deep-link / login path — same rules as accept)
@@ -1148,7 +1164,7 @@ public class FamilyService {
         return email == null ? null : email.strip().toLowerCase(Locale.ROOT);
     }
 
-    // Mask the email
+    // Mask the email by replacing the local part with asterisks
     static String maskEmail(String email) {
         if (email == null || email.isBlank()) {
             return "";

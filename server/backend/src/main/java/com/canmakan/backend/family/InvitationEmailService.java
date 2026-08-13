@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * Sends invitation emails via Resend when configured; otherwise no-ops.
@@ -33,7 +34,12 @@ public class InvitationEmailService {
      */
     public boolean sendInvitationEmail(String familyName, InvitationResponse invitation) {
         if (!isConfigured()) {
-            log.debug("Skipping invitation email; Resend is not configured.");
+            log.warn("Skipping invitation email to {}; Resend is not configured "
+                + "(enabled={}, apiKey set={}, from set={}).",
+                invitation.invitedEmail(),
+                resendProperties.isEnabled(),
+                hasText(resendProperties.getApiKey()),
+                hasText(resendProperties.getFrom()));
             return false;
         }
 
@@ -73,18 +79,24 @@ public class InvitationEmailService {
             log.info("Invitation email sent to {}", invitation.invitedEmail());
             return true;
         } catch (Exception ex) {
+            String detail = ex.getMessage();
+            if (ex instanceof RestClientResponseException restEx) {
+                detail = restEx.getStatusCode() + " " + restEx.getResponseBodyAsString();
+            }
             log.warn("Failed to send invitation email to {}: {}",
-                invitation.invitedEmail(), ex.getMessage());
+                invitation.invitedEmail(), detail);
             return false;
         }
     }
 
     private boolean isConfigured() {
-        if (!resendProperties.isEnabled()) {
-            return false;
-        }
-        String key = resendProperties.getApiKey();
-        return key != null && !key.isBlank();
+        return resendProperties.isEnabled()
+            && hasText(resendProperties.getApiKey())
+            && hasText(resendProperties.getFrom());
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private static String escape(String value) {

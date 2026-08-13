@@ -35,10 +35,11 @@ when `memberRole == PRIMARY_ADMIN`). That opens `ManageFamilyScreen`, which bran
 | Add dependant profile | `CreateDependantProfileScreen` | Dependant dietary profile with no login |
 
 Invite flow on mobile is one step: enter email, then **Cancel** / **Invite**.
-`POST /api/families/me/invitations` rejects users already in a family (or duplicate
-PENDING) with **409** and red inline error text. Eligible new or existing users get a
-PENDING invite; the server emails them when Resend is configured (`emailSent` in the
-response). Success toasts and returns to Manage Family.
+`POST /api/families/me/invitations` rejects users already in a family with **409**.
+That POST does not retry on timeout (one attempt, ~15s) so a down host does not
+block the screen for three tries. A `PENDING` invite is stored only after Resend accepts the email; a failed send
+can be retried. Repeating Invite for the same email resends that pending invite.
+Success toasts and returns to Manage Family.
 
 Invitees preserve the token through register/login; claim runs only after
 authentication (post-login continuation or **Notifications** inbox).
@@ -48,12 +49,12 @@ flowchart TD
   Hub[Manage family hub] --> Invite[InviteFamilyMemberScreen]
   Hub --> Dependant[CreateDependantProfileScreen]
   Invite --> Post[POST invitations]
-  Post -->|409 linked or pending| Err[Red error on screen]
-  Post -->|201| Email[Optional Resend email]
-  Email --> Done[Toast and back to hub]
-  Done --> PathA[New user: register, then login with token preserved]
-  Done --> PathB[Existing user: open link then login]
-  Done --> PathC[Already logged in: Notifications inbox or deep-link claim]
+  Post -->|409 already in family| Err[Red error on screen]
+  Post -->|201 emailSent false| Stay[Stay on invite, red error]
+  Post -->|201 emailSent true| Email[Toast and back to hub]
+  Email --> PathA[New user: register, then login with token preserved]
+  Email --> PathB[Existing user: open link then login]
+  Email --> PathC[Already logged in: Notifications inbox or deep-link claim]
   PathA --> Join[MEMBER + SELF profile + ACCEPTED]
   PathB --> Join
   PathC --> Join

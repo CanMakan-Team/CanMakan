@@ -76,24 +76,33 @@ class InviteFamilyMemberViewModel @Inject constructor(
             try {
                 val invitation = familyProfileRepository.createInvitation(email)
                 if (!isCurrentAccount(accountKey)) return@launch
-                _uiState.value = _uiState.value.copy(
-                    isInviting = false,
-                    inviteSucceeded = true,
-                    emailSent = invitation.emailSent,
-                )
+                if (invitation.emailSent) {
+                    _uiState.value = _uiState.value.copy(
+                        isInviting = false,
+                        inviteSucceeded = true,
+                        emailSent = true,
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isInviting = false,
+                        inviteSucceeded = false,
+                        emailSent = false,
+                        errorMessage = "The invitation email could not be sent. Try again in a moment.",
+                    )
+                }
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: CreateFamilyException) {
                 if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     isInviting = false,
-                    errorMessage = exception.message,
+                    errorMessage = exception.message ?: "Could not create invitation.",
                 )
             } catch (exception: Exception) {
                 if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     isInviting = false,
-                    errorMessage = exception.message ?: "Could not create invitation.",
+                    errorMessage = "Error: ${exception.message ?: "Could not create invitation."}",
                 )
             }
         }

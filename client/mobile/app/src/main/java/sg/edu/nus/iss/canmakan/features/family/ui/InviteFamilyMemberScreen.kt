@@ -56,12 +56,7 @@ fun InviteFamilyMemberScreen(
 
     LaunchedEffect(uiState.inviteSucceeded) {
         if (!uiState.inviteSucceeded) return@LaunchedEffect
-        val message = if (uiState.emailSent) {
-            "Invitation sent."
-        } else {
-            "Invitation created, but the email could not be sent."
-        }
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "Invitation sent successfully!", Toast.LENGTH_SHORT).show()
         viewModel.consumeInviteResult()
         onInviteCreated()
     }

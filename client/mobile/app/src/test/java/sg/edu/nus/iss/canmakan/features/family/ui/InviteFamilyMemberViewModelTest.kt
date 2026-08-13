@@ -133,6 +133,57 @@ class InviteFamilyMemberViewModelTest {
         assertFalse(viewModel.uiState.value.emailSent)
     }
 
+    @Test
+    fun failedEmailStaysOnScreenWithError() = runTest {
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+        familyApi.createInvitationResponse = Response.success(
+            InvitationResponse(
+                invitationId = 1L,
+                invitedEmail = "new@example.com",
+                invitationToken = "token",
+                inviteCode = "ABCD1234",
+                inviteUrl = "http://localhost:5173/invite/token",
+                status = "PENDING",
+                expiresAt = null,
+                inviteeRegistered = false,
+                emailSent = false,
+            ),
+        )
+
+        viewModel.updateEmail("new@example.com")
+        viewModel.invite()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            "The invitation email could not be sent. Try again in a moment.",
+            viewModel.uiState.value.errorMessage,
+        )
+        assertFalse(viewModel.uiState.value.inviteSucceeded)
+        assertFalse(viewModel.uiState.value.emailSent)
+        assertEquals(1, familyApi.createInvitationCalls)
+    }
+
+    @Test
+    fun connectTimeoutPrefixesJvmMessage() = runTest {
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+        familyApi.createInvitationException = java.net.SocketTimeoutException(
+            "failed to connect to /192.168.50.11 (port 8080) from /192.168.50.100 (port 36472) after 15000ms",
+        )
+
+        viewModel.updateEmail("new@example.com")
+        viewModel.invite()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            "Error: failed to connect to /192.168.50.11 (port 8080) from /192.168.50.100 (port 36472) after 15000ms",
+            viewModel.uiState.value.errorMessage,
+        )
+        assertFalse(viewModel.uiState.value.inviteSucceeded)
+        assertEquals(1, familyApi.createInvitationCalls)
+    }
+
     private fun validSession(): AuthenticatedSession {
         return AuthenticatedSession(
             accessToken = "access-token",
@@ -163,6 +214,7 @@ class InviteFamilyMemberViewModelTest {
             500,
             "{}".toResponseBody("application/json".toMediaType()),
         )
+        var createInvitationException: Exception? = null
         var createInvitationCalls = 0
 
         override suspend fun getMyFamily(): Response<FamilyMeResponse> =
@@ -197,6 +249,7 @@ class InviteFamilyMemberViewModelTest {
             request: CreateInvitationRequestBody,
         ): Response<InvitationResponse> {
             createInvitationCalls++
+            createInvitationException?.let { throw it }
             return createInvitationResponse
         }
 

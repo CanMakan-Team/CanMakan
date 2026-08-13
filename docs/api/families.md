@@ -361,19 +361,23 @@ When Resend is enabled (`canmakan.email.resend.enabled=true` / env
 standard HTML template (family name, accept link, invite code, expiry). Set
 `CANMAKAN_INVITES_PUBLIC_BASE_URL` to the public web origin used in accept links.
 
-`emailSent` is `true` only when Resend accepted the send. Email failures or a disabled
-provider are logged and do **not** fail the create response (`emailSent: false`);
-shareable `inviteUrl` / `inviteCode` remain available.
+`emailSent` is `true` only when Resend accepted the send. A `PENDING` row is kept
+only after a successful send so the admin can retry the same email if delivery
+fails. A later `POST` for the same family+email **resends** that pending invite
+instead of returning **409**.
 
-Mobile invite UI calls this endpoint directly (Cancel / Invite). HTTP **409** messages
-are shown as red inline errors (already in a family circle, or duplicate PENDING).
+Email failures or a disabled provider are logged and do **not** fail the create
+response (`emailSent: false`).
+
+Mobile invite UI calls this endpoint directly (Cancel / Invite). HTTP **409**
+messages are shown as red inline errors (already in a family circle).
 
 | Status | Meaning |
 | --- | --- |
-| 201 | Invitation created |
+| 201 | Invitation created, or existing PENDING resent |
 | 400 | Invalid email |
 | 403 | Not PRIMARY_ADMIN |
-| 409 | Already a member, or duplicate PENDING for this family+email |
+| 409 | Already a member of a family circle |
 
 There is **no** production `POST /api/families/me/members/link` silent-link endpoint.
 
