@@ -74,6 +74,7 @@ fun RegistrationRoute(
     when (state.step) {
         RegistrationStep.ACCOUNT_INFORMATION -> AccountInformationScreen(
             state = state,
+            onNameChange = viewModel::updateName,
             onEmailChange = viewModel::updateEmail,
             onPasswordChange = viewModel::updatePassword,
             onConfirmPasswordChange = viewModel::updateConfirmPassword,
@@ -99,6 +100,7 @@ fun RegistrationRoute(
 @Composable
 private fun AccountInformationScreen(
     state: RegistrationUiState,
+    onNameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
@@ -121,6 +123,15 @@ private fun AccountInformationScreen(
     ) {
         state.registrationError?.let { ErrorMessage(it) }
 
+        LabeledTextField(
+            label = "Name",
+            value = state.name,
+            onValueChange = onNameChange,
+            placeholder = "eg. Sarah Abdullah",
+            keyboardType = KeyboardType.Text,
+            isError = state.nameError != null,
+            supportingText = state.nameError,
+        )
         LabeledTextField(
             label = "Email address",
             value = state.email,
@@ -272,9 +283,9 @@ private fun RegistrationCompleteScreen(
         }
         Text(
             text = if (dietarySetupRequested) {
-                "Sign in explicitly to choose and save your dietary restrictions."
+                "Sign in to select your dietary restrictions."
             } else {
-                "No dietary profile was created. You can configure one later."
+                "Your profile was created without any dietary restrictions. You can add them later."
             },
             color = TextSecondary,
         )

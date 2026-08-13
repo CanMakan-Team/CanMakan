@@ -25,7 +25,7 @@ fun AuthNavGraph(
     onLoginSuccess: (AuthenticatedUser) -> Unit,
     navController: NavHostController = rememberNavController(),
 ) {
-    NavHost(navController = navController, startDestination = ROUTE_LOGIN) {
+    NavHost(navController = navController, startDestination = ROUTE_REGISTRATION) {
         composable(ROUTE_LOGIN) {
             LoginRoute(
                 onLoginSuccess = onLoginSuccess,

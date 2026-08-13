@@ -1,5 +1,7 @@
 package sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,14 +22,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -36,21 +34,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.AuthenticatedDietaryOnboardingUiState
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.AuthenticatedDietaryOnboardingViewModel
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.ProfileRestrictionSeverity
 import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascot
 import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
 import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotSize
-import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.shared.ui.theme.BorderSubtle
+import sg.edu.nus.iss.canmakan.shared.ui.theme.CardWhite
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
-import sg.edu.nus.iss.canmakan.shared.ui.theme.LightRedBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextPrimary
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
@@ -75,11 +74,9 @@ fun AuthenticatedDietaryOnboardingRoute(
 
     AuthenticatedDietaryOnboardingScreen(
         state = state,
-        onProfileNameChange = viewModel::updateProfileName,
         onToggle = viewModel::toggleRestriction,
-        onSeverityChange = viewModel::setSeverity,
         onRetry = viewModel::retryCatalog,
-        onCreateProfile = viewModel::createProfile,
+        onSaveRestrictions = viewModel::saveRestrictions,
         onDefer = viewModel::deferSetup,
     )
 }
@@ -87,11 +84,9 @@ fun AuthenticatedDietaryOnboardingRoute(
 @Composable
 fun AuthenticatedDietaryOnboardingScreen(
     state: AuthenticatedDietaryOnboardingUiState,
-    onProfileNameChange: (String) -> Unit,
     onToggle: (Long) -> Unit,
-    onSeverityChange: (Long, ProfileRestrictionSeverity) -> Unit,
     onRetry: () -> Unit,
-    onCreateProfile: () -> Unit,
+    onSaveRestrictions: () -> Unit,
     onDefer: () -> Unit,
 ) {
     Scaffold(
@@ -113,7 +108,7 @@ fun AuthenticatedDietaryOnboardingScreen(
                         Text("Set up later")
                     }
                     Button(
-                        onClick = onCreateProfile,
+                        onClick = onSaveRestrictions,
                         enabled = !state.isSubmitting && !state.isLoadingCatalog,
                         modifier = Modifier.weight(1f),
                     ) {
@@ -145,27 +140,26 @@ fun AuthenticatedDietaryOnboardingScreen(
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                "These options come from the current CanMakan catalog. " +
-                    "Select at least one, or continue without creating a profile.",
+                "Select the dietary restriction options that are relevant to your requirements, or continue without creating a profile.",
                 color = TextSecondary,
-            )
-            OutlinedTextField(
-                value = state.profileName,
-                onValueChange = onProfileNameChange,
-                label = { Text("Profile name") },
-                placeholder = { Text("e.g. Sarah Abdullah") },
-                enabled = !state.isSubmitting,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
             )
 
             state.errorMessage?.let { message ->
-                Card(colors = CardDefaults.cardColors(containerColor = LightRedBackground)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .padding(16.dp)
+                ) {
                     Column(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text(message, color = AvoidRed)
+                        Text(
+                            message,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                         if (state.restrictions.isEmpty() && !state.isLoadingCatalog) {
                             OutlinedButton(onClick = onRetry) { Text("Retry") }
                         }
@@ -182,100 +176,184 @@ fun AuthenticatedDietaryOnboardingScreen(
                     Text("Loading dietary options…")
                 }
             } else {
-                RestrictionSection(
-                    heading = "RELIGIOUS",
-                    restrictions = state.restrictions.filter { it.category == CATEGORY_RELIGIOUS },
-                    state = state,
-                    onToggle = onToggle,
-                    onSeverityChange = onSeverityChange,
-                )
-                RestrictionSection(
-                    heading = "ALLERGIES & INTOLERANCES",
-                    restrictions = state.restrictions.filter { it.category == CATEGORY_ALLERGEN },
-                    state = state,
-                    onToggle = onToggle,
-                    onSeverityChange = onSeverityChange,
-                )
-                RestrictionSection(
-                    heading = "SPECIFIC DIETS",
-                    restrictions = state.restrictions.filter { it.category == CATEGORY_DIET },
-                    state = state,
-                    onToggle = onToggle,
-                    onSeverityChange = onSeverityChange,
-                )
-                val known = setOf(CATEGORY_RELIGIOUS, CATEGORY_ALLERGEN, CATEGORY_DIET)
-                RestrictionSection(
-                    heading = "OTHER",
-                    restrictions = state.restrictions.filterNot { it.category in known },
-                    state = state,
-                    onToggle = onToggle,
-                    onSeverityChange = onSeverityChange,
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    RestrictionSection(
+                        heading = "RELIGIOUS",
+                        restrictions = state.restrictions.filter { it.category == CATEGORY_RELIGIOUS },
+                        selectedIds = state.selections.keys,
+                        isSubmitting = state.isSubmitting,
+                        onToggle = onToggle,
+                        isSingleChoice = true
+                    )
+                    RestrictionSection(
+                        heading = "ALLERGIES & INTOLERANCES",
+                        restrictions = state.restrictions.filter { it.category == CATEGORY_ALLERGEN },
+                        selectedIds = state.selections.keys,
+                        isSubmitting = state.isSubmitting,
+                        onToggle = onToggle
+                    )
+                    RestrictionSection(
+                        heading = "SPECIFIC DIETS",
+                        restrictions = state.restrictions.filter { it.category == CATEGORY_DIET },
+                        selectedIds = state.selections.keys,
+                        isSubmitting = state.isSubmitting,
+                        onToggle = onToggle
+                    )
+                    val known = setOf(CATEGORY_RELIGIOUS, CATEGORY_ALLERGEN, CATEGORY_DIET)
+                    RestrictionSection(
+                        heading = "OTHER",
+                        restrictions = state.restrictions.filterNot { it.category in known },
+                        selectedIds = state.selections.keys,
+                        isSubmitting = state.isSubmitting,
+                        onToggle = onToggle
+                    )
+                }
+            }
+        }
+    }
+}
+
+private val OptionCardHeight = 64.dp
+
+@Composable
+private fun RestrictionSection(
+    heading: String,
+    restrictions: List<DietaryRestriction>,
+    selectedIds: Set<Long>,
+    isSubmitting: Boolean,
+    onToggle: (Long) -> Unit,
+    isSingleChoice: Boolean = false
+) {
+    if (restrictions.isEmpty()) return
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            heading,
+            color = TextSecondary,
+            style = MaterialTheme.typography.titleSmall
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        if (isSingleChoice) {
+            SingleChoiceRow(
+                options = restrictions,
+                selectedIds = selectedIds,
+                enabled = !isSubmitting,
+                onToggle = onToggle
+            )
+        } else {
+            MultiChoiceGrid(
+                options = restrictions,
+                selectedIds = selectedIds,
+                enabled = !isSubmitting,
+                onToggle = onToggle
+            )
+        }
+    }
+}
+
+@Composable
+private fun SingleChoiceRow(
+    options: List<DietaryRestriction>,
+    selectedIds: Set<Long>,
+    enabled: Boolean,
+    onToggle: (Long) -> Unit
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        options.forEach { option ->
+            SelectableOptionCard(
+                label = option.displayName,
+                isSelected = selectedIds.contains(option.id),
+                enabled = enabled,
+                modifier = Modifier.weight(1f)
+            ) {
+                onToggle(option.id)
             }
         }
     }
 }
 
 @Composable
-private fun RestrictionSection(
-    heading: String,
-    restrictions: List<DietaryRestriction>,
-    state: AuthenticatedDietaryOnboardingUiState,
-    onToggle: (Long) -> Unit,
-    onSeverityChange: (Long, ProfileRestrictionSeverity) -> Unit,
+private fun MultiChoiceGrid(
+    options: List<DietaryRestriction>,
+    selectedIds: Set<Long>,
+    enabled: Boolean,
+    onToggle: (Long) -> Unit
 ) {
-    if (restrictions.isEmpty()) return
-    Text(heading, color = TextSecondary, style = MaterialTheme.typography.titleSmall)
-    restrictions.forEach { restriction ->
-        val severity = state.selections[restriction.id]
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .clickable(enabled = !state.isSubmitting) { onToggle(restriction.id) },
-            colors = CardDefaults.cardColors(
-                containerColor = if (severity != null) {
-                    LightGreenBackground
-                } else {
-                    MaterialTheme.colorScheme.surface
-                },
-            ),
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (severity != null) {
-                        Icon(Icons.Default.Check, contentDescription = null, tint = PrimaryGreen)
-                        Spacer(modifier = Modifier.width(8.dp))
+    val rows = options.chunked(2)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        rows.forEach { rowOptions ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                rowOptions.forEach { option ->
+                    SelectableOptionCard(
+                        label = option.displayName,
+                        isSelected = selectedIds.contains(option.id),
+                        enabled = enabled,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        onToggle(option.id)
                     }
-                    Text(restriction.displayName, fontWeight = FontWeight.Medium, color = TextPrimary)
                 }
-                if (severity != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = severity == ProfileRestrictionSeverity.STRICT_AVOID,
-                            onClick = {
-                                onSeverityChange(
-                                    restriction.id,
-                                    ProfileRestrictionSeverity.STRICT_AVOID,
-                                )
-                            },
-                            label = { Text("Strict avoid") },
-                        )
-                        FilterChip(
-                            selected = severity == ProfileRestrictionSeverity.INTOLERANCE,
-                            onClick = {
-                                onSeverityChange(
-                                    restriction.id,
-                                    ProfileRestrictionSeverity.INTOLERANCE,
-                                )
-                            },
-                            label = { Text("Intolerance") },
-                        )
-                    }
+                if (rowOptions.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SelectableOptionCard(
+    label: String,
+    isSelected: Boolean,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .height(OptionCardHeight)
+            .clip(shape)
+            .background(if (isSelected) LightGreenBackground else CardWhite)
+            .border(
+                width = 1.dp,
+                color = if (isSelected) PrimaryGreen else BorderSubtle,
+                shape = shape,
+            )
+            .alpha(if (enabled) 1f else 0.55f)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 12.dp)
+    ) {
+        Box(
+            modifier = Modifier.size(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isSelected) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = null,
+                    tint = PrimaryGreen,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = label,
+            color = if (isSelected) PrimaryGreen else TextPrimary,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
     }
 }
 
