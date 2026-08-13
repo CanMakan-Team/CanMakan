@@ -19,5 +19,8 @@ interface RegistrationRepository {
     suspend fun register(
         email: String,
         password: String,
+        invitationToken: String? = null,
     ): RegistrationResult
+
+    suspend fun previewInvitation(invitationToken: String): InvitationPreviewResponse?
 }

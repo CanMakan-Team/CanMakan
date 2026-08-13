@@ -12,6 +12,8 @@ import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
 import com.canmakan.backend.auth.exception.RegistrationFailedException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
+import com.canmakan.backend.family.FamilyInviteNotifier;
+import com.canmakan.backend.family.InvitationRegistrationGuard;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.JwtService;
 import com.canmakan.backend.user.UserAccount;
@@ -51,6 +53,8 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final FamilyInviteNotifier familyInviteNotifier;
+    private final InvitationRegistrationGuard invitationRegistrationGuard;
 
     // User login
     @Transactional
@@ -112,6 +116,10 @@ public class AuthService {
         String normalizedEmail = request.email();
 
         try {
+            invitationRegistrationGuard.requireEmailMatchesPendingInvite(
+                request.invitationToken(),
+                normalizedEmail
+            );
             if (userAccountRepository.existsByEmail(normalizedEmail)) {
                 throw new DuplicateEmailException();
             }
@@ -126,6 +134,7 @@ public class AuthService {
             account.setActive(true);
 
             UserAccount savedAccount = userAccountRepository.saveAndFlush(account);
+            familyInviteNotifier.hydrateIncomingInvites(savedAccount.getId(), savedAccount.getEmail());
 
             return new RegistrationResponse(
                 savedAccount.getId(),

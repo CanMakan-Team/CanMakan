@@ -152,6 +152,7 @@ export interface ExistingUserSearchResult {
 export interface InvitationResponse {
   invitationId: number // id of the invitation
   invitedEmail: string // email of the invited user
+  relationship: Relationship // relationship of the invitee to the family admin
   invitationToken: string // token of the invitation
   inviteCode: string // code of the invitation
   inviteUrl: string // url of the invitation
@@ -159,6 +160,12 @@ export interface InvitationResponse {
   expiresAt: string // timestamp of the expiration
   inviteeRegistered: boolean // true if the invited user is registered
   emailSent: boolean // true if Resend accepted the invitation email
+}
+
+export interface InvitationPreviewResponse {
+  invitedEmail: string
+  familyName: string
+  expired: boolean
 }
 
 // Define the dependant profile response type

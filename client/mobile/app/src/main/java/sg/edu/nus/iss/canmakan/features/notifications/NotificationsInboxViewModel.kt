@@ -13,19 +13,22 @@ import sg.edu.nus.iss.canmakan.features.auth.session.AuthAccountKey
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
-import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
+import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsRepository
+import sg.edu.nus.iss.canmakan.features.notifications.data.UserNotificationResponse
 import javax.inject.Inject
 
 data class NotificationsInboxUiState(
     val isLoading: Boolean = false,
-    val invitations: List<PendingInvitationResponse> = emptyList(),
+    val notifications: List<UserNotificationResponse> = emptyList(),
     val actingToken: String? = null,
+    val deletingId: Long? = null,
     val errorMessage: String? = null,
     val acceptedFamilyName: String? = null,
 )
 
 @HiltViewModel
 class NotificationsInboxViewModel @Inject constructor(
+    private val notificationsRepository: NotificationsRepository,
     private val familyProfileRepository: FamilyProfileRepository,
     private val authSessionStore: AuthSessionStore,
 ) : ViewModel() {
@@ -67,12 +70,17 @@ class NotificationsInboxViewModel @Inject constructor(
                 acceptedFamilyName = null,
             )
             try {
-                val invitations = familyProfileRepository.listMyInvitations()
+                val notifications = notificationsRepository.listMine()
                 if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    invitations = invitations,
+                    notifications = notifications,
                 )
+                try {
+                    notificationsRepository.markAllRead()
+                } catch (_: Exception) {
+                    // Listing succeeded; unread flags can catch up on the next open.
+                }
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
@@ -106,8 +114,8 @@ class NotificationsInboxViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     actingToken = null,
                     acceptedFamilyName = joined.familyName,
-                    invitations = _uiState.value.invitations.filterNot {
-                        it.invitationToken == token
+                    notifications = _uiState.value.notifications.filterNot {
+                        it.actionToken == token
                     },
                 )
                 onAccepted()
@@ -145,8 +153,8 @@ class NotificationsInboxViewModel @Inject constructor(
                 if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     actingToken = null,
-                    invitations = _uiState.value.invitations.filterNot {
-                        it.invitationToken == token
+                    notifications = _uiState.value.notifications.filterNot {
+                        it.actionToken == token
                     },
                 )
             } catch (exception: CancellationException) {
@@ -157,6 +165,39 @@ class NotificationsInboxViewModel @Inject constructor(
                     actingToken = null,
                     errorMessage = exception.message ?: "Could not decline invitation.",
                 )
+            }
+        }
+    }
+
+    fun delete(notificationId: Long) {
+        val accountKey = authSessionStore.accountKey.value
+        if (accountKey == null) {
+            bindAccount(null)
+            _uiState.value = _uiState.value.copy(errorMessage = "Sign in to delete notifications.")
+            return
+        }
+        bindAccount(accountKey)
+        actionJob?.cancel()
+        actionJob = viewModelScope.launch {
+            val remaining = _uiState.value.notifications.filterNot { it.id == notificationId }
+            _uiState.value = _uiState.value.copy(
+                deletingId = notificationId,
+                errorMessage = null,
+                notifications = remaining,
+            )
+            try {
+                notificationsRepository.delete(notificationId)
+                if (!isCurrentAccount(accountKey)) return@launch
+                _uiState.value = _uiState.value.copy(deletingId = null)
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                if (!isCurrentAccount(accountKey)) return@launch
+                _uiState.value = _uiState.value.copy(
+                    deletingId = null,
+                    errorMessage = exception.message ?: "Could not delete notification.",
+                )
+                startRefresh(accountKey)
             }
         }
     }

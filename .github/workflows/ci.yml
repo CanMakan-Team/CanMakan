@@ -146,6 +146,7 @@ jobs:
     env:
       # Optional override for debug assemble; defaults to emulator localhost in Gradle.
       BASE_URL: ${{ secrets.MOBILE_BASE_URL }}
+      WEB_INVITE_BASE_URLS: ${{ secrets.WEB_INVITE_BASE_URLS }}
     steps:
       - uses: actions/checkout@v7
 
@@ -165,6 +166,10 @@ jobs:
       - name: Optional BASE_URL for BuildConfig
         if: env.BASE_URL != ''
         run: echo "BASE_URL=${BASE_URL}" >> client/mobile/local.properties
+
+      - name: Optional WEB_INVITE_BASE_URLS for invite HTTPS hosts
+        if: env.WEB_INVITE_BASE_URLS != ''
+        run: echo "WEB_INVITE_BASE_URLS=${WEB_INVITE_BASE_URLS}" >> client/mobile/local.properties
 
       - name: Build mobile app
         working-directory: client/mobile

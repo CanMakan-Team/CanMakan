@@ -49,14 +49,45 @@
                     android:pathPrefix="/" />
             </intent-filter>
 
-            <!-- Matches Compose navDeepLink https://canmakan.local/invite/{token} -->
+            <!-- Invite web origins from WEB_INVITE_BASE_URLS (localhost for debug, Firebase for deploy). -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="https"
-                    android:host="canmakan.local"
+                    android:scheme="${webInviteScheme0}"
+                    android:host="${webInviteHost0}"
+                    android:port="${webInvitePort0}"
+                    android:pathPrefix="/invite" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="${webInviteScheme1}"
+                    android:host="${webInviteHost1}"
+                    android:port="${webInvitePort1}"
+                    android:pathPrefix="/invite" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="${webInviteScheme2}"
+                    android:host="${webInviteHost2}"
+                    android:port="${webInvitePort2}"
+                    android:pathPrefix="/invite" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="${webInviteScheme3}"
+                    android:host="${webInviteHost3}"
+                    android:port="${webInvitePort3}"
                     android:pathPrefix="/invite" />
             </intent-filter>
         </activity>

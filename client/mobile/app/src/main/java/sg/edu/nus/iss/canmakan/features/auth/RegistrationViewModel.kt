@@ -42,6 +42,8 @@ data class RegistrationUiState(
     val account: RegistrationResponse? = null,
     val authenticatedUser: AuthenticatedUser? = null,
     val accountCreatedButLoginFailed: Boolean = false,
+    val invitationToken: String? = null,
+    val emailLocked: Boolean = false,
 ) {
     override fun toString(): String {
         return "RegistrationUiState(name=$name, email=$email, password=<redacted>, " +
@@ -67,6 +69,18 @@ class RegistrationViewModel @Inject constructor(
         if (value != null) {
             // Keep for post-login continuation claim; registration never claims or consumes it.
             pendingInvitationStore.offer(value)
+            _uiState.value = _uiState.value.copy(invitationToken = value)
+            viewModelScope.launch {
+                val preview = registrationRepository.previewInvitation(value) ?: return@launch
+                val invitedEmail = preview.invitedEmail.trim()
+                if (invitedEmail.isEmpty()) return@launch
+                _uiState.value = _uiState.value.copy(
+                    invitationToken = value,
+                    email = invitedEmail,
+                    emailLocked = true,
+                    emailError = null,
+                )
+            }
         }
     }
 
@@ -80,6 +94,7 @@ class RegistrationViewModel @Inject constructor(
     }
 
     fun updateEmail(email: String) {
+        if (_uiState.value.emailLocked) return
         _uiState.value = _uiState.value.copy(
             email = email,
             emailError = null,
@@ -164,6 +179,7 @@ class RegistrationViewModel @Inject constructor(
             when (val result = registrationRepository.register(
                 email = state.email.trim().lowercase(Locale.ROOT),
                 password = state.password,
+                invitationToken = state.invitationToken,
             )) {
                 is RegistrationResult.Success -> handleAccountCreated(result.account, state)
                 is RegistrationResult.Failure -> {

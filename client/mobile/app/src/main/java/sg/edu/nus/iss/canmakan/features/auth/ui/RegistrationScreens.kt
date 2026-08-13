@@ -103,16 +103,23 @@ private fun AccountInformationScreen(
 ) {
     RegistrationPage(
         title = "Create New Account",
-        subtitle = "Set up your login and name your optional personal dietary profile.",
+        subtitle = "Join CanMakan and shop with more confidence.",
         bottomBar = {
             RegistrationActionRow {
-                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                ) {
                     Text("Cancel")
                 }
                 Button(
                     onClick = onCreateAccount,
                     enabled = !state.isSubmitting,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
                 ) {
                     if (state.isSubmitting) {
                         CircularProgressIndicator(
@@ -121,7 +128,7 @@ private fun AccountInformationScreen(
                             strokeWidth = 2.dp,
                         )
                     } else {
-                        Text("Create Account")
+                        Text("Register")
                     }
                 }
             }
@@ -150,7 +157,13 @@ private fun AccountInformationScreen(
             placeholder = "e.g. sarah@example.com",
             keyboardType = KeyboardType.Email,
             isError = state.emailError != null,
-            supportingText = state.emailError,
+            supportingText = state.emailError
+                ?: if (state.emailLocked) {
+                    "This invitation was sent to this email."
+                } else {
+                    null
+                },
+            enabled = !state.emailLocked && !state.isSubmitting,
         )
         LabeledTextField(
             label = "Password",
@@ -186,7 +199,12 @@ private fun AutomaticLoginFailureScreen(
         subtitle = "Your CanMakan account for $email is ready, but automatic sign-in did not complete.",
         bottomBar = {
             RegistrationActionRow {
-                Button(onClick = onLoginRequired, modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = onLoginRequired,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                ) {
                     Text("Go to Login")
                 }
             }
@@ -268,6 +286,7 @@ private fun RegistrationActionRow(content: @Composable RowScope.() -> Unit) {
                 .navigationBarsPadding()
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             content()
         }
@@ -284,6 +303,7 @@ private fun LabeledTextField(
     isPassword: Boolean = false,
     isError: Boolean = false,
     supportingText: String? = null,
+    enabled: Boolean = true,
 ) {
     Column {
         Text(label, fontWeight = FontWeight.Medium, color = TextPrimary)
@@ -293,6 +313,7 @@ private fun LabeledTextField(
             onValueChange = onValueChange,
             placeholder = { Text(placeholder, color = TextSecondary) },
             modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             visualTransformation = if (isPassword) {
                 PasswordVisualTransformation()

@@ -14,9 +14,11 @@ import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionReposito
 import com.canmakan.backend.dietaryprofile.repository.ProfileRestrictionRepository;
 import com.canmakan.backend.product.verdict.RestrictionSeverity;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
+import com.canmakan.backend.family.repository.FamilyMemberRepository;
 import com.canmakan.backend.user.UserAccount;
 import com.canmakan.backend.user.UserAccountRepository;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -45,6 +47,7 @@ public class DietaryProfileService {
     private final DietaryRestrictionRepository dietaryRestrictionRepository;
     private final ProfileRestrictionRepository profileRestrictionRepository;
     private final UserAccountRepository userAccountRepository;
+    private final FamilyMemberRepository familyMemberRepository;
 
     /**
      * Creates the authenticated account's standalone SELF profile and selections.
@@ -111,18 +114,9 @@ public class DietaryProfileService {
             throw new IllegalArgumentException("Family id is required");
         }
 
+        Set<Long> familyAdminUserIds = familyAdminUserIds(familyId);
         return dietaryProfileRepository.findProfilesByFamilyId(familyId).stream()
-            .map(profile -> new DietaryProfileSummaryDto(
-                profile.getId(),
-                profile.getProfileName(),
-                profile.getFamily() == null ? null : profile.getFamily().getId(),
-                profile.getRelationship(),
-                profile.getProfileName() == null || profile.getProfileName().isBlank()
-                    ? ""
-                    : profile.getProfileName().substring(0, Math.min(2, profile.getProfileName().length())).toUpperCase(),
-                profile.isPrimary(),
-                profile.isActive()
-            ))
+            .map(profile -> toSummaryDto(profile, familyAdminUserIds))
             .toList();
     }
 
@@ -131,19 +125,34 @@ public class DietaryProfileService {
             throw new IllegalArgumentException("Family id is required");
         }
 
+        Set<Long> familyAdminUserIds = familyAdminUserIds(familyId);
         return dietaryProfileRepository.findAllProfilesByFamilyId(familyId).stream()
-            .map(profile -> new DietaryProfileSummaryDto(
-                profile.getId(),
-                profile.getProfileName(),
-                profile.getFamily() == null ? null : profile.getFamily().getId(),
-                profile.getRelationship(),
-                profile.getProfileName() == null || profile.getProfileName().isBlank()
-                    ? ""
-                    : profile.getProfileName().substring(0, Math.min(2, profile.getProfileName().length())).toUpperCase(),
-                profile.isPrimary(),
-                profile.isActive()
-            ))
+            .map(profile -> toSummaryDto(profile, familyAdminUserIds))
             .toList();
+    }
+
+    private Set<Long> familyAdminUserIds(Long familyId) {
+        return new HashSet<>(familyMemberRepository.findActivePrimaryAdminUserIds(familyId));
+    }
+
+    private DietaryProfileSummaryDto toSummaryDto(
+            DietaryProfile profile, Set<Long> familyAdminUserIds) {
+        Long linkedUserId = profile.getLinkedUser() == null
+            ? null
+            : profile.getLinkedUser().getId();
+        boolean isFamilyAdminProfile = linkedUserId != null
+            && familyAdminUserIds.contains(linkedUserId);
+        return new DietaryProfileSummaryDto(
+            profile.getId(),
+            profile.getProfileName(),
+            profile.getFamily() == null ? null : profile.getFamily().getId(),
+            profile.getRelationship(),
+            profile.getProfileName() == null || profile.getProfileName().isBlank()
+                ? ""
+                : profile.getProfileName().substring(0, Math.min(2, profile.getProfileName().length())).toUpperCase(),
+            isFamilyAdminProfile,
+            profile.isActive()
+        );
     }
 
     public Map<Long, String> getDietaryRestrictionsForProfile(Long profileId) {

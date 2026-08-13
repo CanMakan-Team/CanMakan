@@ -49,6 +49,11 @@ public class FamilyInvitation {
     private String invitedEmail;
 
     @NotBlank
+    @Size(max = 30)
+    @Column(name = "relationship", nullable = false, length = 30)
+    private String relationship;
+
+    @NotBlank
     @Size(max = 100)
     @Column(name = "invitation_token", nullable = false, unique = true, length = 100)
     private String invitationToken;

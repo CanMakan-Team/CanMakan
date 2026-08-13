@@ -83,8 +83,7 @@ describe('FamilyAccountPage', () => {
     expect(within(panel as HTMLElement).getByText('verified@example.com')).toBeInTheDocument()
     expect(within(panel as HTMLElement).getByText('Verified Family')).toBeInTheDocument()
     expect(within(panel as HTMLElement).getByText('Primary Admin')).toBeInTheDocument()
-    expect(within(panel as HTMLElement).getByText('Verified Person')).toBeInTheDocument()
-    expect(within(panel as HTMLElement).getByText('Self')).toBeInTheDocument()
+    expect(within(panel as HTMLElement).getByText('Verified Person · Self')).toBeInTheDocument()
     expect(screen.queryByText(/Bearer|JWT|token|Authorization/i)).not.toBeInTheDocument()
   })
 

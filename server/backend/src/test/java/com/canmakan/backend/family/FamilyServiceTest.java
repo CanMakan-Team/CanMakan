@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -91,6 +92,7 @@ class FamilyServiceTest {
     private ScanRepository scanRepository;
 
     private InvitationEmailService invitationEmailService;
+    private FamilyInviteNotifier familyInviteNotifier;
     private FamilyService familyService;
 
     @BeforeEach
@@ -99,6 +101,7 @@ class FamilyServiceTest {
         inviteProperties.setPublicBaseUrl("http://localhost:5173");
         inviteProperties.setExpiryDays(7);
         invitationEmailService = org.mockito.Mockito.mock(InvitationEmailService.class);
+        familyInviteNotifier = org.mockito.Mockito.mock(FamilyInviteNotifier.class);
         FamilyAuthorizationService familyAuthorization = new FamilyAuthorizationService(
             familyMemberRepository,
             dietaryProfileRepository
@@ -115,7 +118,8 @@ class FamilyServiceTest {
             familyAuthorization,
             scanRepository,
             inviteProperties,
-            invitationEmailService
+            invitationEmailService,
+            familyInviteNotifier
         );
     }
 
@@ -334,14 +338,51 @@ class FamilyServiceTest {
             .thenReturn(true);
 
         InvitationResponse response = familyService.createInvitation(
-            10L, new CreateInvitationRequest("new@example.com"));
+            10L, new CreateInvitationRequest("new@example.com", "SPOUSE"));
 
         assertEquals(88L, response.invitationId());
         assertFalse(response.inviteeRegistered());
         assertTrue(response.emailSent());
         assertTrue(response.inviteUrl().startsWith("http://localhost:5173/invite/"));
         assertEquals(8, response.inviteCode().length());
+        ArgumentCaptor<FamilyInvitation> invitationCaptor =
+            ArgumentCaptor.forClass(FamilyInvitation.class);
+        verify(familyInvitationRepository).saveAndFlush(invitationCaptor.capture());
+        assertEquals("SPOUSE", invitationCaptor.getValue().getRelationship());
         assertEquals(InvitationStatus.PENDING, response.status());
+        verify(familyInviteNotifier).notifyInviteSent(any(FamilyInvitation.class), isNull());
+    }
+
+    @Test
+    @DisplayName("invite registered user also notifies the invitee inbox")
+    void inviteRegisteredUserNotifiesInvitee() {
+        stubPrimaryAdmin(10L, 1L);
+        UserAccount invitee = new UserAccount();
+        invitee.setId(30L);
+        invitee.setEmail("jamie@example.com");
+        when(userAccountRepository.findByEmail("jamie@example.com")).thenReturn(Optional.of(invitee));
+        when(familyMemberRepository.existsByIdUserId(30L)).thenReturn(false);
+        when(familyInvitationRepository.findPendingByFamilyAndEmail(1L, "jamie@example.com"))
+            .thenReturn(Optional.empty());
+        when(familyInvitationRepository.existsByInvitationToken(any())).thenReturn(false);
+        when(familyInvitationRepository.existsByInviteCode(any())).thenReturn(false);
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class))).thenAnswer(invocation -> {
+            FamilyInvitation invitation = invocation.getArgument(0);
+            invitation.setId(88L);
+            return invitation;
+        });
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(invitationEmailService.sendInvitationEmail(eq("Host Family"), any(InvitationResponse.class)))
+            .thenReturn(true);
+
+        InvitationResponse response = familyService.createInvitation(
+            10L, new CreateInvitationRequest("jamie@example.com", "CHILD"));
+
+        assertTrue(response.inviteeRegistered());
+        verify(familyInviteNotifier).notifyInviteSent(any(FamilyInvitation.class), eq(invitee));
     }
 
     @Test
@@ -357,22 +398,68 @@ class FamilyServiceTest {
 
         assertThrows(
             FamilyForbiddenException.class,
-            () -> familyService.createInvitation(20L, new CreateInvitationRequest("a@b.com"))
+            () -> familyService.createInvitation(20L, new CreateInvitationRequest("a@b.com", "OTHER"))
         );
     }
 
     @Test
-    @DisplayName("invite rejects duplicate pending")
-    void inviteDuplicatePending() {
+    @DisplayName("invite rejects when a pending invitation was already emailed")
+    void inviteRejectsExistingPendingAfterSuccessfulSend() {
         stubPrimaryAdmin(10L, 1L);
+        FamilyInvitation existing = new FamilyInvitation();
+        existing.setId(5L);
+        existing.setFamilyId(1L);
+        existing.setInvitedEmail("dup@example.com");
+        existing.setInvitationToken("existing-token");
+        existing.setInviteCode("ABCD1234");
+        existing.setStatus(InvitationStatus.PENDING);
+        existing.setExpiresAt(Instant.parse("2026-01-01T00:00:00Z"));
         when(userAccountRepository.findByEmail("dup@example.com")).thenReturn(Optional.empty());
         when(familyInvitationRepository.findPendingByFamilyAndEmail(1L, "dup@example.com"))
-            .thenReturn(Optional.of(new FamilyInvitation()));
+            .thenReturn(Optional.of(existing));
 
-        assertThrows(
+        InvitationConflictException exception = assertThrows(
             InvitationConflictException.class,
-            () -> familyService.createInvitation(10L, new CreateInvitationRequest("dup@example.com"))
+            () -> familyService.createInvitation(10L, new CreateInvitationRequest("dup@example.com", "PARENT"))
         );
+
+        assertEquals(
+            "An invitation email was already sent to this address.",
+            exception.getMessage()
+        );
+        verify(invitationEmailService, never()).sendInvitationEmail(any(), any());
+        verify(familyInvitationRepository, never()).saveAndFlush(any());
+        verify(familyInvitationRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("invite does not keep PENDING when email send fails")
+    void inviteDoesNotKeepPendingWhenEmailFails() {
+        stubPrimaryAdmin(10L, 1L);
+        when(userAccountRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
+        when(familyInvitationRepository.findPendingByFamilyAndEmail(1L, "new@example.com"))
+            .thenReturn(Optional.empty());
+        when(familyInvitationRepository.existsByInvitationToken(any())).thenReturn(false);
+        when(familyInvitationRepository.existsByInviteCode(any())).thenReturn(false);
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class))).thenAnswer(invocation -> {
+            FamilyInvitation invitation = invocation.getArgument(0);
+            invitation.setId(88L);
+            return invitation;
+        });
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(invitationEmailService.sendInvitationEmail(eq("Host Family"), any(InvitationResponse.class)))
+            .thenReturn(false);
+
+        InvitationResponse response = familyService.createInvitation(
+            10L, new CreateInvitationRequest("new@example.com", "SPOUSE"));
+
+        assertFalse(response.emailSent());
+        verify(familyInvitationRepository).delete(any(FamilyInvitation.class));
+        verify(familyInvitationRepository).flush();
+        verify(familyInviteNotifier, never()).notifyInviteSent(any(), any());
     }
 
     @Test
@@ -519,9 +606,15 @@ class FamilyServiceTest {
 
         FamilyMeResponse response = familyService.acceptInvitation(30L, "tok");
 
+        ArgumentCaptor<DietaryProfile> profileCaptor = ArgumentCaptor.forClass(DietaryProfile.class);
+        verify(dietaryProfileRepository).saveAndFlush(profileCaptor.capture());
+        assertFalse(profileCaptor.getValue().isPrimary());
+        assertEquals("SPOUSE", profileCaptor.getValue().getRelationship());
+
         assertEquals(1L, response.familyId());
         assertEquals(FamilyMember.ROLE_MEMBER, response.memberRole());
         assertEquals(InvitationStatus.ACCEPTED, invitation.getStatus());
+        verify(familyInviteNotifier).notifyInviteAccepted(invitation, "invitee@example.com");
     }
 
     @Test
@@ -552,6 +645,7 @@ class FamilyServiceTest {
         existingProfile.setLinkedUser(user);
         existingProfile.setProfileName("Chosen Profile Name");
         existingProfile.setRelationship("SELF");
+        existingProfile.setPrimary(true);
         DietaryRestriction restriction = new DietaryRestriction();
         restriction.setId(2L);
         ProfileRestriction selection = new ProfileRestriction();
@@ -578,6 +672,8 @@ class FamilyServiceTest {
         assertTrue(savedProfile.getProfileRestrictions().contains(selection));
         assertEquals("INTOLERANCE", selection.getSeverityLevel());
         assertEquals(88L, response.selfProfileId());
+        assertFalse(savedProfile.isPrimary());
+        assertEquals("SPOUSE", savedProfile.getRelationship());
         assertEquals(InvitationStatus.ACCEPTED, invitation.getStatus());
     }
 
@@ -664,6 +760,7 @@ class FamilyServiceTest {
 
         assertEquals(InvitationStatus.DECLINED, invitation.getStatus());
         verify(familyMemberRepository, never()).saveAndFlush(any(FamilyMember.class));
+        verify(familyInviteNotifier).notifyInviteDeclined(invitation, "invitee@example.com");
     }
 
     @Test
@@ -1026,6 +1123,7 @@ class FamilyServiceTest {
         invitation.setFamilyId(1L);
         invitation.setInvitedByUserId(10L);
         invitation.setInvitedEmail(email);
+        invitation.setRelationship("SPOUSE");
         invitation.setStatus(InvitationStatus.PENDING);
         invitation.setExpiresAt(Instant.now().plus(2, ChronoUnit.DAYS));
         invitation.setInvitationToken(token);

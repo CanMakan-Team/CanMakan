@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { FamilyRegisterPage } from '../../../pages/FamilyRegisterPage'
 import { SessionProvider } from '../../../features/auth/SessionProvider'
 import { authService } from '../../../features/auth/authService'
+import { familyApiService } from '../../../features/family/api/familyApiService'
 import { pendingRegistrationOnboardingStore } from '../../../features/auth/pendingRegistrationOnboardingStore'
 import { authSessionStore } from '../../../features/auth/authSessionStore'
 import { ApiError } from '../../../shared/api/apiErrors'
@@ -18,6 +19,12 @@ vi.mock('../../../features/auth/authService', () => ({
     getCurrentUser: vi.fn(),
     synchronizeCurrentUser: vi.fn(),
     logout: vi.fn(),
+  },
+}))
+
+vi.mock('../../../features/family/api/familyApiService', () => ({
+  familyApiService: {
+    previewInvitation: vi.fn(),
   },
 }))
 
@@ -57,6 +64,10 @@ describe('FamilyRegisterPage', () => {
     vi.mocked(authService.refreshSession).mockReset()
     vi.mocked(authService.refreshSession).mockRejectedValue(
       new ApiError('Authentication required.', 401),
+    )
+    vi.mocked(familyApiService.previewInvitation).mockReset()
+    vi.mocked(familyApiService.previewInvitation).mockRejectedValue(
+      new ApiError('Invitation was not found.', 404),
     )
   })
 
@@ -155,8 +166,13 @@ describe('FamilyRegisterPage', () => {
     expect(pendingRegistrationOnboardingStore.peekForEmail('person@example.com')).toBeNull()
   })
 
-  it('keeps the invitation token in pending onboarding', async () => {
+  it('locks registration to the invited email and sends the invitation token', async () => {
     const user = userEvent.setup()
+    vi.mocked(familyApiService.previewInvitation).mockResolvedValue({
+      invitedEmail: 'person@example.com',
+      familyName: 'Wong Family',
+      expired: false,
+    })
     vi.mocked(authService.register).mockResolvedValue({
       userId: 14,
       email: 'person@example.com',
@@ -164,11 +180,23 @@ describe('FamilyRegisterPage', () => {
     })
     vi.mocked(authService.loginWithCredentials).mockResolvedValue(appUserSession())
     renderRegisterPage('/family-register?invitationToken=invite-token')
-    await enterRegistration(user)
 
+    await waitFor(() =>
+      expect(screen.getByLabelText('Email')).toHaveValue('person@example.com'),
+    )
+    expect(screen.getByLabelText('Email')).toBeDisabled()
+
+    await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
+    await user.type(screen.getByLabelText('Password'), 'Password1!')
+    await user.type(screen.getByLabelText('Confirm password'), 'Password1!')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
     await waitFor(() => expect(screen.getByText('Dietary setup')).toBeInTheDocument())
+    expect(authService.register).toHaveBeenCalledWith({
+      email: 'person@example.com',
+      password: 'Password1!',
+      invitationToken: 'invite-token',
+    })
     expect(
       pendingRegistrationOnboardingStore.peekForEmail('person@example.com')?.invitationToken,
     ).toBe('invite-token')

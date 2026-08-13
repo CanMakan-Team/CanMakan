@@ -40,4 +40,12 @@ public interface FamilyMemberRepository
             and fm.isActive = true
         """)
     long countActivePrimaryAdmins(@Param("familyId") Long familyId);
+
+    @Query("""
+        select fm.id.userId from FamilyMember fm
+        where fm.id.familyId = :familyId
+            and fm.memberRole = 'PRIMARY_ADMIN'
+            and fm.isActive = true
+        """)
+    List<Long> findActivePrimaryAdminUserIds(@Param("familyId") Long familyId);
 }

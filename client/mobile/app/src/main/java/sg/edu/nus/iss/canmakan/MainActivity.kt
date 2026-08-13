@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
             if (uri == null) return null
             val path = uri.path.orEmpty()
             // canmakan://invite/{token}  → host=invite, path=/{token}
-            // https://canmakan.local/invite/{token} → path=/invite/{token}
+            // https://{WEB_INVITE_BASE_URLS host}/invite/{token} → path=/invite/{token}
             return when {
                 uri.scheme.equals("canmakan", ignoreCase = true) &&
                     uri.host.equals("invite", ignoreCase = true) -> {

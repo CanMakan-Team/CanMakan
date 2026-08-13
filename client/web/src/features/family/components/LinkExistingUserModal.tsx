@@ -4,9 +4,11 @@ import { familyApiService } from '../api/familyApiService'
 import type {
   ExistingUserSearchResult,
   InvitationResponse,
+  Relationship,
 } from '../../../shared/api/types'
 import { Modal } from '../../../shared/ui/Modal'
 import { getEmailValidationError } from '../../../shared/validation/email'
+import { relationshipOptions } from '../lib/profileOptions'
 
 /** Link existing user modal component 
  * 
@@ -46,6 +48,7 @@ export function LinkExistingUserModal({
 
   /* Define the state variables */
   const [email, setEmail] = useState('')
+  const [relationship, setRelationship] = useState<Exclude<Relationship, 'SELF'> | ''>('')
   const [state, setState] = useState<SearchState>('initial')
   const [result, setResult] = useState<ExistingUserSearchResult | null>(null)
   const [invitation, setInvitation] = useState<InvitationResponse | null>(null)
@@ -101,10 +104,15 @@ export function LinkExistingUserModal({
   /* Define the create invite function */
   const createInvite = async () => {
     if (state === 'inviting') return
+    if (!relationship) {
+      setState('error')
+      setMessage('Select a relationship.')
+      return
+    }
     setState('inviting')
     try {
       // Create an invitation
-      const created = await familyApiService.createInvitation(email.trim())
+      const created = await familyApiService.createInvitation(email.trim(), relationship)
       setInvitation(created)
       setState('invited')
       onSuccess(`Invitation created for ${created.invitedEmail}.`)
@@ -168,6 +176,27 @@ export function LinkExistingUserModal({
         </div>
       </form>
 
+      <div className="field-group">
+        <label htmlFor="invite-relationship">Relationship to you</label>
+        <select
+          id="invite-relationship"
+          value={relationship}
+          onChange={(event) =>
+            setRelationship(event.target.value as Exclude<Relationship, 'SELF'> | '')
+          }
+          disabled={state === 'searching' || state === 'inviting'}
+        >
+          <option value="">Select relationship</option>
+          {relationshipOptions
+            .filter((option) => option.value !== 'SELF')
+            .map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+        </select>
+      </div>
+
       <div className="search-result" aria-live="polite">
         {state === 'initial' && (
           <p>Only a display name, masked email and account status will be shown.</p>
@@ -194,7 +223,7 @@ export function LinkExistingUserModal({
                 <button
                   className="button button--primary"
                   type="button"
-                  disabled={state === 'inviting'}
+                  disabled={state === 'inviting' || !relationship}
                   onClick={() => void createInvite()}
                 >
                   {state === 'inviting' ? 'Creating invite…' : 'Create invite'}

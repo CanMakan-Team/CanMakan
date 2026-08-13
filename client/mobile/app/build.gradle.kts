@@ -19,6 +19,49 @@ if (localPropertiesFile.exists()) {
 val configuredBaseUrl = localProperties.getProperty("BASE_URL")
     ?: project.findProperty("BASE_URL")?.toString()
 
+val defaultLocalWebInviteBaseUrls =
+    "http://localhost:5173,http://127.0.0.1:5173," +
+        "https://canmakan-project.web.app,https://canmakan-project.firebaseapp.com"
+val defaultDeployedWebInviteBaseUrls =
+    "https://canmakan-project.web.app,https://canmakan-project.firebaseapp.com"
+val configuredWebInviteBaseUrls = (
+    localProperties.getProperty("WEB_INVITE_BASE_URLS")
+        ?: System.getenv("WEB_INVITE_BASE_URLS")
+        ?: project.findProperty("WEB_INVITE_BASE_URLS")?.toString()
+    )?.trim().orEmpty()
+
+fun parseWebInviteUris(csv: String): List<URI> {
+    return csv.split(",")
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .mapNotNull { raw ->
+            try {
+                URI(raw)
+            } catch (_: Exception) {
+                null
+            }
+        }
+        .filter { uri ->
+            !uri.scheme.isNullOrBlank() && !uri.host.isNullOrBlank()
+        }
+}
+
+val webInviteUris = parseWebInviteUris(
+    configuredWebInviteBaseUrls.ifBlank { defaultLocalWebInviteBaseUrls },
+).ifEmpty {
+    parseWebInviteUris(defaultLocalWebInviteBaseUrls)
+}
+val normalizedWebInviteBaseUrls = webInviteUris.joinToString(",") { uri ->
+    uri.toString().trimEnd('/')
+}
+
+fun defaultInvitePort(uri: URI): String {
+    if (uri.port > 0) {
+        return uri.port.toString()
+    }
+    return if (uri.scheme.equals("http", ignoreCase = true)) "80" else "443"
+}
+
 val debugBaseUrl = configuredBaseUrl
     ?.trim()
     ?.takeIf { it.isNotEmpty() }
@@ -116,6 +159,18 @@ extensions.configure<ApplicationExtension> {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        buildConfigField(
+            "String",
+            "WEB_INVITE_BASE_URLS",
+            buildConfigString(normalizedWebInviteBaseUrls),
+        )
+        for (index in 0..3) {
+            val uri = webInviteUris.getOrElse(index) { webInviteUris.first() }
+            manifestPlaceholders["webInviteScheme$index"] = uri.scheme.orEmpty()
+            manifestPlaceholders["webInviteHost$index"] = uri.host.orEmpty()
+            manifestPlaceholders["webInvitePort$index"] = defaultInvitePort(uri)
+        }
     }
 
     // CMK-55: Define the Release Keystore Signing Configuration
@@ -140,6 +195,25 @@ extensions.configure<ApplicationExtension> {
             )
         }
         getByName("release") {
+            val releaseInviteCsv = configuredWebInviteBaseUrls.ifBlank {
+                defaultDeployedWebInviteBaseUrls
+            }
+            val releaseInviteUris = parseWebInviteUris(releaseInviteCsv).ifEmpty {
+                parseWebInviteUris(defaultDeployedWebInviteBaseUrls)
+            }
+            buildConfigField(
+                "String",
+                "WEB_INVITE_BASE_URLS",
+                buildConfigString(
+                    releaseInviteUris.joinToString(",") { it.toString().trimEnd('/') },
+                ),
+            )
+            for (index in 0..3) {
+                val uri = releaseInviteUris.getOrElse(index) { releaseInviteUris.first() }
+                manifestPlaceholders["webInviteScheme$index"] = uri.scheme.orEmpty()
+                manifestPlaceholders["webInviteHost$index"] = uri.host.orEmpty()
+                manifestPlaceholders["webInvitePort$index"] = defaultInvitePort(uri)
+            }
             buildConfigField("String", "BASE_URL", buildConfigString(releaseBaseUrl))
             isMinifyEnabled = false
             proguardFiles(

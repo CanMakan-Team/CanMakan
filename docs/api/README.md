@@ -15,11 +15,24 @@ See [`families.md`](families.md) for:
 - `POST /api/families/me/invitations` — PENDING invite with `inviteUrl` + `inviteCode` (+ optional Resend email)
 - `POST /api/families/me/invitations/claim` — join family from token while authenticated
 - `GET /api/invitations/me` — invitee pending inbox
-- `POST /api/invitations/{token}/accept` — accept (MEMBER + SELF profile)
+- `POST /api/invitations/{token}/accept` — accept (MEMBER + invite relationship on profile)
 - `POST /api/invitations/{token}/decline` — decline (DECLINED)
 - `POST /api/families/me/profiles` — dependant profile (`linked_user_id` NULL)
 - Bearer JWT / `@AuthenticationPrincipal` on family and invitation routes
 - Invite → join workflow diagram (register-login-claim / deep-link claim / inbox accept)
+
+## Notifications inbox
+
+**Status:** Account-wide list / mark read / delete.
+
+See [`notifications.md`](notifications.md) for:
+
+- `GET /api/notifications/me`
+- `POST /api/notifications/me/read`
+- `DELETE /api/notifications/{id}`
+
+Family invite cards are written by `FamilyInviteNotifier`; Accept / Decline still
+use invitation endpoints in [`families.md`](families.md).
 
 ## UC18 user registration
 
@@ -34,11 +47,14 @@ Request:
 }
 ```
 
-Two deprecated optional fields remain accepted temporarily for older clients:
-`name` and `invitationToken`. Neither has a registration side effect. `name` is
-not durable account state; the durable `profileName` belongs to authenticated
-SELF-profile setup. New clients preserve invitation tokens until explicit login
-and then call the authenticated UC9 claim endpoint.
+Two deprecated optional fields remain accepted for older clients: `name`
+(ignored) and `invitationToken`. When `invitationToken` matches a pending
+invitation, the email must be the invited address or the request returns
+**400** `"Use the email address this invitation was sent to."`
+
+`GET /api/invitations/{token}/preview` (public) returns `invitedEmail` so
+clients can lock the email field. Registration still does not claim the
+invite; clients claim after login.
 
 The backend normalizes email, hashes the password with BCrypt, assigns the
 existing `USER` role, and creates only an active account. It does not create a

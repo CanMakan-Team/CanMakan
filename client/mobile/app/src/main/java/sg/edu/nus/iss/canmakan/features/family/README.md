@@ -34,11 +34,15 @@ when `memberRole == PRIMARY_ADMIN`). That opens `ManageFamilyScreen`, which bran
 | Invite someone to join | `InviteFamilyMemberScreen` | Email → Invite → PENDING + email (when Resend enabled) |
 | Add dependant profile | `CreateDependantProfileScreen` | Dependant dietary profile with no login |
 
-Invite flow on mobile is one step: enter email, then **Cancel** / **Invite**.
-`POST /api/families/me/invitations` rejects users already in a family (or duplicate
-PENDING) with **409** and red inline error text. Eligible new or existing users get a
-PENDING invite; the server emails them when Resend is configured (`emailSent` in the
-response). Success toasts and returns to Manage Family.
+Invite flow on mobile is one step: enter email and relationship to the admin,
+then **Cancel** / **Invite**.
+`POST /api/families/me/invitations` rejects users already in a family with **409**.
+That POST does not retry on timeout (one attempt, ~15s) so a down host does not
+block the screen for three tries. A `PENDING` invite is stored only after Resend accepts the email; a failed send
+can be retried. Repeating Invite for the same email after a successful send returns **409**.
+The Resend email does not include an invite link or code; it asks the invitee to
+register or sign in, then accept from **Notifications**.
+Success toasts and returns to Manage Family.
 
 Invitees preserve the token through register/login; claim runs only after
 authentication (post-login continuation or **Notifications** inbox).
@@ -48,13 +52,13 @@ flowchart TD
   Hub[Manage family hub] --> Invite[InviteFamilyMemberScreen]
   Hub --> Dependant[CreateDependantProfileScreen]
   Invite --> Post[POST invitations]
-  Post -->|409 linked or pending| Err[Red error on screen]
-  Post -->|201| Email[Optional Resend email]
-  Email --> Done[Toast and back to hub]
-  Done --> PathA[New user: register, then login with token preserved]
-  Done --> PathB[Existing user: open link then login]
-  Done --> PathC[Already logged in: Notifications inbox or deep-link claim]
-  PathA --> Join[MEMBER + SELF profile + ACCEPTED]
+  Post -->|409 already in family or already emailed| Err[Red error on screen]
+  Post -->|201 emailSent false| Stay[Stay on invite, red error]
+  Post -->|201 emailSent true| Email[Toast and back to hub]
+  Email --> PathA[New user: register, then login with token preserved]
+  Email --> PathB[Existing user: open link then login]
+  Email --> PathC[Already logged in: Notifications inbox or deep-link claim]
+  PathA --> Join[MEMBER + invite relationship + ACCEPTED]
   PathB --> Join
   PathC --> Join
 ```
@@ -62,17 +66,22 @@ flowchart TD
 | Path | Mobile entry |
 | --- | --- |
 | Register then claim | Invite landing → Register (token offered) → Login → `PostLoginContinuationViewModel` claim |
-| Deep link / login claim | `canmakan://invite/{token}` → `PendingInvitationStore` → Login offer → post-login claim |
-| Inbox accept / decline | Top-bar **Notifications** bell → `features/notifications` (`NotificationsInboxScreen`) |
+| Deep link / login claim | `canmakan://invite/{token}` or HTTPS hosts from `WEB_INVITE_BASE_URLS` → `PendingInvitationStore` → Login offer → post-login claim |
+| Inbox accept / decline | Top-bar **Notifications** bell → `features/notifications` (`GET /api/notifications/me`) |
 
-The inbox is account-wide (not admin-only): family invitations today, with room for
-profile-update notices later. It lives under `features/notifications` so any shell screen
-can open it; it is not listed under Family in the drawer.
+The inbox is account-wide (`features/notifications`, `GET /api/notifications/me`).
+Family invite updates and pending Accept / Decline are one kind of card; deleting
+a card only hides it. It is not listed under Family in the drawer.
 
-Full API contract and HTTP guards: `docs/api/families.md` (Invite → join workflow).
+Full API contract: `docs/api/notifications.md` and `docs/api/families.md`.
 
 Dependant profiles appear in the mobile profile switcher and UC6 summary once created.
 Dietary Summary empty state can open the same Manage family hub.
+
+Drawer, Dietary Summary peek dialog, and the edit-restrictions sheet share the same
+labels: **Admin** only on the family PRIMARY_ADMIN's profile; **Self** on the
+signed-in user's row; Child/Spouse/etc. only when the signed-in user is family
+admin. Invitees use the relationship chosen when they were invited.
 
 ## Switch profile (UC11)
 

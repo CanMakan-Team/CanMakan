@@ -19,6 +19,7 @@ import com.canmakan.backend.family.dto.FamilyMeRestrictionDetail;
 import com.canmakan.backend.family.dto.FamilyMeRestrictionSum;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
 import com.canmakan.backend.family.dto.FamilyScanHistoryDto;
+import com.canmakan.backend.family.dto.InvitationPreviewResponse;
 import com.canmakan.backend.family.dto.InvitationResponse;
 import com.canmakan.backend.family.dto.PendingInvitationResponse;
 import com.canmakan.backend.family.dto.UpdateProfileRequest;
@@ -96,6 +97,7 @@ public class FamilyService {
     private final ScanRepository scanRepository;
     private final InviteProperties inviteProperties;
     private final InvitationEmailService invitationEmailService;
+    private final FamilyInviteNotifier familyInviteNotifier;
     private final SecureRandom secureRandom = new SecureRandom();
 
     // Create a family circle
@@ -210,6 +212,12 @@ public class FamilyService {
 
         List<FamilyMemberRosterDto> rows = new ArrayList<>();
 
+        // List active members
+        // Find the dietary profile for the member
+        // If the dietary profile is not found, continue
+        // Get the name, relationship, and restriction codes
+        // Mask the email
+        // Add the member to the rows
         for (FamilyMember member : familyMemberRepository.findActiveMembersByFamilyId(familyId)) {
             Optional<DietaryProfile> dietaryProfileOpt =
                 dietaryProfileRepository.findByLinkedUser_Id(member.getUserId());
@@ -325,7 +333,7 @@ public class FamilyService {
             profile.getFamily() == null ? null : profile.getFamily().getId(),
             profile.getRelationship(),
             initialsOf(profile.getProfileName()),
-            profile.isPrimary(),
+            isFamilyAdminLinkedProfile(profile),
             profile.isActive()
         );
     }
@@ -603,6 +611,7 @@ public class FamilyService {
         return toActiveProfileResponse(profile);
     }
 
+    // Resolve the effective active profile id
     private Long resolveEffectiveActiveProfileId(long userId) {
         Optional<UserPreference> preferenceOpt = userPreferenceRepository.findById(userId);
         if (preferenceOpt.isPresent() && preferenceOpt.get().getActiveProfileId() != null) {
@@ -617,6 +626,7 @@ public class FamilyService {
         return resolveDefaultActiveProfileId(userId);
     }
 
+    // Resolve the default active profile id
     private Long resolveDefaultActiveProfileId(long userId) {
         Optional<FamilyMember> membershipOpt =
             familyMemberRepository.findMembershipByUserId(userId);
@@ -648,6 +658,7 @@ public class FamilyService {
         return selfProfile.getId();
     }
 
+    // Clear the stored active profile
     private void clearStoredActiveProfile(long userId) {
         userPreferenceRepository.findById(userId).ifPresent(preference -> {
             preference.setActiveProfileId(null);
@@ -655,6 +666,7 @@ public class FamilyService {
         });
     }
 
+    // Convert the active profile response
     private ActiveProfileResponse toActiveProfileResponse(DietaryProfile profile) {
         Long familyId = profile.getFamily() == null ? null : profile.getFamily().getId();
         return new ActiveProfileResponse(
@@ -662,8 +674,18 @@ public class FamilyService {
             profile.getProfileName(),
             profile.getRelationship(),
             familyId,
-            profile.isPrimary()
+            isFamilyAdminLinkedProfile(profile)
         );
+    }
+
+    private boolean isFamilyAdminLinkedProfile(DietaryProfile profile) {
+        if (profile.getLinkedUser() == null || profile.getLinkedUser().getId() == null) {
+            return false;
+        }
+        return familyMemberRepository.findMembershipByUserId(profile.getLinkedUser().getId())
+            .filter(membership -> FamilyMember.ROLE_PRIMARY_ADMIN.equals(membership.getMemberRole()))
+            .filter(membership -> Boolean.TRUE.equals(membership.getIsActive()))
+            .isPresent();
     }
 
     // Search user by email
@@ -754,28 +776,24 @@ public class FamilyService {
                 "That user already belongs to a family circle.");
         }
 
-        // Check if a pending invitation already exists for the email
-        if (familyInvitationRepository
-                .findPendingByFamilyAndEmail(adminMembership.getFamilyId(), email)
-                .isPresent()) {
+        // A PENDING row is kept only after Resend accepted the send, so a repeat
+        // Invite for the same email would spam the mailbox. Failed sends delete
+        // the row and can be retried.
+        Optional<FamilyInvitation> existingPending = familyInvitationRepository
+            .findPendingByFamilyAndEmail(adminMembership.getFamilyId(), email);
+        if (existingPending.isPresent()) {
             throw new InvitationConflictException(
-                "A pending invitation already exists for this email.");
+                "An invitation email was already sent to this address.");
         }
 
-        // Set the invitation details: 
-        // - Family id
-        // - Invited by user id
-        // - Invited email
-        // - Invitation token
-        // - Invite code
-        // - Status
-        // - Expires at
+        // Create a new invitation
         Instant expiresAt = Instant.now()
             .plus(inviteProperties.getExpiryDays(), ChronoUnit.DAYS);
         FamilyInvitation invitation = new FamilyInvitation();
         invitation.setFamilyId(adminMembership.getFamilyId());
         invitation.setInvitedByUserId(adminUserId);
         invitation.setInvitedEmail(email);
+        invitation.setRelationship(request.relationship());
         invitation.setInvitationToken(generateUniqueInvitationToken());
         invitation.setInviteCode(generateUniqueInviteCode());
         invitation.setStatus(InvitationStatus.PENDING);
@@ -784,11 +802,25 @@ public class FamilyService {
         // Save the invitation
         FamilyInvitation saved = familyInvitationRepository.saveAndFlush(invitation);
 
-        InvitationResponse pendingResponse = toInvitationResponse(saved, invitee.isPresent(), false);
-        Family family = familyRepository.findById(adminMembership.getFamilyId()).orElse(null);
+        // Deliver the invitation email
+        InvitationResponse response = deliverInvitationEmail(saved, invitee.isPresent());
+        if (!response.emailSent()) {
+            familyInvitationRepository.delete(saved);
+            familyInvitationRepository.flush();
+            return response;
+        }
+        familyInviteNotifier.notifyInviteSent(saved, invitee.orElse(null));
+        return response;
+    }
+
+    // Deliver an invitation email
+    private InvitationResponse deliverInvitationEmail(
+            FamilyInvitation invitation, boolean inviteeRegistered) {
+        InvitationResponse pendingResponse = toInvitationResponse(invitation, inviteeRegistered, false);
+        Family family = familyRepository.findById(invitation.getFamilyId()).orElse(null);
         String familyName = family == null ? "a family circle" : family.getFamilyName();
         boolean emailSent = invitationEmailService.sendInvitationEmail(familyName, pendingResponse);
-        return toInvitationResponse(saved, invitee.isPresent(), emailSent);
+        return toInvitationResponse(invitation, inviteeRegistered, emailSent);
     }
 
     // Claim an invitation (UC9 deep-link / login path — same rules as accept)
@@ -835,6 +867,7 @@ public class FamilyService {
 
         invitation.setStatus(InvitationStatus.DECLINED);
         familyInvitationRepository.saveAndFlush(invitation);
+        familyInviteNotifier.notifyInviteDeclined(invitation, user.getEmail());
     }
 
     /**
@@ -868,6 +901,27 @@ public class FamilyService {
             ));
         }
         return results;
+    }
+
+    /**
+     * Public lookup so invite registration can lock the email field.
+     */
+    @Transactional(readOnly = true)
+    public InvitationPreviewResponse previewInvitation(String invitationToken) {
+        if (invitationToken == null || invitationToken.isBlank()) {
+            throw new InvitationNotFoundException("Invitation was not found.");
+        }
+        FamilyInvitation invitation = familyInvitationRepository
+            .findByInvitationToken(invitationToken.strip())
+            .orElseThrow(() -> new InvitationNotFoundException("Invitation was not found."));
+        String familyName = familyRepository.findById(invitation.getFamilyId())
+            .map(Family::getFamilyName)
+            .orElse("a family circle");
+        return new InvitationPreviewResponse(
+            invitation.getInvitedEmail(),
+            familyName,
+            isExpired(invitation)
+        );
     }
 
     // Create a dependant profile
@@ -995,12 +1049,14 @@ public class FamilyService {
             if (selfProfile.getProfileName() == null || selfProfile.getProfileName().isBlank()) {
                 selfProfile.setProfileName(profileNameFromUser(user));
             }
-            selfProfile.setRelationship("SELF");
-            selfProfile.setPrimary(true);
+            selfProfile.setRelationship(invitation.getRelationship());
+            // Invitee is not the family admin profile (is_primary / Admin tag).
+            selfProfile.setPrimary(false);
             DietaryProfile savedProfile = dietaryProfileRepository.saveAndFlush(selfProfile);
 
             invitation.setStatus(InvitationStatus.ACCEPTED);
             familyInvitationRepository.saveAndFlush(invitation);
+            familyInviteNotifier.notifyInviteAccepted(invitation, user.getEmail());
 
             return new FamilyMeResponse(
                 family.getId(),
@@ -1028,6 +1084,7 @@ public class FamilyService {
         return new InvitationResponse(
             invitation.getId(),
             invitation.getInvitedEmail(),
+            invitation.getRelationship(),
             invitation.getInvitationToken(),
             invitation.getInviteCode(),
             inviteUrl,
@@ -1148,7 +1205,7 @@ public class FamilyService {
         return email == null ? null : email.strip().toLowerCase(Locale.ROOT);
     }
 
-    // Mask the email
+    // Mask the email by replacing the local part with asterisks
     static String maskEmail(String email) {
         if (email == null || email.isBlank()) {
             return "";

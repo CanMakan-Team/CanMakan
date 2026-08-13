@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.canmakan.backend.family.dto.FamilyMeResponse;
+import com.canmakan.backend.family.dto.InvitationPreviewResponse;
 import com.canmakan.backend.family.dto.PendingInvitationResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyExceptionHandler;
@@ -151,6 +152,20 @@ class InvitationControllerTest {
             .andExpect(status().isNoContent());
 
         verify(familyService).declineInvitation(30L, "tok");
+    }
+
+    @Test
+    @DisplayName("GET /api/invitations/{token}/preview returns invited email")
+    void previewOk() throws Exception {
+        when(familyService.previewInvitation("tok")).thenReturn(
+            new InvitationPreviewResponse("jamie@example.com", "Wong Family", false)
+        );
+
+        mockMvc.perform(get("/api/invitations/tok/preview"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.invitedEmail").value("jamie@example.com"))
+            .andExpect(jsonPath("$.familyName").value("Wong Family"))
+            .andExpect(jsonPath("$.expired").value(false));
     }
 
     private static void authenticateAs(long userId) {

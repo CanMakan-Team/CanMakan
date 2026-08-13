@@ -1,6 +1,7 @@
 package com.canmakan.backend.dietaryprofile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.canmakan.backend.dietaryprofile.dto.CreateSelfProfileRequest;
+import com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto;
 import com.canmakan.backend.dietaryprofile.dto.SelfProfileResponse;
 import com.canmakan.backend.dietaryprofile.exception.SelfProfileAlreadyExistsException;
 import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
@@ -20,9 +22,12 @@ import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
 import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
 import com.canmakan.backend.dietaryprofile.repository.ProfileRestrictionRepository;
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
+import com.canmakan.backend.family.model.Family;
+import com.canmakan.backend.family.repository.FamilyMemberRepository;
 import com.canmakan.backend.user.UserAccount;
 import com.canmakan.backend.user.UserAccountRepository;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -54,6 +59,9 @@ class DietaryProfileServiceTest {
 
     @Mock
     private UserAccountRepository userAccountRepository;
+
+    @Mock
+    private FamilyMemberRepository familyMemberRepository;
 
     @InjectMocks
     private DietaryProfileService dietaryProfileService;
@@ -362,6 +370,45 @@ class DietaryProfileServiceTest {
 
         assertEquals("Restriction not found: 42", exception.getMessage());
         verify(dietaryProfileRepository, never()).save(profile);
+    }
+
+    @Test
+    @DisplayName("family profile list marks isPrimary only for PRIMARY_ADMIN linked profile")
+    void getProfilesByFamilyIdIsPrimaryFromMembershipNotColumn() {
+        Family family = new Family();
+        family.setId(1L);
+
+        UserAccount admin = new UserAccount();
+        admin.setId(10L);
+        DietaryProfile adminProfile = new DietaryProfile();
+        adminProfile.setId(77L);
+        adminProfile.setFamily(family);
+        adminProfile.setLinkedUser(admin);
+        adminProfile.setProfileName("Admin");
+        adminProfile.setRelationship("SELF");
+        adminProfile.setPrimary(true);
+        adminProfile.setActive(true);
+
+        UserAccount invitee = new UserAccount();
+        invitee.setId(30L);
+        DietaryProfile inviteeProfile = new DietaryProfile();
+        inviteeProfile.setId(99L);
+        inviteeProfile.setFamily(family);
+        inviteeProfile.setLinkedUser(invitee);
+        inviteeProfile.setProfileName("Invitee");
+        inviteeProfile.setRelationship("SELF");
+        inviteeProfile.setPrimary(true);
+        inviteeProfile.setActive(true);
+
+        when(familyMemberRepository.findActivePrimaryAdminUserIds(1L)).thenReturn(List.of(10L));
+        when(dietaryProfileRepository.findProfilesByFamilyId(1L))
+            .thenReturn(List.of(adminProfile, inviteeProfile));
+
+        List<DietaryProfileSummaryDto> rows = dietaryProfileService.getProfilesByFamilyId(1L);
+
+        assertEquals(2, rows.size());
+        assertTrue(rows.get(0).isPrimary());
+        assertFalse(rows.get(1).isPrimary());
     }
 
     private DietaryRestriction createRestriction(Long id) {

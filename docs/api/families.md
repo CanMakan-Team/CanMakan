@@ -17,6 +17,7 @@
 | Spring Data repos (Family / Member / Invitation) | Done |
 | `GET /api/families/me/members` roster list | Done (UC12 list; manage CRUD later) |
 | UC10 invitee inbox list / accept / decline | Done (mobile primary; web inbox optional) |
+| UC10 invite cards via general notifications | Done (`GET /api/notifications/me`; see [`notifications.md`](notifications.md)) |
 | UC10 Resend invitation email | Done (optional; no-op when disabled) |
 
 A `404` from `GET /api/families/me` is a valid personal-USER state. It does not
@@ -269,6 +270,12 @@ profiles for the family when `{familyId}` matches the caller's membership.
 Returns **403** when the caller is not a member of that family.
 Inactive profiles are omitted from the list.
 
+`isPrimary` is true only for the dietary profile linked to the family's
+**PRIMARY_ADMIN**. Invitee profiles use the relationship chosen at invite time
+(not `SELF`). Clients should treat **Self** as "the signed-in user's
+`selfProfileId`", not as `relationship=SELF`. Dependant and invitee labels
+(Child, Spouse, …) are for the family admin's view.
+
 ---
 
 ## User search (UC9)
@@ -314,16 +321,16 @@ flowchart TD
   Share --> PathB
   Email --> PathC[Already logged in: Notifications inbox]
   Share --> PathC
-  PathA --> Join[MEMBER + SELF profile + ACCEPTED]
+  PathA --> Join[MEMBER + invite relationship on profile + ACCEPTED]
   PathB --> Join
   PathC --> Join
 ```
 
 | Path | How | APIs |
 | --- | --- | --- |
-| **A. Register then claim** | New account with matching email; client preserves `invitationToken` through explicit login | `POST /api/auth/register`, `POST /api/auth/login`, then `POST /api/families/me/invitations/claim` |
-| **B. Deep link / login claim** | Open `…/invite/{token}` or `canmakan://invite/{token}`, then register or sign in | `POST /api/families/me/invitations/claim` |
-| **C. Inbox accept** | Signed-in invitee opens pending list and Accepts (or Declines) | `GET /api/invitations/me`, `POST /api/invitations/{token}/accept` or `…/decline` |
+| **A. Register then claim** | New account using the invited email; client preserves `invitationToken` through explicit login | `GET /api/invitations/{token}/preview`, `POST /api/auth/register` (token + matching email), `POST /api/auth/login`, then `POST /api/families/me/invitations/claim` |
+| **B. Deep link / login claim** | Open `…/invite/{token}` (desktop stays on web; Android opens the app) or `canmakan://invite/{token}`, then register or sign in | `POST /api/families/me/invitations/claim` |
+| **C. Inbox accept** | Signed-in invitee opens Notifications and Accepts (or Declines) | `GET /api/notifications/me`, `POST /api/invitations/{token}/accept` or `…/decline` |
 
 Guards on accept/claim: **403** email mismatch, **410** expired, **409** already
 in a family or invitation already final, **404** unknown token.
@@ -338,8 +345,13 @@ household profile context for scanning (active-profile persistence is UC11).
 `POST /api/families/me/invitations`
 
 ```json
-{ "email": "invitee@example.com" }
+{ "email": "invitee@example.com", "relationship": "SPOUSE" }
 ```
+
+`relationship` is required and must be `SPOUSE`, `CHILD`, `PARENT`, `DEPENDANT`,
+or `OTHER` (not `SELF`). It is stored on the invitation and copied onto the
+invitee's dietary profile when they join, so the family admin can see that
+label. The invitee's own row still shows **Self** because they are signed in.
 
 Creates a `PENDING` invitation for a **registered or unknown** email. Does **not**
 insert `family_members`. Response includes shareable fields and email status:
@@ -348,6 +360,7 @@ insert `family_members`. Response includes shareable fields and email status:
 {
   "invitationId": 1,
   "invitedEmail": "invitee@example.com",
+  "relationship": "SPOUSE",
   "invitationToken": "<opaque>",
   "inviteCode": "ABCD1234",
   "inviteUrl": "http://localhost:5173/invite/<opaque>",
@@ -358,27 +371,40 @@ insert `family_members`. Response includes shareable fields and email status:
 }
 ```
 
-`inviteUrl` base comes from `canmakan.invites.public-base-url` (default local Vite).
+`inviteUrl` is still returned on the create-invitation JSON for other clients
+(admin copy/share). Its base comes from `canmakan.invites.public-base-url`
+(`CANMAKAN_INVITES_PUBLIC_BASE_URL`, default `http://localhost:5173` for local Vite).
+Deployed web: set `CANMAKAN_INVITES_PUBLIC_BASE_URL=https://canmakan-project.web.app`.
+The alternate Firebase host `https://canmakan-project.firebaseapp.com` is also a
+live origin (CORS + Android invite filters). Debug Android builds also claim
+`http://localhost:5173` and `http://127.0.0.1:5173`.
 
 When Resend is enabled (`canmakan.email.resend.enabled=true` / env
 `CANMAKAN_EMAIL_RESEND_ENABLED=true`, non-blank `CANMAKAN_EMAIL_RESEND_API_KEY`, and
 `CANMAKAN_EMAIL_RESEND_FROM`), the server emails the invitee after create using the
-standard HTML template (family name, accept link, invite code, expiry). Set
-`CANMAKAN_INVITES_PUBLIC_BASE_URL` to the public web origin used in accept links.
+standard HTML template (friendly copy, waving mascot, expiry in SGT). The email
+does **not** include `inviteUrl`, `invitationToken`, or `inviteCode`. It asks the
+invitee to register or sign in with the invited email, then accept from
+**Notifications**.
 
-`emailSent` is `true` only when Resend accepted the send. Email failures or a disabled
-provider are logged and do **not** fail the create response (`emailSent: false`);
-shareable `inviteUrl` / `inviteCode` remain available.
+`emailSent` is `true` only when Resend accepted the send. A `PENDING` row is kept
+only after a successful send. A later `POST` for the same family+email returns
+**409** so the invitee is not emailed again. A failed send deletes the row so
+the admin can retry.
 
-Mobile invite UI calls this endpoint directly (Cancel / Invite). HTTP **409** messages
-are shown as red inline errors (already in a family circle, or duplicate PENDING).
+Email failures or a disabled provider are logged and do **not** fail the create
+response (`emailSent: false`).
+
+Mobile invite UI calls this endpoint directly (Cancel / Invite). HTTP **409**
+messages are shown as red inline errors (already in a family circle, or an
+invitation email already sent).
 
 | Status | Meaning |
 | --- | --- |
-| 201 | Invitation created |
+| 201 | Invitation created and emailed |
 | 400 | Invalid email |
 | 403 | Not PRIMARY_ADMIN |
-| 409 | Already a member, or duplicate PENDING for this family+email |
+| 409 | Already a member, or a pending invitation email was already sent |
 
 There is **no** production `POST /api/families/me/members/link` silent-link endpoint.
 
@@ -394,11 +420,11 @@ There is **no** production `POST /api/families/me/members/link` silent-link endp
 
 Same membership rules as UC10 accept (below). Used by register/login deep-link flows.
 
-Registration does not claim invitations. `POST /api/auth/register` temporarily
-accepts an optional `invitationToken` for older clients but creates only the
-account. Clients preserve the token, complete explicit login, and then call this
-authenticated claim endpoint. Invalid or expired claims cannot roll back the
-already committed account.
+Registration does not claim invitations. `POST /api/auth/register` accepts
+optional `invitationToken`; when that token is a pending invite, the email
+must match the invited address. Clients preserve the token, complete explicit
+login, and then call this authenticated claim endpoint. Invalid or expired
+claims cannot roll back the already committed account.
 
 | Status | Meaning |
 | --- | --- |
@@ -414,6 +440,8 @@ already committed account.
 ## Invitation inbox (UC10)
 
 Authenticated invitee APIs (Bearer JWT). Protected under `/api/invitations/**`.
+`GET /api/invitations/{token}/preview` is public so registration can lock the
+email field (`invitedEmail`, `familyName`, `expired`).
 
 ### List pending
 
@@ -467,6 +495,8 @@ may still be declined.
 | 403 | Email mismatch |
 | 404 | Unknown token |
 | 409 | Invitation is no longer pending |
+
+---
 
 ---
 
