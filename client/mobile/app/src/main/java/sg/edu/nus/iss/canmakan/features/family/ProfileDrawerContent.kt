@@ -46,7 +46,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import java.util.Locale
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.RestrictionEditAuthorization
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import sg.edu.nus.iss.canmakan.shared.ui.theme.AvatarBlue
@@ -70,6 +69,8 @@ fun ProfileDrawerContent(
     hasUserSession: Boolean,
     noFamilyMessage: String?,
     showManageFamilyActions: Boolean,
+    selfProfileId: Long? = null,
+    memberRole: String? = null,
     isSwitchingProfile: Boolean = false,
     onProfileSelected: (DietaryProfile) -> Unit,
     onEditDietaryClick: () -> Unit,
@@ -169,6 +170,13 @@ fun ProfileDrawerContent(
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
+                                val tags = ProfileRelationshipDisplay.tags(
+                                    profileId = profile.id,
+                                    relationship = profile.relationship,
+                                    isFamilyAdminProfile = profile.isPrimary,
+                                    viewerSelfProfileId = selfProfileId,
+                                    viewerMemberRole = memberRole,
+                                )
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = profile.profileName,
@@ -180,14 +188,18 @@ fun ProfileDrawerContent(
                                             MaterialTheme.typography.bodyMedium
                                         },
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    if (profile.isPrimary) AdminTag()
+                                    if (tags.showAdminTag) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        AdminTag()
+                                    }
                                 }
-                                Text(
-                                    text = formatRelationshipLabel(profile.relationship),
-                                    color = DrawerTextMuted,
-                                    style = MaterialTheme.typography.labelSmall,
-                                )
+                                tags.caption?.let { caption ->
+                                    Text(
+                                        text = caption,
+                                        color = DrawerTextMuted,
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                }
                             }
                             if (isActive) {
                                 Box(
@@ -460,15 +472,3 @@ private fun avatarColorFor(profile: DietaryProfile): Color {
     }
 }
 
-/** Display label for relationship codes */
-private fun formatRelationshipLabel(relationship: String): String {
-    val trimmed = relationship.trim()
-    if (trimmed.equals("DEPENDENT", ignoreCase = true)
-        || trimmed.equals("DEPENDANT", ignoreCase = true)
-    ) {
-        return "Dependant"
-    }
-    if (trimmed.isEmpty()) return trimmed
-    return trimmed.lowercase(Locale.getDefault())
-        .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-}

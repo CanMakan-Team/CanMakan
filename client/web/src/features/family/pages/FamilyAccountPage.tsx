@@ -112,12 +112,8 @@ export function FamilyAccountPage() {
             <dd>{readableValue(family.memberRole)}</dd>
           </div>
           <div>
-            <dt>Profile name</dt>
-            <dd>{selfProfile?.profileName ?? 'Not available'}</dd>
-          </div>
-          <div>
-            <dt>Relationship</dt>
-            <dd>{readableValue(selfProfile?.relationship)}</dd>
+            <dt>Profile</dt>
+            <dd>{selfProfile?.profileName ?? 'Not available'} · Self</dd>
           </div>
           <div>
             <dt>Profile status</dt>

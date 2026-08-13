@@ -13,10 +13,12 @@ import sg.edu.nus.iss.canmakan.features.auth.session.AuthAccountKey
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
+import sg.edu.nus.iss.canmakan.features.family.model.RelationshipToAdmin
 import javax.inject.Inject
 
 data class InviteFamilyMemberUiState(
     val email: String = "",
+    val relationship: RelationshipToAdmin? = null,
     val isInviting: Boolean = false,
     /** One-shot success; screen consumes then clears via [InviteFamilyMemberViewModel.consumeInviteResult]. */
     val inviteSucceeded: Boolean = false,
@@ -52,6 +54,15 @@ class InviteFamilyMemberViewModel @Inject constructor(
         )
     }
 
+    fun updateRelationship(value: RelationshipToAdmin) {
+        _uiState.value = _uiState.value.copy(
+            relationship = value,
+            errorMessage = null,
+            inviteSucceeded = false,
+            emailSent = false,
+        )
+    }
+
     fun invite() {
         val accountKey = authSessionStore.accountKey.value
         if (accountKey == null) {
@@ -65,6 +76,11 @@ class InviteFamilyMemberViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(errorMessage = "Enter an email address.")
             return
         }
+        val relationship = _uiState.value.relationship
+        if (relationship == null) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Select a relationship.")
+            return
+        }
         inviteJob?.cancel()
         inviteJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
@@ -74,7 +90,10 @@ class InviteFamilyMemberViewModel @Inject constructor(
                 emailSent = false,
             )
             try {
-                val invitation = familyProfileRepository.createInvitation(email)
+                val invitation = familyProfileRepository.createInvitation(
+                    email,
+                    relationship.name,
+                )
                 if (!isCurrentAccount(accountKey)) return@launch
                 if (invitation.emailSent) {
                     _uiState.value = _uiState.value.copy(

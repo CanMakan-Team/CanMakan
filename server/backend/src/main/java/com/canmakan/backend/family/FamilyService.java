@@ -333,7 +333,7 @@ public class FamilyService {
             profile.getFamily() == null ? null : profile.getFamily().getId(),
             profile.getRelationship(),
             initialsOf(profile.getProfileName()),
-            profile.isPrimary(),
+            isFamilyAdminLinkedProfile(profile),
             profile.isActive()
         );
     }
@@ -674,8 +674,18 @@ public class FamilyService {
             profile.getProfileName(),
             profile.getRelationship(),
             familyId,
-            profile.isPrimary()
+            isFamilyAdminLinkedProfile(profile)
         );
+    }
+
+    private boolean isFamilyAdminLinkedProfile(DietaryProfile profile) {
+        if (profile.getLinkedUser() == null || profile.getLinkedUser().getId() == null) {
+            return false;
+        }
+        return familyMemberRepository.findMembershipByUserId(profile.getLinkedUser().getId())
+            .filter(membership -> FamilyMember.ROLE_PRIMARY_ADMIN.equals(membership.getMemberRole()))
+            .filter(membership -> Boolean.TRUE.equals(membership.getIsActive()))
+            .isPresent();
     }
 
     // Search user by email
@@ -783,6 +793,7 @@ public class FamilyService {
         invitation.setFamilyId(adminMembership.getFamilyId());
         invitation.setInvitedByUserId(adminUserId);
         invitation.setInvitedEmail(email);
+        invitation.setRelationship(request.relationship());
         invitation.setInvitationToken(generateUniqueInvitationToken());
         invitation.setInviteCode(generateUniqueInviteCode());
         invitation.setStatus(InvitationStatus.PENDING);
@@ -1038,8 +1049,9 @@ public class FamilyService {
             if (selfProfile.getProfileName() == null || selfProfile.getProfileName().isBlank()) {
                 selfProfile.setProfileName(profileNameFromUser(user));
             }
-            selfProfile.setRelationship("SELF");
-            selfProfile.setPrimary(true);
+            selfProfile.setRelationship(invitation.getRelationship());
+            // Invitee is not the family admin profile (is_primary / Admin tag).
+            selfProfile.setPrimary(false);
             DietaryProfile savedProfile = dietaryProfileRepository.saveAndFlush(selfProfile);
 
             invitation.setStatus(InvitationStatus.ACCEPTED);
@@ -1072,6 +1084,7 @@ public class FamilyService {
         return new InvitationResponse(
             invitation.getId(),
             invitation.getInvitedEmail(),
+            invitation.getRelationship(),
             invitation.getInvitationToken(),
             invitation.getInviteCode(),
             inviteUrl,

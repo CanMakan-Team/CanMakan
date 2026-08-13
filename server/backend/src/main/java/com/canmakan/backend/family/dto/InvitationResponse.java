@@ -7,6 +7,7 @@ import java.time.Instant;
 public record InvitationResponse(
     Long invitationId,
     String invitedEmail,
+    String relationship,
     String invitationToken,
     String inviteCode,
     String inviteUrl,

@@ -270,6 +270,12 @@ profiles for the family when `{familyId}` matches the caller's membership.
 Returns **403** when the caller is not a member of that family.
 Inactive profiles are omitted from the list.
 
+`isPrimary` is true only for the dietary profile linked to the family's
+**PRIMARY_ADMIN**. Invitee profiles use the relationship chosen at invite time
+(not `SELF`). Clients should treat **Self** as "the signed-in user's
+`selfProfileId`", not as `relationship=SELF`. Dependant and invitee labels
+(Child, Spouse, …) are for the family admin's view.
+
 ---
 
 ## User search (UC9)
@@ -315,7 +321,7 @@ flowchart TD
   Share --> PathB
   Email --> PathC[Already logged in: Notifications inbox]
   Share --> PathC
-  PathA --> Join[MEMBER + SELF profile + ACCEPTED]
+  PathA --> Join[MEMBER + invite relationship on profile + ACCEPTED]
   PathB --> Join
   PathC --> Join
 ```
@@ -339,8 +345,13 @@ household profile context for scanning (active-profile persistence is UC11).
 `POST /api/families/me/invitations`
 
 ```json
-{ "email": "invitee@example.com" }
+{ "email": "invitee@example.com", "relationship": "SPOUSE" }
 ```
+
+`relationship` is required and must be `SPOUSE`, `CHILD`, `PARENT`, `DEPENDANT`,
+or `OTHER` (not `SELF`). It is stored on the invitation and copied onto the
+invitee's dietary profile when they join, so the family admin can see that
+label. The invitee's own row still shows **Self** because they are signed in.
 
 Creates a `PENDING` invitation for a **registered or unknown** email. Does **not**
 insert `family_members`. Response includes shareable fields and email status:
@@ -349,6 +360,7 @@ insert `family_members`. Response includes shareable fields and email status:
 {
   "invitationId": 1,
   "invitedEmail": "invitee@example.com",
+  "relationship": "SPOUSE",
   "invitationToken": "<opaque>",
   "inviteCode": "ABCD1234",
   "inviteUrl": "http://localhost:5173/invite/<opaque>",

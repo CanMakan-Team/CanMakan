@@ -338,13 +338,17 @@ class FamilyServiceTest {
             .thenReturn(true);
 
         InvitationResponse response = familyService.createInvitation(
-            10L, new CreateInvitationRequest("new@example.com"));
+            10L, new CreateInvitationRequest("new@example.com", "SPOUSE"));
 
         assertEquals(88L, response.invitationId());
         assertFalse(response.inviteeRegistered());
         assertTrue(response.emailSent());
         assertTrue(response.inviteUrl().startsWith("http://localhost:5173/invite/"));
         assertEquals(8, response.inviteCode().length());
+        ArgumentCaptor<FamilyInvitation> invitationCaptor =
+            ArgumentCaptor.forClass(FamilyInvitation.class);
+        verify(familyInvitationRepository).saveAndFlush(invitationCaptor.capture());
+        assertEquals("SPOUSE", invitationCaptor.getValue().getRelationship());
         assertEquals(InvitationStatus.PENDING, response.status());
         verify(familyInviteNotifier).notifyInviteSent(any(FamilyInvitation.class), isNull());
     }
@@ -375,7 +379,7 @@ class FamilyServiceTest {
             .thenReturn(true);
 
         InvitationResponse response = familyService.createInvitation(
-            10L, new CreateInvitationRequest("jamie@example.com"));
+            10L, new CreateInvitationRequest("jamie@example.com", "CHILD"));
 
         assertTrue(response.inviteeRegistered());
         verify(familyInviteNotifier).notifyInviteSent(any(FamilyInvitation.class), eq(invitee));
@@ -394,7 +398,7 @@ class FamilyServiceTest {
 
         assertThrows(
             FamilyForbiddenException.class,
-            () -> familyService.createInvitation(20L, new CreateInvitationRequest("a@b.com"))
+            () -> familyService.createInvitation(20L, new CreateInvitationRequest("a@b.com", "OTHER"))
         );
     }
 
@@ -416,7 +420,7 @@ class FamilyServiceTest {
 
         InvitationConflictException exception = assertThrows(
             InvitationConflictException.class,
-            () -> familyService.createInvitation(10L, new CreateInvitationRequest("dup@example.com"))
+            () -> familyService.createInvitation(10L, new CreateInvitationRequest("dup@example.com", "PARENT"))
         );
 
         assertEquals(
@@ -450,7 +454,7 @@ class FamilyServiceTest {
             .thenReturn(false);
 
         InvitationResponse response = familyService.createInvitation(
-            10L, new CreateInvitationRequest("new@example.com"));
+            10L, new CreateInvitationRequest("new@example.com", "SPOUSE"));
 
         assertFalse(response.emailSent());
         verify(familyInvitationRepository).delete(any(FamilyInvitation.class));
@@ -602,6 +606,11 @@ class FamilyServiceTest {
 
         FamilyMeResponse response = familyService.acceptInvitation(30L, "tok");
 
+        ArgumentCaptor<DietaryProfile> profileCaptor = ArgumentCaptor.forClass(DietaryProfile.class);
+        verify(dietaryProfileRepository).saveAndFlush(profileCaptor.capture());
+        assertFalse(profileCaptor.getValue().isPrimary());
+        assertEquals("SPOUSE", profileCaptor.getValue().getRelationship());
+
         assertEquals(1L, response.familyId());
         assertEquals(FamilyMember.ROLE_MEMBER, response.memberRole());
         assertEquals(InvitationStatus.ACCEPTED, invitation.getStatus());
@@ -636,6 +645,7 @@ class FamilyServiceTest {
         existingProfile.setLinkedUser(user);
         existingProfile.setProfileName("Chosen Profile Name");
         existingProfile.setRelationship("SELF");
+        existingProfile.setPrimary(true);
         DietaryRestriction restriction = new DietaryRestriction();
         restriction.setId(2L);
         ProfileRestriction selection = new ProfileRestriction();
@@ -662,6 +672,8 @@ class FamilyServiceTest {
         assertTrue(savedProfile.getProfileRestrictions().contains(selection));
         assertEquals("INTOLERANCE", selection.getSeverityLevel());
         assertEquals(88L, response.selfProfileId());
+        assertFalse(savedProfile.isPrimary());
+        assertEquals("SPOUSE", savedProfile.getRelationship());
         assertEquals(InvitationStatus.ACCEPTED, invitation.getStatus());
     }
 
@@ -1111,6 +1123,7 @@ class FamilyServiceTest {
         invitation.setFamilyId(1L);
         invitation.setInvitedByUserId(10L);
         invitation.setInvitedEmail(email);
+        invitation.setRelationship("SPOUSE");
         invitation.setStatus(InvitationStatus.PENDING);
         invitation.setExpiresAt(Instant.now().plus(2, ChronoUnit.DAYS));
         invitation.setInvitationToken(token);

@@ -10,6 +10,7 @@ import type {
   FamilyProfileInput,
   InvitationResponse,
   InvitationPreviewResponse,
+  Relationship,
   ScanRecord,
   FamilyRestrictionSumRes,
 } from '../../../shared/api/types'
@@ -93,12 +94,12 @@ export const familyApiService = {
         ),
 
   /** Create a new invitation. */
-  createInvitation: (email: string) =>
+  createInvitation: (email: string, relationship: Exclude<Relationship, 'SELF'>) =>
     useMockApi
-      ? mockFamilyRepository.createInvitation(email)
+      ? mockFamilyRepository.createInvitation(email, relationship)
       : apiRequest<InvitationResponse>(familyEndpoints.invitations, {
           method: 'POST',
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, relationship }),
         }),
 
   /** Claim an invitation. */

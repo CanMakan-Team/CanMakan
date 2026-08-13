@@ -85,7 +85,12 @@ fun DietaryRestrictionSheet(
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium
                 )
-                Text("$profileName \u00B7 $profileRole", color = TextSecondary)
+                val profileSubtitle = if (profileRole.isBlank()) {
+                    profileName
+                } else {
+                    "$profileName \u00B7 $profileRole"
+                }
+                Text(profileSubtitle, color = TextSecondary)
             }
 
             uiState.restrictionEditHint?.let { hint ->

@@ -113,6 +113,7 @@ CREATE TABLE family_invitations (
     family_id BIGINT NOT NULL,
     invited_by_user_id BIGINT NOT NULL,
     invited_email VARCHAR(255) NOT NULL,
+    relationship VARCHAR(30) NOT NULL,
     invitation_token VARCHAR(100) NOT NULL UNIQUE,
     invite_code VARCHAR(12) NOT NULL UNIQUE,
     `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING',

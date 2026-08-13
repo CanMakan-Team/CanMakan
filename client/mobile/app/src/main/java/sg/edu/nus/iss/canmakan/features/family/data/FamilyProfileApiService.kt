@@ -20,11 +20,13 @@ data class UserSearchResponse(
 
 data class CreateInvitationRequestBody(
     @SerializedName("email") val email: String,
+    @SerializedName("relationship") val relationship: String,
 )
 
 data class InvitationResponse(
     @SerializedName("invitationId") val invitationId: Long,
     @SerializedName("invitedEmail") val invitedEmail: String,
+    @SerializedName("relationship") val relationship: String? = null,
     @SerializedName("invitationToken") val invitationToken: String,
     @SerializedName("inviteCode") val inviteCode: String,
     @SerializedName("inviteUrl") val inviteUrl: String,

@@ -16,6 +16,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -24,6 +29,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -32,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import sg.edu.nus.iss.canmakan.features.family.model.RelationshipToAdmin
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
@@ -40,6 +49,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 /** UC9: invite someone who will join with their own CanMakan account. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InviteFamilyMemberScreen(
     onMenuClick: () -> Unit,
@@ -101,7 +111,7 @@ fun InviteFamilyMemberScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Enter their email to send an invitation.",
+                text = "Enter their email and how they relate to you.",
                 color = TextSecondary,
             )
 
@@ -117,6 +127,50 @@ fun InviteFamilyMemberScreen(
                 singleLine = true,
                 enabled = !uiState.isInviting,
             )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            InviteFormLabel(text = "Relationship to you", isRequired = true)
+            Spacer(modifier = Modifier.height(6.dp))
+            var relationshipMenuExpanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = relationshipMenuExpanded,
+                onExpandedChange = { expanded ->
+                    relationshipMenuExpanded = expanded && !uiState.isInviting
+                },
+            ) {
+                OutlinedTextField(
+                    value = uiState.relationship?.displayName.orEmpty(),
+                    onValueChange = {},
+                    readOnly = true,
+                    placeholder = { Text("Select relationship") },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = relationshipMenuExpanded)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(
+                            ExposedDropdownMenuAnchorType.PrimaryNotEditable,
+                            enabled = !uiState.isInviting,
+                        ),
+                    singleLine = true,
+                    enabled = !uiState.isInviting,
+                )
+                ExposedDropdownMenu(
+                    expanded = relationshipMenuExpanded,
+                    onDismissRequest = { relationshipMenuExpanded = false },
+                ) {
+                    RelationshipToAdmin.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.displayName) },
+                            onClick = {
+                                viewModel.updateRelationship(option)
+                                relationshipMenuExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 

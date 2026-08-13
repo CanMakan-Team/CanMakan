@@ -39,6 +39,7 @@ import sg.edu.nus.iss.canmakan.features.family.data.InvitationResponse
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
 import sg.edu.nus.iss.canmakan.features.family.data.SetActiveProfileRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.UserSearchResponse
+import sg.edu.nus.iss.canmakan.features.family.model.RelationshipToAdmin
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @DisplayName("UC9: InviteFamilyMemberViewModel")
@@ -80,6 +81,20 @@ class InviteFamilyMemberViewModelTest {
     }
 
     @Test
+    fun missingRelationshipShowsErrorWithoutCallingApi() = runTest {
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.updateEmail("new@example.com")
+        viewModel.invite()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Select a relationship.", viewModel.uiState.value.errorMessage)
+        assertEquals(0, familyApi.createInvitationCalls)
+        assertFalse(viewModel.uiState.value.inviteSucceeded)
+    }
+
+    @Test
     fun linkedUserConflictSurfacesBackendMessage() = runTest {
         assertTrue(sessionStore.saveSession(validSession()))
         testDispatcher.scheduler.advanceUntilIdle()
@@ -90,6 +105,7 @@ class InviteFamilyMemberViewModelTest {
         )
 
         viewModel.updateEmail("linked@example.com")
+        viewModel.updateRelationship(RelationshipToAdmin.SPOUSE)
         viewModel.invite()
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -112,6 +128,7 @@ class InviteFamilyMemberViewModelTest {
         )
 
         viewModel.updateEmail("dup@example.com")
+        viewModel.updateRelationship(RelationshipToAdmin.CHILD)
         viewModel.invite()
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -142,6 +159,7 @@ class InviteFamilyMemberViewModelTest {
         )
 
         viewModel.updateEmail("new@example.com")
+        viewModel.updateRelationship(RelationshipToAdmin.SPOUSE)
         viewModel.invite()
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -149,6 +167,7 @@ class InviteFamilyMemberViewModelTest {
         assertTrue(viewModel.uiState.value.inviteSucceeded)
         assertTrue(viewModel.uiState.value.emailSent)
         assertEquals(1, familyApi.createInvitationCalls)
+        assertEquals("SPOUSE", familyApi.lastCreateInvitationRequest?.relationship)
 
         viewModel.consumeInviteResult()
         assertFalse(viewModel.uiState.value.inviteSucceeded)
@@ -174,6 +193,7 @@ class InviteFamilyMemberViewModelTest {
         )
 
         viewModel.updateEmail("new@example.com")
+        viewModel.updateRelationship(RelationshipToAdmin.SPOUSE)
         viewModel.invite()
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -195,6 +215,7 @@ class InviteFamilyMemberViewModelTest {
         )
 
         viewModel.updateEmail("new@example.com")
+        viewModel.updateRelationship(RelationshipToAdmin.SPOUSE)
         viewModel.invite()
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -238,6 +259,7 @@ class InviteFamilyMemberViewModelTest {
         )
         var createInvitationException: Exception? = null
         var createInvitationCalls = 0
+        var lastCreateInvitationRequest: CreateInvitationRequestBody? = null
 
         override suspend fun getMyFamily(): Response<FamilyMeResponse> =
             Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
@@ -271,6 +293,7 @@ class InviteFamilyMemberViewModelTest {
             request: CreateInvitationRequestBody,
         ): Response<InvitationResponse> {
             createInvitationCalls++
+            lastCreateInvitationRequest = request
             createInvitationException?.let { throw it }
             return createInvitationResponse
         }

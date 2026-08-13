@@ -175,6 +175,7 @@ class FamilyControllerTest {
             .thenReturn(new com.canmakan.backend.family.dto.InvitationResponse(
                 1L,
                 "new@example.com",
+                "SPOUSE",
                 "token",
                 "ABCD1234",
                 "http://localhost:5173/invite/token",
@@ -185,9 +186,10 @@ class FamilyControllerTest {
 
         mockMvc.perform(post("/api/families/me/invitations")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"new@example.com\"}"))
+                .content("{\"email\":\"new@example.com\",\"relationship\":\"SPOUSE\"}"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.inviteCode").value("ABCD1234"))
+            .andExpect(jsonPath("$.relationship").value("SPOUSE"))
             .andExpect(jsonPath("$.inviteUrl").value("http://localhost:5173/invite/token"))
             .andExpect(jsonPath("$.emailSent").value(true));
     }

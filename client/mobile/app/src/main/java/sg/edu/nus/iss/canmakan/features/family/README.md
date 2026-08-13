@@ -34,7 +34,8 @@ when `memberRole == PRIMARY_ADMIN`). That opens `ManageFamilyScreen`, which bran
 | Invite someone to join | `InviteFamilyMemberScreen` | Email → Invite → PENDING + email (when Resend enabled) |
 | Add dependant profile | `CreateDependantProfileScreen` | Dependant dietary profile with no login |
 
-Invite flow on mobile is one step: enter email, then **Cancel** / **Invite**.
+Invite flow on mobile is one step: enter email and relationship to the admin,
+then **Cancel** / **Invite**.
 `POST /api/families/me/invitations` rejects users already in a family with **409**.
 That POST does not retry on timeout (one attempt, ~15s) so a down host does not
 block the screen for three tries. A `PENDING` invite is stored only after Resend accepts the email; a failed send
@@ -55,7 +56,7 @@ flowchart TD
   Email --> PathA[New user: register, then login with token preserved]
   Email --> PathB[Existing user: open link then login]
   Email --> PathC[Already logged in: Notifications inbox or deep-link claim]
-  PathA --> Join[MEMBER + SELF profile + ACCEPTED]
+  PathA --> Join[MEMBER + invite relationship + ACCEPTED]
   PathB --> Join
   PathC --> Join
 ```
@@ -74,6 +75,11 @@ Full API contract: `docs/api/notifications.md` and `docs/api/families.md`.
 
 Dependant profiles appear in the mobile profile switcher and UC6 summary once created.
 Dietary Summary empty state can open the same Manage family hub.
+
+Drawer, Dietary Summary peek dialog, and the edit-restrictions sheet share the same
+labels: **Admin** only on the family PRIMARY_ADMIN's profile; **Self** on the
+signed-in user's row; Child/Spouse/etc. only when the signed-in user is family
+admin. Invitees use the relationship chosen when they were invited.
 
 ## Switch profile (UC11)
 

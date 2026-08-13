@@ -98,6 +98,7 @@ export function ProfileForm({
             </span>
           )}
         </div>
+        {form.relationship !== 'SELF' && (
         <div className="field-group">
           <label htmlFor="relationship">Relationship</label>
           <select
@@ -110,13 +111,16 @@ export function ProfileForm({
               }))
             }
           >
-            {relationshipOptions.map((option) => (
+            {relationshipOptions
+              .filter((option) => option.value !== 'SELF')
+              .map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
         </div>
+        )}
         <div className="field-group">
           <label htmlFor="age-group">Age group</label>
           <select

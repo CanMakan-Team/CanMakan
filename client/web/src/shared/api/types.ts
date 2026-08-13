@@ -152,6 +152,7 @@ export interface ExistingUserSearchResult {
 export interface InvitationResponse {
   invitationId: number // id of the invitation
   invitedEmail: string // email of the invited user
+  relationship: Relationship // relationship of the invitee to the family admin
   invitationToken: string // token of the invitation
   inviteCode: string // code of the invitation
   inviteUrl: string // url of the invitation

@@ -23,6 +23,7 @@ class InvitationEmailServiceTest {
         InvitationResponse invitation = new InvitationResponse(
             1L,
             "guest@example.com",
+            "SPOUSE",
             "token",
             "ABCD1234",
             "https://canmakan-project.web.app/invite/token",
@@ -60,6 +61,7 @@ class InvitationEmailServiceTest {
         InvitationResponse invitation = new InvitationResponse(
             1L,
             "guest@example.com",
+            "SPOUSE",
             "token",
             "ABCD1234",
             "https://canmakan-project.web.app/invite/token",

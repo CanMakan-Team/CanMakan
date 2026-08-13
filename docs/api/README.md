@@ -15,7 +15,7 @@ See [`families.md`](families.md) for:
 - `POST /api/families/me/invitations` — PENDING invite with `inviteUrl` + `inviteCode` (+ optional Resend email)
 - `POST /api/families/me/invitations/claim` — join family from token while authenticated
 - `GET /api/invitations/me` — invitee pending inbox
-- `POST /api/invitations/{token}/accept` — accept (MEMBER + SELF profile)
+- `POST /api/invitations/{token}/accept` — accept (MEMBER + invite relationship on profile)
 - `POST /api/invitations/{token}/decline` — decline (DECLINED)
 - `POST /api/families/me/profiles` — dependant profile (`linked_user_id` NULL)
 - Bearer JWT / `@AuthenticationPrincipal` on family and invitation routes
