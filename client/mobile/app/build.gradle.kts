@@ -92,8 +92,20 @@ extensions.configure<ApplicationExtension> {
         applicationId = "sg.edu.nus.iss.canmakan"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+
+        // CMK-55 Dynamically Assign Versioning from CI/CD, Falling Back to Local Defaults
+        versionCode = if (project.hasProperty("versionCode")) {
+            project.property("versionCode").toString().toIntOrNull() ?: 1
+        } else {
+            1
+        }
+
+        versionName = if (project.hasProperty("versionName")) {
+            project.property("versionName").toString()
+        } else {
+            "1.0.0-dev"
+        }
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         vectorDrawables {
