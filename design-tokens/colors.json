@@ -231,6 +231,19 @@
       "css": "--color-info-container"
     },
     {
+      "id": "rule",
+      "hex": "#6B4FA0",
+      "compose": "RulePurple",
+      "css": "--color-rule",
+      "comment": "Dietary rule flags (distinct from warning amber / info blue)"
+    },
+    {
+      "id": "ruleContainer",
+      "hex": "#EDE6F5",
+      "compose": "LightPurpleBackground",
+      "css": "--color-rule-container"
+    },
+    {
       "id": "borderSubtle",
       "hex": "#CCCCCC",
       "compose": "BorderSubtle",

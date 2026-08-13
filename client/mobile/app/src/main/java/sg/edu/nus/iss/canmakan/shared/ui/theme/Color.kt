@@ -36,6 +36,9 @@ val SurfaceMuted = Color(0xFFEDEAE2)
 /** Informational emphasis (non-allergen tags) */
 val InfoBlue = Color(0xFF2B5FA8)
 val InfoBlueContainer = Color(0xFFE3EBF7)
+/** Dietary rule flags (distinct from warning amber / info blue) */
+val RulePurple = Color(0xFF6B4FA0)
+val LightPurpleBackground = Color(0xFFEDE6F5)
 /** Unselected borders (Material LightGray) */
 val BorderSubtle = Color(0xFFCCCCCC)
 /** Drawer / list dividers (Material DarkGray) */

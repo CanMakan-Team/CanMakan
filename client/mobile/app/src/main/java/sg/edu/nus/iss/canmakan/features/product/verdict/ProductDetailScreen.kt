@@ -49,8 +49,10 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.InfoBlue
 import sg.edu.nus.iss.canmakan.shared.ui.theme.InfoBlueContainer
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightAmberBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
+import sg.edu.nus.iss.canmakan.shared.ui.theme.LightPurpleBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightRedBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
+import sg.edu.nus.iss.canmakan.shared.ui.theme.RulePurple
 import sg.edu.nus.iss.canmakan.shared.ui.theme.SurfaceMuted
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
@@ -266,10 +268,20 @@ private fun FlagsAndDetailsTab(
 
         // Display each flag as a separate box
         flags.forEach { flag ->
-            val isAllergen = flag.category.equals("Allergen", ignoreCase = true)
-            val background = if (isAllergen) LightRedBackground else InfoBlueContainer
-            val labelColor = if (isAllergen) AvoidRed else InfoBlue
-            val title = flag.category.orEmpty().ifBlank { "Info" }
+            val category = flag.category.orEmpty()
+            val isAllergen = category.equals("Allergen", ignoreCase = true)
+            val isRule = category.equals("Rule", ignoreCase = true)
+            val background = when {
+                isAllergen -> LightRedBackground
+                isRule -> LightPurpleBackground
+                else -> InfoBlueContainer
+            }
+            val labelColor = when {
+                isAllergen -> AvoidRed
+                isRule -> RulePurple
+                else -> InfoBlue
+            }
+            val title = category.ifBlank { "Info" }
             val body = flag.label.orEmpty().ifBlank { "Flagged by dietary rules" }
             Column(
                 modifier = Modifier
@@ -350,7 +362,6 @@ private fun AlternativesTab(
                     if (alternative.brand.isNotEmpty()) {
                         Text(alternative.brand, color = TextSecondary)
                     }
-                    Text(alternative.description, color = TextSecondary)
                 }
                 Text(
                     "SAFE",

@@ -49,6 +49,9 @@
   /* Informational emphasis (non-allergen tags) */
   --color-info: #2B5FA8;
   --color-info-container: #E3EBF7;
+  /* Dietary rule flags (distinct from warning amber / info blue) */
+  --color-rule: #6B4FA0;
+  --color-rule-container: #EDE6F5;
   /* Unselected borders (Material LightGray) */
   --color-border-subtle: #CCCCCC;
   /* Drawer / list dividers (Material DarkGray) */
