@@ -322,7 +322,7 @@ flowchart TD
 | Path | How | APIs |
 | --- | --- | --- |
 | **A. Register then claim** | New account with matching email; client preserves `invitationToken` through explicit login | `POST /api/auth/register`, `POST /api/auth/login`, then `POST /api/families/me/invitations/claim` |
-| **B. Deep link / login claim** | Open `…/invite/{token}` or `canmakan://invite/{token}`, then register or sign in | `POST /api/families/me/invitations/claim` |
+| **B. Deep link / login claim** | Open `…/invite/{token}` (desktop stays on web; Android opens the app) or `canmakan://invite/{token}`, then register or sign in | `POST /api/families/me/invitations/claim` |
 | **C. Inbox accept** | Signed-in invitee opens pending list and Accepts (or Declines) | `GET /api/invitations/me`, `POST /api/invitations/{token}/accept` or `…/decline` |
 
 Guards on accept/claim: **403** email mismatch, **410** expired, **409** already
@@ -366,7 +366,10 @@ When Resend is enabled (`canmakan.email.resend.enabled=true` / env
 standard HTML template (friendly copy, waving mascot, primary-green Accept
 button, tap-to-copy invite code, expiry in SGT). Set
 `CANMAKAN_INVITES_PUBLIC_BASE_URL` to the public web origin used in accept links
-and in the `/invite/copy?code=` helper that copies the short code.
+and in the `/invite/copy?code=` helper that copies the short code. The accept
+link is always HTTPS. On Android it hands off to `canmakan://invite/{token}`
+(Chrome Intent URL); desktop browsers keep the web landing. Add `?web=1` to
+stay in the browser if the app is not installed.
 
 `emailSent` is `true` only when Resend accepted the send. A `PENDING` row is kept
 only after a successful send so the admin can retry the same email if delivery
