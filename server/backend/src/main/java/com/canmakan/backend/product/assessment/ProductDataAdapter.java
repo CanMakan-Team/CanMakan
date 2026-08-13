@@ -1,11 +1,14 @@
 package com.canmakan.backend.product.assessment;
 
 import com.canmakan.backend.integration.BarcodeValidationClient;
+import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.product.model.ProductLookupResult;
 import com.canmakan.backend.product.verdict.ProductData;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
 /**
@@ -52,13 +55,76 @@ public class ProductDataAdapter {
 
         return new ProductData(
             result.barcode(),
-            result.ingredients(),
-            result.ingredientsText(),
+            cleanIngredients(result.ingredients()),
+            stripMarkup(result.ingredientsText()),
             toLabelTags(result.labelTags()),
             result.tracesTags(),
             result.nutrition(),
             result.ingredientDataComplete()
         );
+    }
+
+    // Open Food Facts wraps allergens in underscores (for example "_milk_") and can
+    // carry a language prefix on ingredient ids (for example "en:milk"). Both are
+    // source markup, not part of the real ingredient name. They are removed here so
+    // the name matches the ingredient alias table during resolution and displays
+    // cleanly in the verdict, rather than surfacing as an unresolved "Fresh _milk_".
+    private static final Pattern LANGUAGE_PREFIX = Pattern.compile("^[a-z]{2,3}:");
+
+    // Provenance qualifiers never change an ingredient's allergen identity but stop it matching the
+    // alias table (e.g. "Non GMO wheat" would not match "Wheat" and its GLUTEN root would be missed).
+    private static final Pattern PROVENANCE_QUALIFIER =
+        Pattern.compile("(?i)^(?:non[-\\s]?gmo|organic|gmo)\\s+");
+
+    private List<Ingredient> cleanIngredients(List<Ingredient> ingredients) {
+        if (ingredients == null) {
+            return List.of();
+        }
+        List<Ingredient> cleaned = new ArrayList<>();
+        for (Ingredient ingredient : ingredients) {
+            if (ingredient == null) {
+                continue;
+            }
+            String name = cleanIngredientName(ingredient.ingredientName());
+            if (name.isBlank()) {
+                continue;
+            }
+            if (name.equals(ingredient.ingredientName())) {
+                cleaned.add(ingredient);
+            } else {
+                cleaned.add(new Ingredient(
+                    name,
+                    ingredient.parentAllergen(),
+                    ingredient.rootAllergen(),
+                    ingredient.chemicalAlias()));
+            }
+        }
+        // Return an unmodifiable snapshot so callers cannot mutate the engine's input.
+        return List.copyOf(cleaned);
+    }
+
+    static String cleanIngredientName(String rawName) {
+        if (rawName == null) {
+            return "";
+        }
+        String cleaned = rawName.replace("_", "");
+        cleaned = LANGUAGE_PREFIX.matcher(cleaned).replaceAll("");
+        cleaned = cleaned.replaceAll("\\s+", " ").trim();
+        // Strip leading provenance qualifiers, applied repeatedly for stacked ones
+        // ("Organic Non GMO wheat" -> "wheat"). Never strips when nothing follows.
+        String previous;
+        do {
+            previous = cleaned;
+            cleaned = PROVENANCE_QUALIFIER.matcher(cleaned).replaceFirst("").trim();
+        } while (!cleaned.equals(previous));
+        return cleaned;
+    }
+
+    private static String stripMarkup(String ingredientsText) {
+        if (ingredientsText == null) {
+            return null;
+        }
+        return ingredientsText.replace("_", "");
     }
 
     /**

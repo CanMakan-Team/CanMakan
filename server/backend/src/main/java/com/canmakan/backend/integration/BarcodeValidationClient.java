@@ -11,9 +11,16 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -289,16 +296,21 @@ public class BarcodeValidationClient {
         String barcode,
         OpenFoodFactsProduct product
     ) {
-        List<Ingredient> ingredients = toIngredients(product.ingredients());
+        List<Ingredient> ingredients = new ArrayList<>(toIngredients(product.ingredients()));
         boolean ingredientDataComplete = product.ingredients() != null
             && !product.ingredients().isEmpty()
-            && ingredients.size() == product.ingredients().size();
+            && ingredients.size() == countLeafIngredients(product.ingredients());
+
+        // Open Food Facts publishes curated allergen tags (e.g. "en:peanuts"). Inject each mapped
+        // tag as a confirmed allergen so it is flagged even when the ingredient names do not match
+        // the catalog (e.g. "Roasted Peanuts" / "Peanut Oil" for a PEANUT restriction).
+        addAllergenTagIngredients(product.allergensTags(), ingredients);
 
         return new ProductLookupResult(
             barcode,
             product.productName(),
             product.productType(),
-            ingredients,
+            List.copyOf(ingredients),
             product.ingredientsText(),
             toLabelTags(product.labelTags()),
             normalizeTracesTags(product.tracesTags()),
@@ -320,26 +332,133 @@ public class BarcodeValidationClient {
     }
 
     private List<Ingredient> toIngredients(List<OpenFoodFactsIngredient> source) {
-        if (source == null) {
-            return List.of();
-        }
-
-        return source.stream()
-            .filter(Objects::nonNull)
-            .map(this::ingredientName)
-            .filter(Objects::nonNull)
-            .map(name -> new Ingredient(name, null, null, false))
-            .toList();
+        List<Ingredient> flattened = new ArrayList<>();
+        collectLeafIngredients(source, flattened);
+        return List.copyOf(flattened);
     }
 
+    /**
+     * Open Food Facts nests compound ingredients (e.g. "Cereals Grains" -> Wheat, Oat Flakes;
+     * "Raising Agent" -> Malted Barley). The allergen sources live in the leaves, so recurse into
+     * any nested list and keep only leaf ingredients; a node without a nested list is itself a leaf.
+     */
+    private void collectLeafIngredients(
+            List<OpenFoodFactsIngredient> source, List<Ingredient> out) {
+        if (source == null) {
+            return;
+        }
+        for (OpenFoodFactsIngredient node : source) {
+            if (node == null) {
+                continue;
+            }
+            if (node.ingredients() != null && !node.ingredients().isEmpty()) {
+                collectLeafIngredients(node.ingredients(), out);
+                continue;
+            }
+            String name = ingredientName(node);
+            if (name != null) {
+                out.add(new Ingredient(name, null, null, false));
+            }
+        }
+    }
+
+    // Maps an Open Food Facts allergen tag (language prefix stripped, e.g. "peanuts") to a
+    // CanMakan root allergen code understood by the verdict engine.
+    private static final Map<String, String> OFF_ALLERGEN_ROOTS = Map.ofEntries(
+        Map.entry("peanuts", "PEANUT"),
+        Map.entry("milk", "DAIRY"),
+        Map.entry("gluten", "GLUTEN"),
+        Map.entry("soybeans", "SOY"),
+        Map.entry("soya", "SOY"),
+        Map.entry("eggs", "EGG"),
+        Map.entry("nuts", "TREE_NUT"),
+        Map.entry("tree-nuts", "TREE_NUT"),
+        Map.entry("fish", "FISH"),
+        Map.entry("crustaceans", "SHELLFISH"),
+        Map.entry("molluscs", "SHELLFISH"),
+        Map.entry("sesame-seeds", "SESAME"),
+        Map.entry("sesame", "SESAME"),
+        Map.entry("sulphur-dioxide-and-sulphites", "ADDITIVE")
+    );
+
+    private static final Pattern OFF_TAG_LANG_PREFIX = Pattern.compile("^[a-z]{2,3}:");
+
+    /**
+     * Turns Open Food Facts allergen tags into confirmed-allergen ingredients (root already set)
+     * so the verdict engine flags them directly, regardless of how the ingredient list is worded.
+     * Deduplicates by root so a product is not tagged with the same allergen twice.
+     */
+    private void addAllergenTagIngredients(List<String> allergenTags, List<Ingredient> out) {
+        if (allergenTags == null) {
+            return;
+        }
+        Set<String> seenRoots = new HashSet<>();
+        for (String tag : allergenTags) {
+            if (tag == null || tag.isBlank()) {
+                continue;
+            }
+            String key = OFF_TAG_LANG_PREFIX
+                .matcher(tag.trim().toLowerCase(Locale.ROOT)).replaceAll("");
+            String root = OFF_ALLERGEN_ROOTS.get(key);
+            if (root == null || !seenRoots.add(root)) {
+                continue;
+            }
+            out.add(new Ingredient(key.replace('-', ' ') + " (declared allergen)", null, root, false));
+        }
+    }
+
+    /** Counts the leaf ingredients OFF supplied, so completeness reflects nested groups too. */
+    private int countLeafIngredients(List<OpenFoodFactsIngredient> source) {
+        if (source == null) {
+            return 0;
+        }
+        int count = 0;
+        for (OpenFoodFactsIngredient node : source) {
+            if (node == null) {
+                continue;
+            }
+            if (node.ingredients() != null && !node.ingredients().isEmpty()) {
+                count += countLeafIngredients(node.ingredients());
+            } else {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // Open Food Facts ingredient ids for additives are the bare E-code, e.g. "en:e200".
+    private static final Pattern OFF_ENUMBER_ID =
+        Pattern.compile("^en:(e\\d{3,4}[a-z]?)$", Pattern.CASE_INSENSITIVE);
+    // Matches an E-number already present in the human-readable text, e.g. "E 200".
+    private static final Pattern TEXT_HAS_ENUMBER =
+        Pattern.compile("(?i)\\bE\\s*-?\\s*\\d{3,4}");
+
     private String ingredientName(OpenFoodFactsIngredient ingredient) {
-        if (ingredient.text() != null && !ingredient.text().isBlank()) {
-            return ingredient.text();
+        String text = ingredient.text();
+        String eCode = eNumberFromId(ingredient.id());
+        if (text != null && !text.isBlank()) {
+            // Open Food Facts often carries a plain additive name in text ("Sorbic acid") while the
+            // E-number lives only in the id ("en:e200"). Surface that E-number so the deterministic
+            // E-number resolver can classify the additive, instead of leaving it unresolved and
+            // falling through to the LLM (which may guess a wrong allergen).
+            if (eCode != null && !TEXT_HAS_ENUMBER.matcher(text).find()) {
+                return text.trim() + " (" + eCode + ")";
+            }
+            return text;
         }
         if (ingredient.id() != null && !ingredient.id().isBlank()) {
-            return ingredient.id();
+            return eCode != null ? eCode : ingredient.id();
         }
         return null;
+    }
+
+    /** Returns the upper-case E-code (e.g. {@code E200}) when the OFF id is an additive id. */
+    private static String eNumberFromId(String id) {
+        if (id == null || id.isBlank()) {
+            return null;
+        }
+        Matcher matcher = OFF_ENUMBER_ID.matcher(id.trim());
+        return matcher.matches() ? matcher.group(1).toUpperCase(Locale.ROOT) : null;
     }
 
     private String toLabelTags(List<String> labelTags) {

@@ -219,7 +219,7 @@ class NutritionCheckerTest {
                         new BigDecimal("0.11"),
                         new BigDecimal("0.12"),
                         new BigDecimal("0.121"),
-                        "Sodium is 121 mg per 100 g, above the LOW_SODIUM limit of 120 mg per 100 g."
+                        "Sodium is 0.121 g per 100 g, above the LOW_SODIUM limit of 0.12 g per 100 g."
                 )
         );
     }

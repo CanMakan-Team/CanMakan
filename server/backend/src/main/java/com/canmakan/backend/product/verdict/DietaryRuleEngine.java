@@ -49,7 +49,7 @@ public class DietaryRuleEngine {
     static final String INCOMPLETE_DATA = "INCOMPLETE_DATA";
 
     /** Finding code when an ingredient could not be mapped to a root allergen. */
-    static final String UNRESOLVED = "UNRESOLVED";
+    public static final String UNRESOLVED = "UNRESOLVED";
 
     /**
      * Finding code for trace / "may contain" risk. Kept distinct from profile allergen
