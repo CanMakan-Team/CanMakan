@@ -37,16 +37,23 @@ class NutritionCheckerTest {
 
     @ParameterizedTest
     @MethodSource("supportedNutrients")
-    void nullNutritionIsSkippedForPreference(String code, String nutrientName) {
-        // Soft preference: missing nutrition data must not warn.
-        assertEquals(0, check(code, null).size());
+    void nullNutritionWarnsToCheckLabel(String code, String nutrientName) {
+        List<Finding> findings = check(code, null);
+        assertEquals(1, findings.size());
+        assertFindingCodeAndIngredient(findings.getFirst(), code, Finding.SUBJECT_NUTRITION);
+        assertTrue(findings.getFirst().reason().contains(nutrientName));
+        assertTrue(findings.getFirst().reason().contains("missing"));
+        assertTrue(findings.getFirst().reason().contains("physical label"));
     }
 
     @ParameterizedTest
     @MethodSource("supportedNutrients")
-    void nullFieldIsSkippedForPreference(String code, String nutrientName) {
-        // Soft preference: a missing nutrient field must not warn.
-        assertEquals(0, check(code, nutrition(code, null)).size());
+    void nullFieldWarnsToCheckLabel(String code, String nutrientName) {
+        List<Finding> findings = check(code, nutrition(code, null));
+        assertEquals(1, findings.size());
+        assertFindingCodeAndIngredient(findings.getFirst(), code, Finding.SUBJECT_NUTRITION);
+        assertTrue(findings.getFirst().reason().contains("missing"));
+        assertTrue(findings.getFirst().reason().contains("physical label"));
     }
 
     @ParameterizedTest
@@ -57,9 +64,12 @@ class NutritionCheckerTest {
 
     @ParameterizedTest
     @MethodSource("supportedNutrients")
-    void negativeValuesAreSkippedForPreference(String code, String nutrientName) {
-        // Soft preference: invalid (negative) data must not warn.
-        assertEquals(0, check(code, nutrition(code, new BigDecimal("-0.01"))).size());
+    void negativeValuesWarnToCheckLabel(String code, String nutrientName) {
+        List<Finding> findings = check(code, nutrition(code, new BigDecimal("-0.01")));
+        assertEquals(1, findings.size());
+        assertFindingCodeAndIngredient(findings.getFirst(), code, Finding.SUBJECT_NUTRITION);
+        assertTrue(findings.getFirst().reason().contains("invalid"));
+        assertTrue(findings.getFirst().reason().contains("physical label"));
     }
 
     @ParameterizedTest
@@ -108,13 +118,15 @@ class NutritionCheckerTest {
     }
 
     @Test
-    void negativeTransFatIsSkippedForPreference() {
+    void negativeTransFatWarnsToCheckLabel() {
         List<Finding> findings = check(
                 "LOW_TRANS_FAT",
                 nutrition("LOW_TRANS_FAT", new BigDecimal("-0.001"))
         );
 
-        assertEquals(0, findings.size());
+        assertEquals(1, findings.size());
+        assertTrue(findings.getFirst().reason().contains("invalid"));
+        assertTrue(findings.getFirst().reason().contains("physical label"));
     }
 
     @Test
