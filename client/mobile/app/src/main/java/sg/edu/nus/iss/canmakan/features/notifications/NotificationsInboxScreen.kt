@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -30,7 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
@@ -94,7 +94,7 @@ fun NotificationsInboxScreen(
                         .clickable { onBackClick() }
                         .padding(bottom = 12.dp),
                 ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Go back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Back")
                 }

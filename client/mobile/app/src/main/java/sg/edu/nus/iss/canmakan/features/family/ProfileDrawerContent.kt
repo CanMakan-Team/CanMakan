@@ -22,7 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropFree
-import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
@@ -348,7 +348,7 @@ fun ProfileDrawerContent(
                 modifier = Modifier
                     .clickable { onSignOutClick() }
                     .padding(vertical = 8.dp)) {
-                Icon(Icons.Default.ExitToApp, contentDescription = "Sign out", tint = AvoidRed)
+                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Sign out", tint = AvoidRed)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Sign Out", color = AvoidRed)
             }

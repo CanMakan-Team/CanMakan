@@ -16,7 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -111,7 +111,7 @@ fun ProductDetailScreen(
                     .padding(vertical = 12.dp)
                     .clickable(onClick = onBackClick)
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextSecondary)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextSecondary)
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("Back", color = TextSecondary)
             }
