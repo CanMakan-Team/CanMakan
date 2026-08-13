@@ -102,6 +102,28 @@ class InviteFamilyMemberViewModelTest {
     }
 
     @Test
+    fun alreadyEmailedPendingConflictSurfacesBackendMessage() = runTest {
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+        familyApi.createInvitationResponse = Response.error(
+            409,
+            """{"message":"An invitation email was already sent to this address."}"""
+                .toResponseBody("application/json".toMediaType()),
+        )
+
+        viewModel.updateEmail("dup@example.com")
+        viewModel.invite()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            "An invitation email was already sent to this address.",
+            viewModel.uiState.value.errorMessage,
+        )
+        assertFalse(viewModel.uiState.value.inviteSucceeded)
+        assertEquals(1, familyApi.createInvitationCalls)
+    }
+
+    @Test
     fun successfulInviteSetsInviteSucceededAndEmailSent() = runTest {
         assertTrue(sessionStore.saveSession(validSession()))
         testDispatcher.scheduler.advanceUntilIdle()

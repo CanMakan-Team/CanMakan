@@ -43,7 +43,7 @@ family/
 | --- | --- |
 | `LinkExistingUserModal` | Search + create PENDING invite; copy link/code; optional mailto |
 | `CreateFamilyProfileModal` | `POST /api/families/me/profiles` dependant create |
-| `InviteLandingPage` | `/invite/:token` → Android opens the app (`canmakan://` / Intent URL); desktop stays on web register/login + claim. `?web=1` skips the app. Email Accept uses `canmakan://invite/{token}`. HTTPS invite URLs are built from `CANMAKAN_INVITES_PUBLIC_BASE_URL`. |
+| `InviteLandingPage` | `/invite/:token` → Android opens the app (`canmakan://` / Intent URL); desktop stays on web register/login + claim. `?web=1` skips the app. Email Accept uses the HTTPS `inviteUrl`. HTTPS invite URLs are built from `CANMAKAN_INVITES_PUBLIC_BASE_URL`. |
 | Silent `members/link` | Removed from live `familyApiService` |
 
 | Piece | Notes |

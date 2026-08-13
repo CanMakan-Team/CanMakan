@@ -369,31 +369,29 @@ When Resend is enabled (`canmakan.email.resend.enabled=true` / env
 `CANMAKAN_EMAIL_RESEND_ENABLED=true`, non-blank `CANMAKAN_EMAIL_RESEND_API_KEY`, and
 `CANMAKAN_EMAIL_RESEND_FROM`), the server emails the invitee after create using the
 standard HTML template (friendly copy, waving mascot, primary-green Accept
-button, selectable invite code to copy, expiry in SGT). The HTTPS fallback in
-that email is the same `inviteUrl` (env-driven).
-The email **Accept the invitation** button uses `canmakan://invite/{token}` so an
-installed Android app opens directly. A smaller HTTPS link remains for computers.
-If an HTTPS invite URL is opened on Android (Gmail in-app browser), the web page
-hands off to the app via a Chrome Intent URL. Add `?web=1` to stay in the browser
-if the app is not installed.
+button, invite code as another way to register or sign in, expiry in SGT).
+The Accept button uses the HTTPS `inviteUrl`. On Android the web page may then
+open the installed app. Add `?web=1` to stay in the browser if the app is not
+installed.
 
 `emailSent` is `true` only when Resend accepted the send. A `PENDING` row is kept
-only after a successful send so the admin can retry the same email if delivery
-fails. A later `POST` for the same family+email **resends** that pending invite
-instead of returning **409**.
+only after a successful send. A later `POST` for the same family+email returns
+**409** so the invitee is not emailed again. A failed send deletes the row so
+the admin can retry.
 
 Email failures or a disabled provider are logged and do **not** fail the create
 response (`emailSent: false`).
 
 Mobile invite UI calls this endpoint directly (Cancel / Invite). HTTP **409**
-messages are shown as red inline errors (already in a family circle).
+messages are shown as red inline errors (already in a family circle, or an
+invitation email already sent).
 
 | Status | Meaning |
 | --- | --- |
-| 201 | Invitation created, or existing PENDING resent |
+| 201 | Invitation created and emailed |
 | 400 | Invalid email |
 | 403 | Not PRIMARY_ADMIN |
-| 409 | Already a member of a family circle |
+| 409 | Already a member, or a pending invitation email was already sent |
 
 There is **no** production `POST /api/families/me/members/link` silent-link endpoint.
 

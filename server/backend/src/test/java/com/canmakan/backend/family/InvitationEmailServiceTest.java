@@ -37,14 +37,17 @@ class InvitationEmailServiceTest {
         assertThat(html).contains("Hello!");
         assertThat(html).contains("cid:mascot-wave");
         assertThat(html).contains("align=\"center\"");
+        assertThat(html).contains("width=\"100%\"");
         assertThat(html).contains("margin:0 auto");
         assertThat(html).contains("<br>");
         assertThat(html).contains("Good news");
         assertThat(html).contains("<strong>Wong Family</strong>");
         assertThat(html).contains("bgcolor=\"#1E7A5C\"");
         assertThat(html).contains("Accept the invitation");
-        assertThat(html).contains("href=\"canmakan://invite/token\"");
-        assertThat(html).contains("https://canmakan-project.web.app/invite/token");
+        assertThat(html).contains(
+            "href=\"https://canmakan-project.web.app/invite/token\"");
+        assertThat(html).contains("when you register or sign in");
+        assertThat(html).doesNotContain("canmakan://");
         assertThat(html).doesNotContain("/invite/copy");
         assertThat(html).contains("user-select:all");
         assertThat(html).contains("ABCD1234");

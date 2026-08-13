@@ -764,11 +764,14 @@ public class FamilyService {
                 "That user already belongs to a family circle.");
         }
 
-        // Check if the user has a pending invitation for the family
+        // A PENDING row is kept only after Resend accepted the send, so a repeat
+        // Invite for the same email would spam the mailbox. Failed sends delete
+        // the row and can be retried.
         Optional<FamilyInvitation> existingPending = familyInvitationRepository
             .findPendingByFamilyAndEmail(adminMembership.getFamilyId(), email);
         if (existingPending.isPresent()) {
-            return deliverInvitationEmail(existingPending.get(), invitee.isPresent());
+            throw new InvitationConflictException(
+                "An invitation email was already sent to this address.");
         }
 
         // Create a new invitation

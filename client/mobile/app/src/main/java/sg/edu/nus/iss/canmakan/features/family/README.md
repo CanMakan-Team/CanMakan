@@ -38,7 +38,7 @@ Invite flow on mobile is one step: enter email, then **Cancel** / **Invite**.
 `POST /api/families/me/invitations` rejects users already in a family with **409**.
 That POST does not retry on timeout (one attempt, ~15s) so a down host does not
 block the screen for three tries. A `PENDING` invite is stored only after Resend accepts the email; a failed send
-can be retried. Repeating Invite for the same email resends that pending invite.
+can be retried. Repeating Invite for the same email after a successful send returns **409**.
 Success toasts and returns to Manage Family.
 
 Invitees preserve the token through register/login; claim runs only after
@@ -49,7 +49,7 @@ flowchart TD
   Hub[Manage family hub] --> Invite[InviteFamilyMemberScreen]
   Hub --> Dependant[CreateDependantProfileScreen]
   Invite --> Post[POST invitations]
-  Post -->|409 already in family| Err[Red error on screen]
+  Post -->|409 already in family or already emailed| Err[Red error on screen]
   Post -->|201 emailSent false| Stay[Stay on invite, red error]
   Post -->|201 emailSent true| Email[Toast and back to hub]
   Email --> PathA[New user: register, then login with token preserved]

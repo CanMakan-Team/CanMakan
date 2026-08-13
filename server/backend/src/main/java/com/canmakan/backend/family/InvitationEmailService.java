@@ -3,8 +3,6 @@ package com.canmakan.backend.family;
 import com.canmakan.backend.family.dto.InvitationResponse;
 import java.io.InputStream;
 import java.net.URI;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
@@ -61,23 +59,23 @@ public class InvitationEmailService {
 
         String subject = "You're invited to join " + familyName + " on CanMakan";
         String mascotBase64 = loadMascotPngBase64();
-        String html = buildInvitationHtml(familyName, invitation, mascotBase64 != null);
-
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("from", resendProperties.getFrom());
-        payload.put("to", List.of(invitation.invitedEmail()));
-        payload.put("subject", subject);
-        payload.put("html", html);
-        if (mascotBase64 != null) {
-            Map<String, String> mascot = new LinkedHashMap<>();
-            mascot.put("filename", "canmakan-mascot-wave.png");
-            mascot.put("content", mascotBase64);
-            mascot.put("content_type", "image/png");
-            mascot.put("content_id", "mascot-wave");
-            payload.put("attachments", List.of(mascot));
-        }
 
         try {
+            String html = buildInvitationHtml(familyName, invitation, mascotBase64 != null);
+
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("from", resendProperties.getFrom());
+            payload.put("to", List.of(invitation.invitedEmail()));
+            payload.put("subject", subject);
+            payload.put("html", html);
+            if (mascotBase64 != null) {
+                Map<String, String> mascot = new LinkedHashMap<>();
+                mascot.put("filename", "canmakan-mascot-wave.png");
+                mascot.put("content", mascotBase64);
+                mascot.put("content_type", "image/png");
+                mascot.put("content_id", "mascot-wave");
+                payload.put("attachments", List.of(mascot));
+            }
             RestClient.create()
                 .post()
                 .uri(resendProperties.getApiUrl())
@@ -108,7 +106,6 @@ public class InvitationEmailService {
             ? ""
             : EXPIRY_FORMAT.format(invitation.expiresAt());
         String inviteUrl = escape(invitation.inviteUrl());
-        String appInviteUrl = escape(appInviteDeepLink(invitation));
         String inviteCode = escape(invitation.inviteCode());
         String mascotSrc = inlineMascot
             ? "cid:mascot-wave"
@@ -120,7 +117,7 @@ public class InvitationEmailService {
         return """
             <div style="font-family:Arial,Helvetica,sans-serif;color:%s;font-size:16px;line-height:1.5;max-width:560px;">
             <p style="margin:0 0 8px 0;">Hello!</p>
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%%">
             <tr>
             <td align="center" style="text-align:center;">
             <img src="%s" width="96" height="96" alt="CanMakan mascot waving" style="display:block;margin:0 auto;border:0;"/>
@@ -140,8 +137,7 @@ public class InvitationEmailService {
             </tr>
             </table>
             <br>
-            <p style="color:%s;font-size:14px;margin:0 0 8px 0;">That button opens the CanMakan app. On a computer, <a href="%s" style="color:%s;">continue in the browser</a>.</p>
-            <p style="color:%s;font-size:14px;margin:0 0 8px 0;">If the app does not open, long-press or select the code to copy it, then paste it when you sign up or log in.</p>
+            <p style="color:%s;font-size:14px;margin:0 0 8px 0;">You can also use this code when you register or sign in. Same welcome, either way.</p>
             <p style="margin:8px 0 16px 0;">
             <span style="font-family:Consolas,Monaco,monospace;font-size:20px;font-weight:bold;letter-spacing:0.12em;color:%s;background-color:%s;padding:8px 16px;border-radius:8px;display:inline-block;-webkit-user-select:all;user-select:all;">%s</span>
             </p>
@@ -154,11 +150,8 @@ public class InvitationEmailService {
                 mascotSrc,
                 escape(familyName),
                 PRIMARY_GREEN,
-                appInviteUrl,
-                ON_PRIMARY,
-                TEXT_SECONDARY,
                 inviteUrl,
-                PRIMARY_GREEN,
+                ON_PRIMARY,
                 TEXT_SECONDARY,
                 PRIMARY_GREEN,
                 PRIMARY_CONTAINER,
@@ -167,17 +160,6 @@ public class InvitationEmailService {
                 expiryLine,
                 TEXT_SECONDARY
             );
-    }
-
-    static String appInviteDeepLink(InvitationResponse invitation) {
-        String token = invitation.invitationToken() == null
-            ? ""
-            : invitation.invitationToken().strip();
-        if (token.isEmpty()) {
-            return invitation.inviteUrl() == null ? "#" : invitation.inviteUrl();
-        }
-        return "canmakan://invite/"
-            + URLEncoder.encode(token, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     private static String hostedMascotUrl(InvitationResponse invitation) {

@@ -362,8 +362,8 @@ class FamilyServiceTest {
     }
 
     @Test
-    @DisplayName("invite resends email when a pending invitation already exists")
-    void inviteResendsExistingPending() {
+    @DisplayName("invite rejects when a pending invitation was already emailed")
+    void inviteRejectsExistingPendingAfterSuccessfulSend() {
         stubPrimaryAdmin(10L, 1L);
         FamilyInvitation existing = new FamilyInvitation();
         existing.setId(5L);
@@ -376,19 +376,17 @@ class FamilyServiceTest {
         when(userAccountRepository.findByEmail("dup@example.com")).thenReturn(Optional.empty());
         when(familyInvitationRepository.findPendingByFamilyAndEmail(1L, "dup@example.com"))
             .thenReturn(Optional.of(existing));
-        Family family = new Family();
-        family.setId(1L);
-        family.setFamilyName("Host Family");
-        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
-        when(invitationEmailService.sendInvitationEmail(eq("Host Family"), any(InvitationResponse.class)))
-            .thenReturn(true);
 
-        InvitationResponse response = familyService.createInvitation(
-            10L, new CreateInvitationRequest("dup@example.com"));
+        InvitationConflictException exception = assertThrows(
+            InvitationConflictException.class,
+            () -> familyService.createInvitation(10L, new CreateInvitationRequest("dup@example.com"))
+        );
 
-        assertEquals(5L, response.invitationId());
-        assertTrue(response.emailSent());
-        assertTrue(response.inviteUrl().contains("existing-token"));
+        assertEquals(
+            "An invitation email was already sent to this address.",
+            exception.getMessage()
+        );
+        verify(invitationEmailService, never()).sendInvitationEmail(any(), any());
         verify(familyInvitationRepository, never()).saveAndFlush(any());
         verify(familyInvitationRepository, never()).delete(any());
     }
