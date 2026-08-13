@@ -87,7 +87,7 @@ fun ManageFamilyScreen(
             }
 
             Text(
-                text = "Manage family",
+                text = "Manage Family",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary,
