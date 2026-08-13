@@ -1,6 +1,7 @@
 package sg.edu.nus.iss.canmakan.shared.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -77,13 +78,18 @@ fun AppTopBar(
 }
 
 // Small pill showing the currently active profile, for example "ME Sarah".
+// Tap opens dietary restrictions for that profile (same as drawer edit/view).
 @Composable
-fun ActiveProfileChip(profile: DietaryProfile) {
+fun ActiveProfileChip(
+    profile: DietaryProfile,
+    onClick: () -> Unit = {},
+) {
     Row(
         modifier = Modifier
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(CardWhite)
+            .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

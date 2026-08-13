@@ -2,7 +2,7 @@
 
 ## 1. Overview
 The continuous integration and continuous deployment (CI/CD) architecture leverages **GitHub Actions** to automate the building, testing, security scanning, and deployment of the CanMakan full-stack application.
-The pipeline employs a monorepo strategy utilising **path-based filtering** and **concurrency controls** to independently route deployments for the Spring Boot backend, React web frontend, and Kotlin Android mobile application without executing unnecessary jobs.
+The pipeline employs a monorepo strategy utilising **path-based filtering** and **concurrency controls** to independently route deployments for the Spring Boot backend, React web frontend, and Kotlin Android mobile application without executing unnecessary jobs. It now features an integrated End-to-End (E2E) testing workflow to ensure web application stability prior to deployment.
 
 ## 2. Implemented Architecture
 ### A. Code Quality & Security (CI)
@@ -18,16 +18,30 @@ The pipeline employs a monorepo strategy utilising **path-based filtering** and 
 * Executes an SSH script to cleanly terminate the existing Java process running on port 8080.
 * Injects system environment variables (`/etc/environment`) and launches the new artefact in the background using `nohup`.
 
-### C. Frontend Deployments (`deploy-frontends.yml`)
-* **Web App (React/Vite $\rightarrow$ Firebase Hosting)**
-* **Trigger:** Push to `main` with changes in `client/web/**`.
-* **Build:** Configures Node.js 20, resolves dependencies, and executes `npm run build`. GitHub Variables (e.g., `VITE_API_BASE_URL`) are injected into the environment during build-time to replace Vite placeholders.
+### C. End-to-End Testing (E2E)
+* **Web App Testing (Playwright)**
+* **Trigger:** Push or Pull Request to `main` with changes in `client/web/**`.
+* **Execution:** Installs Node.js 24, resolves dependencies, caches Playwright browsers, and runs the E2E test suite (`npx playwright test`).
+* **Test Coverage:**
+* Authentication and Route Guarding: Unauthenticated users are redirected to login.
+* Authentication and Route Guarding: Valid credentials grant access to the portal.
+* Authentication and Route Guarding: Sign out clears the session and redirects to login.
+* Authentication and Route Guarding: Session persists across page reloads.
+* Verify responsiveness of CanMakan Web Navigation Elements.
+
+* **Reporting:** Uploads `playwright-report` as a GitHub artefact (retained for 30 days) for debugging.
+
+### D. Frontend Deployments (`deploy-frontends.yml`)
+* **Web App (React/Vite -> Firebase Hosting)**
+* **Trigger:** Successful completion of the "E2E Playwright Tests" workflow (`workflow_run`) with detected changes in `client/web/**`.
+* **Build:** Configures Node.js, resolves dependencies, and executes `npm run build`. GitHub Variables (e.g., `VITE_API_BASE_URL`) are injected into the environment during build-time to replace Vite placeholders.
 * **Deploy:** Pushes the compiled static `dist` folder to Firebase Hosting using the Firebase Extended action.
 
-* **Mobile App (Kotlin $\rightarrow$ Firebase App Distribution)**
-* **Trigger:** Push to `main` with changes in `client/mobile/**`.
+
+* **Mobile App (Kotlin -> Firebase App Distribution)**
+* **Trigger:** Successful workflow run with detected changes in `client/mobile/**`.
 * **Build:** Configures JDK 21 (Temurin), grants Gradle execution permissions, and assembles the release APK.
-* **Deploy:** Uploads the `app-release.apk` to Firebase App Distribution for the `qa-team` testing group.
+* **Deploy:** Shreds decoded keystore post-build for security, then uploads the `app-release.apk` to Firebase App Distribution for the `qa-team` testing group.
 
 ---
 
@@ -49,8 +63,9 @@ graph TD
     G --> H((Backend Live))
 
     %% Web Flow
-    B -->|client/web/**| I[Web Job]
-    I --> J[Setup Node.js 20]
+    B -->|client/web/**| W_E2E[E2E Playwright Tests Job]
+    W_E2E -->|On Success| I[Web Deploy Job]
+    I --> J[Setup Node.js]
     J --> K[Inject Env Vars]
     K --> L[Vite Build Static Assets]
     L --> M[Deploy via Firebase CLI]
@@ -68,10 +83,12 @@ graph TD
     classDef web fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#333;
     classDef mobile fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#333;
     classDef live fill:#fce4ec,stroke:#388e3c,stroke-width:2px,color:#333;
+    classDef testing fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#333;
 
     %% Class Assignments
     class C,D,E,F,G backend;
     class I,J,K,L,M web;
+    class W_E2E testing;
     class O,P,Q,R mobile;
     class H,N,T live;
 

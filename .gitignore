@@ -147,3 +147,7 @@ $RECYCLE.BIN/
 *~
 *.orig
 *.rej
+
+# Playwright
+playwright-report/
+test-results/

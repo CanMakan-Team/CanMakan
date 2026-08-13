@@ -16,7 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -51,7 +51,6 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.LightAmberBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightGreenBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightPurpleBackground
 import sg.edu.nus.iss.canmakan.shared.ui.theme.LightRedBackground
-import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.RulePurple
 import sg.edu.nus.iss.canmakan.shared.ui.theme.SurfaceMuted
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
@@ -111,7 +110,7 @@ fun ProductDetailScreen(
                     .padding(vertical = 12.dp)
                     .clickable(onClick = onBackClick)
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextSecondary)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextSecondary)
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("Back", color = TextSecondary)
             }
@@ -346,31 +345,20 @@ private fun AlternativesTab(
             )
         }
 
-        // Display each alternative as a separate box
+        // Alternatives are already filtered as safer options; no SAFE/WARNING/UNSAFE badges.
         alternatives.forEach { alternative ->
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 6.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(CardWhite)
                     .padding(14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(alternative.name, fontWeight = FontWeight.Bold)
-                    if (alternative.brand.isNotEmpty()) {
-                        Text(alternative.brand, color = TextSecondary)
-                    }
+                Text(alternative.name, fontWeight = FontWeight.Bold)
+                if (alternative.brand.isNotEmpty()) {
+                    Text(alternative.brand, color = TextSecondary)
                 }
-                Text(
-                    "SAFE",
-                    color = PrimaryGreen,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(LightGreenBackground)
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                )
             }
         }
     }

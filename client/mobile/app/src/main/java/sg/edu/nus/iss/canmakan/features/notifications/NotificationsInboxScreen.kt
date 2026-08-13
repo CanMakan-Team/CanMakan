@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.family.ui
+package sg.edu.nus.iss.canmakan.features.notifications
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -30,11 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
-import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
-import sg.edu.nus.iss.canmakan.shared.ui.ActiveProfileChip
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
@@ -43,12 +41,11 @@ import sg.edu.nus.iss.canmakan.shared.ui.CanMakanMascotPose
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 /**
- * Authenticated notifications inbox (top-bar bell).
+ * Account-wide notifications inbox (top-bar bell).
  * Currently lists family invitations; other notice types can share this screen later.
  */
 @Composable
-fun InvitationsScreen(
-    activeProfile: DietaryProfile?,
+fun NotificationsInboxScreen(
     hasFamily: Boolean = false,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
@@ -56,7 +53,7 @@ fun InvitationsScreen(
     onHistoryClick: () -> Unit,
     onBackClick: () -> Unit = {},
     onAccepted: () -> Unit = {},
-    viewModel: InvitationsViewModel = hiltViewModel(),
+    viewModel: NotificationsInboxViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val hasInvitations = uiState.invitations.isNotEmpty()
@@ -69,13 +66,10 @@ fun InvitationsScreen(
 
     Scaffold(
         topBar = {
-            Column {
-                AppTopBar(
-                    onMenuClick = onMenuClick,
-                    onNotificationsClick = onNotificationsClick,
-                )
-                activeProfile?.let { ActiveProfileChip(profile = it) }
-            }
+            AppTopBar(
+                onMenuClick = onMenuClick,
+                onNotificationsClick = onNotificationsClick,
+            )
         },
         bottomBar = {
             AppBottomNavBar(
@@ -100,7 +94,7 @@ fun InvitationsScreen(
                         .clickable { onBackClick() }
                         .padding(bottom = 12.dp),
                 ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Go back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Back")
                 }
@@ -152,7 +146,7 @@ fun InvitationsScreen(
                         items = uiState.invitations,
                         key = { it.invitationId },
                     ) { invitation ->
-                        InvitationCard(
+                        FamilyInvitationNotificationCard(
                             invitation = invitation,
                             isActing = uiState.actingToken == invitation.invitationToken,
                             onAccept = {
@@ -186,7 +180,7 @@ fun InvitationsScreen(
 }
 
 @Composable
-private fun InvitationCard(
+private fun FamilyInvitationNotificationCard(
     invitation: PendingInvitationResponse,
     isActing: Boolean,
     onAccept: () -> Unit,

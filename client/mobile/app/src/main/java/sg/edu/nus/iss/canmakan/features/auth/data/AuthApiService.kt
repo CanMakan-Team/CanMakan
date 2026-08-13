@@ -32,6 +32,7 @@ data class AuthenticatedUserResponse(
     @SerializedName("userId") val userId: Long?,
     @SerializedName("email") val email: String?,
     @SerializedName("role") val role: AuthRole?,
+    @SerializedName("name") val name: String? = null,
 )
 
 data class AuthResponse(

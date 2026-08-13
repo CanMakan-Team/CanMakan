@@ -180,14 +180,16 @@ class FamilyControllerTest {
                 "http://localhost:5173/invite/token",
                 com.canmakan.backend.family.model.InvitationStatus.PENDING,
                 java.time.Instant.parse("2026-01-01T00:00:00Z"),
-                false));
+                false,
+                true));
 
         mockMvc.perform(post("/api/families/me/invitations")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"new@example.com\"}"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.inviteCode").value("ABCD1234"))
-            .andExpect(jsonPath("$.inviteUrl").value("http://localhost:5173/invite/token"));
+            .andExpect(jsonPath("$.inviteUrl").value("http://localhost:5173/invite/token"))
+            .andExpect(jsonPath("$.emailSent").value(true));
     }
 
     @Test

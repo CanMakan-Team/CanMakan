@@ -561,7 +561,7 @@ UC19 (JWT shipped for family routes) · UC18 (register new users to demo empty-s
 
 - **Product:** Invite via **shareable link/code** on **both** clients; mobile uses native share. Dependant-create API + web-primary dependant UI (mobile optional path also live). Unknown emails are valid invite targets. Registration preserves the token for an authenticated post-login claim (no UC10 inbox required for the happy path).
 - **Web:** `LinkExistingUserModal` creates PENDING invites (copy link/code; optional mailto). `CreateFamilyProfileModal` posts live dependant profiles. `/invite/:token` → register/login + claim. `FamilyMembersPage` lists via live `GET /api/families/me/members`. Silent `members/link` removed from live `familyApiService`.
-- **Mobile:** `AddProfileToFamilyScreen` + share (`canmakan://invite/{token}` + web URL); manifest VIEW intent-filters + `singleTop`; invite landing offers register **or** sign-in; login claims `POST .../invitations/claim`; already-authed deep links claim via `PendingInvitationStore`. `CreateNewProfileScreen` posts live dependant profiles. Drawer manage CTAs when `PRIMARY_ADMIN`.
+- **Mobile:** Drawer **Manage family** → `ManageFamilyScreen` branches to `InviteFamilyMemberScreen` (share `canmakan://invite/{token}` + web URL) or `CreateDependantProfileScreen` (dependant profiles). Manifest VIEW intent-filters + `singleTop`; invite landing offers register **or** sign-in; login claims `POST .../invitations/claim`; already-authed deep links claim via `PendingInvitationStore`. Manage CTAs when `PRIMARY_ADMIN`.
 - **Backend:** Spring Data repos; invite/claim/dependant; `GET /api/families/me/members` roster (linked + dependants).
 - **Gaps (residual):** Web UC10 inbox (optional by design).
 - **Out of this epic:** UC12 manage mutations.
@@ -615,7 +615,7 @@ UC19, UC8, UC1 · Related: UC10
 **Current code state:** Complete (MVP ACs) — **UC10-S1–S4 shipped** (inbox list/accept/decline + Resend optional; web inbox still optional residual)
 
 - **Backend:** `GET /api/invitations/me`, `POST /api/invitations/{token}/accept|decline`; claim path aligned (403 mismatch, 410 expired, 409 final/already-in-family). Optional Resend email on invite create when configured.
-- **Mobile:** Top-bar **Notifications** → `InvitationsScreen` (loading/empty/error; Accept/Decline). UC9 deep-link claim remains.
+- **Mobile:** Top-bar **Notifications** → `NotificationsInboxScreen` (loading/empty/error; Accept/Decline). UC9 deep-link claim remains.
 - **Web:** `/invite/:token` claim path remains; full inbox UI still optional.
 - **Workflow:** Invite → join diagram and path table in [`docs/api/families.md`](../api/families.md#invite--join-workflow-uc9--uc10).
 - **Out of this epic:** Creating invitations (UC9); web inbox parity.
@@ -631,7 +631,7 @@ As an invited app user, I want to accept or decline a family invitation on mobil
 ### Acceptance criteria
 
 | Done | # | Criterion |
-| --- | --- | --- |
+| --- | --- | --- | 
 | [x] | 1 | Authenticated invitee can list pending invitations for their account/email (GET /api/invitations/me). |
 | [x] | 2 | Each pending invitation displays family information needed to decide. |
 | [x] | 3 | Accepting a valid PENDING invitation adds the user as MEMBER and links/creates their dietary profile in that family. |

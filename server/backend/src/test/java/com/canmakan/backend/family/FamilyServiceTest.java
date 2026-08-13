@@ -90,6 +90,7 @@ class FamilyServiceTest {
     @Mock
     private ScanRepository scanRepository;
 
+    private InvitationEmailService invitationEmailService;
     private FamilyService familyService;
 
     @BeforeEach
@@ -97,7 +98,7 @@ class FamilyServiceTest {
         InviteProperties inviteProperties = new InviteProperties();
         inviteProperties.setPublicBaseUrl("http://localhost:5173");
         inviteProperties.setExpiryDays(7);
-        InvitationEmailService invitationEmailService = org.mockito.Mockito.mock(InvitationEmailService.class);
+        invitationEmailService = org.mockito.Mockito.mock(InvitationEmailService.class);
         FamilyAuthorizationService familyAuthorization = new FamilyAuthorizationService(
             familyMemberRepository,
             dietaryProfileRepository
@@ -329,12 +330,15 @@ class FamilyServiceTest {
         family.setId(1L);
         family.setFamilyName("Host Family");
         when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(invitationEmailService.sendInvitationEmail(eq("Host Family"), any(InvitationResponse.class)))
+            .thenReturn(true);
 
         InvitationResponse response = familyService.createInvitation(
             10L, new CreateInvitationRequest("new@example.com"));
 
         assertEquals(88L, response.invitationId());
         assertFalse(response.inviteeRegistered());
+        assertTrue(response.emailSent());
         assertTrue(response.inviteUrl().startsWith("http://localhost:5173/invite/"));
         assertEquals(8, response.inviteCode().length());
         assertEquals(InvitationStatus.PENDING, response.status());

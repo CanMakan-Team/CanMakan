@@ -38,10 +38,38 @@ export function FamilyRestrictionSummaryPage() {
   }, [data])
 
   const columns = useMemo(() => {
-    const allRestrictions = activeMembers.flatMap((m) =>
-      m.restrictions.map((r) => r.displayName)
-    )
-    return Array.from(new Set(allRestrictions))
+    const dairyFamilyCodes = new Set([
+      'DAIRY',
+      'LACTOSE_INTOLERANT',
+      'DAIRY_FREE',
+      'LACTOSE',
+    ])
+    const seen = new Set<string>()
+    const result: Array<{ key: string; label: string; matchCodes: Set<string> }> = []
+
+    for (const member of activeMembers) {
+      for (const restriction of member.restrictions) {
+        const code = restriction.code.trim().toUpperCase()
+        if (dairyFamilyCodes.has(code)) {
+          if (seen.has('DAIRY_FAMILY')) continue
+          seen.add('DAIRY_FAMILY')
+          result.push({
+            key: 'DAIRY_FAMILY',
+            label: 'Lactose Intolerance',
+            matchCodes: dairyFamilyCodes,
+          })
+          continue
+        }
+        if (seen.has(code)) continue
+        seen.add(code)
+        result.push({
+          key: code,
+          label: restriction.displayName,
+          matchCodes: new Set([code]),
+        })
+      }
+    }
+    return result
   }, [activeMembers])
 
   return (
@@ -79,9 +107,9 @@ export function FamilyRestrictionSummaryPage() {
               <thead>
                 <tr>
                   <th scope="col">Family member</th>
-                  {columns.map((colName) => (
-                    <th scope="col" key={colName}>
-                      {colName}
+                  {columns.map((column) => (
+                    <th scope="col" key={column.key}>
+                      {column.label}
                     </th>
                   ))}
                 </tr>
@@ -90,16 +118,18 @@ export function FamilyRestrictionSummaryPage() {
                 {activeMembers.map((member) => (
                   <tr key={member.profileId ?? member.userId}>
                     <th scope="row">{member.name}</th>
-                    {columns.map((colName) => {
+                    {columns.map((column) => {
                       // Any restriction present on the dietary profile counts as
                       // selected for this column; the grid does not grade by
                       // severity, it only reports what the profile has chosen.
-                      const isSelected = member.restrictions.some(
-                        (r) => r.displayName === colName
+                      // Lactose-family codes share one column because
+                      // the backend treats those codes as dairy-family aliases.
+                      const isSelected = member.restrictions.some((r) =>
+                        column.matchCodes.has(r.code.trim().toUpperCase())
                       )
 
                       return (
-                        <td key={colName}>
+                        <td key={column.key}>
                           {isSelected ? (
                             <StatusBadge status="SELECTED" />
                           ) : (

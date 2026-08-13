@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 data class PendingDietaryOnboarding(
     val accountEmail: String,
+    val accountName: String? = null,
     val requestId: Long,
 )
 
@@ -26,11 +27,12 @@ class PendingOnboardingStore @Inject constructor() {
         _dietaryOnboarding.asStateFlow()
 
     @Synchronized
-    fun requestDietarySetup(accountEmail: String) {
+    fun requestDietarySetup(accountEmail: String, accountName: String? = null) {
         val normalizedEmail = normalizeEmail(accountEmail)
         require(normalizedEmail.isNotEmpty()) { "Pending onboarding requires an account email." }
         _dietaryOnboarding.value = PendingDietaryOnboarding(
             accountEmail = normalizedEmail,
+            accountName = accountName?.trim()?.takeIf { it.isNotEmpty() },
             requestId = nextRequestId++,
         )
     }

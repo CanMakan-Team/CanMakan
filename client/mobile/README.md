@@ -93,8 +93,10 @@ example, supply the deployment-managed value without storing it in the project:
 .\gradlew.bat :app:assembleRelease "-PBASE_URL=$env:CANMAKAN_RELEASE_API_URL"
 ```
 
-Release configuration fails closed when the value is missing, malformed, uses
-HTTP, or lacks the Retrofit-required trailing slash.
+`assembleRelease` / `bundleRelease` fail closed when the value is missing,
+malformed, uses HTTP, or lacks the Retrofit-required trailing slash. Unit tests
+do not require a release HTTPS URL; they still use your local `BASE_URL` for
+debug.
 See `local.properties.example`. The backend listens on `0.0.0.0:8080` so the
 debug build can reach emulator (`10.0.2.2`) and LAN endpoints. Native Retrofit
 does not use browser CORS. The main/release network-security configuration

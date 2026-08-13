@@ -70,7 +70,12 @@ val validateReleaseBaseUrlTask = tasks.register("validateReleaseBaseUrl") {
     }
 }
 
-tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+// Keep validation on shipping tasks only. Unit tests depend on release manifest/
+// resource packaging (UC19 transport checks) and must tolerate a local HTTP
+// BASE_URL used by the debug build.
+tasks.matching { task ->
+    task.name == "assembleRelease" || task.name == "bundleRelease"
+}.configureEach {
     dependsOn(validateReleaseBaseUrlTask)
 }
 
@@ -92,8 +97,20 @@ extensions.configure<ApplicationExtension> {
         applicationId = "sg.edu.nus.iss.canmakan"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+
+        // CMK-55 Dynamically Assign Versioning from CI/CD, Falling Back to Local Defaults
+        versionCode = if (project.hasProperty("versionCode")) {
+            project.property("versionCode").toString().toIntOrNull() ?: 1
+        } else {
+            1
+        }
+
+        versionName = if (project.hasProperty("versionName")) {
+            project.property("versionName").toString()
+        } else {
+            "1.0.0-dev"
+        }
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         vectorDrawables {
@@ -151,10 +168,11 @@ extensions.configure<ApplicationExtension> {
 }
 
 kotlin {
-    jvmToolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
-        vendor.set(JvmVendorSpec.AMAZON)
-    }
+    // jvmToolchain {
+    //     languageVersion.set(JavaLanguageVersion.of(21))
+    //     vendor.set(JvmVendorSpec.AMAZON)
+    // }
+    jvmToolchain(21)
 }
 
 dependencies {

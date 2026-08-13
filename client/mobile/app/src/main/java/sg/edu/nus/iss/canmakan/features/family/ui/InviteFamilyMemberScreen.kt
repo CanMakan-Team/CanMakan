@@ -1,58 +1,70 @@
 package sg.edu.nus.iss.canmakan.features.family.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
+import sg.edu.nus.iss.canmakan.shared.ui.theme.AvoidRed
+import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
 import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
-/**
- * UC8: create a family circle when the user has none.
- * Only shown when membership is missing; requires a persisted user session.
- */
+/** UC9: invite someone who will join with their own CanMakan account. */
 @Composable
-fun CreateFamilyCircleScreen(
-    isSubmitting: Boolean,
-    errorMessage: String?,
+fun InviteFamilyMemberScreen(
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
-    onBackClick: () -> Unit,
-    onCreateClick: (familyName: String) -> Unit,
+    onBackClick: () -> Unit = {},
+    onCancelClick: () -> Unit = {},
+    onInviteCreated: () -> Unit = {},
+    viewModel: InviteFamilyMemberViewModel = hiltViewModel(),
 ) {
-    var familyName by remember { mutableStateOf("") }
-    var validationError by remember { mutableStateOf<String?>(null) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    LaunchedEffect(uiState.inviteSucceeded) {
+        if (!uiState.inviteSucceeded) return@LaunchedEffect
+        val message = if (uiState.emailSent) {
+            "Invitation sent."
+        } else {
+            "Invitation created, but the email could not be sent."
+        }
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        viewModel.consumeInviteResult()
+        onInviteCreated()
+    }
 
     Scaffold(
         topBar = {
@@ -71,15 +83,15 @@ fun CreateFamilyCircleScreen(
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(20.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .clickable(enabled = !isSubmitting, onClick = onBackClick)
+                    .clickable { onBackClick() }
                     .padding(bottom = 24.dp),
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
@@ -88,67 +100,67 @@ fun CreateFamilyCircleScreen(
             }
 
             Text(
-                text = "Create family circle",
+                text = "Invite to family",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Choose a name to become the Family Admin. You can invite others later on the web.",
+                text = "Enter their email to send an invitation.",
                 color = TextSecondary,
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text("Family name", fontWeight = FontWeight.Medium)
+            InviteFormLabel(text = "Email address", isRequired = true)
             Spacer(modifier = Modifier.height(6.dp))
             OutlinedTextField(
-                value = familyName,
-                onValueChange = {
-                    familyName = it
-                    validationError = null
-                },
-                placeholder = { Text("e.g. Wong Family") },
+                value = uiState.email,
+                onValueChange = viewModel::updateEmail,
+                placeholder = { Text("e.g. member@example.com") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                enabled = !isSubmitting,
-                isError = validationError != null || errorMessage != null,
-                supportingText = {
-                    val message = validationError ?: errorMessage
-                    if (message != null) {
-                        Text(message, color = MaterialTheme.colorScheme.error)
-                    }
-                },
+                enabled = !uiState.isInviting,
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Button(
-                onClick = {
-                    val trimmed = familyName.trim()
-                    when {
-                        trimmed.isEmpty() -> validationError = "Family name is required."
-                        trimmed.length > 100 ->
-                            validationError = "Family name must be at most 100 characters."
-                        else -> {
-                            validationError = null
-                            onCreateClick(trimmed)
-                        }
-                    }
-                },
-                enabled = !isSubmitting,
+            Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                if (isSubmitting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Text("Create family circle")
+                OutlinedButton(
+                    onClick = onCancelClick,
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isInviting,
+                ) {
+                    Text("Cancel")
+                }
+                Button(
+                    onClick = { viewModel.invite() },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isInviting,
+                ) {
+                    Text(if (uiState.isInviting) "Inviting…" else "Invite")
                 }
             }
+
+            uiState.errorMessage?.let { message ->
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(text = message, color = AvoidRed)
+            }
+        }
+    }
+}
+
+@Composable
+private fun InviteFormLabel(text: String, isRequired: Boolean) {
+    Row {
+        Text(text = text, fontWeight = FontWeight.Medium)
+        if (isRequired) {
+            Spacer(modifier = Modifier.width(2.dp))
+            Text(text = "*", color = AvoidRed)
         }
     }
 }

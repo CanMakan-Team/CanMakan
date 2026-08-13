@@ -7,6 +7,7 @@ import retrofit2.http.Headers
 import retrofit2.http.POST
 
 data class RegistrationRequest(
+    @SerializedName("name") val name: String,
     @SerializedName("email") val email: String,
     @SerializedName("password") val password: String,
 ) {
