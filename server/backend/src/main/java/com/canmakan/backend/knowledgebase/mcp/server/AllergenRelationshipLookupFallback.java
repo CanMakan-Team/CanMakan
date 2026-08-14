@@ -10,7 +10,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -29,8 +28,8 @@ import java.util.stream.Collectors;
 public class AllergenRelationshipLookupFallback {
 
     private static final Duration TAVILY_TIMEOUT = Duration.ofSeconds(10);
-    /** Upper bound on external calls per scan now that calls scale with ingredient count. */
-    private static final int MAX_EXTERNAL_LOOKUPS = 5;
+    /** Upper bound on unresolved names included in the single Tavily query. */
+    private static final int MAX_EXTERNAL_INGREDIENTS = 8;
     /** Tavily returns HTTP 432 when the account's plan usage quota is exhausted. */
     private static final int TAVILY_PLAN_LIMIT_STATUS = 432;
 
@@ -51,11 +50,11 @@ public class AllergenRelationshipLookupFallback {
         this.tavilyUrl = tavilyUrl;
     }
 
-
-// private String tavilyApiKey;
-// private String tavilyUrl;
     /**
      * Resolve parent/root allergens by querying an external search tool.
+     *
+     * Issues one Tavily search covering the unresolved list (capped). The returned
+     * text is grounding for structured mapping, not a verdict.
      *
      * @param ingredients the queried ingredients from the scanned product label
      * @return a human-readable fallback description, or {@code ""} when unavailable
@@ -65,7 +64,6 @@ public class AllergenRelationshipLookupFallback {
             return "";
         }
 
-        // Normalize the ingredients list by trimming and removing duplicates
         List<String> normalized = IngredientLabelParser.normalize(ingredients).stream()
             .distinct()
             .collect(Collectors.toList());
@@ -75,7 +73,7 @@ public class AllergenRelationshipLookupFallback {
         }
 
         if (!isConfiguredApiKey(tavilyApiKey)) {
-            log.debug("Tavily API key not configured; skipping external allergen lookup");
+            log.info("Tavily API key not configured; skipping external allergen lookup");
             return "";
         }
 
@@ -89,37 +87,29 @@ public class AllergenRelationshipLookupFallback {
             return "";
         }
 
-        // A search API cannot follow a strict 'Name -> ROOT_CODE' instruction, and one answer
-        // cannot cover many ingredients, so issue one natural-language search per ingredient.
-        // Capped by MAX_EXTERNAL_LOOKUPS to bound credit use now that calls scale with count.
-        List<String> lines = new ArrayList<>();
-        int lookups = 0;
-        for (String ingredient : normalized) {
-            if (lookups >= MAX_EXTERNAL_LOOKUPS) {
-                break;
-            }
-            lookups++;
-            String answer = searchOne(ingredient);
-            if (tavilyPlanLimitReached) {
-                break;
-            }
-            if (answer != null && !answer.isBlank()) {
-                // One line per ingredient; flatten newlines so the per-ingredient structure holds.
-                lines.add(ingredient + ": " + answer.replaceAll("\\s+", " ").trim());
-            }
+        List<String> capped = normalized.size() > MAX_EXTERNAL_INGREDIENTS
+            ? List.copyOf(normalized.subList(0, MAX_EXTERNAL_INGREDIENTS))
+            : List.copyOf(normalized);
+        if (normalized.size() > MAX_EXTERNAL_INGREDIENTS) {
+            log.info(
+                "Tavily lookup capped unresolved ingredients from {} to {}",
+                normalized.size(),
+                MAX_EXTERNAL_INGREDIENTS);
         }
-        return String.join("\n", lines);
+
+        return searchOnce(capped);
     }
 
     /**
-     * Runs a single Tavily search for one ingredient. Returns the answer text, or {@code ""} on any
-     * failure or empty answer, so a failed lookup contributes nothing to the summary.
+     * One Tavily search for the capped unresolved list. Returns grounding text
+     * (answer plus a few source snippets), or {@code ""} on failure.
      */
-    private String searchOne(String ingredient) {
+    private String searchOnce(List<String> ingredients) {
+        log.info("Calling Tavily search for {} unresolved ingredient(s): {}", ingredients.size(), ingredients);
         try {
             Map<String, Object> requestBody = Map.of(
                 "api_key", tavilyApiKey,
-                "query", buildSearchQuery(ingredient),
+                "query", buildSearchQuery(ingredients),
                 "search_depth", "basic",
                 "include_answer", true,
                 "max_results", 5
@@ -133,14 +123,19 @@ public class AllergenRelationshipLookupFallback {
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                 .block(TAVILY_TIMEOUT);
 
-            return extractAnswer(response);
+            String grounding = extractGrounding(response);
+            log.info(
+                "Tavily search returned {} character(s) of grounding text for ingredients {}",
+                grounding.length(),
+                ingredients);
+            return grounding;
         } catch (WebClientResponseException e) {
             if (e.getStatusCode().value() == TAVILY_PLAN_LIMIT_STATUS) {
                 tavilyPlanLimitReached = true;
                 log.warn("Tavily plan limit exceeded (HTTP 432); skipping remaining lookups");
                 return "";
             }
-            log.warn("Tavily search failed for ingredient {}: {}", ingredient, e.getMessage());
+            log.warn("Tavily search failed for ingredients {}: {}", ingredients, e.getMessage());
             return "";
         } catch (Exception e) {
             if (isPlanLimitFailure(e)) {
@@ -148,7 +143,7 @@ public class AllergenRelationshipLookupFallback {
                 log.warn("Tavily plan limit exceeded (HTTP 432); skipping remaining lookups");
                 return "";
             }
-            log.warn("Tavily search failed for ingredient {}: {}", ingredient, e.getMessage());
+            log.warn("Tavily search failed for ingredients {}: {}", ingredients, e.getMessage());
             return "";
         }
     }
@@ -168,8 +163,11 @@ public class AllergenRelationshipLookupFallback {
             return "";
         }
 
+        String trimmedName = productName.trim();
+        log.info("Calling Tavily product-name allergen lookup for \"{}\"", trimmedName);
+
         String query = "List the common food allergens present in the product \""
-            + productName.trim() + "\". Reply with only root codes from this set: "
+            + trimmedName + "\". Reply with only root codes from this set: "
             + "DAIRY, GLUTEN, PEANUT, TREE_NUT, FISH, SHELLFISH, EGG, SOY, SESAME. "
             + "If none are known, reply NONE.";
 
@@ -191,7 +189,12 @@ public class AllergenRelationshipLookupFallback {
                 .block(TAVILY_TIMEOUT);
 
             Object answer = response == null ? null : response.get("answer");
-            return answer == null ? "" : answer.toString().trim();
+            String text = answer == null ? "" : answer.toString().trim();
+            log.info(
+                "Tavily product-name lookup for \"{}\" returned {} character(s)",
+                trimmedName,
+                text.length());
+            return text;
         } catch (WebClientResponseException e) {
             if (e.getStatusCode().value() == TAVILY_PLAN_LIMIT_STATUS) {
                 tavilyPlanLimitReached = true;
@@ -222,10 +225,6 @@ public class AllergenRelationshipLookupFallback {
         return searchExternal(IngredientLabelParser.split(ingredientText));
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
-
     private static boolean isPlanLimitFailure(Throwable error) {
         Throwable current = error;
         while (current != null) {
@@ -248,19 +247,63 @@ public class AllergenRelationshipLookupFallback {
             && !"local-dev-placeholder".equals(apiKey);
     }
 
-    // Natural-language allergen question for one ingredient (a search API answers prose, not codes).
-    private String buildSearchQuery(String ingredient) {
-        return "is " + ingredient + " derived from milk, gluten, wheat, peanut, tree nuts, "
-            + "egg, soy, fish, shellfish or sesame";
+    private String buildSearchQuery(List<String> ingredients) {
+        return "Food allergen derivation for these ingredients: "
+            + String.join(", ", ingredients)
+            + ". For each ingredient, say whether it comes from milk, gluten, wheat, peanut, "
+            + "tree nuts, egg, soy, fish, shellfish or sesame. If unknown, say unknown.";
     }
 
-    // Parse only Tavily's answer field. Raw result snippets contain arbitrary allergen words and are
-    // a false-positive source, so they are ignored; an absent answer contributes nothing.
-    private String extractAnswer(Map<String, Object> response) {
+    /**
+     * Prefer Tavily's answer, then a few result snippets so the structured mapper has
+     * grounded text. An empty payload contributes nothing.
+     */
+    private String extractGrounding(Map<String, Object> response) {
         if (response == null) {
             return "";
         }
+
+        String answer = extractAnswer(response);
+        String sources = extractSources(response);
+        if (answer.isBlank()) {
+            return sources;
+        }
+        if (sources.isBlank()) {
+            return answer;
+        }
+        return "Answer:\n" + answer + "\n\nSources:\n" + sources;
+    }
+
+    private String extractAnswer(Map<String, Object> response) {
         Object answer = response.get("answer");
         return answer == null ? "" : answer.toString().trim();
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractSources(Map<String, Object> response) {
+        Object resultsObj = response.get("results");
+        if (!(resultsObj instanceof List<?> rawResults) || rawResults.isEmpty()) {
+            return "";
+        }
+        return rawResults.stream()
+            .limit(3)
+            .filter(Map.class::isInstance)
+            .map(row -> (Map<String, Object>) row)
+            .map(row -> {
+                String title = String.valueOf(row.getOrDefault("title", "")).trim();
+                String content = String.valueOf(row.getOrDefault("content", "")).trim();
+                if (title.isEmpty() && content.isEmpty()) {
+                    return "";
+                }
+                if (title.isEmpty()) {
+                    return content;
+                }
+                if (content.isEmpty()) {
+                    return title;
+                }
+                return title + ": " + content;
+            })
+            .filter(line -> !line.isBlank())
+            .collect(Collectors.joining("\n"));
     }
 }

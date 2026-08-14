@@ -27,4 +27,13 @@ class LlmChatClientConfigTest {
 
         assertNotNull(client);
     }
+
+    @Test
+    void buildsAllergenMatchChatClientWithoutTools() {
+        ChatModel chatModel = mock(ChatModel.class);
+
+        ChatClient client = new LlmChatClientConfig().allergenMatchChatClient(chatModel);
+
+        assertNotNull(client);
+    }
 }

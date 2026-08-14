@@ -544,6 +544,30 @@ class DietaryKnowledgeToolsTest {
         assertThat(calls.get()).isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("UC3 BE14: One Tavily call covers several unresolved ingredients")
+    void oneTavilyCallCoversSeveralUnresolvedIngredients() {
+        AtomicInteger calls = new AtomicInteger();
+        ExchangeFunction exchangeFunction = request -> {
+            calls.incrementAndGet();
+            return Mono.just(
+                ClientResponse.create(HttpStatus.OK)
+                    .header("Content-Type", "application/json")
+                    .body("{\"answer\":\"Casein is a milk protein. Inulin is a fibre.\"}")
+                    .build());
+        };
+        WebClient.Builder builder = WebClient.builder().exchangeFunction(exchangeFunction);
+        AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
+                builder,
+                "tvly-test-key",
+                "https://api.tavily.com/search");
+
+        String summary = fallback.searchExternal(List.of("Casein", "Inulin", "mystery-fiber"));
+
+        assertThat(summary).contains("Casein is a milk protein");
+        assertThat(calls.get()).isEqualTo(1);
+    }
+
     private static Map<String, DietaryRestriction> seedRestrictions() {
         Map<String, DietaryRestriction> byCode = new LinkedHashMap<>();
         addRestriction(byCode, 1L, "GLUTEN", "Gluten Intolerance", "ALLERGEN",

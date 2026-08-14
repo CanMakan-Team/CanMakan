@@ -12,8 +12,10 @@
 CanMakan’s assess path uses a **hybrid MCP-style agent**:
 
 1. **Tier 1** — deterministic `DietaryRuleEngine` calls dietary knowledge tools in a fixed order.
-2. **Tier 3** (optional) — on WARNING escalation with AI enabled, an LLM `ChatClient` may call the **same five tools** autonomously, then returns **evidence only**.
-3. The **rule engine always owns** SAFE / WARNING / UNSAFE. The LLM never emits the final verdict.
+2. **Tier 3** (optional) — on WARNING escalation with AI enabled, the **evidence** `ChatClient` (`LlmClient`) may call the **same five tools** autonomously, then returns **evidence only**.
+3. The **rule engine always owns** SAFE / WARNING / UNSAFE. No ChatClient emits the final verdict.
+
+Unresolved OFF labels in `allergen_relationship_lookup` use a **retrieve-then-structure** fallback: one Tavily search, then a **second, tool-free** `ChatClient` that maps that text to JSON. That mapper is the same LLM (`ChatModel`) as Tier 3, not a different product, and is **not** `LlmClient` (see [External allergen fallback](#external-allergen-fallback)).
 
 Tools are **in-process Spring beans** (not a remote MCP protocol client).
 
@@ -61,11 +63,13 @@ flowchart TB
     DietRule[dietary_rule_lookup]
     Cross[cross_contamination_analysis]
     Repo[DietaryKnowledgeRepository / DB]
-    Tavily[Tavily fallback optional]
+    Tavily[Tavily one search]
+    MapJson[ExternalAllergenMatchMapper]
   end
 
   subgraph ai [ai/llm]
-    ChatCfg[LlmChatClientConfig system + defaultTools]
+    ChatCfg[dietaryEvidenceChatClient + tools]
+    MatchClient[allergenMatchChatClient no tools]
     ChatModel[Spring AI ChatModel]
   end
 
@@ -82,6 +86,9 @@ flowchart TB
   McpClient --> Hier
   McpClient --> ENum
   Hier --> Tavily
+  Tavily --> MapJson
+  MapJson --> MatchClient
+  MatchClient --> ChatModel
   Tier1 --> Cross
   Alias --> Repo
   Hier --> Repo
@@ -148,7 +155,7 @@ flowchart TB
 
 | Piece | Behavior |
 |-------|----------|
-| `LlmChatClientConfig` | `defaultSystem` (must end with JSON text, no verdict) + `defaultTools` (five knowledge tools) |
+| `dietaryEvidenceChatClient` | `defaultSystem` (must end with JSON text, no verdict) + `defaultTools` (five knowledge tools) |
 | `PromptBuilder` | `canmakan-evidence-v4`: tool-use rules, `tracesTags`, `FINAL_OUTPUT` (no tool-only empty turn) |
 | `LlmClient` | Tool loop → if blank content, log diagnostics and **retry once** → prefer `ChatClient.entity(EvidencePayload)` → fall back to manual JSON parse |
 | Failure modes | AI disabled; provider error; blank after retry; invalid JSON / schema → orchestrator keeps Tier-1 WARNING |
@@ -161,9 +168,9 @@ flowchart TB
 
 | Package | Owns |
 |---------|------|
-| `knowledgebase` / `knowledgebase/mcp` | Ingredient aliases, E-numbers, allergen hierarchy, dietary rules, cross-contam tools + client |
-| `ai` / `ai/llm` | Prompt building, ChatClient tool agent, structured evidence parse/audit |
-| `product` | Scan/assess orchestration, verdict engine, persistence |
+| `knowledgebase` / `knowledgebase/mcp` | Ingredient aliases, E-numbers, allergen hierarchy, dietary rules, cross-contam tools + client, Tavily retrieve + JSON map |
+| `ai` / `ai/llm` | Prompt building, two ChatClient beans (evidence agent + allergen JSON mapper), structured evidence parse/audit |
+| `product` | Scan/assess orchestration, verdict engine, persistence, product-name Tavily last resort |
 
 MCP lives under **knowledgebase** because the tools expose domain knowledge, not AI plumbing.
 
@@ -174,12 +181,53 @@ MCP lives under **knowledgebase** because the tools expose domain knowledge, not
 | Tool name | Role |
 |-----------|------|
 | `ingredient_alias_lookup` | Synonyms / catalog roots |
-| `allergen_relationship_lookup` | Parent → root hierarchy (+ optional Tavily) |
+| `allergen_relationship_lookup` | Parent → root hierarchy (+ Tavily retrieve, then JSON map) |
 | `e_number_lookup` | Additive metadata / animal-derived / root |
 | `dietary_rule_lookup` | Restriction definition gate (drop UNKNOWN) |
 | `cross_contamination_analysis` | May-contain phrases + OFF `traces_tags` |
 
-> The `allergen_relationship_lookup` Tavily fallback (active only when a real API key is configured) now issues one capped natural-language search per unresolved ingredient (`MAX_EXTERNAL_LOOKUPS = 5`) and parses only each response's `answer` field; a failed or empty answer contributes nothing. Ingredient labels are split on commas outside parentheses, and a Tavily HTTP 432 (plan limit) stops further lookups until the process restarts.
+---
+
+## External allergen fallback
+
+Open Food Facts labels are often messy, so many names miss the local catalog. The hierarchy tool does **not** issue one Tavily call per name (search APIs do not return attributable JSON). It also does **not** call `LlmClient`: that bean is the Tier-3 tool-calling agent and already has this tool registered.
+
+```mermaid
+flowchart LR
+  Labels[Unresolved names] --> Cap[Cap at 8]
+  Cap --> Tv[One Tavily search]
+  Tv -->|empty| Skip[No ChatClient]
+  Tv -->|answer plus snippets| Gate{CANMAKAN_AI_ENABLED?}
+  Gate -->|yes| Map[allergenMatchChatClient JSON]
+  Gate -->|no or LLM fail| Rx[ExternalAllergenMatchParser]
+  Map --> Rows[externalMatches]
+  Rx --> Rows
+  Skip --> Empty[empty matches]
+```
+
+| Step | Class | Behavior |
+|------|--------|----------|
+| Retrieve | `AllergenRelationshipLookupFallback` | One Tavily query for the unresolved list (max 8). Returns answer + a few result snippets, or `""`. HTTP 432 stops further Tavily calls until process restart. Placeholder key / missing `WebClient` → skip. |
+| Structure | `ExternalAllergenMatchMapper` | If AI is on and search text is non-blank, `allergenMatchChatClient` maps to `{ingredient, rootAllergen}` (`ExternalAllergenMatchPayload`). Rows must match the unresolved list; unknown roots are dropped. |
+| Offline map | `ExternalAllergenMatchParser` | Used when AI is off, the ChatClient fails, or JSON is empty. Regex / prose window on the same Tavily text. |
+| Product name | `ProductNameAllergenLookup` | Separate last resort when the barcode has **no usable ingredient list**. Still Tavily; must not be used to certify SAFE. |
+
+`allergenMatchChatClient` is a **tool-free** Spring AI `ChatClient` on the **same** `ChatModel` as Tier 3. It only structures search text; it must not invent mappings when Tavily returned nothing.
+
+`ExternalAllergenMatchMapper` injects that client via `ObjectProvider` (bean is also `@Lazy`) so creation order is: tools → `ChatModel` → match client. A direct `ChatClient` constructor dependency closed a cycle (`ChatModel` → tool callbacks → mapper → ChatClient → `ChatModel`).
+
+Ingredient labels are split on commas **outside** parentheses (`IngredientLabelParser`) before local lookup and fallback.
+
+---
+
+## Two ChatClient beans
+
+| Bean | Used by | Tools? | Job |
+|------|---------|--------|-----|
+| `dietaryEvidenceChatClient` | `LlmClient` (Tier 3 only) | Yes — all five knowledge tools | Evidence JSON after a tool loop |
+| `allergenMatchChatClient` | `ExternalAllergenMatchMapper` (inside the hierarchy tool) | **No** | `{ingredient, rootAllergen}` from Tavily text |
+
+Do not wire the mapper to `LlmClient`: the evidence agent could recurse into `allergen_relationship_lookup`, would run the wrong schema, and would skip mapping unless a WARNING escalation happens.
 
 ---
 
@@ -196,7 +244,7 @@ flowchart LR
   end
 
   subgraph tier3 [Tier 3 agent]
-    LLM[ChatClient]
+    LLM[dietaryEvidenceChatClient]
     Tools2[Same five Tool beans]
     LLM -->|"model chooses tools"| Tools2
     LLM -->|resolvedIngredients JSON| Eng2[DietaryRuleEngine]
@@ -205,8 +253,8 @@ flowchart LR
 
 | Path | How tools run |
 |------|----------------|
-| Tier 1 | Fixed pipeline via `DietaryKnowledgeMcpClient` |
-| Tier 3 | LLM tool loop via `ChatClient.defaultSystem(...)` + `defaultTools(...)` |
+| Tier 1 | Fixed pipeline via `DietaryKnowledgeMcpClient` (hierarchy tool may Tavily + map JSON) |
+| Tier 3 | LLM tool loop via `dietaryEvidenceChatClient` (`defaultSystem` + `defaultTools`) |
 
 ---
 
@@ -214,11 +262,12 @@ flowchart LR
 
 | Component | Responsibility |
 |-----------|----------------|
-| LLM agent | Evidence only: `resolvedIngredients`, `analysisNotes` (`EvidencePayload`) |
+| LLM evidence agent (`LlmClient`) | Evidence only: `resolvedIngredients`, `analysisNotes` (`EvidencePayload`) |
+| Allergen match ChatClient | Structured roots from Tavily text only (`ExternalAllergenMatchPayload`) |
 | `DietaryRuleEngine` | Final SAFE / WARNING / UNSAFE + findings |
 | Mobile | Displays API verdict / flags |
 
-Prompt and system message explicitly forbid outputting SAFE, WARNING, or UNSAFE.
+Prompt and system messages explicitly forbid outputting SAFE, WARNING, or UNSAFE.
 
 ---
 
@@ -240,9 +289,9 @@ $env:CANMAKAN_AI_ENABLED = "true"
 .\mvnw.cmd spring-boot:run
 ```
 
-From `server/backend`. Defaults keep AI off (`canmakan.ai.enabled=false`).
+From `server/backend`. Defaults keep AI off (`canmakan.ai.enabled=false`). With AI off, Tavily text is still mapped by the regex parser.
 
-Optional:
+Optional (needed for the retrieve step of the hierarchy fallback):
 
 ```powershell
 $env:TAVILY_API_KEY = "tvly-your-real-key"
@@ -267,7 +316,12 @@ On escalate failure the backend logs `Tier-3 escalate skipped ...` (and `LlmClie
 | `product/scan/ScanService.java` | Scan persist + product upsert for OFF-only barcodes |
 | `knowledgebase/mcp/DietaryKnowledgeMcpClient.java` | Tier 1 tool orchestration |
 | `knowledgebase/mcp/server/*Tool.java` | Five `@Tool` beans |
-| `ai/llm/LlmChatClientConfig.java` | ChatClient system prompt + defaultTools |
+| `knowledgebase/mcp/server/AllergenRelationshipLookupFallback.java` | One Tavily search (capped list + 432 handling) |
+| `knowledgebase/mcp/server/ExternalAllergenMatchMapper.java` | Tavily text → JSON rows (`ObjectProvider` ChatClient) |
+| `knowledgebase/mcp/server/ExternalAllergenMatchParser.java` | Regex fallback when AI is off |
+| `knowledgebase/mcp/contract/ExternalAllergenMatchPayload.java` | `{ matches: [{ ingredient, rootAllergen }] }` |
+| `product/assessment/ProductNameAllergenLookup.java` | Product-name Tavily when the ingredient list is empty |
+| `ai/llm/LlmChatClientConfig.java` | `dietaryEvidenceChatClient` (tools) + `allergenMatchChatClient` (no tools) |
 | `ai/llm/LlmClient.java` | Tool agent, blank retry, entity/JSON evidence parse |
 | `ai/llm/EvidencePayload.java` | Structured evidence DTO |
 | `ai/llm/PromptBuilder.java` | Evidence prompt v4 + tool-use + FINAL_OUTPUT |

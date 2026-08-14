@@ -61,6 +61,14 @@ final class ExternalAllergenMatchParser {
     // Private constructor to prevent instantiation
     private ExternalAllergenMatchParser() {}
 
+    /** Canonical CanMakan root for a token such as {@code MILK} or {@code DAIRY}. */
+    static String canonicalRoot(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) {
+            return null;
+        }
+        return ROOT_ALIASES.get(rawToken.trim().toUpperCase(Locale.ROOT).replace(' ', '_'));
+    }
+
     /**
      * Parse a search summary into one {@link Ingredient} per unresolved label that
      * can be confidently mapped.
