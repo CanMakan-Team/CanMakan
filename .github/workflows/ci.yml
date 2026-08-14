@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main, develop]
   push:
@@ -31,43 +32,53 @@ jobs:
             mobile:
               - 'client/mobile/**'
 
-  # 2. BACKEND VERIFICATION
-  # Env names mirror server/backend/src/main/resources/application.properties.
-  # Configure matching repository/environment secrets in GitHub Settings.
+  # 2. SAST & CODE QUALITY GATE
+  sast-scan:
+    name: Static Code Analysis (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run Semgrep
+        run: |
+          docker run --rm -v "$(pwd):/src" returntocorp/semgrep semgrep --config=auto --error
+
+  # 3. SCA & DEPENDENCY VULNERABILITY GATE
+  sca-scan:
+    name: Dependency Scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run Trivy FS Scan (High/Critical Only)
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          scan-type: 'fs'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+  
+  # 4. BACKEND VERIFICATION
   build-backend:
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     env:
-      # Server
       SERVER_ADDRESS: ${{ secrets.SERVER_ADDRESS }}
-
-      # CORS
       CANMAKAN_CORS_ALLOWED_ORIGINS: ${{ secrets.CANMAKAN_CORS_ALLOWED_ORIGINS }}
       CANMAKAN_CORS_ALLOWED_HEADERS: ${{ secrets.CANMAKAN_CORS_ALLOWED_HEADERS }}
       CANMAKAN_CORS_ALLOWED_METHODS: ${{ secrets.CANMAKAN_CORS_ALLOWED_METHODS }}
       CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS: ${{ secrets.CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS }}
       CANMAKAN_CORS_ALLOW_CREDENTIALS: ${{ secrets.CANMAKAN_CORS_ALLOW_CREDENTIALS }}
       CANMAKAN_CORS_MAX_AGE_SECONDS: ${{ secrets.CANMAKAN_CORS_MAX_AGE_SECONDS }}
-
-      # UC9 invites
       CANMAKAN_INVITES_PUBLIC_BASE_URL: ${{ secrets.CANMAKAN_INVITES_PUBLIC_BASE_URL }}
       CANMAKAN_INVITES_EXPIRY_DAYS: ${{ secrets.CANMAKAN_INVITES_EXPIRY_DAYS }}
-
-      # UC10 Resend invitation email
       CANMAKAN_EMAIL_RESEND_ENABLED: ${{ secrets.CANMAKAN_EMAIL_RESEND_ENABLED }}
       CANMAKAN_EMAIL_RESEND_API_KEY: ${{ secrets.CANMAKAN_EMAIL_RESEND_API_KEY }}
       CANMAKAN_EMAIL_RESEND_FROM: ${{ secrets.CANMAKAN_EMAIL_RESEND_FROM }}
       CANMAKAN_EMAIL_RESEND_API_URL: ${{ secrets.CANMAKAN_EMAIL_RESEND_API_URL }}
-
-      # Datasource
       MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
       MYSQL_PORT: ${{ secrets.MYSQL_PORT }}
       MYSQL_DB: ${{ secrets.MYSQL_DB }}
       MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
       MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
-
-      # UC19 JWT / refresh
       JWT_ISSUER: ${{ secrets.JWT_ISSUER }}
       JWT_ACCESS_TTL: ${{ secrets.JWT_ACCESS_TTL }}
       JWT_SIGNING_SECRET: ${{ secrets.JWT_SIGNING_SECRET }}
@@ -75,8 +86,6 @@ jobs:
       REFRESH_COOKIE_NAME: ${{ secrets.REFRESH_COOKIE_NAME }}
       REFRESH_COOKIE_SECURE: ${{ secrets.REFRESH_COOKIE_SECURE }}
       REFRESH_COOKIE_SAME_SITE: ${{ vars.REFRESH_COOKIE_SAME_SITE || 'Lax' }}
-
-      # Product APIs (OFF / EAN-Search)
       OPEN_FOOD_FACTS_BASE_URL: ${{ secrets.OPEN_FOOD_FACTS_BASE_URL }}
       EAN_SEARCH_BASE_URL: ${{ secrets.EAN_SEARCH_BASE_URL }}
       EAN_SEARCH_API_KEY: ${{ secrets.EAN_SEARCH_API_KEY }}
@@ -84,8 +93,6 @@ jobs:
       PRODUCT_API_RESPONSE_TIMEOUT_MS: ${{ secrets.PRODUCT_API_RESPONSE_TIMEOUT_MS }}
       PRODUCT_API_RETRY_MAX_ATTEMPTS: ${{ secrets.PRODUCT_API_RETRY_MAX_ATTEMPTS }}
       PRODUCT_API_RETRY_BACKOFF_MS: ${{ secrets.PRODUCT_API_RETRY_BACKOFF_MS }}
-
-      # OpenAI / AI agent
       OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
@@ -97,12 +104,8 @@ jobs:
       CANMAKAN_AI_AUDIT_ENABLED: ${{ secrets.CANMAKAN_AI_AUDIT_ENABLED }}
       CANMAKAN_AI_AUDIT_STORE_PROMPT: ${{ secrets.CANMAKAN_AI_AUDIT_STORE_PROMPT }}
       CANMAKAN_AI_AUDIT_STORE_RESPONSE: ${{ secrets.CANMAKAN_AI_AUDIT_STORE_RESPONSE }}
-
-      # Tavily
       TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
       TAVILY_URL: ${{ secrets.TAVILY_URL }}
-
-      # UC5 recommendations
       CANMAKAN_RECOMMENDATION_ML_ENABLED: ${{ secrets.CANMAKAN_RECOMMENDATION_ML_ENABLED }}
       CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH: ${{ secrets.CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH }}
       CANMAKAN_RECOMMENDATION_LLM_ENABLED: ${{ secrets.CANMAKAN_RECOMMENDATION_LLM_ENABLED }}
@@ -120,7 +123,7 @@ jobs:
         working-directory: server/backend
         run: mvn -B clean package -DskipTests
 
-  # 3. WEB VERIFICATION
+  # 5. WEB VERIFICATION
   build-web:
     needs: detect-changes
     if: needs.detect-changes.outputs.web == 'true'
@@ -146,13 +149,12 @@ jobs:
         working-directory: client/web
         run: npm run build
 
-  # 4. MOBILE VERIFICATION
+  # 6. MOBILE VERIFICATION
   build-mobile:
     needs: detect-changes
     if: needs.detect-changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     env:
-      # Optional override for debug assemble; defaults to emulator localhost in Gradle.
       BASE_URL: ${{ secrets.MOBILE_BASE_URL }}
       WEB_INVITE_BASE_URLS: ${{ secrets.WEB_INVITE_BASE_URLS }}
     steps:
@@ -171,38 +173,54 @@ jobs:
       - name: Configure Android SDK path
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > client/mobile/local.properties
 
-      - name: Optional BASE_URL for BuildConfig
-        if: env.BASE_URL != ''
-        run: echo "BASE_URL=${BASE_URL}" >> client/mobile/local.properties
-
-      - name: Optional WEB_INVITE_BASE_URLS for invite HTTPS hosts
-        if: env.WEB_INVITE_BASE_URLS != ''
-        run: echo "WEB_INVITE_BASE_URLS=${WEB_INVITE_BASE_URLS}" >> client/mobile/local.properties
+      - name: Configure local properties overrides
+        run: |
+          if [ -n "${{ env.BASE_URL }}" ]; then
+            echo "BASE_URL=${{ env.BASE_URL }}" >> client/mobile/local.properties
+          fi
+          if [ -n "${{ env.WEB_INVITE_BASE_URLS }}" ]; then
+            echo "WEB_INVITE_BASE_URLS=${{ env.WEB_INVITE_BASE_URLS }}" >> client/mobile/local.properties
+          fi
 
       - name: Build mobile app
         working-directory: client/mobile
         run: |
+          chmod +x gradlew
           ./gradlew assembleDebug
 
-  # 5. AGGREGATED STATUS GATE FOR BRANCH PROTECTION
+  # 7. AGGREGATED STATUS GATE FOR BRANCH PROTECTION
   Build-Test:
     name: Build Test
     runs-on: ubuntu-latest
-    needs: [detect-changes]
+    # CRITICAL: Depend on ALL jobs so this execution block evaluates every outcome directly.
+    needs: [detect-changes, sast-scan, sca-scan, build-backend, build-web, build-mobile]
     if: always()
     steps:
       - name: Evaluate sub-job results
         run: |
-          # Fetch the raw json map of all job results in this workflow run
-          # This catches failures in build-backend, build-web, or build-mobile dynamically
-          RESULTS='${{ toJson(needs) }}'
+          # 1. Parse outcomes map directly
+          SAST_RESULT="${{ needs.sast-scan.result }}"
+          SCA_RESULT="${{ needs.sca-scan.result }}"
+          BACKEND_RESULT="${{ needs.build-backend.result }}"
+          WEB_RESULT="${{ needs.build-web.result }}"
+          MOBILE_RESULT="${{ needs.build-mobile.result }}"
           
-          echo "Evaluating workflow job execution matrix data..."
-          
-          # If any job in the entire run failed or was cancelled, block the PR
-          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
-            echo "❌ One or more required build/test components failed."
+          echo "=== Job Evaluation Details ==="
+          echo "SAST Security Analysis: $SAST_RESULT"
+          echo "SCA Dependency Scan:    $SCA_RESULT"
+          echo "Backend Monorepo Stack: $BACKEND_RESULT"
+          echo "Web Frontend Stack:    $WEB_RESULT"
+          echo "Mobile Android Stack:   $MOBILE_RESULT"
+          echo "=============================="
+
+          # 2. Assert safety: Drop if any security tool or active compiler dropped/failed
+          if [[ "$SAST_RESULT" == "failure" || "$SAST_RESULT" == "cancelled" || \
+                "$SCA_RESULT" == "failure" || "$SCA_RESULT" == "cancelled" || \
+                "$BACKEND_RESULT" == "failure" || "$BACKEND_RESULT" == "cancelled" || \
+                "$WEB_RESULT" == "failure" || "$WEB_RESULT" == "cancelled" || \
+                "$MOBILE_RESULT" == "failure" || "$MOBILE_RESULT" == "cancelled" ]]; then
+            echo "❌ Critical failure or execution cancellation detected across code quality tools or compilers."
             exit 1
           fi
-          
-          echo "✅ All active code sub-stacks built and passed successfully (or safely skipped)."
+
+          echo "✅ Status Gate Verified: All executed sub-modules passed successfully or skipped safely."
