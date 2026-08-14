@@ -105,14 +105,14 @@ class NutritionCheckerTest {
     void positiveTransFatAddsThresholdFinding() {
         List<Finding> findings = check(
                 "LOW_TRANS_FAT",
-                nutrition("LOW_TRANS_FAT", new BigDecimal("0.001"))
+                nutrition("LOW_TRANS_FAT", new BigDecimal("0.2"))
         );
 
         assertEquals(1, findings.size());
         assertFindingCodeAndIngredient(findings.getFirst(), "LOW_TRANS_FAT", Finding.SUBJECT_NUTRITION);
         assertEquals(
-                "Trans fat is 0.001 g per 100 g; the LOW_TRANS_FAT rule requires "
-                        + "a confirmed value of 0 g per 100 g.",
+                "Trans fat is 0.20 g per 100 g; the LOW TRANS FAT rule requires "
+                        + "a confirmed value of 0.00 g per 100 g.",
                 findings.getFirst().reason()
         );
     }
@@ -205,21 +205,21 @@ class NutritionCheckerTest {
                         new BigDecimal("4.9"),
                         new BigDecimal("5.0"),
                         new BigDecimal("5.1"),
-                        "Sugar is 5.1 g per 100 g, above the LOW_SUGAR limit of 5.0 g per 100 g."
+                        "Sugar is 5.10 g per 100 g, above the LOW SUGAR limit of 5.00 g per 100 g."
                 ),
                 Arguments.of(
                         "LOW_FAT",
                         new BigDecimal("2.9"),
                         new BigDecimal("3.0"),
                         new BigDecimal("3.1"),
-                        "Total fat is 3.1 g per 100 g, above the LOW_FAT limit of 3.0 g per 100 g."
+                        "Total fat is 3.10 g per 100 g, above the LOW FAT limit of 3.00 g per 100 g."
                 ),
                 Arguments.of(
                         "LOW_SODIUM",
                         new BigDecimal("0.11"),
                         new BigDecimal("0.12"),
-                        new BigDecimal("0.121"),
-                        "Sodium is 0.121 g per 100 g, above the LOW_SODIUM limit of 0.12 g per 100 g."
+                        new BigDecimal("0.13"),
+                        "Sodium is 0.13 g per 100 g, above the LOW SODIUM limit of 0.12 g per 100 g."
                 )
         );
     }
