@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main, develop]
   push:
@@ -31,7 +32,37 @@ jobs:
             mobile:
               - 'client/mobile/**'
 
-  # 2. BACKEND VERIFICATION
+  # 2. SAST & CODE QUALITY GATE
+  sast-scan:
+    name: Static Code Analysis (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Run Semgrep
+        run: |
+          docker run --rm -v "$(pwd):/src" returntocorp/semgrep semgrep --config=auto
+
+  # 3. SCA & DEPENDENCY VULNERABILITY GATE
+  sca-scan:
+    name: Software Composition Analysis (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Skip Docker Build entirely and scan the repository code filesystem directly
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+  
+  # 4. BACKEND VERIFICATION
   # Env names mirror server/backend/src/main/resources/application.properties.
   # Configure matching repository/environment secrets in GitHub Settings.
   build-backend:
@@ -120,7 +151,7 @@ jobs:
         working-directory: server/backend
         run: mvn -B clean package -DskipTests
 
-  # 3. WEB VERIFICATION
+  # 5. WEB VERIFICATION
   build-web:
     needs: detect-changes
     if: needs.detect-changes.outputs.web == 'true'
@@ -146,7 +177,7 @@ jobs:
         working-directory: client/web
         run: npm run build
 
-  # 4. MOBILE VERIFICATION
+  # 6. MOBILE VERIFICATION
   build-mobile:
     needs: detect-changes
     if: needs.detect-changes.outputs.mobile == 'true'
@@ -171,38 +202,54 @@ jobs:
       - name: Configure Android SDK path
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > client/mobile/local.properties
 
-      - name: Optional BASE_URL for BuildConfig
-        if: env.BASE_URL != ''
-        run: echo "BASE_URL=${BASE_URL}" >> client/mobile/local.properties
-
-      - name: Optional WEB_INVITE_BASE_URLS for invite HTTPS hosts
-        if: env.WEB_INVITE_BASE_URLS != ''
-        run: echo "WEB_INVITE_BASE_URLS=${WEB_INVITE_BASE_URLS}" >> client/mobile/local.properties
+      - name: Configure local properties overrides
+        run: |
+          if [ -n "${{ env.BASE_URL }}" ]; then
+            echo "BASE_URL=${{ env.BASE_URL }}" >> client/mobile/local.properties
+          fi
+          if [ -n "${{ env.WEB_INVITE_BASE_URLS }}" ]; then
+            echo "WEB_INVITE_BASE_URLS=${{ env.WEB_INVITE_BASE_URLS }}" >> client/mobile/local.properties
+          fi
 
       - name: Build mobile app
         working-directory: client/mobile
         run: |
+          chmod +x gradlew
           ./gradlew assembleDebug
 
-  # 5. AGGREGATED STATUS GATE FOR BRANCH PROTECTION
+  # 7. AGGREGATED STATUS GATE FOR BRANCH PROTECTION
   Build-Test:
     name: Build Test
     runs-on: ubuntu-latest
-    needs: [detect-changes]
+    # CRITICAL: Depend on ALL jobs so this execution block evaluates every outcome directly.
+    needs: [detect-changes, sast-scan, sca-scan, build-backend, build-web, build-mobile]
     if: always()
     steps:
       - name: Evaluate sub-job results
         run: |
-          # Fetch the raw json map of all job results in this workflow run
-          # This catches failures in build-backend, build-web, or build-mobile dynamically
-          RESULTS='${{ toJson(needs) }}'
+          # 1. Parse outcomes map directly
+          SAST_RESULT="${{ needs.sast-scan.result }}"
+          SCA_RESULT="${{ needs.sca-scan.result }}"
+          BACKEND_RESULT="${{ needs.build-backend.result }}"
+          WEB_RESULT="${{ needs.build-web.result }}"
+          MOBILE_RESULT="${{ needs.build-mobile.result }}"
           
-          echo "Evaluating workflow job execution matrix data..."
-          
-          # If any job in the entire run failed or was cancelled, block the PR
-          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
-            echo "❌ One or more required build/test components failed."
+          echo "=== Job Evaluation Details ==="
+          echo "SAST Security Analysis: $SAST_RESULT"
+          echo "SCA Dependency Scan:    $SCA_RESULT"
+          echo "Backend Monorepo Stack: $BACKEND_RESULT"
+          echo "Web Frontend Stack:    $WEB_RESULT"
+          echo "Mobile Android Stack:   $MOBILE_RESULT"
+          echo "=============================="
+
+          # 2. Assert safety: Drop if any security tool or active compiler dropped/failed
+          if [[ "$SAST_RESULT" == "failure" || "$SAST_RESULT" == "cancelled" || \
+                "$SCA_RESULT" == "failure" || "$SCA_RESULT" == "cancelled" || \
+                "$BACKEND_RESULT" == "failure" || "$BACKEND_RESULT" == "cancelled" || \
+                "$WEB_RESULT" == "failure" || "$WEB_RESULT" == "cancelled" || \
+                "$MOBILE_RESULT" == "failure" || "$MOBILE_RESULT" == "cancelled" ]]; then
+            echo "❌ Critical failure or execution cancellation detected across code quality tools or compilers."
             exit 1
           fi
-          
-          echo "✅ All active code sub-stacks built and passed successfully (or safely skipped)."
+
+          echo "✅ Status Gate Verified: All executed sub-modules passed successfully or skipped safely."
