@@ -2,6 +2,7 @@ package com.canmakan.backend.knowledgebase.mcp.server;
 
 import com.canmakan.backend.knowledgebase.mcp.contract.AllergenRelationshipResult;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
+import com.canmakan.backend.knowledgebase.model.IngredientLabelParser;
 import com.canmakan.backend.knowledgebase.repository.DietaryKnowledgeRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
@@ -9,13 +10,11 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * MCP tool: walk the allergen parent/root hierarchy (e.g. Whey -> Milk -> DAIRY).
@@ -43,11 +42,16 @@ public class AllergenRelationshipTool {
             return new AllergenRelationshipResult(List.of(), List.of(), "", List.of());
         }
 
+        List<String> labels = IngredientLabelParser.normalize(ingredients);
+        if (labels.isEmpty()) {
+            return new AllergenRelationshipResult(List.of(), List.of(), "", List.of());
+        }
+
         List<Ingredient> localMatches = new ArrayList<>();
         List<String> unresolvedIngredients = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
 
-        for (String ingredient : ingredients) {
+        for (String ingredient : labels) {
             if (ingredient == null || ingredient.isBlank()) {
                 continue;
             }
@@ -85,7 +89,7 @@ public class AllergenRelationshipTool {
             return new AllergenRelationshipResult(List.of(), List.of(), "", List.of());
         }
 
-        return lookup(parseIngredients(ingredientText));
+        return lookup(IngredientLabelParser.split(ingredientText));
     }
 
     /**
@@ -136,13 +140,6 @@ public class AllergenRelationshipTool {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
-
-    private List<String> parseIngredients(String ingredientText) {
-        return Arrays.stream(ingredientText.split(","))
-                .map(String::trim)
-                .filter(token -> !token.isEmpty())
-                .collect(Collectors.toList());
-    }
 
     private String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);

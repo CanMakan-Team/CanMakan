@@ -162,6 +162,29 @@ class ProductDataAdapterTest {
         assertSame(result, adapter.lookup("1234567890123"));
     }
 
+    @Test
+    void rejoinsIngredientLeavesSplitInsideParentheses() {
+        ProductLookupResult result = lookupResult(
+            List.of(
+                new Ingredient("Oyster Extract (Oysters", null, null, false),
+                new Ingredient("Water", null, null, false),
+                new Ingredient("Salt)", null, null, false),
+                new Ingredient("Sugar", null, null, false)
+            ),
+            "",
+            null,
+            true
+        );
+
+        ProductData productData = adapter.toProductData(result);
+
+        assertEquals(2, productData.ingredients().size());
+        assertEquals(
+            "Oyster Extract (Oysters, Water, Salt)",
+            productData.ingredients().get(0).ingredientName());
+        assertEquals("Sugar", productData.ingredients().get(1).ingredientName());
+    }
+
     private static ProductLookupResult lookupResult(
             List<Ingredient> ingredients,
             String labelTags,
