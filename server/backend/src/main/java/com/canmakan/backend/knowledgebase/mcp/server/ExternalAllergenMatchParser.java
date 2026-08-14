@@ -58,6 +58,24 @@ final class ExternalAllergenMatchParser {
         Map.entry("N/A", "NONE")
     );
 
+    // Deterministic, longest-first alias list for the prose fallback. Excludes NONE/UNKNOWN/N/A so a
+    // stray "none" in search prose cannot silence an ingredient (NONE stays reachable via an explicit
+    // arrow line only). Longest-first so "shellfish" wins over "fish" and "peanut" over "nut".
+    private static final List<Map.Entry<String, String>> PROSE_ALIASES = buildProseAliases();
+
+    private static List<Map.Entry<String, String>> buildProseAliases() {
+        List<Map.Entry<String, String>> list = new ArrayList<>();
+        for (Map.Entry<String, String> entry : ROOT_ALIASES.entrySet()) {
+            if ("NONE".equals(entry.getValue())) {
+                continue;
+            }
+            list.add(Map.entry(entry.getKey().toLowerCase(Locale.ROOT).replace('_', ' '),
+                    entry.getValue()));
+        }
+        list.sort((a, b) -> Integer.compare(b.getKey().length(), a.getKey().length()));
+        return list;
+    }
+
     // Private constructor to prevent instantiation
     private ExternalAllergenMatchParser() {}
 
@@ -107,7 +125,7 @@ final class ExternalAllergenMatchParser {
             if (!lowerSummary.contains(normalize(unresolved))) {
                 continue;
             }
-            String root = findRootNearIngredient(lowerSummary, unresolved);
+            String root = findRootOnIngredientLine(lowerSummary, unresolved);
             if (root != null) {
                 byKey.put(key, new Ingredient(unresolved.trim(), null, root, false));
             }
@@ -133,22 +151,22 @@ final class ExternalAllergenMatchParser {
         return null;
     }
 
-    // Find the root near the ingredient in the summary
-    private static String findRootNearIngredient(String lowerSummary, String ingredient) {
+    // Find an allergen root on the ingredient's OWN line only, so a keyword belonging to a
+    // neighbouring ingredient's line cannot be assigned to this one. Aliases are tried
+    // longest-first and NONE is excluded (see PROSE_ALIASES).
+    private static String findRootOnIngredientLine(String lowerSummary, String ingredient) {
         String ingredientKey = normalize(ingredient);
-        int idx = lowerSummary.indexOf(ingredientKey);
-        if (idx < 0) {
-            return null;
-        }
-        int start = Math.max(0, idx - 40);
-        int end = Math.min(lowerSummary.length(), idx + ingredientKey.length() + 60);
-        String window = lowerSummary.substring(start, end);
-
-        for (Map.Entry<String, String> entry : ROOT_ALIASES.entrySet()) {
-            String alias = entry.getKey().toLowerCase(Locale.ROOT).replace('_', ' ');
-            if (window.contains(alias) || window.contains(entry.getKey().toLowerCase(Locale.ROOT))) {
-                return entry.getValue();
+        for (String rawLine : lowerSummary.split("\\R")) {
+            String line = normalize(rawLine);
+            if (!line.contains(ingredientKey)) {
+                continue;
             }
+            for (Map.Entry<String, String> alias : PROSE_ALIASES) {
+                if (line.contains(alias.getKey())) {
+                    return alias.getValue();
+                }
+            }
+            return null;
         }
         return null;
     }

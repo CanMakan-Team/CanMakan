@@ -62,4 +62,32 @@ class ExternalAllergenMatchParserTest {
     void blankSummaryYieldsNoMatches() {
         assertThat(ExternalAllergenMatchParser.parse(List.of("Casein"), "  ")).isEmpty();
     }
+
+    @Test
+    @DisplayName("Prose match does not leak a root from another ingredient's line")
+    void proseDoesNotLeakAcrossLines() {
+        List<Ingredient> matches = ExternalAllergenMatchParser.parse(
+                List.of("Water", "Milk powder"),
+                """
+                Water: plain filtered water
+                Milk powder: contains milk, a dairy allergen
+                """
+        );
+
+        assertThat(matches).noneMatch(match -> match.ingredientName().equalsIgnoreCase("Water"));
+        assertThat(matches).anyMatch(match ->
+                match.ingredientName().equalsIgnoreCase("Milk powder")
+                        && "DAIRY".equals(match.rootAllergen()));
+    }
+
+    @Test
+    @DisplayName("Prose 'none' does not produce a match")
+    void proseNoneYieldsNoMatch() {
+        List<Ingredient> matches = ExternalAllergenMatchParser.parse(
+                List.of("Inulin"),
+                "Inulin: none of the common allergens are present"
+        );
+
+        assertThat(matches).isEmpty();
+    }
 }
