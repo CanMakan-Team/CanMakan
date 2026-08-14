@@ -12,8 +12,8 @@ import java.util.List;
  * fallback in {@code externalSearchSummary} (never {@code null}; use {@code ""} when
  * unavailable).
  *
- * {@code externalMatches} holds structured roots parsed from {@code externalSearchSummary}
- * when the external fallback returns usable allergen codes.
+ * {@code externalMatches} holds structured roots mapped from {@code externalSearchSummary}
+ * (ChatClient JSON when AI is enabled, otherwise regex parse of the Tavily text).
  *
  * @author XieHuayuan & Amelia
  */

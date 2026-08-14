@@ -40,6 +40,19 @@ class CatalogProductMapperTest {
     }
 
     @Test
+    void keepsCommasInsideParentheticalIngredientLists() {
+        CatalogProduct product = baseProduct();
+        product.setIngredientsText("Oyster Extract (Oysters, Water, Salt), Sugar, Modified Corn Starch");
+
+        var productData = mapper.toProductData(product);
+
+        assertEquals(3, productData.ingredients().size());
+        assertEquals("Oyster Extract (Oysters, Water, Salt)", productData.ingredients().get(0).ingredientName());
+        assertEquals("Sugar", productData.ingredients().get(1).ingredientName());
+        assertEquals("Modified Corn Starch", productData.ingredients().get(2).ingredientName());
+    }
+
+    @Test
     void emptyIngredientsMarksDataIncomplete() {
         CatalogProduct product = baseProduct();
         product.setIngredientsText("   ");

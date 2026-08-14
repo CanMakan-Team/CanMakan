@@ -2,6 +2,7 @@ package com.canmakan.backend.product.assessment;
 
 import com.canmakan.backend.integration.BarcodeValidationClient;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
+import com.canmakan.backend.knowledgebase.model.IngredientLabelParser;
 import com.canmakan.backend.product.model.ProductLookupResult;
 import com.canmakan.backend.product.verdict.ProductData;
 import java.util.ArrayList;
@@ -99,8 +100,31 @@ public class ProductDataAdapter {
                     ingredient.chemicalAlias()));
             }
         }
-        // Return an unmodifiable snapshot so callers cannot mutate the engine's input.
-        return List.copyOf(cleaned);
+        return List.copyOf(rejoinSplitParentheticals(cleaned));
+    }
+
+    // Naive comma splits (and some OFF leaves) break "Oyster Extract (Oysters, Water, Salt)"
+    // into three names. Rejoin those fragments so Water/Salt are not treated as their own labels.
+    private static List<Ingredient> rejoinSplitParentheticals(List<Ingredient> ingredients) {
+        List<String> names = ingredients.stream().map(Ingredient::ingredientName).toList();
+        List<String> mergedNames = IngredientLabelParser.normalize(names);
+        if (mergedNames.equals(names)) {
+            return ingredients;
+        }
+        List<Ingredient> rebuilt = new ArrayList<>();
+        for (String mergedName : mergedNames) {
+            Ingredient exact = null;
+            for (Ingredient ingredient : ingredients) {
+                if (mergedName.equals(ingredient.ingredientName())) {
+                    exact = ingredient;
+                    break;
+                }
+            }
+            rebuilt.add(exact != null
+                ? exact
+                : new Ingredient(mergedName, null, null, false));
+        }
+        return rebuilt;
     }
 
     static String cleanIngredientName(String rawName) {

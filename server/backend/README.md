@@ -186,8 +186,10 @@ Additive catalog tag backfill lives in `01c_recommendation_substitute_tags.sql` 
 
 ### Enable Tavily (external allergen fallback)
 
-Unknown ingredients that miss the local allergen hierarchy can be looked up via Tavily.
-With the default `local-dev-placeholder` key, that fallback is skipped.
+Unknown ingredients that miss the local allergen hierarchy can be looked up via Tavily
+(one batched search per scan, capped). When `CANMAKAN_AI_ENABLED=true`, a tool-free
+ChatClient maps that search text to structured root codes; otherwise a regex parser
+is used. With the default `local-dev-placeholder` key, Tavily is skipped.
 
 ```powershell
 $env:TAVILY_API_KEY = "tvly-your-real-key"

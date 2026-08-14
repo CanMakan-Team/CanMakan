@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeFunction;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -283,6 +285,23 @@ class DietaryKnowledgeToolsTest {
     }
 
     @Test
+    @DisplayName("UC3 BE4b: Does not split commas that sit inside parentheses")
+    void doesNotSplitCommasInsideParenthesesForFallbackLookup() {
+        RecordingFallback fallback = new RecordingFallback();
+        AllergenRelationshipTool tool = new AllergenRelationshipTool(repository, fallback);
+
+        tool.lookup(List.of(
+            "Oyster Extract (Oysters",
+            "Water",
+            "Salt)",
+            "mystery-additive"));
+
+        assertThat(fallback.lastIngredients()).containsExactly(
+            "Oyster Extract (Oysters, Water, Salt)",
+            "mystery-additive");
+    }
+
+    @Test
     @DisplayName("UC3 BE5: Loads allergen knowledge from SQL test data")
     void loadsAllergenKnowledgeFromSqlTestData() {
         IngredientAliasResult result = ingredientAliasTool.lookup("Whole Grain Oat Flour");
@@ -478,6 +497,75 @@ class DietaryKnowledgeToolsTest {
                 "https://api.tavily.com/search");
 
         assertThat(fallback.searchExternal(List.of("inulin"))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("UC3 BE12: Errored Tavily call yields an empty summary and no external matches")
+    void erroredTavilyCallYieldsEmptySummary() {
+        ExchangeFunction exchangeFunction = request ->
+                Mono.error(new RuntimeException("tavily unavailable"));
+        WebClient.Builder builder = WebClient.builder().exchangeFunction(exchangeFunction);
+        AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
+                builder,
+                "tvly-test-key",
+                "https://api.tavily.com/search");
+        AllergenRelationshipTool tool = new AllergenRelationshipTool(repository, fallback);
+
+        AllergenRelationshipResult result = tool.lookup(List.of("mystery-additive"));
+
+        assertThat(result.unresolvedIngredients()).containsExactly("mystery-additive");
+        assertThat(result.externalSearchSummary()).isEmpty();
+        assertThat(result.externalMatches()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("UC3 BE13: Tavily HTTP 432 stops remaining lookups")
+    void tavilyPlanLimitStopsRemainingLookups() {
+        AtomicInteger calls = new AtomicInteger();
+        ExchangeFunction exchangeFunction = request -> {
+            calls.incrementAndGet();
+            return Mono.just(
+                ClientResponse.create(HttpStatusCode.valueOf(432))
+                    .header("Content-Type", "application/json")
+                    .body("{\"detail\":{\"error\":\"plan limit\"}}")
+                    .build());
+        };
+        WebClient.Builder builder = WebClient.builder().exchangeFunction(exchangeFunction);
+        AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
+                builder,
+                "tvly-test-key",
+                "https://api.tavily.com/search");
+
+        String summary = fallback.searchExternal(List.of("alpha", "beta", "gamma"));
+
+        assertThat(summary).isEmpty();
+        assertThat(calls.get()).isEqualTo(1);
+        assertThat(fallback.searchExternal(List.of("delta"))).isEmpty();
+        assertThat(calls.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("UC3 BE14: One Tavily call covers several unresolved ingredients")
+    void oneTavilyCallCoversSeveralUnresolvedIngredients() {
+        AtomicInteger calls = new AtomicInteger();
+        ExchangeFunction exchangeFunction = request -> {
+            calls.incrementAndGet();
+            return Mono.just(
+                ClientResponse.create(HttpStatus.OK)
+                    .header("Content-Type", "application/json")
+                    .body("{\"answer\":\"Casein is a milk protein. Inulin is a fibre.\"}")
+                    .build());
+        };
+        WebClient.Builder builder = WebClient.builder().exchangeFunction(exchangeFunction);
+        AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
+                builder,
+                "tvly-test-key",
+                "https://api.tavily.com/search");
+
+        String summary = fallback.searchExternal(List.of("Casein", "Inulin", "mystery-fiber"));
+
+        assertThat(summary).contains("Casein is a milk protein");
+        assertThat(calls.get()).isEqualTo(1);
     }
 
     private static Map<String, DietaryRestriction> seedRestrictions() {

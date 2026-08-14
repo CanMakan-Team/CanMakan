@@ -2,35 +2,51 @@ package com.canmakan.backend.knowledgebase.mcp.server;
 
 import com.canmakan.backend.knowledgebase.mcp.contract.AllergenRelationshipResult;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
+import com.canmakan.backend.knowledgebase.model.IngredientLabelParser;
 import com.canmakan.backend.knowledgebase.repository.DietaryKnowledgeRepository;
-import lombok.AllArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * MCP tool: walk the allergen parent/root hierarchy (e.g. Whey -> Milk -> DAIRY).
  *
  * The tool first checks each ingredient against the local database. Ingredients that
  * resolve locally are kept in the response, while unresolved ingredients are sent to
- * the external fallback flow. Tavily prose is parsed into {@code externalMatches} when
- * a root allergen code can be extracted.
+ * one Tavily search. Grounding text is mapped to {@code externalMatches} by a
+ * tool-free ChatClient when AI is enabled, otherwise by a regex parser.
  */
-@AllArgsConstructor
 @Service
 public class AllergenRelationshipTool {
 
     private final DietaryKnowledgeRepository repository;
     private final AllergenRelationshipLookupFallback fallback;
+    private final ExternalAllergenMatchMapper matchMapper;
+
+    @Autowired
+    public AllergenRelationshipTool(
+            DietaryKnowledgeRepository repository,
+            AllergenRelationshipLookupFallback fallback,
+            ExternalAllergenMatchMapper matchMapper) {
+        this.repository = repository;
+        this.fallback = fallback;
+        this.matchMapper = matchMapper;
+    }
+
+    /** Test constructor that maps Tavily text with the regex parser only. */
+    AllergenRelationshipTool(
+            DietaryKnowledgeRepository repository,
+            AllergenRelationshipLookupFallback fallback) {
+        this(repository, fallback, ExternalAllergenMatchMapper.parserOnly());
+    }
 
     /**
      * MCP TOOL: Resolve a list of ingredient names against the local database and the fallback search.
@@ -43,11 +59,16 @@ public class AllergenRelationshipTool {
             return new AllergenRelationshipResult(List.of(), List.of(), "", List.of());
         }
 
+        List<String> labels = IngredientLabelParser.normalize(ingredients);
+        if (labels.isEmpty()) {
+            return new AllergenRelationshipResult(List.of(), List.of(), "", List.of());
+        }
+
         List<Ingredient> localMatches = new ArrayList<>();
         List<String> unresolvedIngredients = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
 
-        for (String ingredient : ingredients) {
+        for (String ingredient : labels) {
             if (ingredient == null || ingredient.isBlank()) {
                 continue;
             }
@@ -69,9 +90,7 @@ public class AllergenRelationshipTool {
             ? ""
             : Objects.requireNonNullElse(fallback.searchExternal(unresolvedIngredients), "");
 
-        // Parse the external summary into ingredients
-        List<Ingredient> externalMatches = ExternalAllergenMatchParser.parse(
-            unresolvedIngredients, externalSummary);
+        List<Ingredient> externalMatches = matchMapper.map(unresolvedIngredients, externalSummary);
 
         return new AllergenRelationshipResult(
             localMatches, unresolvedIngredients, externalSummary, externalMatches);
@@ -85,7 +104,7 @@ public class AllergenRelationshipTool {
             return new AllergenRelationshipResult(List.of(), List.of(), "", List.of());
         }
 
-        return lookup(parseIngredients(ingredientText));
+        return lookup(IngredientLabelParser.split(ingredientText));
     }
 
     /**
@@ -136,13 +155,6 @@ public class AllergenRelationshipTool {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
-
-    private List<String> parseIngredients(String ingredientText) {
-        return Arrays.stream(ingredientText.split(","))
-                .map(String::trim)
-                .filter(token -> !token.isEmpty())
-                .collect(Collectors.toList());
-    }
 
     private String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);

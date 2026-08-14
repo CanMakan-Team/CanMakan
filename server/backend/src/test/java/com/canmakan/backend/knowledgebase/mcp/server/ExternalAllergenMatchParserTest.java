@@ -62,4 +62,12 @@ class ExternalAllergenMatchParserTest {
     void blankSummaryYieldsNoMatches() {
         assertThat(ExternalAllergenMatchParser.parse(List.of("Casein"), "  ")).isEmpty();
     }
+
+    @Test
+    @DisplayName("canonicalRoot maps aliases")
+    void canonicalRootMapsAliases() {
+        assertThat(ExternalAllergenMatchParser.canonicalRoot("milk")).isEqualTo("DAIRY");
+        assertThat(ExternalAllergenMatchParser.canonicalRoot("TREE NUT")).isEqualTo("TREE_NUT");
+        assertThat(ExternalAllergenMatchParser.canonicalRoot("nope")).isNull();
+    }
 }

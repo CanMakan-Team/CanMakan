@@ -9,6 +9,7 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 
 import com.canmakan.backend.knowledgebase.model.Ingredient;
+import com.canmakan.backend.knowledgebase.model.IngredientLabelParser;
 import com.canmakan.backend.product.verdict.ProductData;
 
 @Service
@@ -38,9 +39,7 @@ public class CatalogProductMapper {
         if (ingredientsText == null || ingredientsText.isBlank()) {
             return List.of();
         }
-        return Arrays.stream(ingredientsText.split(","))
-            .map(String::trim)
-            .filter(token -> !token.isEmpty())
+        return IngredientLabelParser.split(ingredientsText).stream()
             .map(token -> new Ingredient(token, null, null, false))
             .toList();
     }
