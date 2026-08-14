@@ -1,10 +1,11 @@
 name: E2E Playwright Tests
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
   pull_request:
-    branches: [main]
+    branches: [ develop, main ]
+  push:
+    branches: [ develop, main ]
 
 concurrency:
   group: e2e-${{ github.ref }}
