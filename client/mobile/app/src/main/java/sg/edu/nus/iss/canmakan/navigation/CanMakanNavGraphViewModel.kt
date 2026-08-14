@@ -22,6 +22,7 @@ import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.data.ActiveProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
+import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsRepository
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import timber.log.Timber
@@ -39,6 +40,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val activeProfileManager: ActiveProfileManager,
     private val dietaryRestrictionRepo: DietaryRestrictionRepository,
     private val familyProfileRepository: FamilyProfileRepository,
+    private val notificationsRepository: NotificationsRepository,
     private val authSessionStore: AuthSessionStore,
 ) : ViewModel() {
 
@@ -90,6 +92,11 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val _isSwitchingProfile = MutableStateFlow(false)
     val isSwitchingProfile: StateFlow<Boolean> = _isSwitchingProfile.asStateFlow()
 
+    // Drives the notification-bell badge. True only while the account has at least one
+    // unread, non-expired notification in its inbox.
+    private val _hasUnreadNotifications = MutableStateFlow(false)
+    val hasUnreadNotifications: StateFlow<Boolean> = _hasUnreadNotifications.asStateFlow()
+
     private val reloadMutex = Mutex()
     private var observedAccount = false
     private var currentAccountKey: AuthAccountKey? = null
@@ -98,6 +105,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private var refreshJob: Job? = null
     private var accountReloadJob: Job? = null
     private var restrictionJob: Job? = null
+    private var notificationsJob: Job? = null
     private var switchGeneration = 0L
     private var createFamilyGeneration = 0L
 
@@ -139,10 +147,12 @@ class CanMakanNavGraphViewModel @Inject constructor(
         refreshJob?.cancel()
         accountReloadJob?.cancel()
         restrictionJob?.cancel()
+        notificationsJob?.cancel()
         clearAccountScopedState(hasSession = accountKey != null)
 
         if (accountKey != null) {
             accountReloadJob = viewModelScope.launch { reloadFamilyContext(accountKey) }
+            notificationsJob = viewModelScope.launch { refreshNotifications(accountKey) }
         } else {
             _isLoading.value = false
         }
@@ -163,6 +173,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
         _switchProfileError.value = null
         _isCreatingFamily.value = false
         _isSwitchingProfile.value = false
+        _hasUnreadNotifications.value = false
         _isLoading.value = hasSession
     }
 
@@ -394,6 +405,30 @@ class CanMakanNavGraphViewModel @Inject constructor(
             activeProfileManager.selection.value
                 ?.takeIf { isCurrentOwner(it) }
                 ?.let { loadRestrictions(it) }
+        }
+    }
+
+    /**
+     * Re-checks the notification inbox for unread cards, refreshing the bell badge.
+     * Called on account load and whenever the Notifications screen is left, since opening
+     * it marks every card read on the backend.
+     */
+    fun refreshNotifications() {
+        val accountKey = authSessionStore.accountKey.value ?: return
+        notificationsJob?.cancel()
+        notificationsJob = viewModelScope.launch { refreshNotifications(accountKey) }
+    }
+
+    private suspend fun refreshNotifications(accountKey: AuthAccountKey) {
+        try {
+            val notifications = notificationsRepository.listMine()
+            if (!isCurrentAccount(accountKey)) return
+            _hasUnreadNotifications.value = notifications.any { !it.read && !it.expired }
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            // Non-fatal: the bell badge simply keeps its last known state until the next refresh.
+            Timber.w(exception, "Error refreshing notification badge state")
         }
     }
 

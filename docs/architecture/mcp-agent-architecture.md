@@ -179,8 +179,6 @@ MCP lives under **knowledgebase** because the tools expose domain knowledge, not
 | `dietary_rule_lookup` | Restriction definition gate (drop UNKNOWN) |
 | `cross_contamination_analysis` | May-contain phrases + OFF `traces_tags` |
 
-> The `allergen_relationship_lookup` Tavily fallback (active only when a real API key is configured) now issues one capped natural-language search per unresolved ingredient (`MAX_EXTERNAL_LOOKUPS = 5`) and parses only each response's `answer` field; a failed or empty answer contributes nothing.
-
 ---
 
 ## Two callers, same tool beans

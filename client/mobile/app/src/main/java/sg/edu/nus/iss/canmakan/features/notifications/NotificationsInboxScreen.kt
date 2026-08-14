@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -50,14 +51,17 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 fun NotificationsInboxScreen(
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
+    hasUnreadNotifications: Boolean = false,
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onBackClick: () -> Unit = {},
     onAccepted: () -> Unit = {},
+    onMarkedAllRead: () -> Unit = {},
     viewModel: NotificationsInboxViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val hasNotifications = uiState.notifications.isNotEmpty()
+    val hasUnread = uiState.notifications.any { !it.read }
     val subtitle = when {
         !hasNotifications && uiState.errorMessage == null && !uiState.isLoading ->
             "No notifications yet"
@@ -69,6 +73,7 @@ fun NotificationsInboxScreen(
             AppTopBar(
                 onMenuClick = onMenuClick,
                 onNotificationsClick = onNotificationsClick,
+                hasUnreadNotifications = hasUnreadNotifications,
             )
         },
         bottomBar = {
@@ -99,11 +104,26 @@ fun NotificationsInboxScreen(
                     Text("Back")
                 }
 
-                Text(
-                    text = "Notifications",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "Notifications",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    // Only offered while something is actually unread.
+                    if (hasUnread) {
+                        TextButton(
+                            onClick = { viewModel.markAllRead(onMarkedAllRead) },
+                            enabled = !uiState.isMarkingAllRead,
+                        ) {
+                            Text(if (uiState.isMarkingAllRead) "Marking…" else "Mark All As Read")
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = subtitle,

@@ -46,6 +46,7 @@ fun CreateFamilyCircleScreen(
     errorMessage: String?,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
+    hasUnreadNotifications: Boolean = false,
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onBackClick: () -> Unit,
@@ -59,6 +60,7 @@ fun CreateFamilyCircleScreen(
             AppTopBar(
                 onMenuClick = onMenuClick,
                 onNotificationsClick = onNotificationsClick,
+                hasUnreadNotifications = hasUnreadNotifications,
             )
         },
         bottomBar = {
