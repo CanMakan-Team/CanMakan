@@ -48,10 +48,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Run Trivy FS Scan (High/Critical Only)
-        uses: aquasecurity/trivy-action@0.28.0
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@v0.29.0
         with:
-          scan-type: 'fs'
+          scan-type: 'image'
+          image-ref: 'your-image:latest'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
   
