@@ -47,7 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import java.util.Locale
+import sg.edu.nus.iss.canmakan.features.family.ProfileRelationshipDisplay
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeRestrictionDetail
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeRestrictionSum
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
@@ -75,6 +75,8 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 fun FamilyRestrictionSummaryScreen(
     uiState: FamilyRestrictionSummaryUiState,
     profiles: List<DietaryProfile> = emptyList(),
+    selfProfileId: Long? = null,
+    memberRole: String? = null,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     onNavigateToEditMembers: () -> Unit
@@ -115,6 +117,8 @@ fun FamilyRestrictionSummaryScreen(
                     MatrixGrid(
                         members = state.data.familyMembers,
                         profiles = profiles,
+                        selfProfileId = selfProfileId,
+                        memberRole = memberRole,
                     )
                 }
             }
@@ -127,6 +131,8 @@ fun FamilyRestrictionSummaryScreen(
 private fun MatrixGrid(
     members: List<FamilyMeRestrictionSum>,
     profiles: List<DietaryProfile>,
+    selfProfileId: Long?,
+    memberRole: String?,
 ) {
     val activeMembers = members.filter { it.isActive }
     var peekedMember by remember { mutableStateOf<FamilyMeRestrictionSum?>(null) }
@@ -291,9 +297,20 @@ private fun MatrixGrid(
 
     peekedMember?.let { member ->
         val profile = member.profileId?.let { profilesById[it] }
+        val tags = profile?.let {
+            ProfileRelationshipDisplay.tags(
+                profileId = it.id,
+                relationship = it.relationship,
+                isFamilyAdminProfile = it.isPrimary,
+                viewerSelfProfileId = selfProfileId,
+                viewerMemberRole = memberRole,
+            )
+        }
         ProfileInfoDialog(
             name = member.name,
-            relationship = profile?.relationship,
+            caption = ProfileRelationshipDisplay.sheetRoleLine(
+                tags ?: ProfileRelationshipDisplay.Tags(showAdminTag = false, caption = null),
+            ).ifBlank { null },
             initials = profile?.initials?.takeIf { it.isNotBlank() } ?: initialsFromName(member.name),
             avatarColor = avatarColorFor(member),
             onDismiss = { peekedMember = null },
@@ -304,15 +321,11 @@ private fun MatrixGrid(
 @Composable
 private fun ProfileInfoDialog(
     name: String,
-    relationship: String?,
+    caption: String?,
     initials: String,
     avatarColor: Color,
     onDismiss: () -> Unit,
 ) {
-    val relationshipLabel = relationship
-        ?.takeIf { it.isNotBlank() }
-        ?.let(::formatRelationshipLabel)
-
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
@@ -357,13 +370,15 @@ private fun ProfileInfoDialog(
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center,
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = relationshipLabel ?: "Relationship unavailable",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary,
-                    textAlign = TextAlign.Center,
-                )
+                caption?.takeIf { it.isNotBlank() }?.let { label ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }
@@ -482,16 +497,4 @@ private fun avatarColorFor(member: FamilyMeRestrictionSum): Color {
         2 -> AvatarPurple
         else -> PrimaryGreen
     }
-}
-
-private fun formatRelationshipLabel(relationship: String): String {
-    val trimmed = relationship.trim()
-    if (trimmed.equals("DEPENDENT", ignoreCase = true)
-        || trimmed.equals("DEPENDANT", ignoreCase = true)
-    ) {
-        return "Dependant"
-    }
-    if (trimmed.isEmpty()) return trimmed
-    return trimmed.lowercase(Locale.getDefault())
-        .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
 }

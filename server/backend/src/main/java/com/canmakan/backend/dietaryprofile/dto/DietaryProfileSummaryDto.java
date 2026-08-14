@@ -11,7 +11,7 @@ public record DietaryProfileSummaryDto(
         Long familyId, // id of the family
         String relationship, // SON, DAUGHTER, FATHER, MOTHER, etc.
         String initials, // initials of the profile name
-        Boolean isPrimary, // true if profile is the primary profile for the family
+        Boolean isPrimary, // true if this profile belongs to the family PRIMARY_ADMIN
         Boolean active // true if profile is active
 ) {
 }

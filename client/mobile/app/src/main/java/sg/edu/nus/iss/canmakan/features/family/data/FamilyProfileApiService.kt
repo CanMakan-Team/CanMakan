@@ -4,6 +4,7 @@ import com.google.gson.annotations.SerializedName
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -19,11 +20,13 @@ data class UserSearchResponse(
 
 data class CreateInvitationRequestBody(
     @SerializedName("email") val email: String,
+    @SerializedName("relationship") val relationship: String,
 )
 
 data class InvitationResponse(
     @SerializedName("invitationId") val invitationId: Long,
     @SerializedName("invitedEmail") val invitedEmail: String,
+    @SerializedName("relationship") val relationship: String? = null,
     @SerializedName("invitationToken") val invitationToken: String,
     @SerializedName("inviteCode") val inviteCode: String,
     @SerializedName("inviteUrl") val inviteUrl: String,
@@ -108,6 +111,7 @@ interface FamilyProfileApiService {
         @Query("email") email: String,
     ): Response<UserSearchResponse>
 
+    @Headers("X-CanMakan-No-Retry: true")
     @POST("families/me/invitations")
     suspend fun createInvitation(
         @Body request: CreateInvitationRequestBody,

@@ -8,6 +8,7 @@ import { CreateFamilyProfileModal } from '../components/CreateFamilyProfileModal
 import { EditFamilyProfileModal } from '../components/EditFamilyProfileModal'
 import { LinkExistingUserModal } from '../components/LinkExistingUserModal'
 import { formatCode } from '../lib/profileOptions'
+import { profileDisplayCaption } from '../lib/profileDisplay'
 
 /**
  * FamilyMembersPage component for displaying the family members
@@ -21,6 +22,7 @@ type OpenModal = 'link' | 'create' | null
 export function FamilyMembersPage() {
   const [members, setMembers] = useState<FamilyMember[]>([])
   const [isPrimaryAdmin, setIsPrimaryAdmin] = useState(false)
+  const [selfProfileId, setSelfProfileId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [error, setError] = useState('')
@@ -39,6 +41,7 @@ export function FamilyMembersPage() {
       ])
       setMembers(loadedMembers)
       setIsPrimaryAdmin(me.memberRole === 'PRIMARY_ADMIN')
+      setSelfProfileId(me.selfProfileId)
     } catch (caughtError) {
       setError(getErrorMessage(caughtError))
     } finally {
@@ -169,6 +172,10 @@ export function FamilyMembersPage() {
             {members.map((member) => {
               const codes = [...member.commonRequirements, ...member.restrictions]
               const busy = busyId === member.profileId
+              const caption = profileDisplayCaption(member, {
+                selfProfileId,
+                isPrimaryAdmin,
+              })
               return (
                 <article
                   className={`profile-card${!member.profileActive ? ' profile-card--inactive' : ''}`}
@@ -180,10 +187,10 @@ export function FamilyMembersPage() {
                     </span>
                     <div>
                       <h2>{member.profileName}</h2>
-                      <p>
-                        {formatCode(member.relationship)} · {formatCode(member.ageGroup)}
-                        {member.memberRole ? ` · ${formatCode(member.memberRole)}` : ''}
-                      </p>
+                      {caption ? <p>{caption}</p> : null}
+                      {isPrimaryAdmin ? (
+                        <p>{formatCode(member.ageGroup)}</p>
+                      ) : null}
                     </div>
                     <span className="source-label">
                       {!member.profileActive

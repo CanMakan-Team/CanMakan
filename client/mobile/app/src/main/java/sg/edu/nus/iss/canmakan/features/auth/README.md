@@ -3,7 +3,7 @@
 User registration, authentication and session management.
 
 ## Responsibilities
-- UC18 two-screen account registration flow
+- UC18 single-screen account registration followed by normal UC19 login
 - Registration request/response mapping and backend error handling
 - Optional dietary-setup intent hand-off to authenticated onboarding
 - Single post-login continuation ordering profile setup before invitation claim
@@ -22,19 +22,18 @@ User registration, authentication and session management.
   registration, and login routes. Registration never claims or consumes them.
   `LoginViewModel` also only offers; `PostLoginContinuationViewModel` is the sole
   authenticated claimer (after deferred dietary setup when requested).
-- Registration Screen 2 records only whether the user wants dietary setup after
-  sign-in. It never loads the authenticated restriction catalog. Durable profile
-  name belongs to authenticated SELF-profile setup.
-- `PendingOnboardingStore` retains only the normalized registration email and an
-  opaque in-memory request version for normal navigation. The email binds the
+- Create New Account collects Profile Name with email/password confirmation, but
+  sends only email/password to public registration. After `201`, it invokes the
+  existing login repository and session store; no second authentication path exists.
+- `PendingOnboardingStore` retains only the normalized registration email,
+  Profile Name and an opaque in-memory request version. The email binds the
   setup intent to the account that registered; the version prevents old
-  same-account work from clearing a newer intent. The authenticated setup UI
-  collects the profile name after sign-in. A different authenticated email
+  same-account work from clearing a newer intent. A different authenticated email
   invalidates the intent. The store deliberately does not survive process death
   and stores no password, backend user id, access token, refresh token, or
   session material.
 - After UC19 Login persists the session, `PostLoginContinuationViewModel` routes
-  requested dietary setup first and owns the invitation-claim attempt. Both
+  dietary setup directly and owns the later invitation-claim attempt. Both
   setup and invitation work snapshot the initiating authenticated account and
   reject stale completion after logout or an account transition. Pending-token
   clearing is conditional, so completion of an older claim cannot erase a newer

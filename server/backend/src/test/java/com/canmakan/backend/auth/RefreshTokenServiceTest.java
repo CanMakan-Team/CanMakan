@@ -186,6 +186,24 @@ class RefreshTokenServiceTest {
     }
 
     @Test
+    void unexpectedRotationPersistenceFailureIsNotConvertedToAuthenticationFailure() {
+        DataAccessResourceFailureException failure =
+            new DataAccessResourceFailureException("database unavailable");
+        when(refreshTokenRepository.findByTokenHashForUpdate(
+                RefreshTokenService.hashToken(RAW_TOKEN)))
+            .thenThrow(failure);
+
+        DataAccessResourceFailureException thrown = assertThrows(
+            DataAccessResourceFailureException.class,
+            () -> service.rotate(RAW_TOKEN)
+        );
+
+        assertEquals(failure, thrown);
+        verify(refreshTokenRepository, never()).delete(any());
+        verify(refreshTokenRepository, never()).save(any());
+    }
+
+    @Test
     void rotationLookupUsesAPessimisticWriteLock() throws Exception {
         Method rotationLookup = RefreshTokenRepository.class.getMethod(
             "findByTokenHashForUpdate",

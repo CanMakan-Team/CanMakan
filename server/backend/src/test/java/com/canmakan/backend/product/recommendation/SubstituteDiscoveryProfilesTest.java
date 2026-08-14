@@ -28,7 +28,9 @@ class SubstituteDiscoveryProfilesTest {
     void wheatFloursProfileContainsGlutenFreeFlourTag() {
         SubstituteDiscoveryProfile profile = profiles.forSourceCategory("Wheat flours").orElseThrow();
 
-        assertEquals(List.of("en:gluten-free-flour"), profile.includeTags());
+        assertTrue(profile.includeTags().contains("en:gluten-free-flour"));
+        assertTrue(profile.includeTags().contains("Gluten free flour"));
+        assertTrue(profile.includeTags().contains("Gluten-free flour"));
         assertTrue(profile.beverageTags().contains("en:corn-starch"));
         assertTrue(profile.deprioritizeTags().contains("en:oat-flour"));
     }
@@ -72,6 +74,9 @@ class SubstituteDiscoveryProfilesTest {
         SubstituteDiscoveryProfile profile = profiles.forSourceCategory("Breakfast cereals").orElseThrow();
 
         assertEquals(List.of("Gluten free Breakfast cereals"), profile.includeTags());
+        assertTrue(profiles.isBreakfastCerealSubstituteDiscovery(profile));
+        assertEquals(List.of("en:no-gluten", "en:certified-gluten-free"), profile.labelTags());
+        assertEquals(List.of("Breakfast cereals"), profile.siblingCategories());
         assertTrue(profile.beverageTags().isEmpty());
         assertTrue(profile.deprioritizeTags().isEmpty());
     }
@@ -99,6 +104,8 @@ class SubstituteDiscoveryProfilesTest {
         SubstituteDiscoveryProfile profile = profiles.forSourceCategory("Soy sauces").orElseThrow();
 
         assertEquals(List.of("Gluten Free sauces"), profile.includeTags());
+        assertEquals(List.of("en:no-gluten", "en:certified-gluten-free"), profile.labelTags());
+        assertEquals(List.of("Sauces", "Soy sauces"), profile.siblingCategories());
     }
 
     @Test
@@ -106,6 +113,43 @@ class SubstituteDiscoveryProfilesTest {
         SubstituteDiscoveryProfile profile = profiles.forSourceCategory("Sauces").orElseThrow();
 
         assertEquals(List.of("Low sodium sauces", "Low sodium sauce"), profile.includeTags());
+        assertTrue(profile.labelTags().contains("en:low-salt"));
+        assertTrue(profile.labelTags().contains("en:reduced-salt"));
+        assertEquals(List.of("Sauces", "Soy sauces"), profile.siblingCategories());
+        assertTrue(profiles.isLowSodiumSauceSubstituteDiscovery(profile));
+    }
+
+    @Test
+    void fishSauceTaggedGroceriesResolvesLowSodiumSauceProfile() {
+        CatalogProduct fishSauce = new CatalogProduct();
+        fishSauce.setBarcode("8850581172007");
+        fishSauce.setMainCategoryEn("Groceries");
+        fishSauce.setCategoryTags("en:condiments,en:sauces,en:nuoc-mam-sauce,en:groceries");
+        fishSauce.setIngredientsText("Anchovies, Salt, Sugar");
+
+        SubstituteDiscoveryProfile profile = profiles.forSourceProduct(fishSauce).orElseThrow();
+
+        assertEquals(List.of("Low sodium sauces", "Low sodium sauce"), profile.includeTags());
+        assertTrue(SubstituteDiscoveryProfiles.isSauceSource(fishSauce));
+    }
+
+    @Test
+    void peanutButterCategoriesShareNutButterSubstituteProfile() {
+        SubstituteDiscoveryProfile peanutButters = profiles.forSourceCategory("Peanut butters").orElseThrow();
+
+        assertEquals(List.of(
+                "en:nut-butters",
+                "en:tahini",
+                "en:cereal-butters",
+                "en:oilseed-purees"), peanutButters.includeTags());
+        assertEquals(List.of(
+                "en:nut-butters",
+                "en:tahini",
+                "en:cereal-butters"), peanutButters.beverageTags());
+        assertEquals(List.of("en:honeys"), peanutButters.excludeCategoryTags());
+        assertEquals(List.of("en:peanuts"), peanutButters.excludeTracesTags());
+        assertEquals(peanutButters, profiles.forSourceCategory("Crunchy peanut butters").orElseThrow());
+        assertTrue(profiles.isPeanutSpreadSubstituteDiscovery(peanutButters));
     }
 
     @Test
@@ -124,9 +168,78 @@ class SubstituteDiscoveryProfilesTest {
         );
 
         assertEquals(List.of("Gluten free bread"), breads.includeTags());
+        assertTrue(profiles.isBreadSubstituteDiscovery(breads));
         for (String category : categories) {
             assertEquals(breads, profiles.forSourceCategory(category).orElseThrow());
         }
+    }
+
+    @Test
+    void chocolateIceCreamTubsUsesIceCreamSubstituteProfile() {
+        CatalogProduct chocolateTub = new CatalogProduct();
+        chocolateTub.setBarcode("9414263008108");
+        chocolateTub.setMainCategoryEn("Chocolate ice cream tubs");
+        chocolateTub.setCategoryTags(
+                "en:desserts,en:frozen-foods,en:frozen-desserts,en:ice-creams-and-sorbets,"
+                        + "en:ice-creams,en:ice-cream-tubs,en:chocolate-ice-cream-tubs");
+        chocolateTub.setIngredientsText("Milk, Cream, Liquid Sugar, Cocoa Powder");
+
+        SubstituteDiscoveryProfile profile = profiles.forSourceProduct(chocolateTub).orElseThrow();
+
+        assertEquals(
+                List.of("ice-creams-and-sorbets", "en:ice-creams-and-sorbets"),
+                profile.includeTags());
+        assertTrue(profiles.isIceCreamSubstituteDiscovery(profile));
+    }
+
+    @Test
+    void iceCreamEncoderDoesNotInferMilkSubstitutesFromDairyIngredients() {
+        CatalogProduct chocolateTub = new CatalogProduct();
+        chocolateTub.setProductName("New Zealand Chocolate Ecstasy Ice Cream");
+        chocolateTub.setMainCategoryEn("Chocolate ice cream tubs");
+        chocolateTub.setCategoryTags(
+                "en:ice-creams-and-sorbets,en:ice-creams,en:chocolate-ice-cream-tubs");
+        chocolateTub.setIngredientsText("Milk, Cream, Liquid Sugar, Cocoa Powder");
+
+        ProductFeatureEncoder encoder =
+                new ProductFeatureEncoder(new ProductFeatureVectorStore(new com.fasterxml.jackson.databind.ObjectMapper(), ""));
+
+        assertTrue(encoder.inferSubstituteTags(chocolateTub).contains("ice-creams-and-sorbets"));
+        assertTrue(encoder.inferSubstituteTags(chocolateTub).stream()
+                .noneMatch(tag -> tag.contains("milk-substitute") || tag.contains("dairy-substitute")));
+    }
+
+    @Test
+    void breadEncoderDoesNotInferMilkSubstitutesFromMilkBreadName() {
+        CatalogProduct milkBread = new CatalogProduct();
+        milkBread.setProductName("Hi Calcium Milk Bread Plus");
+        milkBread.setMainCategoryEn("White breads");
+        milkBread.setCategoryTags("en:breads,en:white-breads");
+        milkBread.setIngredientsText(
+                "Wheat flour, skimmed milk powder, sugar, Baker yeast");
+
+        ProductFeatureEncoder encoder =
+                new ProductFeatureEncoder(new ProductFeatureVectorStore(new com.fasterxml.jackson.databind.ObjectMapper(), ""));
+
+        assertTrue(encoder.inferSubstituteTags(milkBread).contains("Gluten free bread"));
+        assertTrue(encoder.inferSubstituteTags(milkBread).stream()
+                .noneMatch(tag -> tag.contains("milk-substitute") || tag.contains("dairy-substitute")));
+    }
+
+    @Test
+    void breakfastCerealEncoderDoesNotInferFlourSubstitutesFromWheatCereal() {
+        CatalogProduct honeyStars = new CatalogProduct();
+        honeyStars.setProductName("Honey Stars");
+        honeyStars.setMainCategoryEn("Breakfast cereals");
+        honeyStars.setCategoryTags("en:breakfast-cereals");
+        honeyStars.setIngredientsText("Wholegrain Wheat, Corn Semolina, Sugar, Honey");
+
+        ProductFeatureEncoder encoder =
+                new ProductFeatureEncoder(new ProductFeatureVectorStore(new com.fasterxml.jackson.databind.ObjectMapper(), ""));
+
+        assertTrue(encoder.inferSubstituteTags(honeyStars).contains("Gluten free Breakfast cereals"));
+        assertTrue(encoder.inferSubstituteTags(honeyStars).stream()
+                .noneMatch(tag -> tag.contains("gluten-free-flour") || tag.contains("Gluten free flour")));
     }
 
     @Test

@@ -23,8 +23,8 @@ import com.canmakan.backend.auth.exception.DuplicateEmailException;
 import com.canmakan.backend.auth.exception.RegistrationFailedException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
-import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
-import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
+import com.canmakan.backend.family.FamilyInviteNotifier;
+import com.canmakan.backend.family.InvitationRegistrationGuard;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
 import com.canmakan.backend.shared.security.JwtService;
@@ -52,23 +52,20 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-/** UC18 -  19 test cases: AuthService
+/** AuthService authentication and UC18 public-registration tests.
  * 
  * @author YangMaowei
  * @author Amelia
  * 
 */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UC18 - 11 test cases: AuthService")
+@DisplayName("AuthService")
 class AuthServiceTest {
 
     private static final String PASSWORD_HASH = "$2a$10$test-password-hash";
 
     @Mock
     private UserAccountRepository userAccountRepository;
-
-    @Mock
-    private DietaryProfileRepository dietaryProfileRepository;
 
     @Mock
     private AuthenticationManager authenticationManager;
@@ -79,6 +76,12 @@ class AuthServiceTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
+    @Mock
+    private FamilyInviteNotifier familyInviteNotifier;
+
+    @Mock
+    private InvitationRegistrationGuard invitationRegistrationGuard;
+
     private PasswordEncoder passwordEncoder;
     private AuthService authService;
 
@@ -87,11 +90,12 @@ class AuthServiceTest {
         passwordEncoder = new BCryptPasswordEncoder(10);
         authService = new AuthService(
             userAccountRepository,
-            dietaryProfileRepository,
             passwordEncoder,
             authenticationManager,
             jwtService,
-            refreshTokenService
+            refreshTokenService,
+            familyInviteNotifier,
+            invitationRegistrationGuard
         );
     }
 
@@ -223,9 +227,6 @@ class AuthServiceTest {
                 account.setId(14L);
                 return account;
             });
-            when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
             RegistrationResponse response = authService.register(request);
 
             ArgumentCaptor<UserAccount> accountCaptor = ArgumentCaptor.forClass(UserAccount.class);
@@ -242,27 +243,19 @@ class AuthServiceTest {
             assertFalse(persisted.toString().contains(persisted.getPasswordHash()));
             assertFalse(request.toString().contains(rawPassword));
 
-            ArgumentCaptor<DietaryProfile> profileCaptor = ArgumentCaptor.forClass(DietaryProfile.class);
-            verify(dietaryProfileRepository).saveAndFlush(profileCaptor.capture());
-            DietaryProfile persistedProfile = profileCaptor.getValue();
-
-            assertSame(persisted, persistedProfile.getLinkedUser());
-            assertEquals("Person Name", persistedProfile.getProfileName());
-            assertEquals("SELF", persistedProfile.getRelationship());
-            assertTrue(persistedProfile.isPrimary());
-
             assertEquals(14L, response.userId());
             assertEquals("person@example.com", response.email());
             assertTrue(response.active());
             verify(userAccountRepository).findRoleIdByName(AuthService.PUBLIC_REGISTRATION_ROLE);
+            verify(familyInviteNotifier).hydrateIncomingInvites(14L, "person@example.com");
             verifyNoInteractions(authenticationManager, jwtService, refreshTokenService);
         }
 
         @Test
         @DisplayName(
-            "UC18 BE1b: registration creates the linked SELF profile but does not "
+            "UC18 BE1b: registration ignores legacy profile name and does not "
                 + "claim invitations or start a session")
-        void registrationCreatesSelfProfileButDoesNotClaimInvitationOrStartSession() {
+        void registrationIgnoresLegacyNameAndDoesNotClaimInvitationOrStartSession() {
             RegistrationRequest request = new RegistrationRequest(
                 "Pending Profile Name",
                 "person@example.com",
@@ -276,15 +269,40 @@ class AuthServiceTest {
                 account.setId(14L);
                 return account;
             });
-            when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
             RegistrationResponse response = authService.register(request);
 
             assertEquals(14L, response.userId());
             assertEquals(3, RegistrationResponse.class.getRecordComponents().length);
-            verify(dietaryProfileRepository).saveAndFlush(any(DietaryProfile.class));
+            verify(familyInviteNotifier).hydrateIncomingInvites(14L, "person@example.com");
+            verify(invitationRegistrationGuard).requireEmailMatchesPendingInvite(
+                "pending-invitation-token",
+                "person@example.com"
+            );
             verifyNoInteractions(authenticationManager, jwtService, refreshTokenService);
+        }
+
+        @Test
+        @DisplayName("invite registration rejects an email that does not match the invitation")
+        void rejectsEmailThatDoesNotMatchPendingInvitation() {
+            RegistrationRequest request = new RegistrationRequest(
+                null,
+                "other@example.com",
+                "Password1!",
+                "pending-invitation-token"
+            );
+            org.mockito.Mockito.doThrow(
+                    new com.canmakan.backend.family.exception.InvitationEmailMismatchException(
+                        InvitationRegistrationGuard.MISMATCH_MESSAGE
+                    )
+                )
+                .when(invitationRegistrationGuard)
+                .requireEmailMatchesPendingInvite("pending-invitation-token", "other@example.com");
+
+            assertThrows(
+                com.canmakan.backend.family.exception.InvitationEmailMismatchException.class,
+                () -> authService.register(request)
+            );
+            verify(userAccountRepository, never()).saveAndFlush(any());
         }
 
         @Test
@@ -302,6 +320,7 @@ class AuthServiceTest {
 
             verify(userAccountRepository, never()).findRoleIdByName(any());
             verify(userAccountRepository, never()).saveAndFlush(any());
+            verify(familyInviteNotifier, never()).hydrateIncomingInvites(any(Long.class), any());
         }
 
         @Test

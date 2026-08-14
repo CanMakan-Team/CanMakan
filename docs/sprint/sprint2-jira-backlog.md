@@ -180,7 +180,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 
 | Rule | Resolution |
 | --- | --- |
-| UC1 “create profile after registration” | Registration is account-only; after explicit login, authenticated `POST /api/profiles/me` may create a standalone SELF profile (`family_id` NULL), while UC8/UC9 still bootstrap one when missing. |
+| UC1 “create profile after registration” | Registration is account-only; after client-side normal login, authenticated `POST /api/profiles/me` may create a standalone SELF profile (`family_id` NULL), while UC8/UC9 still bootstrap one when missing. |
 | UC9 invite **or** dependant | One epic: **UC9-S2** PENDING invite with shareable link/code (mobile + web); **UC9-S3** admin-managed dependant (`linked_user_id` NULL, web-primary UI). |
 | Family client split | Create + invite on **both** clients; accept mainly **mobile**; switch **mobile-only**; manage **web-primary** (mobile optional/limited). |
 | UC4 two surfaces | Personal history (mobile) + family-admin filterable list (web). Charts are **UC14**, not UC4. |
@@ -194,7 +194,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 
 | ID | Decision | Proposal |
 | --- | --- | --- |
-| D1 | Platform roles + JWT | Live: `USER` / `ADMIN` in JWT; web portal maps to `ROLE_FAMILY_ADMIN` / `ROLE_SYSTEM_ADMIN`. Rename to `APP_USER` / `SYSTEM_ADMIN` still optional. |
+| D1 | Platform roles + JWT | Live: `USER` / `ADMIN` in JWT; web maps to `ROLE_APP_USER` / `ROLE_SYSTEM_ADMIN`. Family `PRIMARY_ADMIN` is membership data, not a system role. |
 | D2 | One family per user (MVP)? | Yes + `UNIQUE(family_members.user_id)` |
 | D3 | Admin edit another adult’s restrictions? | No — self + unlinked dependants only |
 | D4 | Invite then accept | PENDING + UC10 (matches UC9/UC10) |
@@ -204,7 +204,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 | D8 | Restriction codes | Web → DB catalog codes |
 | D9 | Verdict wire vs UI | Wire `UNSAFE`; UI Unsafe/Avoid |
 | D10 | Sprint commitment | Commit Core MVP stories in Jira; sequence UC19 early |
-| D11 | UC1 create without family | Prefer UC8 bootstrap; document if schema change approved |
+| D11 | UC1 create without family | Approved standalone SELF profile through authenticated `POST /api/profiles/me`; `family_id` remains nullable |
 
 ---
 
@@ -486,7 +486,7 @@ Missing: recommendations API; admin list/PATCH APIs; JWT on validate (UC19-S3 re
 | **In** | Create circle; creator PRIMARY_ADMIN; bootstrap SELF profile; `GET /families/me`; web + mobile empty-state create |
 | **Out** | Invites (UC9); accept inbox (UC10); manage roster (UC12); architecture diagrams still open |
 | **Shipped** | D2 UNIQUE; `POST /api/families`; `GET /me`; web `FamilyMeGate` / `CreateFamilyCirclePage`; mobile drawer + `CreateFamilyCircleScreen`; tests for 201/400/409/401; `family/dto` packaging |
-| **Caller identity** | Bearer JWT (`@AuthenticationPrincipal`). DB `PRIMARY_ADMIN` vs web portal `ROLE_FAMILY_ADMIN` — document mapping |
+| **Caller identity** | Bearer JWT (`@AuthenticationPrincipal`). DB `PRIMARY_ADMIN` is established by family membership responses; web platform role remains `ROLE_APP_USER`. |
 
 ---
 
@@ -697,7 +697,7 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 | **UC1-S1** | Authorize restriction GET/PUT (ownership matrix) — **Mostly done** (AC10 unknown-code → 400 open) | 1–2, 10–12, 16 | P0 |
 | **UC1-S2** | Align restriction codes + PREFERENCE (D8/M6) | (supports 3–6) | P0 |
 | **UC1-S3** | Mobile editor — add/change/remove + save round-trip — **Mostly done** (severity picker open) | 3–7 | P0 |
-| **UC1-S4** | Create-after-registration path — **UC8 create-circle bootstrap shipped**; confirm AC coverage / polish | 8–9 | P0 |
+| **UC1-S4** | Optional create-after-registration path — authenticated standalone `POST /api/profiles/me` shipped; confirm AC coverage / polish | 8–9 | P0 |
 | **UC1-S5** | Mobile loading / empty / error states — **Partial** (empty state polish) | 13–15 | P1 |
 
 ### UC8 / UC9 / UC10 — Family lifecycle
@@ -802,7 +802,10 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 
 **Remaining Core MVP (next):** UC5-S1/S2; UC7-S1/S2; UC1 severity/empty polish; UC19-S3 validate + AC3. UC13-S1…S3 are shipped.
 
-**Seeded-family exception:** Scan work may still use Tan/Lim/Wong seeds for demo data. New users create a circle via UC8 after UC18 register + UC19 login; active profile persists via UC11.
+**Seeded-family exception:** Scan work may still use Tan/Lim/Wong seeds for demo
+data. New users may use standalone SELF profiles after UC18 registration + UC19
+login; UC8 create and UC11 family active-profile persistence begin only after an
+explicit Family Circle action.
 
 **Enhanced / Nice-to-Have:** UC14–UC24 after Core commitment. UC19 foundation is in place; finish S3 (`validate`) before treating all Core APIs as production-authz complete.
 ---
@@ -920,7 +923,7 @@ UC3 ──► UC20
 | ID | Conflict | Decision |
 | --- | --- | --- |
 | C1 | Role vocabularies | Membership vs platform roles (UC19-S2) |
-| C2 | UC1 create without family | Prefer UC8 bootstrap |
+| C2 | UC1 create without family | Resolved: standalone authenticated SELF creation; UC8 remains explicit and optional |
 | C3 | Mock immediate link | Replace with UC9 invite + UC10 |
 | C4 | Profile vs account active | M4 vs `users.is_active` |
 | C5 | Active profile | M3 + UC11 |

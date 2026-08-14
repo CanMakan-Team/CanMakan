@@ -12,8 +12,8 @@ import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
 import com.canmakan.backend.auth.exception.RegistrationFailedException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
-import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
-import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
+import com.canmakan.backend.family.FamilyInviteNotifier;
+import com.canmakan.backend.family.InvitationRegistrationGuard;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.JwtService;
 import com.canmakan.backend.user.UserAccount;
@@ -46,15 +46,15 @@ public class AuthService {
 
     private static final String TOKEN_TYPE = "Bearer";
     static final String PUBLIC_REGISTRATION_ROLE = "USER";
-    private static final String SELF_PROFILE_RELATIONSHIP = "SELF";
 
     private final UserAccountRepository userAccountRepository;
-    private final DietaryProfileRepository dietaryProfileRepository;
     private final PasswordEncoder passwordEncoder;
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final FamilyInviteNotifier familyInviteNotifier;
+    private final InvitationRegistrationGuard invitationRegistrationGuard;
 
     // User login
     @Transactional
@@ -116,6 +116,10 @@ public class AuthService {
         String normalizedEmail = request.email();
 
         try {
+            invitationRegistrationGuard.requireEmailMatchesPendingInvite(
+                request.invitationToken(),
+                normalizedEmail
+            );
             if (userAccountRepository.existsByEmail(normalizedEmail)) {
                 throw new DuplicateEmailException();
             }
@@ -130,15 +134,7 @@ public class AuthService {
             account.setActive(true);
 
             UserAccount savedAccount = userAccountRepository.saveAndFlush(account);
-
-            // Registration creates the linked SELF dietary profile in the same
-            // transaction as the account so both rows succeed or fail together.
-            DietaryProfile selfProfile = new DietaryProfile();
-            selfProfile.setLinkedUser(savedAccount);
-            selfProfile.setProfileName(request.name());
-            selfProfile.setRelationship(SELF_PROFILE_RELATIONSHIP);
-            selfProfile.setPrimary(true);
-            dietaryProfileRepository.saveAndFlush(selfProfile);
+            familyInviteNotifier.hydrateIncomingInvites(savedAccount.getId(), savedAccount.getEmail());
 
             return new RegistrationResponse(
                 savedAccount.getId(),

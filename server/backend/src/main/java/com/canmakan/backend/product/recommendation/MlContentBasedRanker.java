@@ -1,0 +1,133 @@
+package com.canmakan.backend.product.recommendation;
+
+import com.canmakan.backend.product.verdict.RestrictionRule;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.springframework.stereotype.Service;
+
+/**
+ * Tier C content-based ranking using sparse feature cosine similarity,
+ * optional nutrition proximity, and profile-aware boosts.
+ *
+ * <p>Score formula (capped at {@value #MAX_SCORE}):
+ * <pre>
+ *   score = min({@value #MAX_SCORE},
+ *         contentSimilarity × {@value #CONTENT_SIM_SCALE}
+ *       + nutritionSimilarity   (when source and candidate both have sugars and sodium per 100g)
+ *       + lowSugarBoost         ({@value #LOW_SUGAR_BOOST} when LOW_SUGAR rule and nutrition pair absent)
+ *       + priorSafeBoost        ({@value #PRIOR_SAFE_BOOST} when barcode in prior safe scans)
+ *       )
+ * </pre>
+ *
+ * <p>{@code contentSimilarity} is cosine similarity of {@link ProductFeatureEncoder} vectors.
+ * {@code nutritionSimilarity} is {@value #NUTRITION_WEIGHT} times the mean of per-nutrient
+ * {@code 1 - min(1, |Δ| / range)} for sugars and sodium (ranges {@value #MAX_SUGAR_RANGE_G}
+ * g and {@value #MAX_SODIUM_RANGE_G} g per 100g).
+ */
+@Service
+class MlContentBasedRanker {
+
+    private static final double LOW_SUGAR_BOOST = 0.12;
+    private static final double PRIOR_SAFE_BOOST = 0.10;
+    private static final double NUTRITION_WEIGHT = 0.15;
+    private static final double CONTENT_SIM_SCALE = 0.63;
+    private static final double MAX_SUGAR_RANGE_G = 50.0;
+    private static final double MAX_SODIUM_RANGE_G = 3.0;
+    private static final double MAX_SCORE = 0.99;
+
+    private final ProductFeatureEncoder featureEncoder;
+
+    MlContentBasedRanker(ProductFeatureEncoder featureEncoder) {
+        this.featureEncoder = featureEncoder;
+    }
+
+    List<AlternativeProductRanker.RankedAlternative> rank(
+            CatalogProduct source,
+            List<CatalogProduct> safeCandidates,
+            List<RestrictionRule> rules,
+            Set<String> priorSafeBarcodes) {
+
+        Map<String, Double> sourceVector = featureEncoder.encode(source);
+        boolean prefersLowSugar = prefersLowSugar(rules);
+        boolean nutritionAvailable = hasNutritionPair(source);
+
+        List<AlternativeProductRanker.RankedAlternative> ranked = new ArrayList<>();
+        for (CatalogProduct candidate : safeCandidates) {
+            double similarity = CosineSimilarity.between(sourceVector, featureEncoder.encode(candidate));
+            double score = similarity * CONTENT_SIM_SCALE;
+
+            if (nutritionAvailable && hasNutritionPair(candidate)) {
+                score += nutritionSimilarity(source, candidate);
+            } else if (prefersLowSugar && featureEncoder.isUnsweetened(candidate)) {
+                score += LOW_SUGAR_BOOST;
+            }
+            if (priorSafeBarcodes.contains(candidate.getBarcode())) {
+                score += PRIOR_SAFE_BOOST;
+            }
+
+            score = Math.min(score, MAX_SCORE);
+            ranked.add(new AlternativeProductRanker.RankedAlternative(
+                    candidate,
+                    BigDecimal.valueOf(score).setScale(4, RoundingMode.HALF_UP),
+                    resolveMatchReason(
+                            prefersLowSugar,
+                            nutritionAvailable && hasNutritionPair(candidate),
+                            priorSafeBarcodes.contains(candidate.getBarcode()),
+                            candidate)));
+        }
+
+        ranked.sort(Comparator.comparing(AlternativeProductRanker.RankedAlternative::score).reversed());
+        return ranked;
+    }
+
+    private static boolean prefersLowSugar(List<RestrictionRule> rules) {
+        if (rules == null) {
+            return false;
+        }
+        return rules.stream().anyMatch(rule -> "LOW_SUGAR".equals(rule.code()));
+    }
+
+    private static boolean hasNutritionPair(CatalogProduct product) {
+        return resolveSugarsPer100g(product) != null && resolveSodiumPer100g(product) != null;
+    }
+
+    private static BigDecimal resolveSugarsPer100g(CatalogProduct product) {
+        return product.toNutrition().sugarsPer100g();
+    }
+
+    private static BigDecimal resolveSodiumPer100g(CatalogProduct product) {
+        return product.toNutrition().sodiumPer100g();
+    }
+
+    private static double nutritionSimilarity(CatalogProduct source, CatalogProduct candidate) {
+        double sugarDelta = Math.abs(
+                resolveSugarsPer100g(source).doubleValue() - resolveSugarsPer100g(candidate).doubleValue());
+        double sodiumDelta = Math.abs(
+                resolveSodiumPer100g(source).doubleValue() - resolveSodiumPer100g(candidate).doubleValue());
+        double sugarSim = 1.0 - Math.min(1.0, sugarDelta / MAX_SUGAR_RANGE_G);
+        double sodiumSim = 1.0 - Math.min(1.0, sodiumDelta / MAX_SODIUM_RANGE_G);
+        return ((sugarSim + sodiumSim) / 2.0) * NUTRITION_WEIGHT;
+    }
+
+    private String resolveMatchReason(
+            boolean prefersLowSugar,
+            boolean nutritionMatched,
+            boolean priorSafe,
+            CatalogProduct candidate) {
+        if (priorSafe) {
+            return "ml_prior_safe_scan";
+        }
+        if (nutritionMatched && prefersLowSugar) {
+            return "ml_nutrition_match";
+        }
+        if (prefersLowSugar && featureEncoder.isUnsweetened(candidate)) {
+            return "ml_unsweetened_substitute";
+        }
+        return "ml_similarity";
+    }
+}

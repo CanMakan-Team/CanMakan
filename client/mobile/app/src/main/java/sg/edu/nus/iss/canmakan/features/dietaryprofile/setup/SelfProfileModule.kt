@@ -5,8 +5,6 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.ExistingSelfProfileResolver
-import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.FamilyExistingSelfProfileResolver
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.SelfProfileRepository
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.ServerSelfProfileRepository
 
@@ -18,10 +16,4 @@ abstract class SelfProfileModule {
     abstract fun bindSelfProfileRepository(
         repository: ServerSelfProfileRepository,
     ): SelfProfileRepository
-
-    @Binds
-    @Singleton
-    abstract fun bindExistingSelfProfileResolver(
-        resolver: FamilyExistingSelfProfileResolver,
-    ): ExistingSelfProfileResolver
 }

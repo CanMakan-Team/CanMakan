@@ -7,7 +7,7 @@ import {
   SessionContext,
   type SessionContextValue,
 } from '../../../features/auth/SessionContext'
-import { familyAdminSession } from '../../testUtils'
+import { appUserSession } from '../../testUtils'
 
 vi.mock('../../../features/auth/authService', () => ({
   authService: { getCurrentUser: vi.fn() },
@@ -21,7 +21,7 @@ vi.mock('../../../features/family/api/familyApiService', () => ({
 }))
 
 const sessionValue: SessionContextValue = {
-  session: familyAdminSession(),
+  session: appUserSession(),
   loading: false,
   restoring: false,
   restorationError: '',
@@ -30,6 +30,9 @@ const sessionValue: SessionContextValue = {
     throw new Error('unused')
   },
   register: async () => {
+    throw new Error('unused')
+  },
+  registerAndLogin: async () => {
     throw new Error('unused')
   },
   logout: async () => undefined,
@@ -80,8 +83,7 @@ describe('FamilyAccountPage', () => {
     expect(within(panel as HTMLElement).getByText('verified@example.com')).toBeInTheDocument()
     expect(within(panel as HTMLElement).getByText('Verified Family')).toBeInTheDocument()
     expect(within(panel as HTMLElement).getByText('Primary Admin')).toBeInTheDocument()
-    expect(within(panel as HTMLElement).getByText('Verified Person')).toBeInTheDocument()
-    expect(within(panel as HTMLElement).getByText('Self')).toBeInTheDocument()
+    expect(within(panel as HTMLElement).getByText('Verified Person · Self')).toBeInTheDocument()
     expect(screen.queryByText(/Bearer|JWT|token|Authorization/i)).not.toBeInTheDocument()
   })
 

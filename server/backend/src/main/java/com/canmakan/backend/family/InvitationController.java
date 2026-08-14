@@ -1,6 +1,7 @@
 package com.canmakan.backend.family;
 
 import com.canmakan.backend.family.dto.FamilyMeResponse;
+import com.canmakan.backend.family.dto.InvitationPreviewResponse;
 import com.canmakan.backend.family.dto.PendingInvitationResponse;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthUserChecker;
@@ -59,5 +60,12 @@ public class InvitationController {
         familyService.declineInvitation(userId, token);
         log.info("POST /invitations/{}/decline → 204", token);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    @GetMapping("/{token}/preview")
+    public InvitationPreviewResponse previewInvitation(@PathVariable("token") String token) {
+        InvitationPreviewResponse preview = familyService.previewInvitation(token);
+        log.info("GET /invitations/{}/preview → 200", token);
+        return preview;
     }
 }

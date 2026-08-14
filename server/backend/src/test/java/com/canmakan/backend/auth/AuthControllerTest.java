@@ -24,6 +24,7 @@ import com.canmakan.backend.auth.dto.RegistrationResponse;
 import com.canmakan.backend.auth.exception.AuthExceptionHandler;
 import com.canmakan.backend.auth.exception.AuthenticationFailedException;
 import com.canmakan.backend.auth.exception.DuplicateEmailException;
+import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.shared.security.SystemRole;
 import jakarta.servlet.http.HttpServletRequest;
@@ -248,9 +249,11 @@ class AuthControllerTest {
                 .andExpect(header().string(
                     "Set-Cookie",
                     containsString("canmakan_refresh=new-refresh-token")
-                ));
+                ))
+                .andExpect(header().string("Set-Cookie", not(containsString("Max-Age=0"))));
 
             verify(authService).refresh("old-refresh-token");
+            verify(refreshCookieService, never()).clearRefreshCookie();
         }
 
         @Test
@@ -260,9 +263,56 @@ class AuthControllerTest {
 
             mockMvc.perform(post("/api/auth/refresh"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value("Authentication required."));
+                .andExpect(jsonPath("$.message").value("Authentication required."))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(header().string(
+                    "Set-Cookie",
+                    containsString("canmakan_refresh=")
+                ))
+                .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")))
+                .andExpect(header().string("Set-Cookie", containsString("HttpOnly")))
+                .andExpect(header().string("Set-Cookie", containsString("Secure")))
+                .andExpect(header().string("Set-Cookie", containsString("Path=/api/auth")))
+                .andExpect(header().string("Set-Cookie", containsString("SameSite=Strict")));
 
             verify(authService, never()).refresh(any());
+            verify(refreshCookieService).clearRefreshCookie();
+        }
+
+        @Test
+        void malformedRefreshCookieReturnsGenericUnauthorizedAndClearsIt() throws Exception {
+            when(refreshCookieService.readRefreshToken(any(HttpServletRequest.class)))
+                .thenReturn(Optional.of("malformed-refresh-token"));
+            when(authService.refresh("malformed-refresh-token"))
+                .thenThrow(new RefreshAuthenticationException());
+
+            mockMvc.perform(post("/api/auth/refresh"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Authentication required."))
+                .andExpect(content().string(not(containsString("malformed-refresh-token"))))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")));
+
+            verify(refreshCookieService).clearRefreshCookie();
+        }
+
+        @Test
+        void unexpectedRefreshFailureRemainsServerErrorAndPreservesCookie() throws Exception {
+            when(refreshCookieService.readRefreshToken(any(HttpServletRequest.class)))
+                .thenReturn(Optional.of("potentially-valid-refresh-token"));
+            when(authService.refresh("potentially-valid-refresh-token"))
+                .thenThrow(new IllegalStateException("database details must not escape"));
+
+            mockMvc.perform(post("/api/auth/refresh"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message")
+                    .value("Authentication request could not be completed."))
+                .andExpect(content().string(not(containsString("database details"))))
+                .andExpect(header().doesNotExist("Set-Cookie"));
+
+            verify(refreshCookieService, never()).clearRefreshCookie();
         }
 
         @Test
@@ -328,7 +378,6 @@ class AuthControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""
                         {
-                          "name": "Person Name",
                           "email": "  Person@Example.COM  ",
                           "password": "Password1!"
                         }
@@ -346,7 +395,7 @@ class AuthControllerTest {
                 .andExpect(header().doesNotExist("Set-Cookie"));
 
             verify(authService).register(
-                new RegistrationRequest("Person Name", "person@example.com", "Password1!", null)
+                new RegistrationRequest(null, "person@example.com", "Password1!", null)
             );
         }
 
@@ -403,27 +452,38 @@ class AuthControllerTest {
         }
 
         @Test
-        @DisplayName("UC18 HTTP4b: missing name returns 400 without calling the service")
-        void missingNameReturnsBadRequest() throws Exception {
+        @DisplayName("UC18 HTTP4b: legacy name is optional and ignored")
+        void missingNameRemainsContractCompatible() throws Exception {
+            when(authService.register(any(RegistrationRequest.class)))
+                .thenReturn(new RegistrationResponse(14L, "person@example.com", true));
+
             mockMvc.perform(post("/api/auth/register")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Invalid registration request."));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value("person@example.com"))
+                .andExpect(header().doesNotExist("Set-Cookie"));
 
-            verify(authService, never()).register(any());
+            verify(authService).register(
+                new RegistrationRequest(null, "person@example.com", "Password1!", null)
+            );
         }
 
         @Test
-        @DisplayName("UC18 HTTP4c: name still respects the schema-sized limit")
-        void oversizedNameReturnsBadRequest() throws Exception {
+        @DisplayName("UC18 HTTP4c: legacy name content is ignored")
+        void oversizedLegacyNameIsIgnored() throws Exception {
+            when(authService.register(any(RegistrationRequest.class)))
+                .thenReturn(new RegistrationResponse(14L, "person@example.com", true));
+
             mockMvc.perform(post("/api/auth/register")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"name\":\"" + "A".repeat(101)
                         + "\",\"email\":\"person@example.com\",\"password\":\"Password1!\"}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isCreated());
 
-            verify(authService, never()).register(any());
+            verify(authService).register(
+                new RegistrationRequest(null, "person@example.com", "Password1!", null)
+            );
         }
 
         @Test

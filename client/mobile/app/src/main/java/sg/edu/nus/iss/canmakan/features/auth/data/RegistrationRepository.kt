@@ -17,8 +17,10 @@ sealed interface RegistrationResult {
 
 interface RegistrationRepository {
     suspend fun register(
-        name: String,
         email: String,
         password: String,
+        invitationToken: String? = null,
     ): RegistrationResult
+
+    suspend fun previewInvitation(invitationToken: String): InvitationPreviewResponse?
 }

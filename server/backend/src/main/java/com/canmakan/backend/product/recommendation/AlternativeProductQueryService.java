@@ -45,18 +45,31 @@ public class AlternativeProductQueryService {
         }
 
         Map<String, CatalogProduct> merged = new LinkedHashMap<>();
-        for (String includeTag : profile.includeTags()) {
-            for (CatalogProduct candidate : catalogProductRepository.findCandidatesByCategoryTag(
-                    includeTag,
-                    sourceProduct.getBarcode())) {
-                if (matchesIncludeTags(candidate, profile.includeTags())) {
-                    merged.putIfAbsent(candidate.getBarcode(), candidate);
-                }
-                if (merged.size() >= MAX_CANDIDATES) {
-                    return new ArrayList<>(merged.values());
-                }
-            }
+        addCategoryTagCandidates(merged, sourceProduct, profile);
+        return new ArrayList<>(merged.values());
+    }
+
+    /**
+     * Union of category tags, label tags, and sibling {@code main_category_en} values.
+     * Capped at {@value #MAX_CANDIDATES}. Does not invent products outside the catalog.
+     */
+    public List<CatalogProduct> findExpandedSubstituteCandidates(
+            CatalogProduct sourceProduct,
+            SubstituteDiscoveryProfile profile) {
+        if (sourceProduct == null || sourceProduct.getBarcode() == null || profile == null) {
+            return List.of();
         }
+
+        Map<String, CatalogProduct> merged = new LinkedHashMap<>();
+        addCategoryTagCandidates(merged, sourceProduct, profile);
+        if (merged.size() >= MAX_CANDIDATES) {
+            return new ArrayList<>(merged.values());
+        }
+        addLabelTagCandidates(merged, sourceProduct, profile);
+        if (merged.size() >= MAX_CANDIDATES) {
+            return new ArrayList<>(merged.values());
+        }
+        addSiblingCategoryCandidates(merged, sourceProduct, profile);
         return new ArrayList<>(merged.values());
     }
 
@@ -64,8 +77,109 @@ public class AlternativeProductQueryService {
         return catalogProductRepository.findById(barcode);
     }
 
+    private void addCategoryTagCandidates(
+            Map<String, CatalogProduct> merged,
+            CatalogProduct sourceProduct,
+            SubstituteDiscoveryProfile profile) {
+        if (profile.includeTags() == null || profile.includeTags().isEmpty()) {
+            return;
+        }
+        for (String includeTag : profile.includeTags()) {
+            for (CatalogProduct candidate : catalogProductRepository.findCandidatesByCategoryTag(
+                    includeTag,
+                    sourceProduct.getBarcode())) {
+                if (matchesSubstituteConstraints(candidate, profile)) {
+                    merged.putIfAbsent(candidate.getBarcode(), candidate);
+                }
+                if (merged.size() >= MAX_CANDIDATES) {
+                    return;
+                }
+            }
+        }
+    }
+
+    private void addLabelTagCandidates(
+            Map<String, CatalogProduct> merged,
+            CatalogProduct sourceProduct,
+            SubstituteDiscoveryProfile profile) {
+        if (profile.labelTags() == null || profile.labelTags().isEmpty()) {
+            return;
+        }
+        for (String labelTag : profile.labelTags()) {
+            for (CatalogProduct candidate : catalogProductRepository.findCandidatesByLabelTag(
+                    labelTag,
+                    sourceProduct.getBarcode())) {
+                if (matchesLabelTags(candidate, profile.labelTags())
+                        && matchesExclusions(candidate, profile)) {
+                    merged.putIfAbsent(candidate.getBarcode(), candidate);
+                }
+                if (merged.size() >= MAX_CANDIDATES) {
+                    return;
+                }
+            }
+        }
+    }
+
+    private void addSiblingCategoryCandidates(
+            Map<String, CatalogProduct> merged,
+            CatalogProduct sourceProduct,
+            SubstituteDiscoveryProfile profile) {
+        if (profile.siblingCategories() == null || profile.siblingCategories().isEmpty()) {
+            return;
+        }
+        for (CatalogProduct candidate : catalogProductRepository.findCandidatesByCategories(
+                profile.siblingCategories(),
+                sourceProduct.getBarcode())) {
+            if (matchesExclusions(candidate, profile)) {
+                merged.putIfAbsent(candidate.getBarcode(), candidate);
+            }
+            if (merged.size() >= MAX_CANDIDATES) {
+                return;
+            }
+        }
+    }
+
+    static boolean matchesSubstituteConstraints(CatalogProduct candidate, SubstituteDiscoveryProfile profile) {
+        if (candidate == null || profile == null) {
+            return false;
+        }
+        return matchesIncludeTags(candidate, profile.includeTags())
+                && matchesExclusions(candidate, profile);
+    }
+
+    static boolean matchesExclusions(CatalogProduct candidate, SubstituteDiscoveryProfile profile) {
+        if (candidate == null || profile == null) {
+            return false;
+        }
+        Set<String> categoryTags = CategoryTagParser.parseTags(candidate.getCategoryTags());
+        if (CategoryTagParser.containsAny(categoryTags, profile.excludeCategoryTags())) {
+            return false;
+        }
+        return !hasExcludedTrace(candidate, profile.excludeTracesTags());
+    }
+
     private static boolean matchesIncludeTags(CatalogProduct candidate, List<String> includeTags) {
         Set<String> tags = CategoryTagParser.parseTags(candidate.getCategoryTags());
         return CategoryTagParser.containsAny(tags, includeTags);
+    }
+
+    private static boolean matchesLabelTags(CatalogProduct candidate, List<String> labelTags) {
+        Set<String> tags = CategoryTagParser.parseTags(candidate.getLabelsTags());
+        return CategoryTagParser.containsAny(tags, labelTags);
+    }
+
+    static boolean hasExcludedTrace(CatalogProduct candidate, List<String> excludeTracesTags) {
+        if (excludeTracesTags == null || excludeTracesTags.isEmpty()) {
+            return false;
+        }
+        Set<String> traces = CategoryTagParser.parseTags(candidate.getTracesTags());
+        if (CategoryTagParser.containsAny(traces, excludeTracesTags)) {
+            return true;
+        }
+        return traces.stream().anyMatch(AlternativeProductQueryService::containsPeanutToken);
+    }
+
+    private static boolean containsPeanutToken(String tag) {
+        return tag != null && tag.toLowerCase().contains("peanut");
     }
 }

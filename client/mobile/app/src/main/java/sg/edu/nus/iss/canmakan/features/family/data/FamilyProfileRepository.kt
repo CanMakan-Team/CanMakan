@@ -121,9 +121,12 @@ class FamilyProfileRepository @Inject constructor(
             ?: throw IllegalStateException("Empty body for GET /families/me/user-search")
     }
 
-    suspend fun createInvitation(email: String): InvitationResponse {
+    suspend fun createInvitation(email: String, relationship: String): InvitationResponse {
         val response = apiService.createInvitation(
-            CreateInvitationRequestBody(email = email.trim().lowercase()),
+            CreateInvitationRequestBody(
+                email = email.trim().lowercase(),
+                relationship = relationship.trim().uppercase(),
+            ),
         )
         if (!response.isSuccessful) {
             throw CreateFamilyException(messageFromError(response), response.code())

@@ -15,10 +15,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -32,7 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
+import sg.edu.nus.iss.canmakan.features.notifications.data.UserNotificationResponse
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
@@ -42,11 +44,10 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 
 /**
  * Account-wide notifications inbox (top-bar bell).
- * Currently lists family invitations; other notice types can share this screen later.
+ * Family invite cards are one source; other features can write the same inbox.
  */
 @Composable
 fun NotificationsInboxScreen(
-    hasFamily: Boolean = false,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     onScanClick: () -> Unit,
@@ -56,11 +57,10 @@ fun NotificationsInboxScreen(
     viewModel: NotificationsInboxViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val hasInvitations = uiState.invitations.isNotEmpty()
+    val hasNotifications = uiState.notifications.isNotEmpty()
     val subtitle = when {
-        !hasInvitations && uiState.errorMessage == null && !uiState.isLoading ->
+        !hasNotifications && uiState.errorMessage == null && !uiState.isLoading ->
             "No notifications yet"
-        hasFamily -> "Updates and alerts for your family"
         else -> "Updates and alerts for your account"
     }
 
@@ -141,20 +141,24 @@ fun NotificationsInboxScreen(
                     }
                 }
 
-                hasInvitations -> {
+                hasNotifications -> {
                     items(
-                        items = uiState.invitations,
-                        key = { it.invitationId },
-                    ) { invitation ->
-                        FamilyInvitationNotificationCard(
-                            invitation = invitation,
-                            isActing = uiState.actingToken == invitation.invitationToken,
+                        items = uiState.notifications,
+                        key = { it.id },
+                    ) { notification ->
+                        NotificationRow(
+                            notification = notification,
+                            isActing = uiState.actingToken == notification.actionToken,
+                            isDeleting = uiState.deletingId == notification.id,
                             onAccept = {
-                                viewModel.accept(invitation.invitationToken, onAccepted)
+                                notification.actionToken?.let { token ->
+                                    viewModel.accept(token, onAccepted)
+                                }
                             },
                             onDecline = {
-                                viewModel.decline(invitation.invitationToken)
+                                notification.actionToken?.let(viewModel::decline)
                             },
+                            onDelete = { viewModel.delete(notification.id) },
                         )
                         HorizontalDivider()
                     }
@@ -164,7 +168,7 @@ fun NotificationsInboxScreen(
                     item {
                         CanMakanMascotEmptyState(
                             title = "No notifications yet",
-                            body = "Family invitations and updates will show up here.",
+                            body = "Invites and other account updates will show up here.",
                             pose = CanMakanMascotPose.Wave,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -180,59 +184,72 @@ fun NotificationsInboxScreen(
 }
 
 @Composable
-private fun FamilyInvitationNotificationCard(
-    invitation: PendingInvitationResponse,
+private fun NotificationRow(
+    notification: UserNotificationResponse,
     isActing: Boolean,
+    isDeleting: Boolean,
     onAccept: () -> Unit,
     onDecline: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = invitation.familyName,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 16.sp,
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = "Invited by ${invitation.invitedByDisplayName}",
-            color = TextSecondary,
-        )
-        invitation.expiresAt?.let { expiresAt ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = notification.title,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                )
+                notification.body?.takeIf { it.isNotBlank() }?.let { body ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = body,
+                        color = TextSecondary,
+                    )
+                }
+            }
+            IconButton(
+                onClick = onDelete,
+                enabled = !isDeleting && !isActing,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Delete notification",
+                )
+            }
+        }
+        if (notification.expired && notification.canAcceptOrDecline) {
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = if (invitation.expired) {
-                    "Expired ($expiresAt)"
-                } else {
-                    "Expires $expiresAt"
-                },
-                color = if (invitation.expired) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    TextSecondary
-                },
+                text = "This invitation has expired",
+                color = MaterialTheme.colorScheme.error,
                 fontSize = 12.sp,
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Button(
-                onClick = onAccept,
-                enabled = !invitation.expired && !isActing,
-                modifier = Modifier.weight(1f),
+        if (notification.canAcceptOrDecline) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (isActing) "Working…" else "Accept")
-            }
-            OutlinedButton(
-                onClick = onDecline,
-                enabled = !isActing,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text("Decline")
+                Button(
+                    onClick = onAccept,
+                    enabled = !notification.expired && !isActing && !isDeleting,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(if (isActing) "Working…" else "Accept")
+                }
+                OutlinedButton(
+                    onClick = onDecline,
+                    enabled = !isActing && !isDeleting,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Decline")
+                }
             }
         }
     }

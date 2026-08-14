@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.navigation
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -14,7 +15,8 @@ import sg.edu.nus.iss.canmakan.features.auth.ui.LoginRoute
 import sg.edu.nus.iss.canmakan.features.auth.ui.RegistrationRoute
 
 private const val ROUTE_LOGIN = "login"
-private const val ROUTE_LOGIN_WITH_TOKEN = "login?invitationToken={invitationToken}"
+private const val ROUTE_LOGIN_WITH_CONTEXT =
+    "login?invitationToken={invitationToken}&email={email}"
 private const val ROUTE_REGISTRATION = "registration"
 private const val ROUTE_REGISTRATION_WITH_TOKEN = "registration?invitationToken={invitationToken}"
 private const val ROUTE_INVITE = "invite/{token}"
@@ -25,7 +27,7 @@ fun AuthNavGraph(
     onLoginSuccess: (AuthenticatedUser) -> Unit,
     navController: NavHostController = rememberNavController(),
 ) {
-    NavHost(navController = navController, startDestination = ROUTE_REGISTRATION) {
+    NavHost(navController = navController, startDestination = ROUTE_LOGIN) {
         composable(ROUTE_LOGIN) {
             LoginRoute(
                 onLoginSuccess = onLoginSuccess,
@@ -37,9 +39,14 @@ fun AuthNavGraph(
             )
         }
         composable(
-            route = ROUTE_LOGIN_WITH_TOKEN,
+            route = ROUTE_LOGIN_WITH_CONTEXT,
             arguments = listOf(
                 navArgument("invitationToken") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("email") {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
@@ -47,8 +54,10 @@ fun AuthNavGraph(
             ),
         ) { entry ->
             val token = entry.arguments?.getString("invitationToken")
+            val email = entry.arguments?.getString("email")
             LoginRoute(
                 invitationToken = token,
+                prefillEmail = email,
                 onLoginSuccess = onLoginSuccess,
                 onCreateAccount = {
                     val registerRoute = if (token.isNullOrBlank()) {
@@ -64,9 +73,9 @@ fun AuthNavGraph(
         }
         composable(ROUTE_REGISTRATION) {
             RegistrationRoute(
-                onRegistrationComplete = {
-                    navController.navigate(ROUTE_LOGIN) {
-                        popUpTo(ROUTE_LOGIN) { inclusive = false }
+                onRegistrationAuthenticated = onLoginSuccess,
+                onLoginRequired = { email ->
+                    navController.navigate(loginRoute(email = email)) {
                         launchSingleTop = true
                     }
                 },
@@ -86,14 +95,9 @@ fun AuthNavGraph(
             val token = entry.arguments?.getString("invitationToken")
             RegistrationRoute(
                 invitationToken = token,
-                onRegistrationComplete = {
-                    val loginRoute = if (token.isNullOrBlank()) {
-                        ROUTE_LOGIN
-                    } else {
-                        "login?invitationToken=$token"
-                    }
-                    navController.navigate(loginRoute) {
-                        popUpTo(ROUTE_LOGIN) { inclusive = false }
+                onRegistrationAuthenticated = onLoginSuccess,
+                onLoginRequired = { email ->
+                    navController.navigate(loginRoute(token, email)) {
                         launchSingleTop = true
                     }
                 },
@@ -103,10 +107,9 @@ fun AuthNavGraph(
         composable(
             route = ROUTE_INVITE,
             arguments = listOf(navArgument("token") { type = NavType.StringType }),
-            deepLinks = listOf(
-                navDeepLink { uriPattern = "https://canmakan.local/invite/{token}" },
-                navDeepLink { uriPattern = "canmakan://invite/{token}" },
-            ),
+            deepLinks = InviteWebDeepLinks.uriPatterns().map { pattern ->
+                navDeepLink { uriPattern = pattern }
+            },
         ) { entry ->
             val token = entry.arguments?.getString("token").orEmpty()
             InviteLandingScreen(
@@ -123,4 +126,14 @@ fun AuthNavGraph(
             )
         }
     }
+}
+
+private fun loginRoute(invitationToken: String? = null, email: String? = null): String {
+    val parameters = buildList {
+        invitationToken?.takeIf { it.isNotBlank() }?.let {
+            add("invitationToken=${Uri.encode(it)}")
+        }
+        email?.takeIf { it.isNotBlank() }?.let { add("email=${Uri.encode(it)}") }
+    }
+    return if (parameters.isEmpty()) ROUTE_LOGIN else "$ROUTE_LOGIN?${parameters.joinToString("&")}"
 }

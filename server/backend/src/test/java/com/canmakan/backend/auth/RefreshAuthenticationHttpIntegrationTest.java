@@ -162,6 +162,10 @@ class RefreshAuthenticationHttpIntegrationTest {
             .andExpect(jsonPath("$.user.userId").value(12))
             .andExpect(jsonPath("$.user.role").value("ADMIN"))
             .andExpect(jsonPath("$.refreshToken").doesNotExist())
+            .andExpect(header().string(
+                HttpHeaders.SET_COOKIE,
+                not(containsString("Max-Age=0"))
+            ))
             .andReturn();
         String newRawToken = refreshCookieValue(refreshResult);
         String accessToken = accessTokenFrom(refreshResult);
@@ -221,6 +225,7 @@ class RefreshAuthenticationHttpIntegrationTest {
             mockMvc.perform(post("/api/auth/refresh")
                 .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1"))
         );
+        String malformedTokenBody = assertRefreshUnauthorized(refresh("malformed"));
         String unknownTokenBody = assertRefreshUnauthorized(refresh("U".repeat(43)));
 
         String expiredRawToken = "E".repeat(43);
@@ -244,6 +249,7 @@ class RefreshAuthenticationHttpIntegrationTest {
         String unsupportedRoleBody = assertRefreshUnauthorized(refresh(unsupportedRoleRawToken));
 
         List.of(
+            malformedTokenBody,
             unknownTokenBody,
             expiredBody,
             inactiveBody,
@@ -418,10 +424,31 @@ class RefreshAuthenticationHttpIntegrationTest {
     }
 
     private String assertRefreshUnauthorized(ResultActions resultActions) throws Exception {
-        return resultActions
+        MvcResult result = resultActions
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.message").value("Authentication required."))
-            .andReturn().getResponse().getContentAsString();
+            .andExpect(jsonPath("$.accessToken").doesNotExist())
+            .andExpect(jsonPath("$.refreshToken").doesNotExist())
+            .andExpect(header().string(
+                HttpHeaders.SET_COOKIE,
+                containsString(COOKIE_NAME + "=")
+            ))
+            .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("HttpOnly")))
+            .andExpect(header().string(
+                HttpHeaders.SET_COOKIE,
+                containsString("Path=/api/auth")
+            ))
+            .andExpect(header().string(
+                HttpHeaders.SET_COOKIE,
+                containsString("SameSite=Lax")
+            ))
+            .andExpect(header().string(
+                HttpHeaders.SET_COOKIE,
+                containsString("Max-Age=0")
+            ))
+            .andReturn();
+        assertFalse(result.getResponse().getHeader(HttpHeaders.SET_COOKIE).contains("Secure"));
+        return result.getResponse().getContentAsString();
     }
 
     private void saveSession(String rawToken, Instant expiry) {

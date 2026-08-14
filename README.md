@@ -146,7 +146,7 @@ Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 | Mobile | `client/mobile` | Gradle `assembleDebug` |
 
 > Backend job injects all configurable env vars from `application.properties` via GitHub secrets (DB, JWT, CORS, invites, product APIs, OpenAI, Tavily, AI flags). <br>
-> Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`. Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`. <br>
+> Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`. Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`, optional `WEB_INVITE_BASE_URLS`. <br>
 > Android SDK is provisioned via `android-actions/setup-android` <br>
 
 ### Dependabot

@@ -1,5 +1,6 @@
 import { mockFamilyRepository } from '../../../mocks/mockFamilyRepository'
 import { apiRequest, useMockApi } from '../../../shared/api/apiClient'
+import { ApiError } from '../../../shared/api/apiErrors'
 import type {
   ActiveProfile,
   DependantProfileResponse,
@@ -8,6 +9,8 @@ import type {
   FamilyMember,
   FamilyProfileInput,
   InvitationResponse,
+  InvitationPreviewResponse,
+  Relationship,
   ScanRecord,
   FamilyRestrictionSumRes,
 } from '../../../shared/api/types'
@@ -36,6 +39,8 @@ export const familyEndpoints = {
   userSearch: '/api/families/me/user-search',
   invitations: '/api/families/me/invitations',
   claimInvitation: '/api/families/me/invitations/claim',
+  invitationPreview: (token: string) =>
+    `/api/invitations/${encodeURIComponent(token)}/preview`,
   profiles: '/api/families/me/profiles',
   activeProfile: '/api/families/me/active-profile',
   restrictionSummary: '/api/families/me/restriction-summary',
@@ -46,6 +51,16 @@ export const familyEndpoints = {
 export const familyApiService = {
   /** Get the family of the current user. */
   getMyFamily: () => apiRequest<FamilyMe>(familyEndpoints.me),
+
+  /** Resolve optional membership without turning a normal 404 into a UI error. */
+  async getMyFamilyOrNull(): Promise<FamilyMe | null> {
+    try {
+      return await apiRequest<FamilyMe>(familyEndpoints.me)
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null
+      throw error
+    }
+  },
 
   /** Create a new family. */
   createFamily: (familyName: string) =>
@@ -79,12 +94,12 @@ export const familyApiService = {
         ),
 
   /** Create a new invitation. */
-  createInvitation: (email: string) =>
+  createInvitation: (email: string, relationship: Exclude<Relationship, 'SELF'>) =>
     useMockApi
-      ? mockFamilyRepository.createInvitation(email)
+      ? mockFamilyRepository.createInvitation(email, relationship)
       : apiRequest<InvitationResponse>(familyEndpoints.invitations, {
           method: 'POST',
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, relationship }),
         }),
 
   /** Claim an invitation. */
@@ -95,6 +110,14 @@ export const familyApiService = {
           method: 'POST',
           body: JSON.stringify({ invitationToken }),
         }),
+
+  previewInvitation: (invitationToken: string) =>
+    useMockApi
+      ? mockFamilyRepository.previewInvitation(invitationToken)
+      : apiRequest<InvitationPreviewResponse>(
+          familyEndpoints.invitationPreview(invitationToken),
+          { authentication: 'none' },
+        ),
 
   /** Create a new profile. */
   createProfile: (input: FamilyProfileInput) =>

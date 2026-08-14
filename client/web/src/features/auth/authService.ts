@@ -17,7 +17,11 @@ export const authEndpoints = {
   me: '/api/auth/me',
 } as const
 
-export type RegisterInput = { email: string; password: string }
+export type RegisterInput = {
+  email: string
+  password: string
+  invitationToken?: string
+}
 export type CredentialLoginInput = {
   email: string
   password: string
@@ -27,7 +31,7 @@ export type CredentialLoginInput = {
 function mapSystemRoleToPortalRoles(role: 'USER' | 'ADMIN'): Role[] {
   return role === 'ADMIN'
     ? ['ROLE_SYSTEM_ADMIN']
-    : ['ROLE_APP_USER', 'ROLE_FAMILY_ADMIN']
+    : ['ROLE_APP_USER']
 }
 
 function displayNameFromEmail(email: string): string {
@@ -76,7 +80,13 @@ export const authService = {
   register(input: RegisterInput): Promise<RegistrationResponse> {
     return apiRequest<RegistrationResponse>(authEndpoints.register, {
       method: 'POST',
-      body: JSON.stringify(input),
+      body: JSON.stringify({
+        email: input.email,
+        password: input.password,
+        ...(input.invitationToken
+          ? { invitationToken: input.invitationToken }
+          : {}),
+      }),
       authentication: 'none',
       retryAuthentication: false,
     })

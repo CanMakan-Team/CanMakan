@@ -1,0 +1,206 @@
+package com.canmakan.backend.product.recommendation;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.Set;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * End-to-end UC5 recommendation against the seeded catalog and household profiles.
+ *
+ * <p>Uses the same MySQL-backed {@code @SpringBootTest} setup as
+ * {@link com.canmakan.backend.product.history.ScanHistoryRepositoryTest}: seed data
+ * from {@code 01_products.sql} and {@code 05_household_dietary_data.sql}.
+ */
+@SpringBootTest
+@Transactional
+@DisplayName("UC5: RecommendationService integration")
+class RecommendationServiceIntegrationTest {
+
+    /** Emily Tan — dairy intolerance, peanut strict avoid, low sugar (05_household_dietary_data.sql). */
+    private static final long PROFILE_EMILY_TAN = 3L;
+
+    private static final String MAGNUM_MINI_CHOC_HAZELNUT = "8714100638415";
+
+    /** Vegan / plant-based frozen desserts tagged {@code ice-creams-and-sorbets}. */
+    private static final Set<String> EXPECTED_DAIRY_FREE_SUBSTITUTES = Set.of(
+            "0797776401178",
+            "3193554152862",
+            "3193554152886"
+    );
+
+    /** Vegan coconut tub that declares {@code en:milk} and must not be suggested. */
+    private static final String COCONUT_WITH_MILK_ALLERGEN = "0797776401192";
+
+    /** Sarah Tan — gluten strict avoid, low sugar (05_household_dietary_data.sql). */
+    private static final long PROFILE_SARAH_TAN = 1L;
+
+    /** Michael Tan — low fat and low sodium preferences (05_household_dietary_data.sql). */
+    private static final long PROFILE_MICHAEL_TAN = 2L;
+
+    private static final String KNIFE_FISH_SAUCE = "8850581172007";
+
+    /** Reduced-salt sauce in the Sauces category. */
+    private static final String REDUCED_SALT_OYSTER_SAUCE = "0078895160482";
+
+    /** No-salt-added tomato sauce tagged Low sodium sauces. */
+    private static final String HUNT_NO_SALT_TOMATO_SAUCE = "12456419";
+
+    /** Groceries mis-match previously suggested for fish sauce scans. */
+    private static final String PREMIUM_FINE_SALT = "8888626031934";
+
+    private static final String HI_CALCIUM_MILK_BREAD = "8888247111145";
+
+    /** Soya milk previously returned via spurious {@code en:milk-substitutes} inference. */
+    private static final String HI_CALCIUM_SOYA_MILK = "8888030019566";
+
+    private static final String HONEY_STARS = "4800361385046";
+
+    /** Tagged GF breakfast cereal without oats. */
+    private static final String ANCIENT_GRAIN_FLAKES = "9315090200706";
+
+    /** Tagged GF breakfast cereal with oats — must never be suggested. */
+    private static final Set<String> OAT_BREAKFAST_CEREAL_BARCODES = Set.of(
+            "8886478600698",
+            "8887143802515"
+    );
+
+    private static final String SINGLONG_PEANUT_BUTTER = "8888260007616";
+
+    /** Tahini from the nut/seed butter substitute pool. */
+    private static final String NATURE_GLORY_TAHINI = "8888536703136";
+
+    /** Strawberry jam previously ranked above nut/seed butters via broad en:spreads pool. */
+    private static final String STRAWBERRY_JAM = "0044936350150";
+
+    @Autowired
+    private RecommendationService recommendationService;
+
+    @Test
+    @DisplayName("profile 3 gets dairy-free ice-cream substitutes for Magnum ice cream bar")
+    void profile3GetsDairyFreeIceCreamSubstitutesForMagnumBar() {
+        AlternativeProductResponse response = recommendationService.recommend(
+                new RecommendationRequest(PROFILE_EMILY_TAN, MAGNUM_MINI_CHOC_HAZELNUT, null));
+
+        assertThat(response.sourceBarcode()).isEqualTo(MAGNUM_MINI_CHOC_HAZELNUT);
+        assertThat(response.alternatives()).isNotEmpty();
+
+        Set<String> suggestedBarcodes = response.alternatives().stream()
+                .map(AlternativeProductDto::barcode)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertThat(suggestedBarcodes)
+                .as("dairy-free frozen desserts from the ice-creams-and-sorbets substitute pool")
+                .containsAll(EXPECTED_DAIRY_FREE_SUBSTITUTES);
+
+        assertThat(suggestedBarcodes)
+                .as("vegan coconut with declared milk allergen must be catalog-hardened out")
+                .doesNotContain(COCONUT_WITH_MILK_ALLERGEN);
+
+        assertThat(suggestedBarcodes)
+                .as("source product must never be suggested as its own alternative")
+                .doesNotContain(MAGNUM_MINI_CHOC_HAZELNUT);
+    }
+
+    @Test
+    @DisplayName("profile 1 does not get soya milk substitutes for milk bread scan")
+    void profile1DoesNotGetSoyaMilkForMilkBreadScan() {
+        AlternativeProductResponse response = recommendationService.recommend(
+                new RecommendationRequest(PROFILE_SARAH_TAN, HI_CALCIUM_MILK_BREAD, null));
+
+        assertThat(response.sourceBarcode()).isEqualTo(HI_CALCIUM_MILK_BREAD);
+
+        Set<String> suggestedBarcodes = response.alternatives().stream()
+                .map(AlternativeProductDto::barcode)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertThat(suggestedBarcodes)
+                .as("milk bread must not expand into plant-based milk substitutes")
+                .doesNotContain(HI_CALCIUM_SOYA_MILK);
+    }
+
+    @Test
+    @DisplayName("profile 1 gets oat-free GF breakfast cereal substitutes for Honey Stars")
+    void profile1GetsGlutenFreeBreakfastCerealSubstitutesForHoneyStars() {
+        AlternativeProductResponse response = recommendationService.recommend(
+                new RecommendationRequest(PROFILE_SARAH_TAN, HONEY_STARS, null));
+
+        assertThat(response.sourceBarcode()).isEqualTo(HONEY_STARS);
+        assertThat(response.alternatives()).isNotEmpty();
+
+        Set<String> suggestedBarcodes = response.alternatives().stream()
+                .map(AlternativeProductDto::barcode)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertThat(suggestedBarcodes)
+                .as("tagged GF breakfast cereal without oats")
+                .containsAnyOf(ANCIENT_GRAIN_FLAKES, "0667380799766", "9346430000854");
+
+        assertThat(suggestedBarcodes)
+                .as("oat-containing tagged GF cereals must be excluded")
+                .doesNotContainAnyElementsOf(OAT_BREAKFAST_CEREAL_BARCODES);
+
+        assertThat(suggestedBarcodes)
+                .as("mis-tagged chips and papadum must not appear as cereal substitutes")
+                .doesNotContain("7750526000895", "9555243803167");
+
+        assertThat(suggestedBarcodes)
+                .as("wheat cereal must not expand into GF flour substitutes")
+                .noneMatch(barcode -> response.alternatives().stream()
+                        .filter(alt -> alt.barcode().equals(barcode))
+                        .anyMatch(alt -> alt.productName() != null
+                                && alt.productName().toLowerCase().contains("flour")));
+    }
+
+    @Test
+    @DisplayName("profile 3 gets nut/seed butter substitutes for peanut butter scan")
+    void profile3GetsNutButterSubstitutesForPeanutButterScan() {
+        AlternativeProductResponse response = recommendationService.recommend(
+                new RecommendationRequest(PROFILE_EMILY_TAN, SINGLONG_PEANUT_BUTTER, null));
+
+        assertThat(response.sourceBarcode()).isEqualTo(SINGLONG_PEANUT_BUTTER);
+        assertThat(response.alternatives()).isNotEmpty();
+
+        Set<String> suggestedBarcodes = response.alternatives().stream()
+                .map(AlternativeProductDto::barcode)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertThat(suggestedBarcodes)
+                .as("nut/seed butter substitute pool should include tahini")
+                .contains(NATURE_GLORY_TAHINI);
+
+        assertThat(suggestedBarcodes)
+                .as("jams must not appear when peanut butter falls back to nut/seed butters")
+                .doesNotContain(STRAWBERRY_JAM);
+
+        assertThat(suggestedBarcodes)
+                .as("source product must never be suggested as its own alternative")
+                .doesNotContain(SINGLONG_PEANUT_BUTTER);
+    }
+
+    @Test
+    @DisplayName("profile 2 gets low-sodium sauce substitutes for fish sauce scan")
+    void profile2GetsLowSodiumSauceSubstitutesForFishSauceScan() {
+        AlternativeProductResponse response = recommendationService.recommend(
+                new RecommendationRequest(PROFILE_MICHAEL_TAN, KNIFE_FISH_SAUCE, null));
+
+        assertThat(response.sourceBarcode()).isEqualTo(KNIFE_FISH_SAUCE);
+        assertThat(response.alternatives()).isNotEmpty();
+
+        Set<String> suggestedBarcodes = response.alternatives().stream()
+                .map(AlternativeProductDto::barcode)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertThat(suggestedBarcodes)
+                .as("low-sodium sauce substitutes should include reduced-salt or no-salt-added sauces")
+                .containsAnyOf(REDUCED_SALT_OYSTER_SAUCE, HUNT_NO_SALT_TOMATO_SAUCE);
+
+        assertThat(suggestedBarcodes)
+                .as("random Groceries rows such as table salt must not substitute for fish sauce")
+                .doesNotContain(PREMIUM_FINE_SALT);
+    }
+}

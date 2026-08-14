@@ -61,9 +61,10 @@ export function FamilyDashboardPage() {
     return counts
   }, {})
 
-  // The greeting addresses the logged-in family admin by their own profile
-  // name (relationship SELF), not the currently active/scanned profile.
-  const adminProfileName = members.find((member) => member.relationship === 'SELF')?.profileName
+  // Greeting uses the family PRIMARY_ADMIN profile, not relationship SELF
+  // (every linked member also has a SELF dietary profile).
+  const adminProfileName = members.find((member) => member.memberRole === 'PRIMARY_ADMIN')
+    ?.profileName
   const greetingPeriod = getGreetingPeriod()
 
   return (

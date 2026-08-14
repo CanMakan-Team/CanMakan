@@ -102,15 +102,15 @@ fun ManageFamilyScreen(
 
             ManageFamilyActionRow(
                 icon = Icons.Default.PersonAdd,
-                title = "Invite new member",
-                subtitle = "They get their own CanMakan account via email invite/link",
+                title = "Invite someone",
+                subtitle = "They can join with a new or existing account.",
                 onClick = onInviteClick,
             )
             Spacer(modifier = Modifier.height(12.dp))
             ManageFamilyActionRow(
                 icon = Icons.Default.Person,
-                title = "Add new profile",
-                subtitle = "Profile you manage for someone",
+                title = "Add a profile",
+                subtitle = "For someone you look after, no account needed.",
                 onClick = onDependantClick,
             )
         }

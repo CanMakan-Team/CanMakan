@@ -210,6 +210,120 @@ class AlternativeProductQueryServiceTest {
     }
 
     @Test
+    void findSubstituteTagCandidatesQueriesHumanReadableGlutenFreeFlourTag() {
+        CatalogProduct source = product(
+                "9555064500016",
+                "Wheat flours",
+                "Wheat Flour, Iron, Niacin",
+                "en:wheat-flours");
+        CatalogProduct buckwheatFlour = product(
+                "8887501030697",
+                "Groceries",
+                "Buckwheat Flour",
+                "No gluten, Gluten-free, Gluten-free flour");
+        SubstituteDiscoveryProfile wheatFloursProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Wheat flours").orElseThrow();
+
+        when(catalogProductRepository.findCandidatesByCategoryTag("en:gluten-free-flour", "9555064500016"))
+                .thenReturn(List.of());
+        when(catalogProductRepository.findCandidatesByCategoryTag("Gluten free flour", "9555064500016"))
+                .thenReturn(List.of());
+        when(catalogProductRepository.findCandidatesByCategoryTag("Gluten-free flour", "9555064500016"))
+                .thenReturn(List.of(buckwheatFlour));
+
+        List<CatalogProduct> results = queryService.findSubstituteTagCandidates(source, wheatFloursProfile);
+
+        assertEquals(1, results.size());
+        assertEquals("8887501030697", results.getFirst().getBarcode());
+    }
+
+    @Test
+    void findExpandedSubstituteCandidatesUnionsLabelsAndSiblingCategories() {
+        CatalogProduct source = product(
+                "0078895129779",
+                "Soy sauces",
+                "Water, salt, soybeans, wheat flour",
+                "en:soy-sauces");
+        CatalogProduct taggedGf = product(
+                "4901515129889",
+                "Soy sauces",
+                "Water, Soybeans, Rice, Salt",
+                "Gluten Free sauces");
+        CatalogProduct labeledGf = product(
+                "9343317000624",
+                "Sauces",
+                "Water, soybeans, salt",
+                "en:sauces");
+        labeledGf.setLabelsTags("en:no-gluten,en:vegan");
+        CatalogProduct siblingSauce = product(
+                "12456419",
+                "Sauces",
+                "Tomato",
+                "Low sodium sauces");
+        SubstituteDiscoveryProfile soySauceProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Soy sauces").orElseThrow();
+
+        when(catalogProductRepository.findCandidatesByCategoryTag("Gluten Free sauces", "0078895129779"))
+                .thenReturn(List.of(taggedGf));
+        when(catalogProductRepository.findCandidatesByLabelTag("en:no-gluten", "0078895129779"))
+                .thenReturn(List.of(labeledGf));
+        when(catalogProductRepository.findCandidatesByLabelTag("en:certified-gluten-free", "0078895129779"))
+                .thenReturn(List.of());
+        when(catalogProductRepository.findCandidatesByCategories(
+                soySauceProfile.siblingCategories(),
+                "0078895129779"))
+                .thenReturn(List.of(siblingSauce));
+
+        List<CatalogProduct> results = queryService.findExpandedSubstituteCandidates(source, soySauceProfile);
+
+        assertEquals(3, results.size());
+        assertEquals("4901515129889", results.get(0).getBarcode());
+        assertEquals("9343317000624", results.get(1).getBarcode());
+        assertEquals("12456419", results.get(2).getBarcode());
+    }
+
+    @Test
+    void findSubstituteTagCandidatesExcludesHoneyAndPeanutTracesForPeanutButterProfile() {
+        CatalogProduct source = product(
+                "0045300005409",
+                "Crunchy peanut butters",
+                "Roasted Peanuts, Sugar, Salt",
+                "en:spreads,en:peanut-butters,en:crunchy-peanut-butters");
+        CatalogProduct tahini = product(
+                "8888536703136",
+                "White tahini",
+                "Organic sesame seeds",
+                "en:oilseed-purees,en:cereal-butters,en:tahini");
+        CatalogProduct honey = product(
+                "5000119120656",
+                "Honeys",
+                "Honey",
+                "en:spreads,en:honeys");
+        CatalogProduct tracedSpread = product(
+                "999",
+                "Mixed nut butters",
+                "Almonds, cashews",
+                "en:oilseed-purees,en:nut-butters");
+        tracedSpread.setTracesTags("en:peanuts");
+        SubstituteDiscoveryProfile peanutButterProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Crunchy peanut butters").orElseThrow();
+
+        when(catalogProductRepository.findCandidatesByCategoryTag("en:nut-butters", "0045300005409"))
+                .thenReturn(List.of(tracedSpread));
+        when(catalogProductRepository.findCandidatesByCategoryTag("en:tahini", "0045300005409"))
+                .thenReturn(List.of(tahini));
+        when(catalogProductRepository.findCandidatesByCategoryTag("en:cereal-butters", "0045300005409"))
+                .thenReturn(List.of(tahini));
+        when(catalogProductRepository.findCandidatesByCategoryTag("en:oilseed-purees", "0045300005409"))
+                .thenReturn(List.of(tahini, honey, tracedSpread));
+
+        List<CatalogProduct> results = queryService.findSubstituteTagCandidates(source, peanutButterProfile);
+
+        assertEquals(1, results.size());
+        assertEquals("8888536703136", results.getFirst().getBarcode());
+    }
+
+    @Test
     void findByBarcodeDelegatesToRepository() {
         CatalogProduct product = product("100", "Groceries", "Salt", null);
         when(catalogProductRepository.findById("100")).thenReturn(Optional.of(product));

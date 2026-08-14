@@ -39,6 +39,7 @@ import sg.edu.nus.iss.canmakan.features.family.data.InvitationResponse
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
 import sg.edu.nus.iss.canmakan.features.family.data.SetActiveProfileRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.UserSearchResponse
+import sg.edu.nus.iss.canmakan.features.family.model.RelationshipToAdmin
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @DisplayName("UC9: InviteFamilyMemberViewModel")
@@ -80,6 +81,20 @@ class InviteFamilyMemberViewModelTest {
     }
 
     @Test
+    fun missingRelationshipShowsErrorWithoutCallingApi() = runTest {
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.updateEmail("new@example.com")
+        viewModel.invite()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Select a relationship.", viewModel.uiState.value.errorMessage)
+        assertEquals(0, familyApi.createInvitationCalls)
+        assertFalse(viewModel.uiState.value.inviteSucceeded)
+    }
+
+    @Test
     fun linkedUserConflictSurfacesBackendMessage() = runTest {
         assertTrue(sessionStore.saveSession(validSession()))
         testDispatcher.scheduler.advanceUntilIdle()
@@ -90,11 +105,35 @@ class InviteFamilyMemberViewModelTest {
         )
 
         viewModel.updateEmail("linked@example.com")
+        viewModel.updateRelationship(RelationshipToAdmin.SPOUSE)
         viewModel.invite()
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(
             "That user already belongs to a family circle.",
+            viewModel.uiState.value.errorMessage,
+        )
+        assertFalse(viewModel.uiState.value.inviteSucceeded)
+        assertEquals(1, familyApi.createInvitationCalls)
+    }
+
+    @Test
+    fun alreadyEmailedPendingConflictSurfacesBackendMessage() = runTest {
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+        familyApi.createInvitationResponse = Response.error(
+            409,
+            """{"message":"An invitation email was already sent to this address."}"""
+                .toResponseBody("application/json".toMediaType()),
+        )
+
+        viewModel.updateEmail("dup@example.com")
+        viewModel.updateRelationship(RelationshipToAdmin.CHILD)
+        viewModel.invite()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            "An invitation email was already sent to this address.",
             viewModel.uiState.value.errorMessage,
         )
         assertFalse(viewModel.uiState.value.inviteSucceeded)
@@ -120,6 +159,7 @@ class InviteFamilyMemberViewModelTest {
         )
 
         viewModel.updateEmail("new@example.com")
+        viewModel.updateRelationship(RelationshipToAdmin.SPOUSE)
         viewModel.invite()
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -127,10 +167,64 @@ class InviteFamilyMemberViewModelTest {
         assertTrue(viewModel.uiState.value.inviteSucceeded)
         assertTrue(viewModel.uiState.value.emailSent)
         assertEquals(1, familyApi.createInvitationCalls)
+        assertEquals("SPOUSE", familyApi.lastCreateInvitationRequest?.relationship)
 
         viewModel.consumeInviteResult()
         assertFalse(viewModel.uiState.value.inviteSucceeded)
         assertFalse(viewModel.uiState.value.emailSent)
+    }
+
+    @Test
+    fun failedEmailStaysOnScreenWithError() = runTest {
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+        familyApi.createInvitationResponse = Response.success(
+            InvitationResponse(
+                invitationId = 1L,
+                invitedEmail = "new@example.com",
+                invitationToken = "token",
+                inviteCode = "ABCD1234",
+                inviteUrl = "http://localhost:5173/invite/token",
+                status = "PENDING",
+                expiresAt = null,
+                inviteeRegistered = false,
+                emailSent = false,
+            ),
+        )
+
+        viewModel.updateEmail("new@example.com")
+        viewModel.updateRelationship(RelationshipToAdmin.SPOUSE)
+        viewModel.invite()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            "The invitation email could not be sent. Try again in a moment.",
+            viewModel.uiState.value.errorMessage,
+        )
+        assertFalse(viewModel.uiState.value.inviteSucceeded)
+        assertFalse(viewModel.uiState.value.emailSent)
+        assertEquals(1, familyApi.createInvitationCalls)
+    }
+
+    @Test
+    fun connectTimeoutPrefixesJvmMessage() = runTest {
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+        familyApi.createInvitationException = java.net.SocketTimeoutException(
+            "failed to connect to /192.168.50.11 (port 8080) from /192.168.50.100 (port 36472) after 15000ms",
+        )
+
+        viewModel.updateEmail("new@example.com")
+        viewModel.updateRelationship(RelationshipToAdmin.SPOUSE)
+        viewModel.invite()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            "Error: failed to connect to /192.168.50.11 (port 8080) from /192.168.50.100 (port 36472) after 15000ms",
+            viewModel.uiState.value.errorMessage,
+        )
+        assertFalse(viewModel.uiState.value.inviteSucceeded)
+        assertEquals(1, familyApi.createInvitationCalls)
     }
 
     private fun validSession(): AuthenticatedSession {
@@ -163,7 +257,9 @@ class InviteFamilyMemberViewModelTest {
             500,
             "{}".toResponseBody("application/json".toMediaType()),
         )
+        var createInvitationException: Exception? = null
         var createInvitationCalls = 0
+        var lastCreateInvitationRequest: CreateInvitationRequestBody? = null
 
         override suspend fun getMyFamily(): Response<FamilyMeResponse> =
             Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
@@ -197,6 +293,8 @@ class InviteFamilyMemberViewModelTest {
             request: CreateInvitationRequestBody,
         ): Response<InvitationResponse> {
             createInvitationCalls++
+            lastCreateInvitationRequest = request
+            createInvitationException?.let { throw it }
             return createInvitationResponse
         }
 

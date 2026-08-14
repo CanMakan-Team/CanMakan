@@ -39,6 +39,7 @@ import sg.edu.nus.iss.canmakan.features.auth.session.RetrofitAuthLogoutClient
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionApiService
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.setup.data.SelfProfileApiService
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
+import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsApiService
 import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryApiService
 import sg.edu.nus.iss.canmakan.features.product.recommendation.data.RecommendationHistoryApiService
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
@@ -346,6 +347,12 @@ object NetworkModule {
     @Singleton
     fun provideFamilyProfileApiService(retrofit: Retrofit): FamilyProfileApiService {
         return retrofit.create(FamilyProfileApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideNotificationsApiService(retrofit: Retrofit): NotificationsApiService {
+        return retrofit.create(NotificationsApiService::class.java)
     }
 
     @Provides

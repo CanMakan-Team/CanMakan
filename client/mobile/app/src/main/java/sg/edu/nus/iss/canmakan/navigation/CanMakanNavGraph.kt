@@ -39,6 +39,7 @@ import kotlinx.coroutines.launch
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.RestrictionEditAuthorization
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.ui.DietaryRestrictionSheet
 import sg.edu.nus.iss.canmakan.features.family.ProfileDrawerContent
+import sg.edu.nus.iss.canmakan.features.family.ProfileRelationshipDisplay
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.product.history.ScanHistoryViewModel
 import sg.edu.nus.iss.canmakan.features.product.history.ui.HistoryScreen
@@ -176,6 +177,8 @@ fun CanMakanNavGraph(
                         else -> CanMakanNavGraphViewModel.NO_SESSION_FAMILY_MESSAGE
                     },
                     showManageFamilyActions = showManageFamilyActions,
+                    selfProfileId = selfProfileId,
+                    memberRole = memberRole,
                     isSwitchingProfile = isSwitchingProfile,
                     onProfileSelected = { selected ->
                         navGraphViewModel.switchProfile(selected.id)
@@ -316,6 +319,8 @@ fun CanMakanNavGraph(
                 FamilyRestrictionSummaryScreen(
                     uiState = uiState,
                     profiles = profiles,
+                    selfProfileId = selfProfileId,
+                    memberRole = memberRole,
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
                     onNavigateToEditMembers = {
@@ -438,7 +443,6 @@ fun CanMakanNavGraph(
             }
             composable(ROUTE_NOTIFICATIONS) {
                 NotificationsInboxScreen(
-                    hasFamily = hasFamily,
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
@@ -460,7 +464,15 @@ fun CanMakanNavGraph(
                 sheetState = editDietarySheetState) {
                 DietaryRestrictionSheet(
                     profileName = activeProfile.profileName,
-                    profileRole = activeProfile.relationship,
+                    profileRole = ProfileRelationshipDisplay.sheetRoleLine(
+                        ProfileRelationshipDisplay.tags(
+                            profileId = activeProfile.id,
+                            relationship = activeProfile.relationship,
+                            isFamilyAdminProfile = activeProfile.isPrimary,
+                            viewerSelfProfileId = selfProfileId,
+                            viewerMemberRole = memberRole,
+                        ),
+                    ),
                     onCancel = { closeEditDietarySheet() },
                     onSave = { closeEditDietarySheet(refresh = true) },
                 )

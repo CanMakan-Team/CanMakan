@@ -208,6 +208,25 @@ class DietaryKnowledgeMcpClientTest {
     }
 
     @Test
+    void coconutMilkDoesNotResolveToDairyWhenMilkIsInTheSameBatch() {
+        when(ingredientAliasTool.isKnownNonAllergenLabel("coconut milk")).thenReturn(true);
+        when(ingredientAliasTool.lookup("coconut milk"))
+                .thenReturn(new IngredientAliasResult("coconut milk", "coconut milk", null, false, true));
+        when(ingredientAliasTool.lookup("bananas"))
+                .thenReturn(new IngredientAliasResult("bananas", "bananas", null, false, false));
+        when(allergenRelationshipTool.lookup(List.of("bananas")))
+                .thenReturn(new AllergenRelationshipResult(
+                        List.of(new Ingredient("Milk", "Milk Derivatives", "DAIRY", false)),
+                        List.of("bananas"), "", List.of()));
+
+        Map<String, IngredientResolution> resolutions =
+                client.resolveAll(List.of("coconut milk", "bananas"));
+
+        assertEquals(IngredientResolution.Kind.KNOWN_SAFE, resolutions.get("coconut milk").kind());
+        assertNull(resolutions.get("coconut milk").rootAllergen());
+    }
+
+    @Test
     void resolveAllBatchesTheAllergenLookupAndKeepsPerNameOutcomes() {
         when(ingredientAliasTool.lookup("whey"))
                 .thenReturn(new IngredientAliasResult("whey", "Whey", null, false, true));

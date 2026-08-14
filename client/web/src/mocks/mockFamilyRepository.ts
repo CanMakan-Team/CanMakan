@@ -7,6 +7,7 @@ import type {
   FamilyMember,
   FamilyProfileInput,
   InvitationResponse,
+  Relationship,
   ScanRecord,
   FamilyRestrictionSumRes
 } from '../shared/api/types'
@@ -73,7 +74,10 @@ export const mockFamilyRepository = {
   },
 
   // Create an invitation
-  async createInvitation(email: string): Promise<InvitationResponse> {
+  async createInvitation(
+    email: string,
+    relationship: Exclude<Relationship, 'SELF'>,
+  ): Promise<InvitationResponse> {
     await delay(650)
     const normalized = email.trim().toLowerCase()
     const token = `mock-token-${Date.now()}`
@@ -81,6 +85,7 @@ export const mockFamilyRepository = {
     return {
       invitationId: Date.now(),
       invitedEmail: normalized,
+      relationship,
       invitationToken: token,
       inviteCode: code,
       inviteUrl: `${window.location.origin}/invite/${token}`,
@@ -100,6 +105,15 @@ export const mockFamilyRepository = {
       memberRole: 'MEMBER',
       selfProfileId: 1,
       createdByUserId: 1,
+    }
+  },
+
+  async previewInvitation(_invitationToken: string) {
+    await delay(50)
+    return {
+      invitedEmail: 'invitee@example.com',
+      familyName: 'Mock Family',
+      expired: false,
     }
   },
 

@@ -47,7 +47,7 @@ Tick after a family UC change lands — keep these aligned with code.
 **Primary UI:** Web `/family-register` → `/family` · Mobile drawer create when `/me` is 404  
 **APIs:** `POST /api/families`, `GET /api/families/me`
 
-- [ ] **8.1** Register a **new** user and open Family portal → empty / create-circle state *(AC 9)*
+- [ ] **8.1** Register a **new** user, finish/skip optional profile setup, then explicitly select **Family Circle** → create-circle state *(AC 9)*
 - [ ] **8.2** Submit blank family name → validation error; no create *(AC 7, 11)*
 - [ ] **8.3** Submit a valid family name → success; family dashboard/context *(AC 1–5, 11)*
 - [ ] **8.4** Refresh / reopen → still same family (`GET /me` succeeds) *(AC 5, 10)*
