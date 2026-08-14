@@ -119,8 +119,18 @@ public class DietaryRuleEngine {
                 }
                 case KNOWN_SAFE -> resolved.add(ing);
                 case UNKNOWN -> {
-                    unresolvedNames.add(displayIngredientName(ing.ingredientName()));
-                    resolved.add(ing);
+                    // Deterministic keyword fallback for verbose labels the catalog missed (e.g.
+                    // "Enriched High Protein Wheat Flour" -> GLUTEN). Catching a real allergen here
+                    // decides the product at Tier 1 instead of escalating to the LLM, which would
+                    // otherwise mis-tag every unresolved ingredient with the restriction.
+                    String keywordRoot = AllergenKeywords.matchRoot(ing.ingredientName());
+                    if (keywordRoot != null) {
+                        resolved.add(new Ingredient(ing.ingredientName(), ing.parentAllergen(),
+                                keywordRoot, ing.chemicalAlias()));
+                    } else {
+                        unresolvedNames.add(displayIngredientName(ing.ingredientName()));
+                        resolved.add(ing);
+                    }
                 }
             }
         }
@@ -213,7 +223,8 @@ public class DietaryRuleEngine {
                     hits.add(new Finding(
                             CROSS_CONTAMINATION,
                             candidate,
-                            "Possible cross-contamination (" + phrase + ") involving " + candidate + "."
+                            "Possible cross-contamination (" + VerdictText.humanizePhrase(phrase)
+                                    + ") involving " + VerdictText.humanizeCode(candidate) + "."
                     ));
                 }
             }

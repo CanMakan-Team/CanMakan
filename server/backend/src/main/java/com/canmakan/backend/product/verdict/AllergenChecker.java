@@ -52,7 +52,7 @@ public final class AllergenChecker implements RestrictionChecker {
                 hits.add(new Finding(
                         rule.code(),
                         name,
-                        name + " matches the " + rule.code() + " restriction."
+                        name + " matches the " + VerdictText.humanizeCode(rule.code()) + " restriction."
                 ));
             }
         }

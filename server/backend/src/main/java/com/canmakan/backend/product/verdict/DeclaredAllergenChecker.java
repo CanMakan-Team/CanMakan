@@ -53,8 +53,8 @@ public final class DeclaredAllergenChecker implements RestrictionChecker {
             hits.add(new Finding(
                     rule.code(),
                     Finding.SUBJECT_LABEL,
-                    "Declared allergen tag " + rawTag.trim() + " matches the "
-                            + rule.code() + " restriction."
+                    "Declared allergen tag " + VerdictText.humanizeTag(rawTag) + " matches the "
+                            + VerdictText.humanizeCode(rule.code()) + " restriction."
             ));
             return;
         }
