@@ -28,7 +28,38 @@ class MlSparseCatalogRecommenderTest {
     void setUp() {
         recommender = new MlSparseCatalogRecommender(
                 queryService,
-                new ProductFeatureEncoder(new ProductFeatureVectorStore(new com.fasterxml.jackson.databind.ObjectMapper(), "")));
+                new ProductFeatureEncoder(new ProductFeatureVectorStore(new com.fasterxml.jackson.databind.ObjectMapper(), "")),
+                new SubstituteDiscoveryProfiles());
+    }
+
+    @Test
+    void ranksCloserSpreadFirstInsideUseTypeSlice() {
+        CatalogProduct source = new CatalogProduct();
+        source.setBarcode("8888260007616");
+        source.setProductName("Peanut Butter Crunchy");
+        source.setMainCategoryEn("Peanut butters");
+        source.setCategoryTags("en:oilseed-purees,en:peanut-butters");
+
+        CatalogProduct jam = new CatalogProduct();
+        jam.setBarcode("0044936350150");
+        jam.setProductName("Strawberry Jam");
+        jam.setMainCategoryEn("Jams");
+        jam.setCategoryTags("en:jams");
+
+        CatalogProduct cashew = new CatalogProduct();
+        cashew.setBarcode("95539553");
+        cashew.setProductName("Organic Cashew Butter");
+        cashew.setMainCategoryEn("Mixed nut butters");
+        cashew.setCategoryTags("en:oilseed-purees,en:nut-butters");
+
+        when(queryService.findExpandedSubstituteCandidates(eq(source), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(jam, cashew));
+
+        List<CatalogProduct> discovered = recommender.discoverCandidates(
+                source,
+                new SubstituteDiscoveryProfiles().forSourceCategory("Peanut butters").orElseThrow());
+
+        assertEquals("95539553", discovered.getFirst().getBarcode());
     }
 
     @Test

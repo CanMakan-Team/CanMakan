@@ -22,6 +22,22 @@ class ProductFeatureEncoder {
     private static final double ALLERGEN_WEIGHT = 2.0;
     private static final double LABEL_WEIGHT = 1.5;
     private static final double INGREDIENT_WEIGHT = 1.0;
+    private static final double ALLERGEN_QUERY_SCALE = 0.15;
+    private static final Set<String> ALLERGEN_QUERY_TOKENS = Set.of(
+            "peanut",
+            "peanuts",
+            "groundnut",
+            "milk",
+            "dairy",
+            "wheat",
+            "gluten",
+            "barley",
+            "rye",
+            "peanut-butters",
+            "en:peanuts",
+            "en:milk",
+            "en:wheat",
+            "en:gluten");
 
     private final ProductFeatureVectorStore vectorStore;
 
@@ -34,6 +50,28 @@ class ProductFeatureEncoder {
             return Map.of();
         }
         return vectorStore.getVector(product.getBarcode()).orElseGet(() -> encodeInline(product));
+    }
+
+    /**
+     * Source vector for cosine ranking/kNN: allergen tokens are downweighted so
+     * neighbors are same use-type, not same allergen (e.g. other peanut butters).
+     */
+    Map<String, Double> encodeQuery(CatalogProduct product) {
+        Map<String, Double> encoded = encode(product);
+        if (encoded.isEmpty()) {
+            return encoded;
+        }
+        Map<String, Double> query = new HashMap<>(encoded);
+        for (String token : ALLERGEN_QUERY_TOKENS) {
+            String normalized = normalizeTag(token);
+            if (query.containsKey(normalized)) {
+                query.put(normalized, query.get(normalized) * ALLERGEN_QUERY_SCALE);
+            }
+            if (query.containsKey(token)) {
+                query.put(token, query.get(token) * ALLERGEN_QUERY_SCALE);
+            }
+        }
+        return query;
     }
 
     private Map<String, Double> encodeInline(CatalogProduct product) {

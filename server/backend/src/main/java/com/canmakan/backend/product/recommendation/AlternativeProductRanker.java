@@ -13,6 +13,7 @@ public class AlternativeProductRanker {
 
     private static final double SUBSTITUTE_BASE_SCORE = 0.95;
     private static final double BEVERAGE_BOOST = 0.03;
+    private static final double NUT_BUTTER_EXTRA_BOOST = 0.02;
     private static final double COOKING_PENALTY = 0.10;
     private static final double PRIOR_SAFE_BOOST = 0.10;
     private static final double MAX_SCORE = 0.99;
@@ -58,6 +59,10 @@ public class AlternativeProductRanker {
                 if (CategoryTagParser.containsAny(tags, profile.beverageTags())) {
                     base += BEVERAGE_BOOST;
                 }
+                if (isPeanutSpreadSubstituteProfile(profile)
+                        && CategoryTagParser.containsAny(tags, List.of("en:nut-butters"))) {
+                    base += NUT_BUTTER_EXTRA_BOOST;
+                }
                 if (deprioritized) {
                     base -= COOKING_PENALTY;
                 }
@@ -83,6 +88,11 @@ public class AlternativeProductRanker {
             return deprioritized ? "substitute_category_cooking" : "substitute_category";
         }
         return "category_match";
+    }
+
+    private static boolean isPeanutSpreadSubstituteProfile(SubstituteDiscoveryProfile profile) {
+        return profile.includeTags() != null
+                && CategoryTagParser.containsAny(Set.copyOf(profile.includeTags()), List.of("en:nut-butters"));
     }
 
     public record RankedAlternative(

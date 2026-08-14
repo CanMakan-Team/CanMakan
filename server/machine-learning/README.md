@@ -55,10 +55,19 @@ Example mappings: gluten-free labels on a sauce → `Gluten Free sauces`; vegan 
 `ice-creams-and-sorbets`. Re-run the script after catalog refreshes, then restart the backend
 so Spring SQL init applies `01c_recommendation_substitute_tags.sql`.
 
-Online discovery also expands when fewer than 5 SAFE alternatives remain: it unions
-`category_tags`, `labels_tags` (`en:no-gluten`, `en:vegan`, `en:low-salt`, …), and sibling
-`main_category_en` values, then cosine-ranks the merged pool. The rule engine still drops UNSAFE
-rows. Cap is 50 pre-filter candidates; the API still returns at most 5.
+Online discovery expands when fewer than 5 SAFE alternatives remain, **inside the
+source use-type slice** (curated tags; labels/siblings only when the slice is not
+flour/bread/cereal/peanut). Candidates are cosine-ranked with allergen tokens
+downweighted on the source vector. The rule engine still drops UNSAFE rows.
+Cap is 50 pre-filter candidates; the API still returns at most 5.
+
+Do not run `audit_substitute_tags.py` against breakfast cereals in a way that
+appends `Gluten free bread` — the script skips bread tags when the row is a cereal.
+
+Demo gold-set SQL: `server/backend/src/main/resources/01f_uc5_demo_gold_set.sql`.
+Rebuild vectors after applying that file so the artifact matches the DB.
+
+Labeled ranking pairs: `artifacts/labeled_substitute_pairs.json` (used by `evaluate.py`).
 
 ## `product_feature_vectors.json` format
 
@@ -97,18 +106,18 @@ $env:CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH = "..\machine-learning\artifacts\p
 - `ProductFeatureVectorStore` — loads `product_feature_vectors.json` when configured
 - `ProductFeatureEncoder` — precomputed or inline sparse vectors from name, category, tags, allergens
 - `CosineSimilarity` — similarity scoring
-- `MlContentBasedRanker` — ranks SAFE candidates (nutrition similarity, LOW_SUGAR boost, prior Safe boost)
+- `MlContentBasedRanker` — cosine + nutrition + LOW_SUGAR + domain boosts from the substitute profile
 - `MlSparseCatalogRecommender` — Tier C discovery when Tier A has fewer than 5 SAFE alternatives
 
-`RecommendationService` flow:
+`RecommendationService` flow (MVP):
 
 1. Tier A same-category → tag fallback
-2. Tier C ML expansion if fewer than 5 SAFE alternatives (when ML enabled)
-3. Tier B LLM discovery if still empty (when LLM enabled)
-4. ML re-rank when expansion ran, source metadata is sparse, or provenance is ML (Tier A/C only; not Tier B)
+2. Tier C ML expansion if fewer than 5 SAFE alternatives (when ML enabled) — cosine inside the use-type slice
+3. Hybrid ML ranker (cosine + domain boosts); heuristic ranker only when ML is disabled
+4. Empty list if still none (LLM is not on the MVP path)
 
 Example: profile 3 (Emily Tan, dairy intolerance + low sugar) scanning
-`8888200602857` (Farmhouse Fresh Milk with placeholder ingredients `Fresh milks`).
+`8888200602857` (Farmhouse Fresh Milk).
 
 Run backend tests:
 
