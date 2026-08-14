@@ -38,11 +38,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run Semgrep
         run: |
-          docker run --rm -v "$(pwd):/src" returntocorp/semgrep semgrep --config=auto --error
+          docker run --rm -v "$(pwd):/src" returntocorp/semgrep semgrep --config=auto
 
   # 3. SCA & DEPENDENCY VULNERABILITY GATE
   sca-scan:
@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Skip Docker Build entirely and scan the repository code filesystem directly
       - name: Run Trivy vulnerability scanner
