@@ -124,6 +124,29 @@ class AlternativeProductRankerTest {
         assertEquals(new BigDecimal("0.97"), ranked.get(0).score());
     }
 
+    @Test
+    void nutButterOutranksTahiniForPeanutButterProfile() {
+        SubstituteDiscoveryProfile peanutProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Peanut butters").orElseThrow();
+        CatalogProduct cashewButter = product(
+                "95539553",
+                "Organic Cashew Butter",
+                "en:oilseed-purees,en:nut-butters");
+        CatalogProduct tahini = product(
+                "8888536703136",
+                "Organic Tahini (Unhulled)",
+                "en:oilseed-purees,en:cereal-butters,en:tahini");
+
+        List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rankSubstituteTags(
+                List.of(tahini, cashewButter),
+                Set.of(),
+                peanutProfile
+        );
+
+        assertEquals("95539553", ranked.get(0).product().getBarcode());
+        assertEquals("substitute_category", ranked.get(0).matchReason());
+    }
+
     private static CatalogProduct product(String barcode, String name, String categoryTags) {
         CatalogProduct product = new CatalogProduct();
         product.setBarcode(barcode);
