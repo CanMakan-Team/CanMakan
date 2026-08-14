@@ -51,6 +51,7 @@ class AssessmentOrchestratorTest {
     @Mock private RestrictionRuleLoader ruleLoader;
     @Mock private DietaryRuleEngine ruleEngine;
     @Mock private LlmEscalationService llmEscalationService;
+    @Mock private ProductNameAllergenLookup productNameAllergenLookup;
     @Mock private ScanService scanService;
     @Mock private AiExecutionLogService aiExecutionLogService;
     @Mock private FamilyAuthorizationService familyAuthorization;
