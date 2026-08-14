@@ -72,7 +72,7 @@ class NotificationsInboxViewModelTest {
     }
 
     @Test
-    fun loadsMixedAdminAndInviteeCards() = runTest {
+    fun loadsMixedAdminAndInviteeCardsWithoutMarkingThemRead() = runTest {
         notificationsApi.notifications = listOf(adminSentCard(), inviteePendingCard())
         assertTrue(sessionStore.saveSession(validSession()))
         testDispatcher.scheduler.advanceUntilIdle()
@@ -80,7 +80,23 @@ class NotificationsInboxViewModelTest {
         assertEquals(2, viewModel.uiState.value.notifications.size)
         assertFalse(viewModel.uiState.value.notifications[0].canAcceptOrDecline)
         assertTrue(viewModel.uiState.value.notifications[1].canAcceptOrDecline)
+        // Opening the inbox is just a glance; nothing is marked read until the user asks for it.
+        assertEquals(0, notificationsApi.markReadCalls)
+    }
+
+    @Test
+    fun markAllReadCallsEndpointAndFlipsLocalReadFlags() = runTest {
+        notificationsApi.notifications = listOf(adminSentCard(), inviteePendingCard())
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        var marked = false
+        viewModel.markAllRead { marked = true }
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(marked)
         assertEquals(1, notificationsApi.markReadCalls)
+        assertTrue(viewModel.uiState.value.notifications.all { it.read })
     }
 
     @Test

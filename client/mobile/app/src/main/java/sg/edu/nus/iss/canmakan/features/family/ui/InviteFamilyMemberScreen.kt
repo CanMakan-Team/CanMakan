@@ -54,6 +54,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 fun InviteFamilyMemberScreen(
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
+    hasUnreadNotifications: Boolean = false,
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onBackClick: () -> Unit = {},
@@ -76,6 +77,7 @@ fun InviteFamilyMemberScreen(
             AppTopBar(
                 onMenuClick = onMenuClick,
                 onNotificationsClick = onNotificationsClick,
+                hasUnreadNotifications = hasUnreadNotifications,
             )
         },
         bottomBar = {

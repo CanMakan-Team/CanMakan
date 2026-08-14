@@ -89,6 +89,7 @@ fun ScannerScreen(
     activeRestrictions: List<String>,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
+    hasUnreadNotifications: Boolean = false,
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onSetUpProfile: () -> Unit = {},
@@ -149,6 +150,7 @@ fun ScannerScreen(
                 AppTopBar(
                     onMenuClick = onMenuClick,
                     onNotificationsClick = onNotificationsClick,
+                    hasUnreadNotifications = hasUnreadNotifications,
                 )
                 // Registration is account-only, so either a missing profile or an empty
                 // restriction selection keeps the setup affordance visible.
