@@ -4,9 +4,11 @@ import com.canmakan.backend.ai.llm.LlmAssessmentResult;
 import com.canmakan.backend.ai.log.AiExecutionLogService;
 import com.canmakan.backend.family.FamilyAuthorizationService;
 import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
+import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.product.scan.Scan;
 import com.canmakan.backend.product.scan.ScanService;
 import com.canmakan.backend.product.verdict.DietaryRuleEngine;
+import com.canmakan.backend.product.verdict.Finding;
 import com.canmakan.backend.product.verdict.ProductData;
 import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
@@ -18,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -51,6 +54,7 @@ public class AssessmentOrchestrator {
     private final RestrictionRuleLoader ruleLoader;
     private final DietaryRuleEngine ruleEngine;
     private final LlmEscalationService llmEscalationService;
+    private final ProductNameAllergenLookup productNameAllergenLookup;
     private final ScanService scanService;
     private final AiExecutionLogService aiExecutionLogService;
     private final FamilyAuthorizationService familyAuthorization;
@@ -75,6 +79,24 @@ public class AssessmentOrchestrator {
         var lookup = productDataAdapter.lookup(request.barcode());
         ProductData product = productDataAdapter.toProductData(lookup);
 
+        // Fallback: when the barcode lookup returned no usable ingredient/allergen data, search the
+        // product name for allergens. Web-derived allergens are added so they get checked, but they
+        // can only ADD findings - the caution below keeps an incomplete product from being certified
+        // safe on web data alone.
+        boolean usedProductNameFallback = false;
+        if (!product.dataComplete()) {
+            List<Ingredient> webAllergens =
+                    productNameAllergenLookup.lookupByProductName(lookup.productName());
+            if (webAllergens != null && !webAllergens.isEmpty()) {
+                List<Ingredient> merged = new ArrayList<>(
+                        product.ingredients() == null ? List.of() : product.ingredients());
+                merged.addAll(webAllergens);
+                product = new ProductData(product.barcode(), merged, product.ingredientsText(),
+                        product.labelTags(), product.tracesTags(), product.nutrition(), true);
+                usedProductNameFallback = true;
+            }
+        }
+
         // Tier 1: deterministic rule engine, timed for the audit log.
         long start = System.nanoTime();
         SafetyVerdict tier1Verdict = ruleEngine.assess(rules, product);
@@ -82,6 +104,12 @@ public class AssessmentOrchestrator {
 
         // Tier 3: escalate only on an inconclusive WARNING; falls back to Tier-1 on failure.
         TieredOutcome outcome = llmEscalationService.escalate(rules, product, tier1Verdict, request.barcode());
+
+        // Web-sourced allergens are best-effort and never certify safety: keep at least a WARNING
+        // and attach a "verify the physical label" caution.
+        if (usedProductNameFallback) {
+            outcome = withIncompleteDataCaution(outcome);
+        }
 
         // Persistence failure must not hide a successful verdict from the client.
         String productName = lookup.productName() == null || lookup.productName().isBlank()
@@ -100,6 +128,26 @@ public class AssessmentOrchestrator {
                 scanId,
                 productName,
                 request.barcode());
+    }
+
+    /**
+     * Web-sourced allergens can only add risk, never remove it. Ensures a product assessed via the
+     * product-name fallback is never returned as SAFE, and attaches a caution telling the user the
+     * data was incomplete and to verify the physical label.
+     */
+    private TieredOutcome withIncompleteDataCaution(TieredOutcome outcome) {
+        SafetyVerdict verdict = outcome.verdict();
+        List<Finding> findings = new ArrayList<>(verdict.findings());
+        findings.add(new Finding(
+                "INCOMPLETE_DATA",
+                Finding.SUBJECT_UNKNOWN,
+                "Ingredient data was incomplete; the allergens shown were found from a web lookup on "
+                        + "the product name - please verify the product's physical label."));
+        SafetyVerdict.Level level = verdict.level() == SafetyVerdict.Level.SAFE
+                ? SafetyVerdict.Level.WARNING
+                : verdict.level();
+        SafetyVerdict adjusted = new SafetyVerdict(level, verdict.explanation(), findings);
+        return new TieredOutcome(adjusted, outcome.tier(), outcome.llmResult());
     }
 
     /**

@@ -110,6 +110,50 @@ public class AllergenRelationshipLookupFallback {
     }
 
     /**
+     * Ask the external search provider which common allergens a product contains, keyed on the
+     * product name. Used as a last-resort fallback when the barcode lookup returned no usable
+     * ingredient or allergen data. Returns the raw answer text, or {@code ""} when unavailable.
+     *
+     * @param productName the scanned product's name
+     * @return the provider's free-text answer, or {@code ""} when the lookup is skipped/unavailable
+     */
+    public String searchProductAllergens(String productName) {
+        if (productName == null || productName.isBlank()
+                || !isConfiguredApiKey(tavilyApiKey) || webClientBuilder == null) {
+            return "";
+        }
+
+        String query = "List the common food allergens present in the product \""
+            + productName.trim() + "\". Reply with only root codes from this set: "
+            + "DAIRY, GLUTEN, PEANUT, TREE_NUT, FISH, SHELLFISH, EGG, SOY, SESAME. "
+            + "If none are known, reply NONE.";
+
+        try {
+            Map<String, Object> requestBody = Map.of(
+                "api_key", tavilyApiKey,
+                "query", query,
+                "search_depth", "basic",
+                "include_answer", true,
+                "max_results", 5
+            );
+
+            Map<String, Object> response = webClientBuilder.build()
+                .post()
+                .uri(tavilyUrl)
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .block(TAVILY_TIMEOUT);
+
+            Object answer = response == null ? null : response.get("answer");
+            return answer == null ? "" : answer.toString().trim();
+        } catch (Exception e) {
+            log.warn("Tavily product-name allergen lookup failed for {}: {}", productName, e.getMessage());
+            return "";
+        }
+    }
+
+    /**
      * Convenience overload for a single comma-separated query string.
      */
     public String searchExternal(String ingredientText) {
