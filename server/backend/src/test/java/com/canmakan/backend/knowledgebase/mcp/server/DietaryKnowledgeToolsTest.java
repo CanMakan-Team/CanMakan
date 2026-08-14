@@ -480,6 +480,25 @@ class DietaryKnowledgeToolsTest {
         assertThat(fallback.searchExternal(List.of("inulin"))).isEmpty();
     }
 
+    @Test
+    @DisplayName("UC3 BE12: Errored Tavily call yields an empty summary and no external matches")
+    void erroredTavilyCallYieldsEmptySummary() {
+        ExchangeFunction exchangeFunction = request ->
+                Mono.error(new RuntimeException("tavily unavailable"));
+        WebClient.Builder builder = WebClient.builder().exchangeFunction(exchangeFunction);
+        AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
+                builder,
+                "tvly-test-key",
+                "https://api.tavily.com/search");
+        AllergenRelationshipTool tool = new AllergenRelationshipTool(repository, fallback);
+
+        AllergenRelationshipResult result = tool.lookup(List.of("mystery-additive"));
+
+        assertThat(result.unresolvedIngredients()).containsExactly("mystery-additive");
+        assertThat(result.externalSearchSummary()).isEmpty();
+        assertThat(result.externalMatches()).isEmpty();
+    }
+
     private static Map<String, DietaryRestriction> seedRestrictions() {
         Map<String, DietaryRestriction> byCode = new LinkedHashMap<>();
         addRestriction(byCode, 1L, "GLUTEN", "Gluten Intolerance", "ALLERGEN",

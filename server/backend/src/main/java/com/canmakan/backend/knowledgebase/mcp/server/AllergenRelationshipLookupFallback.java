@@ -8,6 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,8 @@ import java.util.stream.Collectors;
 public class AllergenRelationshipLookupFallback {
 
     private static final Duration TAVILY_TIMEOUT = Duration.ofSeconds(10);
+    /** Upper bound on external calls per scan now that calls scale with ingredient count. */
+    private static final int MAX_EXTERNAL_LOOKUPS = 5;
 
     private final WebClient.Builder webClientBuilder;
     @Value("${app.api.tavily.key:${TAVILY_API_KEY:mock_key_value}}")
@@ -78,19 +81,39 @@ public class AllergenRelationshipLookupFallback {
             return "";
         }
 
-        String query = buildSearchQuery(normalized);
+        // A search API cannot follow a strict 'Name -> ROOT_CODE' instruction, and one answer
+        // cannot cover many ingredients, so issue one natural-language search per ingredient.
+        // Capped by MAX_EXTERNAL_LOOKUPS to bound credit use now that calls scale with count.
+        List<String> lines = new ArrayList<>();
+        int lookups = 0;
+        for (String ingredient : normalized) {
+            if (lookups >= MAX_EXTERNAL_LOOKUPS) {
+                break;
+            }
+            lookups++;
+            String answer = searchOne(ingredient);
+            if (answer != null && !answer.isBlank()) {
+                // One line per ingredient; flatten newlines so the per-ingredient structure holds.
+                lines.add(ingredient + ": " + answer.replaceAll("\\s+", " ").trim());
+            }
+        }
+        return String.join("\n", lines);
+    }
 
+    /**
+     * Runs a single Tavily search for one ingredient. Returns the answer text, or {@code ""} on any
+     * failure or empty answer, so a failed lookup contributes nothing to the summary.
+     */
+    private String searchOne(String ingredient) {
         try {
-            // Construct the request body for the Tavily API
             Map<String, Object> requestBody = Map.of(
                 "api_key", tavilyApiKey,
-                "query", query,
+                "query", buildSearchQuery(ingredient),
                 "search_depth", "basic",
                 "include_answer", true,
                 "max_results", 5
             );
 
-            // Send the request to the Tavily API and block until the response is received
             Map<String, Object> response = webClientBuilder.build()
                 .post()
                 .uri(tavilyUrl)
@@ -99,13 +122,10 @@ public class AllergenRelationshipLookupFallback {
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                 .block(TAVILY_TIMEOUT);
 
-            // Extract the answer from the response
-            String answer = extractAnswer(response, normalized);
-            return answer == null ? "" : answer;
-
+            return extractAnswer(response);
         } catch (Exception e) {
-            log.warn("Tavily search failed for ingredients {}: {}", normalized, e.getMessage());
-            return "External lookup failed for unresolved ingredients: " + String.join(", ", normalized);
+            log.warn("Tavily search failed for ingredient {}: {}", ingredient, e.getMessage());
+            return "";
         }
     }
 
@@ -179,46 +199,19 @@ public class AllergenRelationshipLookupFallback {
             && !"local-dev-placeholder".equals(apiKey);
     }
 
-    // Build the search query for the Tavily API
-    private String buildSearchQuery(List<String> ingredients) {
-        return "For each of these food ingredients, reply with one line in the exact format "
-            + "'IngredientName -> ROOT_CODE'. Use only these ROOT_CODE values: "
-            + "DAIRY, GLUTEN, PEANUT, TREE_NUT, FISH, SHELLFISH, EGG, SOY, SESAME, MEAT, ADDITIVE, NONE. "
-            + "Use NONE when the ingredient is not a common allergen. Ingredients: "
-            + String.join(", ", ingredients);
+    // Natural-language allergen question for one ingredient (a search API answers prose, not codes).
+    private String buildSearchQuery(String ingredient) {
+        return "is " + ingredient + " derived from milk, gluten, wheat, peanut, tree nuts, "
+            + "egg, soy, fish, shellfish or sesame";
     }
 
-    // Extract the answer from the response
-    @SuppressWarnings("unchecked")
-    private String extractAnswer(Map<String, Object> response, List<String> ingredients) {
+    // Parse only Tavily's answer field. Raw result snippets contain arbitrary allergen words and are
+    // a false-positive source, so they are ignored; an absent answer contributes nothing.
+    private String extractAnswer(Map<String, Object> response) {
         if (response == null) {
             return "";
         }
-
         Object answer = response.get("answer");
-        if (answer != null && !answer.toString().isBlank()) {
-            return answer.toString().trim();
-        }
-
-        Object resultsObj = response.get("results");
-        if (!(resultsObj instanceof List<?> rawResults) || rawResults.isEmpty()) {
-            return "No external information found for: " + String.join(", ", ingredients);
-        }
-
-        // Extract the title and content from the results
-        // Limit the results to 3
-        // Filter the results to only include maps
-        // Map the results to a string
-        // Join the results with a newline
-        return rawResults.stream()
-            .limit(3)
-            .filter(Map.class::isInstance)
-            .map(r -> (Map<String, Object>) r)
-            .map(r -> {
-                String title = String.valueOf(r.getOrDefault("title", ""));
-                String content = String.valueOf(r.getOrDefault("content", ""));
-                return title + ": " + content;
-            })
-            .collect(Collectors.joining("\n\n"));
+        return answer == null ? "" : answer.toString().trim();
     }
 }

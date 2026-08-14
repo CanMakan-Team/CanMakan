@@ -260,6 +260,25 @@ class BarcodeValidationClientTest {
     }
 
     @Test
+    void metadataOnlyLeafIsDroppedButKeepsDataComplete() {
+        ClientHarness harness = clientHarness();
+        harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
+            .andExpect(method(GET))
+            .andRespond(withSuccess(metadataLeafJson(), MediaType.APPLICATION_JSON));
+
+        ProductLookupResult result = harness.client().fetchProduct(BARCODE);
+
+        List<String> names = result.ingredients().stream()
+            .map(ingredient -> ingredient.ingredientName())
+            .toList();
+        // OFF includes leaves carrying only metadata (percent/vegan, no text/id). Those are dropped
+        // and must not make the whole product read as incomplete.
+        assertEquals(List.of("Sugar"), names);
+        assertTrue(result.ingredientDataComplete());
+        harness.verify();
+    }
+
+    @Test
     void classifiesProductNotFound() {
         ClientHarness harness = clientHarness();
         harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
@@ -455,6 +474,27 @@ class BarcodeValidationClientTest {
                   {"id": "en:sugar", "text": "Sugar"}
                 ],
                 "labels_tags": [],
+                "traces_tags": [],
+                "nutriments": {}
+              }
+            }
+            """;
+    }
+
+    private static String metadataLeafJson() {
+        return """
+            {
+              "status": "success",
+              "product": {
+                "product_name": "Metadata Leaf Product",
+                "product_type": "food",
+                "ingredients_text": "Sugar",
+                "ingredients": [
+                  {"id": "en:sugar", "text": "Sugar"},
+                  {"percent_estimate": 5, "vegan": "yes"}
+                ],
+                "labels_tags": [],
+                "allergens_tags": [],
                 "traces_tags": [],
                 "nutriments": {}
               }
