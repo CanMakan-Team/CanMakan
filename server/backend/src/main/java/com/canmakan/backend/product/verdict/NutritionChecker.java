@@ -3,6 +3,7 @@ package com.canmakan.backend.product.verdict;
 import com.canmakan.backend.knowledgebase.model.RestrictionCategory;
 import com.canmakan.backend.product.model.Nutrition;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -43,11 +44,11 @@ public final class NutritionChecker implements RestrictionChecker {
         switch (rule.code()) {
             case "LOW_SUGAR" -> checkMaximum(
                     rule.code(), product.nutrition(), Nutrition::sugarsPer100g,
-                    "Sugar", LOW_SUGAR_LIMIT, "5.0", hits
+                    "Sugar", LOW_SUGAR_LIMIT, hits
             );
             case "LOW_FAT" -> checkMaximum(
                     rule.code(), product.nutrition(), Nutrition::fatPer100g,
-                    "Total fat", LOW_FAT_LIMIT, "3.0", hits
+                    "Total fat", LOW_FAT_LIMIT, hits
             );
             case "LOW_TRANS_FAT" -> checkTransFat(product.nutrition(), hits);
             case "LOW_SODIUM" -> checkSodium(product.nutrition(), hits);
@@ -62,7 +63,6 @@ public final class NutritionChecker implements RestrictionChecker {
             Function<Nutrition, BigDecimal> valueExtractor,
             String nutrientName,
             BigDecimal limit,
-            String displayedLimit,
             List<Finding> hits
     ) {
         BigDecimal value = nutrition == null ? null : valueExtractor.apply(nutrition);
@@ -75,8 +75,8 @@ public final class NutritionChecker implements RestrictionChecker {
                     code,
                     Finding.SUBJECT_NUTRITION,
                     nutrientName + " is " + format(value)
-                            + " g per 100 g, above the " + code + " limit of "
-                            + displayedLimit + " g per 100 g."
+                            + " g per 100 g, above the " + displayCode(code) + " limit of "
+                            + format(limit) + " g per 100 g."
             ));
         }
     }
@@ -93,7 +93,8 @@ public final class NutritionChecker implements RestrictionChecker {
                     code,
                     Finding.SUBJECT_NUTRITION,
                     "Trans fat is " + format(value)
-                            + " g per 100 g; the LOW_TRANS_FAT rule requires a confirmed value of 0 g per 100 g."
+                            + " g per 100 g; the " + displayCode(code)
+                            + " rule requires a confirmed value of 0.00 g per 100 g."
             ));
         }
     }
@@ -112,7 +113,8 @@ public final class NutritionChecker implements RestrictionChecker {
                     code,
                     Finding.SUBJECT_NUTRITION,
                     "Sodium is " + format(value)
-                            + " g per 100 g, above the LOW_SODIUM limit of 0.12 g per 100 g."
+                            + " g per 100 g, above the " + displayCode(code) + " limit of "
+                            + format(LOW_SODIUM_LIMIT) + " g per 100 g."
             ));
         }
     }
@@ -128,7 +130,7 @@ public final class NutritionChecker implements RestrictionChecker {
             hits.add(new Finding(
                     code,
                     Finding.SUBJECT_NUTRITION,
-                    nutrientName + " data is missing for the " + code
+                    nutrientName + " data is missing for the " + displayCode(code)
                             + " preference - please check the product's physical label."
             ));
             return true;
@@ -138,7 +140,7 @@ public final class NutritionChecker implements RestrictionChecker {
                     code,
                     Finding.SUBJECT_NUTRITION,
                     nutrientName + " data looks invalid (" + format(value)
-                            + " per 100 g) for the " + code
+                            + " per 100 g) for the " + displayCode(code)
                             + " preference - please check the product's physical label."
             ));
             return true;
@@ -146,7 +148,15 @@ public final class NutritionChecker implements RestrictionChecker {
         return false;
     }
 
+    /** Formats a quantity to exactly two decimal places (e.g. {@code 10.5664 -> "10.57"}). */
     private String format(BigDecimal value) {
-        return value.stripTrailingZeros().toPlainString();
+        BigDecimal rounded = value.setScale(2, RoundingMode.HALF_UP);
+        // BigDecimal can round a tiny negative to "-0.00"; normalise it to "0.00".
+        return (rounded.signum() == 0 ? BigDecimal.ZERO.setScale(2) : rounded).toPlainString();
+    }
+
+    /** Human-readable restriction code with underscores replaced by spaces (e.g. LOW SODIUM). */
+    private String displayCode(String code) {
+        return code == null ? "" : code.replace('_', ' ');
     }
 }
