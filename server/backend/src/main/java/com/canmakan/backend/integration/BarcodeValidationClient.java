@@ -299,7 +299,7 @@ public class BarcodeValidationClient {
         List<Ingredient> ingredients = new ArrayList<>(toIngredients(product.ingredients()));
         boolean ingredientDataComplete = product.ingredients() != null
             && !product.ingredients().isEmpty()
-            && ingredients.size() == countNamedLeafIngredients(product.ingredients());
+            && ingredients.size() == countLeafIngredients(product.ingredients());
 
         // Open Food Facts publishes curated allergen tags (e.g. "en:peanuts"). Inject each mapped
         // tag as a confirmed allergen so it is flagged even when the ingredient names do not match
@@ -407,12 +407,8 @@ public class BarcodeValidationClient {
         }
     }
 
-    /**
-     * Counts the leaf ingredients OFF supplied that the mapper can actually name, so completeness
-     * reflects nested groups without condemning a product for metadata-only leaves (percentage or
-     * vegan flags with no text/id) that {@link #collectLeafIngredients} deliberately drops.
-     */
-    private int countNamedLeafIngredients(List<OpenFoodFactsIngredient> source) {
+    /** Counts the leaf ingredients OFF supplied, so completeness reflects nested groups too. */
+    private int countLeafIngredients(List<OpenFoodFactsIngredient> source) {
         if (source == null) {
             return 0;
         }
@@ -422,8 +418,8 @@ public class BarcodeValidationClient {
                 continue;
             }
             if (node.ingredients() != null && !node.ingredients().isEmpty()) {
-                count += countNamedLeafIngredients(node.ingredients());
-            } else if (ingredientName(node) != null) {
+                count += countLeafIngredients(node.ingredients());
+            } else {
                 count++;
             }
         }
