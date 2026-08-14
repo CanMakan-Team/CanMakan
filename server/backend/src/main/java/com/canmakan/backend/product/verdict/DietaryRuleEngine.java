@@ -143,6 +143,56 @@ public class DietaryRuleEngine {
         return decide(activeRules, findings, unresolvedNames);
     }
 
+    /**
+     * Recommendation-specific assessment for sparse catalog rows. Ingredient resolution runs
+     * only when {@code ingredients_text} is present; otherwise tags, allergens, nutrition,
+     * and traces are evaluated without treating missing ingredients as incomplete data.
+     */
+    public SafetyVerdict assessForRecommendation(List<RestrictionRule> rules, ProductData product) {
+        if (product == null) {
+            Finding finding = new Finding(
+                    INCOMPLETE_DATA,
+                    Finding.SUBJECT_UNKNOWN,
+                    "No reliable ingredient data for this product - please verify the physical label."
+            );
+            return SafetyVerdict.warning(finding.reason(), List.of(finding));
+        }
+        if (hasIngredientText(product)) {
+            return assess(rules, product);
+        }
+        return assessWithoutIngredients(rules, product);
+    }
+
+    private SafetyVerdict assessWithoutIngredients(List<RestrictionRule> rules, ProductData product) {
+        List<RestrictionRule> activeRules = filterKnownRules(rules);
+        ProductData sparseProduct = new ProductData(
+                product.barcode(),
+                List.of(),
+                null,
+                product.labelTags(),
+                product.tracesTags(),
+                product.nutrition(),
+                true);
+
+        List<Finding> findings = new ArrayList<>();
+        for (RestrictionRule rule : activeRules) {
+            for (RestrictionChecker checker : checkers) {
+                if (checker.supports(rule.category())) {
+                    checker.check(rule, sparseProduct, findings);
+                }
+            }
+        }
+        findings.addAll(crossContaminationFindings(activeRules, sparseProduct));
+        return decide(activeRules, findings, List.of());
+    }
+
+    private static boolean hasIngredientText(ProductData product) {
+        return product.ingredientsText() != null
+                && !product.ingredientsText().isBlank()
+                && product.ingredients() != null
+                && !product.ingredients().isEmpty();
+    }
+
     /** Keeps only rules the dietary-rule MCP tool recognises (drops UNKNOWN definitions). */
     private List<RestrictionRule> filterKnownRules(List<RestrictionRule> rules) {
         if (rules == null || rules.isEmpty()) {

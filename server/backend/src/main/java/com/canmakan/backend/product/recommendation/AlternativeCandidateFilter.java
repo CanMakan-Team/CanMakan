@@ -18,7 +18,9 @@ import org.springframework.stereotype.Component;
  * profiles also accept WARNING gluten-free flour substitutes when there is no
  * GLUTEN finding. GLUTEN avoidance profiles also accept WARNING tagged gluten-free
  * breakfast cereal substitutes when there is no GLUTEN finding and the row does not
- * contain oats. PEANUT avoidance profiles accept WARNING peanut-free spread
+ * contain oats. GLUTEN avoidance profiles also accept WARNING tagged gluten-free
+ * bread substitutes when there is no GLUTEN finding, including rows with sparse
+ * nutrition or ingredient data. PEANUT avoidance profiles accept WARNING peanut-free spread
  * substitutes when there is no PEANUT finding. LOW_SODIUM preference profiles accept
  * WARNING sauce or soy-sauce substitutes that declare reduced or low salt in the
  * product name, labels, or category tags. Other profiles without intolerance rules stay SAFE-only.
@@ -173,6 +175,11 @@ public class AlternativeCandidateFilter {
                     && !hasRestrictionFinding(verdict, "GLUTEN")) {
                 return true;
             }
+            if (hasGlutenAvoidanceRule(rules)
+                    && isGlutenFreeBreadSubstitute(candidate)
+                    && !hasRestrictionFinding(verdict, "GLUTEN")) {
+                return true;
+            }
             if (hasLowSodiumPreference(rules) && isLowSodiumSauceSubstitute(candidate)) {
                 return true;
             }
@@ -316,8 +323,11 @@ public class AlternativeCandidateFilter {
         if (candidate == null) {
             return false;
         }
+        if (containsOatToken(candidate)) {
+            return false;
+        }
         Set<String> categoryTags = CategoryTagParser.parseTags(candidate.getCategoryTags());
-        if (CategoryTagParser.containsAny(categoryTags, GLUTEN_FREE_BREAD_TAGS)) {
+        if (CategoryTagParser.containsAnyIgnoreCase(categoryTags, GLUTEN_FREE_BREAD_TAGS)) {
             return true;
         }
         if (!SubstituteDiscoveryProfiles.isBreadSource(candidate)) {

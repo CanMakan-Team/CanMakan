@@ -103,10 +103,11 @@ public class CatalogProduct {
     }
 
     /**
-     * Minimum metadata to enter the Tier A candidate pool (engine still decides SAFE).
+     * Minimum metadata to enter the recommendation pipeline. Ingredient text is optional
+     * because many catalog rows are sparse; the rule engine checks ingredients only when present.
      */
     public boolean isRecommendationEligible() {
-        return hasText(mainCategoryEn) && hasText(ingredientsText);
+        return hasText(mainCategoryEn);
     }
 
     private BigDecimal resolveSugarsPer100g() {

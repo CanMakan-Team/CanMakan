@@ -79,6 +79,35 @@ class DietaryRuleEngineTest {
     }
 
     @Test
+    @DisplayName("Recommendation assess skips ingredient checks when ingredients_text is empty")
+    void recommendationAssessSkipsIngredientsWhenTextMissing() {
+        ProductData sparse = new ProductData(
+                "8888536703136",
+                List.of(),
+                null,
+                List.of("en:tahini"),
+                List.of(),
+                null,
+                false
+        );
+
+        SafetyVerdict verdict = engine.assessForRecommendation(List.of(), sparse);
+
+        assertEquals(SafetyVerdict.Level.SAFE, verdict.level());
+        assertTrue(verdict.findings().isEmpty());
+        verify(resolver, never()).resolveAll(any());
+    }
+
+    @Test
+    @DisplayName("Recommendation assess delegates to full ingredient path when text is present")
+    void recommendationAssessUsesIngredientsWhenPresent() {
+        SafetyVerdict verdict = engine.assessForRecommendation(List.of(), null);
+
+        assertEquals(SafetyVerdict.Level.WARNING, verdict.level());
+        assertEquals(DietaryRuleEngine.INCOMPLETE_DATA, verdict.findings().getFirst().restrictionCode());
+    }
+
+    @Test
     @DisplayName("Truly unknown ingredients emit UNRESOLVED findings")
     void unknownIngredientsEmitUnresolvedFindings() {
         Ingredient mystery = new Ingredient("Mystery Powder", null, null, false);

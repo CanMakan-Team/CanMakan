@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import sg.edu.nus.iss.canmakan.features.product.model.AlternativeProduct
 import sg.edu.nus.iss.canmakan.features.product.model.Product
@@ -355,9 +356,21 @@ private fun AlternativesTab(
                     .background(CardWhite)
                     .padding(14.dp),
             ) {
-                Text(alternative.name, fontWeight = FontWeight.Bold)
+                Text(
+                    text = alternative.name,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 if (alternative.brand.isNotEmpty()) {
-                    Text(alternative.brand, color = TextSecondary)
+                    Text(
+                        text = alternative.brand,
+                        color = TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
         }

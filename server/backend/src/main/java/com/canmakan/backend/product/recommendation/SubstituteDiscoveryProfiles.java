@@ -324,7 +324,17 @@ public class SubstituteDiscoveryProfiles {
         if (sourceMainCategoryEn == null || sourceMainCategoryEn.isBlank()) {
             return Optional.empty();
         }
-        return Optional.ofNullable(profilesBySourceCategory.get(sourceMainCategoryEn));
+        String trimmed = sourceMainCategoryEn.trim();
+        SubstituteDiscoveryProfile profile = profilesBySourceCategory.get(trimmed);
+        if (profile != null) {
+            return Optional.of(profile);
+        }
+        for (Map.Entry<String, SubstituteDiscoveryProfile> entry : profilesBySourceCategory.entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(trimmed)) {
+                return Optional.of(entry.getValue());
+            }
+        }
+        return Optional.empty();
     }
 
     /**
@@ -344,6 +354,9 @@ public class SubstituteDiscoveryProfiles {
         }
         if (isSauceSource(source)) {
             return Optional.of(SAUCES);
+        }
+        if (isBreadSource(source)) {
+            return Optional.of(BREADS);
         }
         return Optional.empty();
     }
@@ -365,7 +378,7 @@ public class SubstituteDiscoveryProfiles {
             return false;
         }
         String category = source.getMainCategoryEn();
-        if (category != null && BREAD_SOURCE_CATEGORIES.contains(category)) {
+        if (category != null && matchesBreadSourceCategory(category)) {
             return true;
         }
         if (category != null && category.toLowerCase(Locale.ROOT).contains("bread")) {
@@ -390,6 +403,16 @@ public class SubstituteDiscoveryProfiles {
             return true;
         }
         return tags.stream().anyMatch(tag -> tag.contains("breakfast-cereal"));
+    }
+
+    private static boolean matchesBreadSourceCategory(String category) {
+        String trimmed = category.trim();
+        for (String breadCategory : BREAD_SOURCE_CATEGORIES) {
+            if (breadCategory.equalsIgnoreCase(trimmed)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static boolean isIceCreamSource(CatalogProduct source) {

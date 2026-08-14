@@ -55,6 +55,20 @@ class AlternativeProductQueryServiceTest {
     }
 
     @Test
+    void findCandidatesAllowsSourceWithoutIngredientsWhenCategoryPresent() {
+        CatalogProduct source = product("100", "Groceries", null, null);
+        CatalogProduct candidate = product("200", "Groceries", null, null);
+
+        when(catalogProductRepository.findCandidatesByCategory("Groceries", "100"))
+                .thenReturn(List.of(candidate));
+
+        List<CatalogProduct> results = queryService.findCandidates(source);
+
+        assertEquals(1, results.size());
+        assertEquals("200", results.getFirst().getBarcode());
+    }
+
+    @Test
     void findCandidatesLimitsToFiftyRows() {
         CatalogProduct source = product("100", "Groceries", "Salt", null);
         List<CatalogProduct> many = IntStream.range(0, 60)

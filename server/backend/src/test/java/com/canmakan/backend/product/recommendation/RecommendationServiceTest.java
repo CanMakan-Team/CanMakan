@@ -134,7 +134,7 @@ class RecommendationServiceTest {
         ));
         when(catalogProductMapper.toProductData(safe)).thenReturn(productData("200"));
         when(catalogProductMapper.toProductData(unsafe)).thenReturn(productData("300"));
-        when(ruleEngine.assess(eq(rules), any(ProductData.class)))
+        when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
                 .thenReturn(SafetyVerdict.safe("ok", List.of()))
                 .thenReturn(SafetyVerdict.unsafe("gluten", List.of()));
         when(candidateFilter.isAcceptableAlternative(eq(rules), any(SafetyVerdict.class), any(CatalogProduct.class)))
@@ -170,7 +170,7 @@ class RecommendationServiceTest {
         when(queryService.findSameCategoryCandidates(source)).thenReturn(List.of(unsafe));
         when(discoveryProfiles.forSourceProduct(any())).thenReturn(Optional.empty());
         when(catalogProductMapper.toProductData(unsafe)).thenReturn(productData("300"));
-        when(ruleEngine.assess(anyList(), any(ProductData.class)))
+        when(ruleEngine.assessForRecommendation(anyList(), any(ProductData.class)))
                 .thenReturn(SafetyVerdict.unsafe("gluten", List.of()));
         when(candidateFilter.isAcceptableAlternative(anyList(), any(SafetyVerdict.class), any(CatalogProduct.class)))
                 .thenReturn(false);
@@ -223,7 +223,7 @@ class RecommendationServiceTest {
         when(catalogProductMapper.toProductData(dairyMilk)).thenReturn(productData("8888200132217"));
         when(catalogProductMapper.toProductData(oatDrink)).thenReturn(productData("7394376618253"));
         when(catalogProductMapper.toProductData(unsweetenedSoy)).thenReturn(productData("8850025000521"));
-        when(ruleEngine.assess(eq(rules), any(ProductData.class)))
+        when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
                 .thenReturn(dairyWarning)
                 .thenReturn(oatWarning)
                 .thenReturn(soySafe);
@@ -276,7 +276,7 @@ class RecommendationServiceTest {
         when(scanRepository.findByProfileIdOrderByScannedAtDesc(1L)).thenReturn(List.of());
         when(catalogProductMapper.toProductData(otherWheatFlour)).thenReturn(productData("8886350000011"));
         when(catalogProductMapper.toProductData(brownRiceFlour)).thenReturn(productData("8887501030642"));
-        when(ruleEngine.assess(eq(rules), any(ProductData.class)))
+        when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
                 .thenReturn(SafetyVerdict.unsafe("gluten", List.of(new Finding("GLUTEN", "wheat", "gluten"))))
                 .thenReturn(SafetyVerdict.safe("ok", List.of()));
         when(candidateFilter.isAcceptableAlternative(eq(rules), any(SafetyVerdict.class), any(CatalogProduct.class)))
@@ -330,7 +330,7 @@ class RecommendationServiceTest {
         when(scanRepository.findByProfileIdOrderByScannedAtDesc(1L)).thenReturn(List.of());
         when(catalogProductMapper.toProductData(otherCereal)).thenReturn(productData("4800361355872"));
         when(catalogProductMapper.toProductData(glutenFreeCereal)).thenReturn(productData("9315090200706"));
-        when(ruleEngine.assess(eq(rules), any(ProductData.class)))
+        when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
                 .thenReturn(SafetyVerdict.unsafe("gluten", List.of(new Finding("GLUTEN", "wheat", "gluten"))))
                 .thenReturn(SafetyVerdict.safe("ok", List.of()));
         when(candidateFilter.isAcceptableAlternative(eq(rules), any(SafetyVerdict.class), any(CatalogProduct.class)))
@@ -393,7 +393,7 @@ class RecommendationServiceTest {
         when(scanRepository.findByProfileIdOrderByScannedAtDesc(3L)).thenReturn(List.of());
         when(catalogProductMapper.toProductData(otherPeanutButter)).thenReturn(productData("0051500710166"));
         when(catalogProductMapper.toProductData(tahini)).thenReturn(productData("8888536703136"));
-        when(ruleEngine.assess(eq(rules), any(ProductData.class)))
+        when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
                 .thenReturn(peanutUnsafe)
                 .thenReturn(safe);
         when(candidateFilter.isAcceptableAlternative(eq(rules), eq(peanutUnsafe), eq(otherPeanutButter)))
@@ -444,7 +444,7 @@ class RecommendationServiceTest {
         when(scanRepository.findByProfileIdOrderByScannedAtDesc(3L)).thenReturn(List.of());
         when(catalogProductMapper.toProductData(dairyMilk)).thenReturn(productData("8888200132217"));
         when(catalogProductMapper.toProductData(unsweetenedSoy)).thenReturn(productData("8850025000521"));
-        when(ruleEngine.assess(eq(rules), any(ProductData.class)))
+        when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
                 .thenReturn(dairyWarning)
                 .thenReturn(soySafe);
         when(candidateFilter.isAcceptableAlternative(eq(rules), eq(dairyWarning), eq(dairyMilk))).thenReturn(false);
@@ -516,7 +516,7 @@ class RecommendationServiceTest {
         when(catalogProductMapper.toProductData(wheatSoy)).thenReturn(productData("4965249200528"));
         when(catalogProductMapper.toProductData(kikkomanGf)).thenReturn(productData("4901515129889"));
         when(catalogProductMapper.toProductData(labeledGf)).thenReturn(productData("9343317000624"));
-        when(ruleEngine.assess(eq(rules), any(ProductData.class)))
+        when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
                 .thenReturn(glutenUnsafe)
                 .thenReturn(safe)
                 .thenReturn(safe);
@@ -570,7 +570,7 @@ class RecommendationServiceTest {
         when(scanRepository.findByProfileIdOrderByScannedAtDesc(3L)).thenReturn(List.of());
         when(catalogProductMapper.toProductData(dairyMilk)).thenReturn(productData("8888200132217"));
         when(catalogProductMapper.toProductData(llmSubstitute)).thenReturn(productData("8850025000521"));
-        when(ruleEngine.assess(eq(rules), any(ProductData.class)))
+        when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
                 .thenReturn(dairyWarning)
                 .thenReturn(soySafe);
         when(candidateFilter.isAcceptableAlternative(eq(rules), eq(dairyWarning), eq(dairyMilk))).thenReturn(false);

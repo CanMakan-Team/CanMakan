@@ -172,6 +172,22 @@ class SubstituteDiscoveryProfilesTest {
         for (String category : categories) {
             assertEquals(breads, profiles.forSourceCategory(category).orElseThrow());
         }
+        assertEquals(breads, profiles.forSourceCategory("breads").orElseThrow());
+    }
+
+    @Test
+    void lowercaseBreadCategoryResolvesViaForSourceProduct() {
+        CatalogProduct milkFlavorBread = new CatalogProduct();
+        milkFlavorBread.setBarcode("6933352827077");
+        milkFlavorBread.setProductName("Milk Flavor Bread");
+        milkFlavorBread.setMainCategoryEn("breads");
+        milkFlavorBread.setCategoryTags("en:breads");
+        milkFlavorBread.setIngredientsText("wheat flour, sugar, yeast");
+
+        SubstituteDiscoveryProfile profile = profiles.forSourceProduct(milkFlavorBread).orElseThrow();
+
+        assertEquals(List.of("Gluten free bread"), profile.includeTags());
+        assertTrue(profiles.isBreadSubstituteDiscovery(profile));
     }
 
     @Test

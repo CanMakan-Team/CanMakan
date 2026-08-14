@@ -19,8 +19,6 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
         select p from CatalogProduct p
         where p.mainCategoryEn = :mainCategoryEn
           and p.barcode <> :excludeBarcode
-          and p.ingredientsText is not null
-          and trim(p.ingredientsText) <> ''
         order by coalesce(p.uniqueScansN, 0) desc, coalesce(p.completeness, 0) desc
         """)
     List<CatalogProduct> findCandidatesByCategory(
@@ -34,8 +32,6 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
     @Query("""
         select p from CatalogProduct p
         where p.barcode <> :excludeBarcode
-          and p.ingredientsText is not null
-          and trim(p.ingredientsText) <> ''
           and p.categoryTags is not null
           and concat(',', p.categoryTags, ',') like concat('%,', :categoryTag, ',%')
         order by coalesce(p.uniqueScansN, 0) desc, coalesce(p.completeness, 0) desc
@@ -51,8 +47,6 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
     @Query("""
         select p from CatalogProduct p
         where p.barcode <> :excludeBarcode
-          and p.ingredientsText is not null
-          and trim(p.ingredientsText) <> ''
           and p.labelsTags is not null
           and concat(',', p.labelsTags, ',') like concat('%,', :labelTag, ',%')
         order by coalesce(p.uniqueScansN, 0) desc, coalesce(p.completeness, 0) desc
@@ -68,8 +62,6 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
     @Query("""
         select p from CatalogProduct p
         where p.barcode <> :excludeBarcode
-          and p.ingredientsText is not null
-          and trim(p.ingredientsText) <> ''
           and p.mainCategoryEn in :categories
         order by coalesce(p.uniqueScansN, 0) desc, coalesce(p.completeness, 0) desc
         """)

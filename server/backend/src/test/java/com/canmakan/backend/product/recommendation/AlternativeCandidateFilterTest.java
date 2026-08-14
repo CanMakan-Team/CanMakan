@@ -357,6 +357,51 @@ class AlternativeCandidateFilterTest {
     }
 
     @Test
+    void acceptsWarningGlutenFreeBreadWithoutIngredientsForGlutenProfile() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("GLUTEN", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID),
+                new RestrictionRule("LOW_SUGAR", RestrictionCategory.DIET, RestrictionSeverity.PREFERENCE)
+        );
+        CatalogProduct gfSourdough = catalogProduct(
+                "0667380799179",
+                "Breads",
+                "Gluten free bread",
+                null);
+        gfSourdough.setProductName("Gluten Free Sourdough 7 Seed");
+        gfSourdough.setIngredientsText(null);
+
+        SafetyVerdict warning = SafetyVerdict.warning(
+                "LOW_SUGAR: Sugar data is missing",
+                List.of(new Finding("LOW_SUGAR", "nutrition", "Sugar data is missing")));
+
+        assertTrue(filter.isAcceptableAlternative(rules, warning, gfSourdough));
+    }
+
+    @Test
+    void acceptsGlutenFreeBreadTagCaseInsensitively() {
+        CatalogProduct gfBread = catalogProduct(
+                "0667380799179",
+                "Breads",
+                "gluten free bread",
+                null);
+
+        assertTrue(AlternativeCandidateFilter.isGlutenFreeBreadSubstitute(gfBread));
+    }
+
+    @Test
+    void rejectsOatCerealMisTaggedAsGlutenFreeBread() {
+        CatalogProduct oatCereal = catalogProduct(
+                "8887143802515",
+                "Breakfast cereals",
+                "Gluten free bread,en:breakfast-cereals",
+                null);
+        oatCereal.setProductName("Honey Stars Oat Cereal");
+        oatCereal.setIngredientsText("Oats, sugar, honey");
+
+        assertFalse(AlternativeCandidateFilter.isGlutenFreeBreadSubstitute(oatCereal));
+    }
+
+    @Test
     void acceptsTaggedGlutenFreeBreakfastCerealWithoutOats() {
         CatalogProduct ancientGrains = catalogProduct(
                 "9315090200706",
