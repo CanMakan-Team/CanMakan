@@ -2,8 +2,9 @@ name: CI
 
 on:
   pull_request:
+    branches: [main, develop]
   push:
-    branches: [main]
+    branches: [main, develop]
 
 permissions:
   contents: read
@@ -181,5 +182,19 @@ jobs:
       - name: Build mobile app
         working-directory: client/mobile
         run: |
-          chmod +x gradlew
           ./gradlew assembleDebug
+
+  # 5. AGGREGATED STATUS GATE FOR BRANCH PROTECTION
+  Build-Test:
+    name: Build Test
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-backend, build-web, build-mobile]
+    if: always()
+    steps:
+      - name: Evaluate sub-job results
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more required build/test components failed."
+            exit 1
+          fi
+          echo "All required checks passed successfully."
