@@ -145,7 +145,7 @@ Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 | Web | `client/web` | `npm ci` + `npm run build` (Node 24) |
 | Mobile | `client/mobile` | Gradle `assembleDebug` |
 
-> Backend job injects all configurable env vars from `application.properties` via GitHub secrets (DB, JWT, CORS, invites, product APIs, OpenAI, Tavily, AI flags). <br>
+> Backend CI and [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) inject the same `application.properties` env vars via GitHub secrets (DB, JWT, CORS, invites, product APIs, OpenAI, Tavily, AI flags). Deploy forwards them to the EC2 process at JAR start. <br>
 > Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`. Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`, optional `WEB_INVITE_BASE_URLS`. <br>
 > Android SDK is provisioned via `android-actions/setup-android` <br>
 
