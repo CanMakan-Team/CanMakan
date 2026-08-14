@@ -321,7 +321,7 @@ class DietaryRuleEngineTest {
 
         assertEquals(SafetyVerdict.Level.WARNING, verdict.level());
         assertEquals(DietaryRuleEngine.CROSS_CONTAMINATION, verdict.findings().getFirst().restrictionCode());
-        assertTrue(verdict.findings().getFirst().reason().contains("traces_tags"));
+        assertTrue(verdict.findings().getFirst().reason().contains("traces tags"));
     }
 
     @Test

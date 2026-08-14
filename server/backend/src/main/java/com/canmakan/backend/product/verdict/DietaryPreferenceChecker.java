@@ -56,7 +56,7 @@ public final class DietaryPreferenceChecker implements RestrictionChecker {
                         rule.code(),
                         displayName(ingredient.ingredientName()),
                         displayName(ingredient.ingredientName()) + " conflicts with the "
-                            + rule.code() + " restriction."
+                            + VerdictText.humanizeCode(rule.code()) + " restriction."
                     ));
                 }
             }
@@ -66,7 +66,7 @@ public final class DietaryPreferenceChecker implements RestrictionChecker {
             hits.add(new Finding(
                 rule.code(),
                 Finding.SUBJECT_UNKNOWN,
-                "Ingredient data is incomplete for the " + rule.code() + " restriction."
+                "Ingredient data is incomplete for the " + VerdictText.humanizeCode(rule.code()) + " restriction."
             ));
         }
     }

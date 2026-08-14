@@ -85,7 +85,7 @@ class AllergenCheckerTest {
                 List.of(new Finding(
                         "LACTOSE_INTOLERANT",
                         "Milk",
-                        "Milk matches the LACTOSE_INTOLERANT restriction."
+                        "Milk matches the LACTOSE INTOLERANT restriction."
                 )),
                 hits
         );
