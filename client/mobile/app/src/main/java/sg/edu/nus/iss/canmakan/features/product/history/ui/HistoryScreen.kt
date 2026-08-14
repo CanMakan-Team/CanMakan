@@ -53,6 +53,7 @@ fun HistoryScreen(
     errorMessage: String? = null,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
+    hasUnreadNotifications: Boolean = false,
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
     onSetUpProfile: () -> Unit,
@@ -65,6 +66,7 @@ fun HistoryScreen(
                 AppTopBar(
                     onMenuClick = onMenuClick,
                     onNotificationsClick = onNotificationsClick,
+                    hasUnreadNotifications = hasUnreadNotifications,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 activeProfile?.let {

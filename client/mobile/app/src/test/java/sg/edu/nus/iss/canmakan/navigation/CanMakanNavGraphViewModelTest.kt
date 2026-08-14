@@ -37,6 +37,9 @@ import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyRestrictionSumRes
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
+import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsApiService
+import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsRepository
+import sg.edu.nus.iss.canmakan.features.notifications.data.UserNotificationResponse
 import sg.edu.nus.iss.canmakan.features.family.data.ClaimInvitationRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.CreateDependantProfileRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.CreateInvitationRequestBody
@@ -66,6 +69,7 @@ class CanMakanNavGraphViewModelTest {
             activeProfileManager = activeProfileManager,
             dietaryRestrictionRepo = FakeDietaryRestrictionRepository(),
             familyProfileRepository = FamilyProfileRepository(familyApi),
+            notificationsRepository = NotificationsRepository(FakeNotificationsApiService()),
             authSessionStore = sessionStore,
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -467,6 +471,7 @@ class CanMakanNavGraphViewModelTest {
             activeProfileManager = restoredManager,
             dietaryRestrictionRepo = FakeDietaryRestrictionRepository(),
             familyProfileRepository = FamilyProfileRepository(restoredApi),
+            notificationsRepository = NotificationsRepository(FakeNotificationsApiService()),
             authSessionStore = restoredStore,
         )
 
@@ -595,6 +600,16 @@ class CanMakanNavGraphViewModelTest {
             serializedSession = null
             return true
         }
+    }
+
+    private class FakeNotificationsApiService : NotificationsApiService {
+        override suspend fun listMyNotifications(): Response<List<UserNotificationResponse>> =
+            Response.success(emptyList())
+
+        override suspend fun markNotificationsRead(): Response<Unit> = Response.success(Unit)
+
+        override suspend fun deleteNotification(notificationId: Long): Response<Unit> =
+            Response.success(Unit)
     }
 
     private class FakeDietaryRestrictionRepository : DietaryRestrictionRepository {

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -40,6 +41,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextPrimary
 fun AppTopBar(
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
+    hasUnreadNotifications: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -66,13 +68,17 @@ fun AppTopBar(
             IconButton(onClick = onNotificationsClick) {
                 Icon(Icons.Default.Notifications, contentDescription = "Notifications")
             }
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .align(Alignment.TopEnd)
-                    .clip(CircleShape)
-                    .background(AvoidRed)
-            )
+            // Only rendered when the account has at least one unread notification.
+            if (hasUnreadNotifications) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .align(Alignment.TopEnd)
+                        .offset(x = (-10).dp, y = 10.dp)
+                        .clip(CircleShape)
+                        .background(AvoidRed)
+                )
+            }
         }
     }
 }

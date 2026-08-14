@@ -79,6 +79,7 @@ fun FamilyRestrictionSummaryScreen(
     memberRole: String? = null,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
+    hasUnreadNotifications: Boolean = false,
     onNavigateToEditMembers: () -> Unit
 ) {
     Scaffold(
@@ -87,6 +88,7 @@ fun FamilyRestrictionSummaryScreen(
                 AppTopBar(
                     onMenuClick = onMenuClick,
                     onNotificationsClick = onNotificationsClick,
+                    hasUnreadNotifications = hasUnreadNotifications,
                 )
             }
         }
