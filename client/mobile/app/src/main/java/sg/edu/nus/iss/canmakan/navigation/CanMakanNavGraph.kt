@@ -19,6 +19,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -98,6 +99,7 @@ fun CanMakanNavGraph(
     val createFamilyError by navGraphViewModel.createFamilyError.collectAsStateWithLifecycle()
     val switchProfileError by navGraphViewModel.switchProfileError.collectAsStateWithLifecycle()
     val isSwitchingProfile by navGraphViewModel.isSwitchingProfile.collectAsStateWithLifecycle()
+    val hasUnreadNotifications by navGraphViewModel.hasUnreadNotifications.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -284,6 +286,7 @@ fun CanMakanNavGraph(
                     // Open the drawer when the menu button is clicked
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
+                    hasUnreadNotifications = hasUnreadNotifications,
 
                     // Navigate to the history screen when the history button is clicked
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
@@ -323,6 +326,7 @@ fun CanMakanNavGraph(
                     memberRole = memberRole,
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
+                    hasUnreadNotifications = hasUnreadNotifications,
                     onNavigateToEditMembers = {
                         navController.navigate(ROUTE_MANAGE_FAMILY)
                     },
@@ -340,6 +344,7 @@ fun CanMakanNavGraph(
                     errorMessage = scanHistoryUiState.errorMessage,
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
+                    hasUnreadNotifications = hasUnreadNotifications,
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { },
                     onSetUpProfile = onRequestSelfProfileSetup,
@@ -389,6 +394,7 @@ fun CanMakanNavGraph(
                         errorMessage = createFamilyError,
                         onMenuClick = { openDrawer() },
                         onNotificationsClick = { openNotifications() },
+                        hasUnreadNotifications = hasUnreadNotifications,
                         onScanClick = { navController.navigate(ROUTE_SCANNER) },
                         onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                         onBackClick = { navController.popBackStack() },
@@ -404,6 +410,7 @@ fun CanMakanNavGraph(
                 ManageFamilyScreen(
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
+                    hasUnreadNotifications = hasUnreadNotifications,
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },
@@ -415,6 +422,7 @@ fun CanMakanNavGraph(
                 CreateDependantProfileScreen(
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
+                    hasUnreadNotifications = hasUnreadNotifications,
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },
@@ -431,6 +439,7 @@ fun CanMakanNavGraph(
                 InviteFamilyMemberScreen(
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
+                    hasUnreadNotifications = hasUnreadNotifications,
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },
@@ -442,9 +451,15 @@ fun CanMakanNavGraph(
                 )
             }
             composable(ROUTE_NOTIFICATIONS) {
+                // Opening this screen marks every card read on the backend. Refresh the bell
+                // badge when the screen closes so it clears wherever AppTopBar is shown next.
+                DisposableEffect(Unit) {
+                    onDispose { navGraphViewModel.refreshNotifications() }
+                }
                 NotificationsInboxScreen(
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
+                    hasUnreadNotifications = hasUnreadNotifications,
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
                     onBackClick = { navController.popBackStack() },
@@ -452,6 +467,7 @@ fun CanMakanNavGraph(
                         navGraphViewModel.refreshRestrictions()
                         navController.popBackStack()
                     },
+                    onMarkedAllRead = { navGraphViewModel.refreshNotifications() },
                 )
             }
         }

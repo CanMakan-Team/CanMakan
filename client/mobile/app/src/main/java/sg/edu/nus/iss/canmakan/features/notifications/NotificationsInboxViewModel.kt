@@ -22,6 +22,7 @@ data class NotificationsInboxUiState(
     val notifications: List<UserNotificationResponse> = emptyList(),
     val actingToken: String? = null,
     val deletingId: Long? = null,
+    val isMarkingAllRead: Boolean = false,
     val errorMessage: String? = null,
     val acceptedFamilyName: String? = null,
 )
@@ -38,6 +39,7 @@ class NotificationsInboxViewModel @Inject constructor(
 
     private var refreshJob: Job? = null
     private var actionJob: Job? = null
+    private var markAllReadJob: Job? = null
     private var accountObserved = false
     private var observedAccountKey: AuthAccountKey? = null
 
@@ -70,17 +72,15 @@ class NotificationsInboxViewModel @Inject constructor(
                 acceptedFamilyName = null,
             )
             try {
+                // Notifications are listed as-is; opening the inbox no longer marks them read
+                // automatically, so a glance at the panel doesn't silently dismiss anything the
+                // user hasn't acted on yet.
                 val notifications = notificationsRepository.listMine()
                 if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     notifications = notifications,
                 )
-                try {
-                    notificationsRepository.markAllRead()
-                } catch (_: Exception) {
-                    // Listing succeeded; unread flags can catch up on the next open.
-                }
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
@@ -202,6 +202,39 @@ class NotificationsInboxViewModel @Inject constructor(
         }
     }
 
+    /** Marks every notification read on the user's explicit request (the "Mark All As Read" button). */
+    fun markAllRead(onMarked: () -> Unit = {}) {
+        val accountKey = authSessionStore.accountKey.value
+        if (accountKey == null) {
+            bindAccount(null)
+            _uiState.value = _uiState.value.copy(errorMessage = "Sign in to update notifications.")
+            return
+        }
+        bindAccount(accountKey)
+        if (_uiState.value.notifications.none { !it.read }) return
+        markAllReadJob?.cancel()
+        markAllReadJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isMarkingAllRead = true, errorMessage = null)
+            try {
+                notificationsRepository.markAllRead()
+                if (!isCurrentAccount(accountKey)) return@launch
+                _uiState.value = _uiState.value.copy(
+                    isMarkingAllRead = false,
+                    notifications = _uiState.value.notifications.map { it.copy(read = true) },
+                )
+                onMarked()
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                if (!isCurrentAccount(accountKey)) return@launch
+                _uiState.value = _uiState.value.copy(
+                    isMarkingAllRead = false,
+                    errorMessage = exception.message ?: "Could not mark notifications as read.",
+                )
+            }
+        }
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
@@ -213,6 +246,7 @@ class NotificationsInboxViewModel @Inject constructor(
         if (accountObserved && observedAccountKey == accountKey) return false
         refreshJob?.cancel()
         actionJob?.cancel()
+        markAllReadJob?.cancel()
         _uiState.value = NotificationsInboxUiState()
         observedAccountKey = accountKey
         accountObserved = true
