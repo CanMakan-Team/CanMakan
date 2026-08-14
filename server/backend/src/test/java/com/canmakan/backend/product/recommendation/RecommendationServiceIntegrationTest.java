@@ -2,6 +2,8 @@ package com.canmakan.backend.product.recommendation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
+import com.canmakan.backend.product.verdict.DietaryRuleEngine;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -55,6 +57,15 @@ class RecommendationServiceIntegrationTest {
 
     private static final String HI_CALCIUM_MILK_BREAD = "8888247111145";
 
+    private static final String MILK_FLAVOR_BREAD = "6933352827077";
+
+    private static final String SUNSHINE_WHOLE_GRAIN_BREAD = "8888010101014";
+
+    /** GF sourdough with sparse nutrition and no ingredients_text. */
+    private static final String GF_SOURDOUGH_7_SEED = "0667380799179";
+
+    private static final String GF_PITA_BREAD = "8881300655228";
+
     /** Soya milk previously returned via spurious {@code en:milk-substitutes} inference. */
     private static final String HI_CALCIUM_SOYA_MILK = "8888030019566";
 
@@ -74,11 +85,67 @@ class RecommendationServiceIntegrationTest {
     /** Tahini from the nut/seed butter substitute pool. */
     private static final String NATURE_GLORY_TAHINI = "8888536703136";
 
+    /** Sparse cashew spread — no ingredients_text in catalog; must still be discoverable. */
+    private static final String ORGANIC_CASHEW_BUTTER = "95539553";
+
+    /** Legume paste miscategorised near spreads — must never substitute for peanut butter. */
+    private static final String SALTED_SOYA_BEAN_PASTE = "8888256370632";
+
     /** Strawberry jam previously ranked above nut/seed butters via broad en:spreads pool. */
     private static final String STRAWBERRY_JAM = "0044936350150";
 
     @Autowired
     private RecommendationService recommendationService;
+
+    @Autowired
+    private CatalogProductRepository catalogProductRepository;
+
+    @Autowired
+    private CatalogProductMapper catalogProductMapper;
+
+    @Autowired
+    private DietaryRuleEngine ruleEngine;
+
+    @Autowired
+    private AlternativeCandidateFilter alternativeCandidateFilter;
+
+    @Autowired
+    private RestrictionRuleLoader restrictionRuleLoader;
+
+    @Autowired
+    private AlternativeProductQueryService queryService;
+
+    @Test
+    @DisplayName("profile 1 gets multiple GF bread substitutes for Sunshine whole grain bread")
+    void profile1GetsMultipleGlutenFreeBreadSubstitutesForSunshineBread() {
+        CatalogProduct source = catalogProductRepository.findById(SUNSHINE_WHOLE_GRAIN_BREAD).orElseThrow();
+        var rules = restrictionRuleLoader.load(PROFILE_SARAH_TAN);
+
+        long sameCategoryAcceptable = queryService.findSameCategoryCandidates(source).stream()
+                .filter(candidate -> alternativeCandidateFilter.isAcceptableAlternative(
+                        rules,
+                        ruleEngine.assessForRecommendation(
+                                rules, catalogProductMapper.toProductData(candidate)),
+                        candidate))
+                .count();
+
+        assertThat(sameCategoryAcceptable).isZero();
+
+        AlternativeProductResponse response = recommendationService.recommend(
+                new RecommendationRequest(PROFILE_SARAH_TAN, SUNSHINE_WHOLE_GRAIN_BREAD, null));
+
+        Set<String> suggestedBarcodes = response.alternatives().stream()
+                .map(AlternativeProductDto::barcode)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertThat(suggestedBarcodes)
+                .as("sparse GF bread rows should be suggested alongside pita")
+                .contains(GF_SOURDOUGH_7_SEED, GF_PITA_BREAD);
+        assertThat(suggestedBarcodes.size()).isGreaterThanOrEqualTo(2);
+        assertThat(suggestedBarcodes)
+                .as("oat cereals mis-tagged as GF bread must stay excluded")
+                .doesNotContain("8887143802515", "8887143802539");
+    }
 
     @Test
     @DisplayName("profile 3 gets dairy-free ice-cream substitutes for Magnum ice cream bar")
@@ -121,6 +188,28 @@ class RecommendationServiceIntegrationTest {
         assertThat(suggestedBarcodes)
                 .as("milk bread must not expand into plant-based milk substitutes")
                 .doesNotContain(HI_CALCIUM_SOYA_MILK);
+    }
+
+    @Test
+    @DisplayName("profile 1 gets GF bread substitutes for lowercase breads category scan")
+    void profile1GetsGlutenFreeBreadSubstitutesForMilkFlavorBread() {
+        AlternativeProductResponse response = recommendationService.recommend(
+                new RecommendationRequest(PROFILE_SARAH_TAN, MILK_FLAVOR_BREAD, null));
+
+        assertThat(response.sourceBarcode()).isEqualTo(MILK_FLAVOR_BREAD);
+        assertThat(response.alternatives()).isNotEmpty();
+
+        Set<String> suggestedBarcodes = response.alternatives().stream()
+                .map(AlternativeProductDto::barcode)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertThat(suggestedBarcodes)
+                .as("lowercase breads category must route to GF bread pool, not flour")
+                .containsAnyOf(GF_SOURDOUGH_7_SEED, GF_PITA_BREAD, "0697478426588", "9339423009064");
+
+        assertThat(suggestedBarcodes)
+                .as("wheat flour must not substitute for bread scans")
+                .doesNotContain("8888231120016", "8888030023662", "8888263533730");
     }
 
     @Test
@@ -172,6 +261,14 @@ class RecommendationServiceIntegrationTest {
         assertThat(suggestedBarcodes)
                 .as("nut/seed butter substitute pool should include tahini")
                 .contains(NATURE_GLORY_TAHINI);
+
+        assertThat(suggestedBarcodes)
+                .as("sparse cashew butter rows without ingredients_text should still be suggested")
+                .contains(ORGANIC_CASHEW_BUTTER);
+
+        assertThat(suggestedBarcodes)
+                .as("soybean paste is not a peanut-butter substitute")
+                .doesNotContain(SALTED_SOYA_BEAN_PASTE);
 
         assertThat(suggestedBarcodes)
                 .as("jams must not appear when peanut butter falls back to nut/seed butters")

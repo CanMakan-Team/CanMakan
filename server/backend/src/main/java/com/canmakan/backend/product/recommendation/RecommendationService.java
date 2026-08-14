@@ -240,7 +240,7 @@ public class RecommendationService {
 
 	private boolean isAcceptableAlternative(CatalogProduct candidate, List<RestrictionRule> rules) {
 	    ProductData productData = catalogProductMapper.toProductData(candidate);
-	    SafetyVerdict verdict = ruleEngine.assess(rules, productData);
+	    SafetyVerdict verdict = ruleEngine.assessForRecommendation(rules, productData);
 	    return candidateFilter.isAcceptableAlternative(rules, verdict, candidate);
 	}
 	private List<RecommendationLogEntry> toLogEntries(

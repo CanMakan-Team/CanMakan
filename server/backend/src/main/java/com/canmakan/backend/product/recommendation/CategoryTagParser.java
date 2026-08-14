@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -31,6 +32,21 @@ public final class CategoryTagParser {
         }
         for (String needle : needles) {
             if (tags.contains(needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean containsAnyIgnoreCase(Set<String> tags, Collection<String> needles) {
+        if (tags.isEmpty() || needles == null || needles.isEmpty()) {
+            return false;
+        }
+        Set<String> normalizedTags = tags.stream()
+                .map(tag -> tag.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        for (String needle : needles) {
+            if (needle != null && normalizedTags.contains(needle.toLowerCase(Locale.ROOT))) {
                 return true;
             }
         }
