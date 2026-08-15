@@ -242,6 +242,33 @@ jobs:
           CANMAKAN_EMAIL_RESEND_ENABLED: "false"
         run: mvn -B clean verify
 
+      # Flatten so deploy can download into server/backend/target/*.jar (no nested dirs).
+      - name: Stage verified JAR
+        run: |
+          mkdir -p staged-backend-jar
+          for jar in server/backend/target/*.jar; do
+            [ -f "$jar" ] || continue
+            case "$jar" in
+              *.jar.original) continue ;;
+            esac
+            cp "$jar" staged-backend-jar/
+          done
+          count=$(find staged-backend-jar -maxdepth 1 -name '*.jar' | wc -l)
+          if [ "$count" -ne 1 ]; then
+            echo "Expected exactly one deployable JAR, found $count"
+            ls -la server/backend/target staged-backend-jar || true
+            exit 1
+          fi
+          ls -la staged-backend-jar
+
+      - name: Upload verified backend JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: staged-backend-jar/*.jar
+          if-no-files-found: error
+          retention-days: 14
+
   # 7. WEB VERIFICATION
   build-web:
     needs: detect-changes
