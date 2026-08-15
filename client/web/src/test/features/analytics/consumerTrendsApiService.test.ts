@@ -10,7 +10,7 @@ afterEach(() => {
 })
 
 describe('consumerTrendsApiService transport selection', () => {
-  it('returns the current UC7 mock response without calling the live API', async () => {
+  it('generates a zero-filled requested period and materially applies the mock category filter', async () => {
     vi.useFakeTimers()
     const apiRequest = vi.fn()
     vi.doMock(apiClientModule, () => ({ apiRequest, useMockApi: true }))
@@ -18,34 +18,67 @@ describe('consumerTrendsApiService transport selection', () => {
     const { consumerTrendsApiService } = await import(
       '../../../features/analytics/consumerTrendsApiService'
     )
-    const responsePromise = consumerTrendsApiService.getConsumerTrends()
+    const categoryPromise = consumerTrendsApiService.getConsumerTrends({
+      from: '2026-08-01',
+      to: '2026-08-07',
+      category: 'Snacks',
+    })
     await vi.advanceTimersByTimeAsync(600)
-    const response = await responsePromise
+    const categoryResponse = await categoryPromise
+
+    const allPromise = consumerTrendsApiService.getConsumerTrends({
+      from: '2026-08-01',
+      to: '2026-08-07',
+    })
+    await vi.advanceTimersByTimeAsync(600)
+    const allResponse = await allPromise
 
     expect(apiRequest).not.toHaveBeenCalled()
-    expect(response.summary.totalScans).toBe(1264)
-    expect(response.topFlaggedIngredients[0]).toEqual({
-      ingredientName: 'Peanut',
-      flaggedCount: 148,
+    expect(categoryResponse.period).toEqual({
+      from: '2026-08-01',
+      to: '2026-08-07',
+      timezone: 'Asia/Singapore',
     })
-    expect(response).not.toHaveProperty('verdictDistribution')
-    expect(response).not.toHaveProperty('flaggedIngredients')
+    expect(categoryResponse.dailyTrend).toHaveLength(7)
+    expect(categoryResponse.dailyTrend.map((point) => point.date)).toEqual([
+      '2026-08-01',
+      '2026-08-02',
+      '2026-08-03',
+      '2026-08-04',
+      '2026-08-05',
+      '2026-08-06',
+      '2026-08-07',
+    ])
+    expect(categoryResponse.appliedFilters.category).toBe('Snacks')
+    expect(categoryResponse.summary.totalScans).toBeLessThan(allResponse.summary.totalScans)
+    expect(categoryResponse.categoryOverview).toEqual(allResponse.categoryOverview)
+    expect(categoryResponse.mostScannedProducts.every((product) =>
+      ['Synthetic wholegrain snack bites', 'Synthetic rice crackers', 'Synthetic seed and cereal bar',
+        'Synthetic baked vegetable crisps', 'Synthetic dried fruit mix'].includes(product.productName),
+    )).toBe(true)
   })
 
-  it('preserves the current live UC7 request and response contract', async () => {
+  it('encodes the category query and preserves the live UC7 response contract', async () => {
     const liveResponse: ConsumerTrendsResponse = {
       period: {
         from: '2026-08-01',
         to: '2026-08-07',
         timezone: 'Asia/Singapore',
       },
+      appliedFilters: { category: 'Pantry & drinks' },
       summary: {
         totalScans: 9,
         safeCount: 5,
         warningCount: 3,
         unsafeCount: 1,
+        uniqueProducts: 4,
+        averageScansPerDay: 1.29,
+        peakScanDay: { date: '2026-08-07', scanCount: 3 },
       },
       dailyTrend: [],
+      mostScannedProducts: [],
+      categoryOverview: [],
+      topRestrictions: [],
       topFlaggedIngredients: [],
       dataQuality: {
         partial: false,
@@ -63,10 +96,11 @@ describe('consumerTrendsApiService transport selection', () => {
       from: '2026-08-01',
       to: '2026-08-07',
       limit: 5,
+      category: 'Pantry & drinks',
     })
 
     expect(apiRequest).toHaveBeenCalledWith(
-      '/api/admin/consumer-trends?from=2026-08-01&to=2026-08-07&limit=5',
+      '/api/admin/consumer-trends?from=2026-08-01&to=2026-08-07&limit=5&category=Pantry+%26+drinks',
     )
     expect(response).toBe(liveResponse)
   })

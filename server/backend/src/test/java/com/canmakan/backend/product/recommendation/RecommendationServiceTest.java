@@ -44,7 +44,6 @@ class RecommendationServiceTest {
     @Mock private AlternativeCandidateFilter candidateFilter;
     @Mock private RecommendationLogService logService;
     @Mock private ScanRepository scanRepository;
-    @Mock private LlmRecommendationDiscoveryService llmRecommendationDiscoveryService;
 
     private ProductFeatureEncoder featureEncoder;
     private MlContentBasedRanker mlContentBasedRanker;
@@ -57,7 +56,8 @@ class RecommendationServiceTest {
         ProductFeatureVectorStore vectorStore = new ProductFeatureVectorStore(new com.fasterxml.jackson.databind.ObjectMapper(), "");
         featureEncoder = new ProductFeatureEncoder(vectorStore);
         mlContentBasedRanker = new MlContentBasedRanker(featureEncoder);
-        mlSparseCatalogRecommender = new MlSparseCatalogRecommender(queryService, featureEncoder);
+        mlSparseCatalogRecommender = new MlSparseCatalogRecommender(
+                queryService, featureEncoder, new SubstituteDiscoveryProfiles());
         recommendationService = new RecommendationService(
                 restrictionRuleLoader,
                 queryService,
@@ -69,13 +69,9 @@ class RecommendationServiceTest {
                 logService,
                 scanRepository,
                 mlSparseCatalogRecommender,
-                mlContentBasedRanker,
-                llmRecommendationDiscoveryService
+                mlContentBasedRanker
         );
         ReflectionTestUtils.setField(recommendationService, "mlRecommendationEnabled", true);
-        org.mockito.Mockito.lenient()
-                .when(llmRecommendationDiscoveryService.isEnabled())
-                .thenReturn(false);
         org.mockito.Mockito.lenient()
                 .when(discoveryProfiles.isFlourSubstituteDiscovery(any()))
                 .thenReturn(false);
@@ -140,10 +136,6 @@ class RecommendationServiceTest {
         when(candidateFilter.isAcceptableAlternative(eq(rules), any(SafetyVerdict.class), any(CatalogProduct.class)))
                 .thenReturn(true)
                 .thenReturn(false);
-        when(ranker.rankSameCategory(anyList(), any())).thenReturn(List.of(
-                new AlternativeProductRanker.RankedAlternative(
-                        safe, new BigDecimal("0.99"), "prior_safe_scan")
-        ));
 
         AlternativeProductResponse response = recommendationService.recommend(
                 new RecommendationRequest(1L, "100", 5L));
@@ -151,13 +143,14 @@ class RecommendationServiceTest {
         assertEquals(1, response.alternatives().size());
         assertEquals("200", response.alternatives().getFirst().barcode());
         assertEquals("Ancient grain flakes", response.alternatives().getFirst().productName());
-        assertEquals("prior_safe_scan", response.alternatives().getFirst().matchReason());
+        assertEquals("ml_prior_safe_scan", response.alternatives().getFirst().matchReason());
 
         ArgumentCaptor<List<RecommendationLogEntry>> logCaptor = ArgumentCaptor.forClass(List.class);
         verify(logService).recordAlternatives(logCaptor.capture());
         assertEquals(1, logCaptor.getValue().size());
         assertEquals("100", logCaptor.getValue().getFirst().sourceBarcode());
         assertEquals(RecommendationDiscoveryTier.TIER_A_CATALOG, logCaptor.getValue().getFirst().discoveryTier());
+        verify(ranker, never()).rankSameCategory(anyList(), any());
     }
 
     @Test
@@ -242,7 +235,7 @@ class RecommendationServiceTest {
 
         ArgumentCaptor<List<RecommendationLogEntry>> logCaptor = ArgumentCaptor.forClass(List.class);
         verify(logService).recordAlternatives(logCaptor.capture());
-        assertEquals(RecommendationDiscoveryTier.TIER_C_ML_SPARSE, logCaptor.getValue().getFirst().discoveryTier());
+        assertEquals(RecommendationDiscoveryTier.TIER_A_CATALOG, logCaptor.getValue().getFirst().discoveryTier());
     }
 
     @Test
@@ -282,19 +275,14 @@ class RecommendationServiceTest {
         when(candidateFilter.isAcceptableAlternative(eq(rules), any(SafetyVerdict.class), any(CatalogProduct.class)))
                 .thenReturn(false)
                 .thenReturn(true);
-        when(ranker.rankSubstituteTags(anyList(), any(), eq(wheatFloursProfile))).thenReturn(List.of(
-                new AlternativeProductRanker.RankedAlternative(
-                        brownRiceFlour, new BigDecimal("0.95"), "substitute_category")
-        ));
 
         AlternativeProductResponse response = recommendationService.recommend(
                 new RecommendationRequest(1L, "4894514060287", 5L));
 
         assertEquals(1, response.alternatives().size());
         assertEquals("8887501030642", response.alternatives().getFirst().barcode());
-        assertEquals("substitute_category", response.alternatives().getFirst().matchReason());
         verify(queryService).findSubstituteTagCandidates(source, wheatFloursProfile);
-        verify(ranker).rankSubstituteTags(anyList(), any(), eq(wheatFloursProfile));
+        verify(ranker, never()).rankSubstituteTags(anyList(), any(), any());
     }
 
     @Test
@@ -336,19 +324,14 @@ class RecommendationServiceTest {
         when(candidateFilter.isAcceptableAlternative(eq(rules), any(SafetyVerdict.class), any(CatalogProduct.class)))
                 .thenReturn(false)
                 .thenReturn(true);
-        when(ranker.rankSubstituteTags(anyList(), any(), eq(breakfastCerealsProfile))).thenReturn(List.of(
-                new AlternativeProductRanker.RankedAlternative(
-                        glutenFreeCereal, new BigDecimal("0.95"), "substitute_category")
-        ));
 
         AlternativeProductResponse response = recommendationService.recommend(
                 new RecommendationRequest(1L, "0038527591039", 5L));
 
         assertEquals(1, response.alternatives().size());
         assertEquals("9315090200706", response.alternatives().getFirst().barcode());
-        assertEquals("substitute_category", response.alternatives().getFirst().matchReason());
         verify(queryService).findSubstituteTagCandidates(source, breakfastCerealsProfile);
-        verify(ranker).rankSubstituteTags(anyList(), any(), eq(breakfastCerealsProfile));
+        verify(ranker, never()).rankSubstituteTags(anyList(), any(), any());
     }
 
     @Test
@@ -399,10 +382,6 @@ class RecommendationServiceTest {
         when(candidateFilter.isAcceptableAlternative(eq(rules), eq(peanutUnsafe), eq(otherPeanutButter)))
                 .thenReturn(false);
         when(candidateFilter.isAcceptableAlternative(eq(rules), eq(safe), eq(tahini))).thenReturn(true);
-        when(ranker.rankSubstituteTags(anyList(), any(), eq(peanutButterProfile))).thenReturn(List.of(
-                new AlternativeProductRanker.RankedAlternative(
-                        tahini, new BigDecimal("0.95"), "substitute_category")
-        ));
 
         AlternativeProductResponse response = recommendationService.recommend(
                 new RecommendationRequest(3L, "0045300005409", 5L));
@@ -410,7 +389,7 @@ class RecommendationServiceTest {
         assertEquals(1, response.alternatives().size());
         assertEquals("8888536703136", response.alternatives().getFirst().barcode());
         verify(queryService).findSubstituteTagCandidates(source, peanutButterProfile);
-        verify(ranker).rankSubstituteTags(anyList(), any(), eq(peanutButterProfile));
+        verify(ranker, never()).rankSubstituteTags(anyList(), any(), any());
     }
 
     @Test
@@ -535,58 +514,32 @@ class RecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("Tier B: LLM discovery when Tier A and Tier C return no acceptable candidates")
-    void usesLlmDiscoveryWhenTierAAndTierCEmpty() {
-        org.mockito.Mockito.when(llmRecommendationDiscoveryService.isEnabled()).thenReturn(true);
-
+    @DisplayName("MVP: LLM discovery is not used even when the catalog pool is empty")
+    void doesNotUseLlmDiscoveryWhenTierAAndTierCEmpty() {
         CatalogProduct source = sparseFarmhouseFreshMilk();
         CatalogProduct dairyMilk = product("8888200132217", "Fresh milks", "100% Fresh Milk", null);
-        CatalogProduct llmSubstitute = namedProduct(
-                "8850025000521",
-                "Soya Milk Unsweetened",
-                "Unsweetened plain soy-based drinks",
-                "Soy milk 99.6%, Calcium Carbonate",
-                "en:milk-substitutes,en:unsweetened-plain-soy-based-drinks");
         List<RestrictionRule> rules = List.of(
-                new RestrictionRule("DAIRY", RestrictionCategory.ALLERGEN, RestrictionSeverity.INTOLERANCE),
-                new RestrictionRule("LOW_SUGAR", RestrictionCategory.DIET, RestrictionSeverity.PREFERENCE)
+                new RestrictionRule("DAIRY", RestrictionCategory.ALLERGEN, RestrictionSeverity.INTOLERANCE)
         );
         SafetyVerdict dairyWarning = SafetyVerdict.warning(
                 "dairy",
                 List.of(new Finding("DAIRY", "milk", "milk matches DAIRY restriction.")));
-        SafetyVerdict soySafe = SafetyVerdict.safe("ok", List.of());
 
         when(queryService.findByBarcode("8888200602857")).thenReturn(Optional.of(source));
         when(restrictionRuleLoader.load(3L)).thenReturn(rules);
         when(queryService.findSameCategoryCandidates(source)).thenReturn(List.of(dairyMilk));
         when(discoveryProfiles.forSourceProduct(source)).thenReturn(Optional.of(freshMilksProfile));
         when(queryService.findSubstituteTagCandidates(eq(source), any())).thenReturn(List.of());
-        when(llmRecommendationDiscoveryService.discoverCandidates(
-                eq(new RecommendationRequest(3L, "8888200602857", 5L)), eq(source), eq(rules)))
-                .thenReturn(List.of(llmSubstitute));
-        when(ranker.rankSameCategory(anyList(), any())).thenReturn(List.of(
-                new AlternativeProductRanker.RankedAlternative(
-                        llmSubstitute, new BigDecimal("0.95"), "category_match")));
-        when(scanRepository.findByProfileIdOrderByScannedAtDesc(3L)).thenReturn(List.of());
+        when(queryService.findExpandedSubstituteCandidates(eq(source), any())).thenReturn(List.of());
         when(catalogProductMapper.toProductData(dairyMilk)).thenReturn(productData("8888200132217"));
-        when(catalogProductMapper.toProductData(llmSubstitute)).thenReturn(productData("8850025000521"));
-        when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
-                .thenReturn(dairyWarning)
-                .thenReturn(soySafe);
+        when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class))).thenReturn(dairyWarning);
         when(candidateFilter.isAcceptableAlternative(eq(rules), eq(dairyWarning), eq(dairyMilk))).thenReturn(false);
-        when(candidateFilter.isAcceptableAlternative(eq(rules), eq(soySafe), eq(llmSubstitute))).thenReturn(true);
 
         AlternativeProductResponse response = recommendationService.recommend(
                 new RecommendationRequest(3L, "8888200602857", 5L));
 
-        assertEquals(1, response.alternatives().size());
-        assertEquals("8850025000521", response.alternatives().getFirst().barcode());
-        verify(llmRecommendationDiscoveryService).discoverCandidates(
-                eq(new RecommendationRequest(3L, "8888200602857", 5L)), eq(source), eq(rules));
-
-        ArgumentCaptor<List<RecommendationLogEntry>> logCaptor = ArgumentCaptor.forClass(List.class);
-        verify(logService).recordAlternatives(logCaptor.capture());
-        assertEquals(RecommendationDiscoveryTier.TIER_B_LLM_DISCOVERY, logCaptor.getValue().getFirst().discoveryTier());
+        assertTrue(response.alternatives().isEmpty());
+        verify(logService, never()).recordAlternatives(anyList());
     }
 
     private static CatalogProduct sparseFarmhouseFreshMilk() {

@@ -12,6 +12,7 @@ function buildConsumerTrendsPath(query: ConsumerTrendsQuery): string {
   if (query.from !== undefined) parameters.set('from', query.from)
   if (query.to !== undefined) parameters.set('to', query.to)
   if (query.limit !== undefined) parameters.set('limit', String(query.limit))
+  if (query.category !== undefined) parameters.set('category', query.category)
 
   const queryString = parameters.toString()
   return queryString
@@ -23,7 +24,7 @@ export const consumerTrendsApiService = {
   getConsumerTrends(
     query: ConsumerTrendsQuery = {},
   ): Promise<ConsumerTrendsResponse> {
-    if (useMockApi) return mockAdminRepository.getConsumerTrends()
+    if (useMockApi) return mockAdminRepository.getConsumerTrends(query)
     return apiRequest<ConsumerTrendsResponse>(buildConsumerTrendsPath(query))
   },
 }
