@@ -124,6 +124,7 @@ Continuous integration builds the backend, web app, and Android app on pushes an
 - Require pull request
 - No direct pushes to main
 - Require the **Build Test** check (aggregates Gitleaks, Semgrep, Trivy, and stack builds)
+- Create GitHub Environment **`production`** for deploy jobs (optional reviewers). Until it exists, CD jobs that set `environment: production` may wait or fail.
 
 ### Secrets Management
 
@@ -142,17 +143,17 @@ Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 | Job | What it does |
 |-----|----------------|
 | Gitleaks | Secret scanning |
-| Semgrep | SAST |
+| Semgrep | SAST (`semgrep/semgrep:1.173.0 --config=auto`; needs network) |
 | Trivy fs | SCA (CRITICAL/HIGH fails the job) |
 | Trivy config | GitHub Actions / `.github` YAML misconfiguration |
-| Backend | Maven `mvn clean package -DskipTests` (Java 21) |
-| Web | `npm ci` + `npm run build` (Node 24) |
-| Mobile | Gradle `assembleDebug` |
+| Backend | Maven `verify` against job-local MySQL 8 (not RDS), Java 21 |
+| Web | `npm ci` + `npm test` (Vitest) + `npm run build` (Node 24) |
+| Mobile | Gradle `assembleDebug testDebugUnitTest` |
 | Build Test | Required aggregator |
 
 Playwright E2E: [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) on PRs and pushes to `develop` when `client/web/**` changes. Production web deploy re-runs Playwright in [`.github/workflows/deploy-frontends.yml`](.github/workflows/deploy-frontends.yml).
 
-> Backend CI and [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) inject `application.properties` env vars via GitHub secrets. Deploy forwards them to EC2 at JAR start. <br>
+> Backend CI runs `mvn verify` against an ephemeral MySQL 8 service (not RDS). Deploy still injects runtime env vars via GitHub secrets and forwards them to EC2 at JAR start. Deploy jobs use Environment `production`. <br>
 > Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`. Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`, optional `WEB_INVITE_BASE_URLS`. <br>
 > Android SDK is provisioned via `android-actions/setup-android` <br>
 

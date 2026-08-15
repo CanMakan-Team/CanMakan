@@ -27,12 +27,12 @@ Concurrency: `ci-${{ github.ref }}` (cancel superseded runs). Default permission
 |-----|------|------|
 | `detect-changes` | always | Path filter backend / web / mobile |
 | `gitleaks` | always | Secret scan, `fetch-depth: 0`, Gitleaks 8.21.2 |
-| `sast-scan` | always | Semgrep `--config=auto` |
+| `sast-scan` | always | Semgrep `semgrep/semgrep:1.173.0` `--config=auto` (needs network) |
 | `sca-scan` | always | Trivy filesystem SCA, CRITICAL/HIGH, `exit-code: 1`, SARIF upload |
 | `config-scan` | always | Trivy `config` on `.github` (workflow YAML + Dependabot), CRITICAL/HIGH, `exit-code: 1`, SARIF upload |
-| `build-backend` | `server/backend/**` | JDK 21, `mvn -B clean package -DskipTests` |
-| `build-web` | `client/web/**` | Node 24, `npm ci` + `npm run build` |
-| `build-mobile` | `client/mobile/**` | `assembleDebug` |
+| `build-backend` | `server/backend/**` | JDK 21, MySQL 8 service, `mvn -B clean verify` (not RDS) |
+| `build-web` | `client/web/**` | Node 24, `npm ci`, `npm test` (Vitest), `npm run build` |
+| `build-mobile` | `client/mobile/**` | `assembleDebug testDebugUnitTest` |
 | **Build Test** | always | Fails if any of the above failed or was cancelled; skipped stack builds are allowed |
 
 There is no separate `secret-scan.yml`. Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml)) still opens weekly upgrade PRs (SCA complementary to Trivy).
@@ -47,14 +47,14 @@ Pushes to **`main`** do not run this workflow. Web production deploy runs Playwr
 
 ### Backend (`deploy.yml`)
 
-Push to `main` with `server/backend/**`. Maven package, SCP to EC2, blue/green on ports 8080/8081, `/actuator/health`, Nginx swap, SIGTERM of the old process.
+Push to `main` with `server/backend/**`. Maven package (`-DskipTests`), SCP to EC2, blue/green on ports 8080/8081, `/actuator/health`, Nginx swap, SIGTERM of the old process. The deploy job uses GitHub Environment **`production`** (create it in repo settings; optional reviewers).
 
 ### Frontends (`deploy-frontends.yml`)
 
 Push to `main` with `client/web/**` or `client/mobile/**`. Path filter uses the push SHA (not `workflow_run`).
 
-- **Web:** Playwright job, then Vite build and Firebase Hosting. Concurrency group `deploy-web-${{ github.ref }}`.
-- **Mobile:** signed release APK to Firebase App Distribution (`qa-team`). Does **not** wait on Playwright. Concurrency group `deploy-mobile-${{ github.ref }}`. Keystore is removed after the job.
+- **Web:** Playwright job, then Vite build and Firebase Hosting. Concurrency group `deploy-web-${{ github.ref }}`. Environment **`production`**.
+- **Mobile:** signed release APK to Firebase App Distribution (`qa-team`). Does **not** wait on Playwright. Concurrency group `deploy-mobile-${{ github.ref }}`. Environment **`production`**. Keystore is removed after the job.
 
 ## 6. Pipeline diagram
 
@@ -99,9 +99,9 @@ flowchart TD
 
 `develop` is integration only (CI + Playwright). There is no staging EC2, staging Firebase project, or staging APK channel. Env-specific failures show up first in production on `main`. A deploy-from-`develop` workflow to isolated staging targets would close this.
 
-### Gap 2: Tests skipped in CI and CD
+### Gap 2: CD still skipTests (no build-once artefact)
 
-CI and backend deploy use `mvn package -DskipTests`. Web CI does not run Vitest. Mobile CI does not run unit tests. Prefer `mvn verify` against job-local MySQL (not RDS secrets), `npm test`, and `testDebugUnitTest` on PRs, and deploy a tested artefact rather than rebuilding with skipTests.
+CI now runs `mvn verify` (ephemeral MySQL), Vitest, and Android unit tests. Backend **deploy** still uses `mvn package -DskipTests` and rebuilds on the deploy runner. Prefer promoting the JAR from the passing CI SHA, or `needs` a successful verify job before SCP.
 
 ### Gap 3: Direct host execution
 
@@ -111,9 +111,9 @@ The JAR runs on the EC2 OS. Docker (and a registry) would freeze the Java runtim
 
 RDS DDL is not applied by the pipeline. Flyway or Liquibase would version SQL in git.
 
-### Gap 5: Branch protection and GitHub Environments
+### Gap 5: Branch protection still a repo setting
 
-Required checks and “no direct push to `main`” are repo settings, not YAML. If **Build Test** is not required, scans can be merged around. Production deploy does not use a GitHub Environment with reviewers or wait timers.
+Deploy jobs reference GitHub Environment **`production`**. Create that Environment in the repo (optional required reviewers). **Build Test** must still be marked required on `develop` and `main`; YAML cannot enforce that. Remove any leftover **Secret Scan** required check.
 
 ### Gap 6: Code quality gate
 
