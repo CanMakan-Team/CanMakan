@@ -171,9 +171,14 @@ class MlContentBasedRankerTest {
                 Set.of(),
                 wheatProfile);
 
-        assertTrue(ranked.stream()
-                .limit(5)
-                .anyMatch(alternative -> "8887501030642".equals(alternative.product().getBarcode())));
+        assertEquals(6, ranked.size());
+        int brownRiceFlourRank = ranked.stream()
+                .map(alternative -> alternative.product().getBarcode())
+                .toList()
+                .indexOf("8887501030642");
+        assertTrue(brownRiceFlourRank >= 0 && brownRiceFlourRank < ranked.size() - 1,
+                "brown rice flour should outrank at least the weakest candidate, was at rank " + brownRiceFlourRank);
+        assertEquals("ml_similarity", ranked.get(brownRiceFlourRank).matchReason());
     }
 
     @Test
