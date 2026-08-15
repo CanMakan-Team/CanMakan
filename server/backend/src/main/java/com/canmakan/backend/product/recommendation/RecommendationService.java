@@ -230,9 +230,13 @@ public class RecommendationService {
 	    if (product == null) {
 	        return "__null_product__" + index;
 	    }
+	    String barcode = product.getBarcode();
+	    if (barcode != null && !barcode.isBlank()) {
+	        return barcode;
+	    }
 	    String name = product.getProductName();
 	    if (name == null || name.isBlank()) {
-	        return product.getBarcode() == null ? "__unnamed_product__" + index : product.getBarcode();
+	        return "__unnamed_product__" + index;
 	    }
 	    return name.trim().toLowerCase(Locale.ROOT);
 	}
