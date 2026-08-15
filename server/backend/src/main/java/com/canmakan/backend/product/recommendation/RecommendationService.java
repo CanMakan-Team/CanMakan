@@ -10,6 +10,7 @@ import com.canmakan.backend.product.scan.Scan;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -132,7 +133,7 @@ public class RecommendationService {
 	            substituteProfile);
 
 	    // --- step 6: take top N ---
-	    List<AlternativeProductRanker.RankedAlternative> top = ranked.stream()
+	    List<AlternativeProductRanker.RankedAlternative> top = dedupeRankedAlternatives(ranked).stream()
 	        .limit(MAX_RESULTS)
 	        .toList();
 
@@ -208,6 +209,32 @@ public class RecommendationService {
 	        addCandidateByBarcode(merged, candidate, sourceBarcode);
 	    }
 	    return new ArrayList<>(merged.values());
+	}
+
+	private static List<AlternativeProductRanker.RankedAlternative> dedupeRankedAlternatives(
+	        List<AlternativeProductRanker.RankedAlternative> ranked) {
+	    Map<String, AlternativeProductRanker.RankedAlternative> merged = new LinkedHashMap<>();
+	    int index = 0;
+	    for (AlternativeProductRanker.RankedAlternative alternative : ranked) {
+	        String key = canonicalAlternativeKey(alternative, index);
+	        merged.putIfAbsent(key, alternative);
+	        index++;
+	    }
+	    return new ArrayList<>(merged.values());
+	}
+
+	private static String canonicalAlternativeKey(
+	        AlternativeProductRanker.RankedAlternative alternative,
+	        int index) {
+	    CatalogProduct product = alternative == null ? null : alternative.product();
+	    if (product == null) {
+	        return "__null_product__" + index;
+	    }
+	    String name = product.getProductName();
+	    if (name == null || name.isBlank()) {
+	        return product.getBarcode() == null ? "__unnamed_product__" + index : product.getBarcode();
+	    }
+	    return name.trim().toLowerCase(Locale.ROOT);
 	}
 
 	private static void addCandidateByBarcode(
