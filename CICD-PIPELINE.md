@@ -111,14 +111,10 @@ The JAR runs on the EC2 OS. Docker (and a registry) would freeze the Java runtim
 
 RDS DDL is not applied by the pipeline. Flyway or Liquibase would version SQL in git.
 
-### Gap 5: Branch protection still a repo setting
-
-Deploy jobs use `environment: ${{ vars.DEPLOY_ENVIRONMENT }}`. Create Environment **`production`**, set repository variable **`DEPLOY_ENVIRONMENT`** to that name, optional reviewers. **Build Test** must still be marked required on `develop` and `main`. Remove any leftover **Secret Scan** required check.
-
-### Gap 6: Code quality gate
+### Gap 5: Code quality gate
 
 Semgrep is SAST, not a maintainability/coverage quality gate. SonarCloud (or ESLint / Detekt / Checkstyle in CI) is not implemented.
 
-### Gap 7: Mobile store delivery
+### Gap 6: Mobile store delivery
 
 Testers install from Firebase App Distribution. Play Store internal tracks are not automated.
