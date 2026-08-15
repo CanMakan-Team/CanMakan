@@ -88,7 +88,7 @@ class FamilyProfileRepository @Inject constructor(
             throw CreateFamilyException(messageFromError(response), response.code())
         }
         return response.body()?.notificationsEnabled
-            ?: throw IllegalStateException("Empty body for GET /families/me/preferences/notifications")
+            ?: throw IllegalStateException("Empty body for GET /users/me/preferences/notifications")
     }
 
     suspend fun setNotificationPreference(enabled: Boolean): Boolean {
@@ -99,7 +99,7 @@ class FamilyProfileRepository @Inject constructor(
             throw CreateFamilyException(messageFromError(response), response.code())
         }
         return response.body()?.notificationsEnabled
-            ?: throw IllegalStateException("Empty body for PUT /families/me/preferences/notifications")
+            ?: throw IllegalStateException("Empty body for PUT /users/me/preferences/notifications")
     }
 
     private fun messageFromError(response: Response<*>): String {

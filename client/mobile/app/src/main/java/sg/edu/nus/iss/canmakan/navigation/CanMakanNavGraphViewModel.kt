@@ -242,14 +242,15 @@ class CanMakanNavGraphViewModel @Inject constructor(
     }
 
     private suspend fun loadNotificationPreference(accountKey: AuthAccountKey) {
+        val generation = notificationsEnabledGeneration
         try {
             val enabled = familyProfileRepository.getNotificationPreference()
-            if (!isCurrentAccount(accountKey)) return
+            if (!isCurrentAccount(accountKey) || generation != notificationsEnabledGeneration) return
             _notificationsEnabled.value = enabled
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: Exception) {
-            // Non-fatal: keep the last known value (defaults to enabled) until next refresh.
+            // Non-fatal: keep the last known value (defaults to disabled) until next refresh.
             Timber.w(exception, "Error loading notification preference")
         }
     }
