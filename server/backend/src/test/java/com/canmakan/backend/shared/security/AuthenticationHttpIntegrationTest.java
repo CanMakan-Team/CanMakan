@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -267,6 +268,8 @@ class AuthenticationHttpIntegrationTest {
         String validToken = jwtService.issueAccessToken(12L);
 
         assertSecurityUnauthorized(mockMvc.perform(get("/api/auth/me")));
+        assertSecurityUnauthorized(mockMvc.perform(delete("/api/auth/account")
+            .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1")));
         assertSecurityUnauthorized(mockMvc.perform(get("/api/auth/me")
             .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-jwt")));
         assertSecurityUnauthorized(mockMvc.perform(get("/api/auth/me")

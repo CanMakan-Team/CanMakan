@@ -103,6 +103,6 @@ See `local.properties.example`. The backend listens on `0.0.0.0:8080` so the
 debug build can reach emulator (`10.0.2.2`) and LAN endpoints. Native Retrofit
 does not use browser CORS. The main/release network-security configuration
 blocks cleartext globally; only the debug resource permits local HTTP.
-Android login, refresh, and logout requests also send the backend's non-secret
-session-intent header. Native calls do not need an Origin header and are not
-identified by User-Agent.
+Android login, refresh, logout, and self-service account deletion requests also
+send the backend's non-secret session-intent header. Native calls do not need an
+Origin header and are not identified by User-Agent.

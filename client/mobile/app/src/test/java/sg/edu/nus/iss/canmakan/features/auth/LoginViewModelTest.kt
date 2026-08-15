@@ -367,6 +367,10 @@ class LoginViewModelTest {
         override suspend fun getCurrentUser(): AuthResult<AuthenticatedUser> {
             error("/me is outside LoginViewModel scope")
         }
+
+        override suspend fun deleteOwnAccount(): AuthResult<Unit> {
+            error("deleteOwnAccount is outside LoginViewModel scope")
+        }
     }
 
     private class FakeAuthSessionPersistence : AuthSessionPersistence {

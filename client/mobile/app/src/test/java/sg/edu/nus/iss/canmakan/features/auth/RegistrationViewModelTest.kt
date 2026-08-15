@@ -263,6 +263,9 @@ class RegistrationViewModelTest {
 
         override suspend fun getCurrentUser(): AuthResult<AuthenticatedUser> =
             AuthResult.Failure(AuthFailureType.UNAUTHENTICATED)
+
+        override suspend fun deleteOwnAccount(): AuthResult<Unit> =
+            AuthResult.Failure(AuthFailureType.UNAUTHENTICATED)
     }
 
     private class FakeSessionPersistence : AuthSessionPersistence {
