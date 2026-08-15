@@ -6,7 +6,7 @@ CanMakan uses **GitHub Actions** for a monorepo: Spring Boot (`server/backend`),
 
 **CI** (verify and scan) is one workflow. **CD** stays in separate workflows with deploy secrets and `push` to `main` only.
 
-Engineers open pull requests into **`develop`**, then promote **`develop` → `main`**. Production deploys run on GitHub’s merge `push` to `main`.
+Engineers open pull requests into **`develop`**, then promote **`develop` → `main`**. **`develop` is the integration branch** (CI and E2E only; nothing is deployed to a staging host). **`main` is production**: deploys run on GitHub’s merge `push` to `main`.
 
 ## 2. Workflows
 
@@ -60,7 +60,17 @@ Push to `main` with `client/web/**` or `client/mobile/**`. Path filter uses the 
 
 ```mermaid
 flowchart TD
-  pr[PR_or_push_develop_main] --> ci[ci.yml]
+  feat[feature_branch] --> prDev[PR_into_develop]
+  prDev --> mergeDev[Merge_to_develop]
+  mergeDev --> prMain[PR_develop_into_main]
+  prMain --> mergeMain[Merge_to_main]
+  mergeMain --> pushMain[push_main_production_CD]
+
+  prDev --> ci[ci.yml]
+  mergeDev --> ci
+  prMain --> ci
+  mergeMain --> ci
+
   ci --> gl[gitleaks]
   ci --> sg[semgrep]
   ci --> tv[trivy_fs_SCA]
@@ -68,9 +78,11 @@ flowchart TD
   ci --> builds[path_filtered_builds]
   ci --> gate[Build_Test]
 
-  pr --> e2ePr[e2e.yml_PRs_and_develop]
+  prDev --> e2ePr[e2e.yml_PRs_and_develop]
+  mergeDev --> e2ePr
+  prMain --> e2ePr
 
-  pushMain[push_main] --> be[deploy.yml_backend]
+  pushMain --> be[deploy.yml_backend]
   pushMain --> fe[deploy-frontends.yml]
   fe --> webPath{client_web}
   fe --> mobPath{client_mobile}
@@ -79,20 +91,34 @@ flowchart TD
   mobPath -->|yes| apk[App_Distribution]
 ```
 
-## 7. Identified gaps
+`develop` does not deploy a staging stack. A feature-branch push does not start `ci.yml` until a PR targets `develop` or `main`.
 
-### Gap 1: Direct host execution
+## 7. Identified gaps and areas for improvement
 
-The JAR runs on the EC2 OS. Docker (and a registry) would freeze the Java runtime.
+### Gap 1: No staging environment
+
+`develop` is integration only (CI + Playwright). There is no staging EC2, staging Firebase project, or staging APK channel. Env-specific failures show up first in production on `main`. A deploy-from-`develop` workflow to isolated staging targets would close this.
 
 ### Gap 2: Tests skipped in CI and CD
 
-CI and backend deploy use `mvn package -DskipTests`. Web CI does not run Vitest. Mobile CI does not run unit tests. Prefer `mvn verify` against job-local MySQL, `npm test`, and `testDebugUnitTest` on PRs, and deploy a tested artefact.
+CI and backend deploy use `mvn package -DskipTests`. Web CI does not run Vitest. Mobile CI does not run unit tests. Prefer `mvn verify` against job-local MySQL (not RDS secrets), `npm test`, and `testDebugUnitTest` on PRs, and deploy a tested artefact rather than rebuilding with skipTests.
 
-### Gap 3: Manual database schema management
+### Gap 3: Direct host execution
+
+The JAR runs on the EC2 OS. Docker (and a registry) would freeze the Java runtime and make blue/green an image swap instead of two host processes.
+
+### Gap 4: Manual database schema management
 
 RDS DDL is not applied by the pipeline. Flyway or Liquibase would version SQL in git.
 
-### Gap 4: Mobile store delivery
+### Gap 5: Branch protection and GitHub Environments
+
+Required checks and “no direct push to `main`” are repo settings, not YAML. If **Build Test** is not required, scans can be merged around. Production deploy does not use a GitHub Environment with reviewers or wait timers.
+
+### Gap 6: Code quality gate
+
+Semgrep is SAST, not a maintainability/coverage quality gate. SonarCloud (or ESLint / Detekt / Checkstyle in CI) is not implemented.
+
+### Gap 7: Mobile store delivery
 
 Testers install from Firebase App Distribution. Play Store internal tracks are not automated.
