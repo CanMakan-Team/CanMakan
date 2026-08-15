@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { EmptyState, ErrorState, LoadingState } from "../../shared/ui/PageState";
 import { consumerTrendsApiService } from "./consumerTrendsApiService";
 import { buildPeriodQuery } from "./consumerTrendsDateRange";
+import { downloadConsumerTrendsReport } from "./consumerTrendsReport";
 import type {
   CategoryScanTrend,
   ConsumerTrendsQuery,
@@ -11,6 +12,79 @@ import type {
 
 const PERIOD_OPTIONS = [7, 30, 90] as const;
 const PRODUCTS_PER_PAGE = 5;
+
+function isCalendarDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day;
+}
+
+function prepareConsumerTrendsResponse(response: ConsumerTrendsResponse): ConsumerTrendsResponse {
+  const incomplete = () => new Error("The consumer trends data is incomplete. Please refresh and try again.");
+  if (!response
+    || !response.period
+    || !isCalendarDate(response.period.from)
+    || !isCalendarDate(response.period.to)
+    || !response.summary) {
+    throw incomplete();
+  }
+
+  const summaryValues = [
+    response.summary.totalScans,
+    response.summary.safeCount,
+    response.summary.warningCount,
+    response.summary.unsafeCount,
+    response.summary.uniqueProducts,
+    response.summary.averageScansPerDay,
+  ];
+  if (summaryValues.some((value) => !Number.isFinite(value))
+    || (response.summary.peakScanDay !== null
+      && (!isCalendarDate(response.summary.peakScanDay?.date)
+        || !Number.isFinite(response.summary.peakScanDay?.scanCount)))) {
+    throw incomplete();
+  }
+
+  const dailyTrend = Array.isArray(response.dailyTrend) ? response.dailyTrend : [];
+  const products = Array.isArray(response.mostScannedProducts) ? response.mostScannedProducts : [];
+  const categories = Array.isArray(response.categoryOverview) ? response.categoryOverview : [];
+  const restrictions = Array.isArray(response.topRestrictions) ? response.topRestrictions : [];
+  const ingredients = Array.isArray(response.topFlaggedIngredients) ? response.topFlaggedIngredients : [];
+  if (dailyTrend.some((item) => !isCalendarDate(item?.date)
+      || [item?.totalCount, item?.safeCount, item?.warningCount, item?.unsafeCount]
+        .some((value) => !Number.isFinite(value)))
+    || products.some((item) => typeof item?.productName !== "string"
+      || [item?.rank, item?.scanCount, item?.percentage].some((value) => !Number.isFinite(value)))
+    || categories.some((item) => typeof item?.category !== "string"
+      || [item?.scanCount, item?.percentage].some((value) => !Number.isFinite(value)))
+    || restrictions.some((item) => typeof item?.restrictionCode !== "string"
+      || !Number.isFinite(item?.flaggedCount))
+    || ingredients.some((item) => typeof item?.ingredientName !== "string"
+      || !Number.isFinite(item?.flaggedCount))
+    || (response.appliedFilters !== null
+      && response.appliedFilters !== undefined
+      && response.appliedFilters.category !== null
+      && typeof response.appliedFilters.category !== "string")
+    || (response.dataQuality !== null
+      && response.dataQuality !== undefined
+      && (typeof response.dataQuality.partial !== "boolean"
+        || !Number.isFinite(response.dataQuality.skippedMalformedFindings)))) {
+    throw incomplete();
+  }
+
+  return {
+    ...response,
+    appliedFilters: response.appliedFilters ?? { category: null },
+    dailyTrend,
+    mostScannedProducts: products,
+    categoryOverview: categories,
+    topRestrictions: restrictions,
+    topFlaggedIngredients: ingredients,
+    dataQuality: response.dataQuality ?? { partial: false, skippedMalformedFindings: 0 },
+  };
+}
 
 function formatDate(date: string): string {
   return new Intl.DateTimeFormat("en-SG", {
@@ -39,19 +113,33 @@ export function ConsumerTrendsPage() {
   const [data, setData] = useState<ConsumerTrendsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportSuccess, setExportSuccess] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [productPage, setProductPage] = useState(0);
+  const exportInProgress = useRef(false);
+  const latestLoadRequest = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++latestLoadRequest.current;
     setLoading(true);
     setError(null);
+    setExportError(null);
+    setExportSuccess(false);
 
     try {
       const response = await consumerTrendsApiService.getConsumerTrends(query);
-      setData(response);
+      if (requestId === latestLoadRequest.current) {
+        setData(prepareConsumerTrendsResponse(response));
+      }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Unable to load consumer trends.");
+      if (requestId === latestLoadRequest.current) {
+        setError(caught instanceof Error ? caught.message : "Unable to load consumer trends.");
+      }
     } finally {
-      setLoading(false);
+      if (requestId === latestLoadRequest.current) {
+        setLoading(false);
+      }
     }
   }, [query]);
 
@@ -78,6 +166,34 @@ export function ConsumerTrendsPage() {
 
   const categoryOptions = data?.categoryOverview.map((item) => item.category) ?? [];
   const selectedCategory = query.category ?? "";
+  const dataMatchesCurrentQuery = data !== null
+    && data.period.from === query.from
+    && data.period.to === query.to
+    && (data.appliedFilters.category ?? "") === selectedCategory;
+  const canExport = data !== null
+    && dataMatchesCurrentQuery
+    && data.summary.totalScans > 0
+    && !loading
+    && !error
+    && !exporting;
+
+  const generateReport = async () => {
+    if (!data || !canExport || exportInProgress.current) return;
+
+    exportInProgress.current = true;
+    setExporting(true);
+    setExportError(null);
+    setExportSuccess(false);
+    try {
+      await downloadConsumerTrendsReport(data);
+      setExportSuccess(true);
+    } catch {
+      setExportError("The report could not be downloaded. No file was saved. Please try again.");
+    } finally {
+      exportInProgress.current = false;
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="admin-page analytics-page">
@@ -122,8 +238,27 @@ export function ConsumerTrendsPage() {
           <button type="button" className="button button-secondary" onClick={() => void load()} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh"}
           </button>
+
+          <button
+            type="button"
+            className="button button--primary"
+            onClick={() => void generateReport()}
+            disabled={!canExport}
+            aria-describedby="consumer-trends-export-help"
+          >
+            {exporting ? "Generating…" : "Generate CSV Report"}
+          </button>
         </div>
       </header>
+
+      <p id="consumer-trends-export-help" className="analytics-export-help">
+        Exports the currently loaded anonymous aggregate data only. Raw scans and personal information are excluded.
+      </p>
+
+      {exportError ? <p className="form-message form-message--error" role="alert">{exportError}</p> : null}
+      {exportSuccess ? (
+        <p className="form-message form-message--success" role="status">Consumer trends report downloaded.</p>
+      ) : null}
 
       {loading && !data ? <LoadingState label="Loading consumer trends…" /> : null}
       {error ? <ErrorState message={error} onRetry={load} /> : null}

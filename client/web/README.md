@@ -20,6 +20,7 @@ The primary information architecture implements the latest selected scope:
 | 4 | Family Scan History with profile, verdict, period and completeness filters plus supplied-assessment detail |
 | 6 | Dynamic Family Allergy & Dietary Requirement Summary |
 | 7 | Anonymised Consumer Trends with accessible verdict and flagged-ingredient visualisations |
+| 22 | UTF-8 CSV export of the currently selected anonymous UC7 aggregate dataset |
 | 8 | Add Existing App User to Family |
 | 9 | Create New Family Member Profile for a non-login dependant |
 | 10 | Switch the active family assessment profile |
@@ -179,8 +180,9 @@ System Admin Portal:
 1. Sign out and open `/system-admin-login`.
 2. Confirm there is no Family Admin navigation.
 3. Open **Consumer Trends** and inspect the anonymised charts and table values.
-4. Open **User Accounts & Access**, filter by email, role or status, then suspend or reactivate an account with a reason.
-5. Confirm the status feedback and refreshed filtered account list.
+4. Generate the CSV report and confirm its date range and category match the current view.
+5. Open **User Accounts & Access**, filter by email, role or status, then suspend or reactivate an account with a reason.
+6. Confirm the status feedback and refreshed filtered account list.
 
 ## Implemented backend contracts (UC8 / UC18)
 

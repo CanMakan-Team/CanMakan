@@ -1311,6 +1311,13 @@ input[readonly] {
   font-weight: 600;
 }
 
+.form-message--success {
+  border: 1px solid var(--color-web-cce5d4);
+  color: var(--color-web-285b42);
+  background: var(--color-web-f2faf5);
+  font-weight: 600;
+}
+
 .search-form {
   display: grid;
   gap: 0.45rem;
@@ -1726,6 +1733,17 @@ caption {
 
 .analytics-controls .button {
   min-height: 42px;
+}
+
+.analytics-export-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+.analytics-page > .form-message {
+  margin: 0;
 }
 
 .analytics-summary-grid {
@@ -2283,7 +2301,7 @@ caption {
 
   .analytics-controls {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) repeat(2, auto);
   }
 
   .analytics-controls label {
@@ -2292,6 +2310,10 @@ caption {
 
   .analytics-two-column {
     grid-template-columns: 1fr;
+  }
+
+  .analytics-export-help {
+    text-align: left;
   }
 }
 
