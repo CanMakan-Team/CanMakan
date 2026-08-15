@@ -237,6 +237,9 @@ jobs:
       CANMAKAN_RECOMMENDATION_ML_ENABLED: ${{ secrets.CANMAKAN_RECOMMENDATION_ML_ENABLED }}
       CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH: ${{ secrets.CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH }}
       CANMAKAN_RECOMMENDATION_LLM_ENABLED: ${{ secrets.CANMAKAN_RECOMMENDATION_LLM_ENABLED }}
+
+      # Mapped here so steps can skip Sonar when unset. `secrets` is not allowed in `if:`.
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -272,10 +275,9 @@ jobs:
         run: mvn -B clean verify
 
       - name: SonarCloud backend
-        if: ${{ secrets.SONAR_TOKEN != '' }}
+        if: env.SONAR_TOKEN != ''
         working-directory: server/backend
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.2.0.4988:sonar \
@@ -318,6 +320,7 @@ jobs:
     env:
       VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
       VITE_USE_MOCK_API: ${{ secrets.VITE_USE_MOCK_API }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -339,10 +342,9 @@ jobs:
         run: npm test -- --coverage
 
       - name: SonarCloud web
-        if: ${{ secrets.SONAR_TOKEN != '' }}
+        if: env.SONAR_TOKEN != ''
         uses: SonarSource/sonarqube-scan-action@v8.1.0
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectBaseDir: client/web
@@ -363,6 +365,7 @@ jobs:
       # Optional override for debug assemble; defaults to emulator localhost in Gradle.
       BASE_URL: ${{ secrets.MOBILE_BASE_URL }}
       WEB_INVITE_BASE_URLS: ${{ secrets.WEB_INVITE_BASE_URLS }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -412,10 +415,9 @@ jobs:
           ls -la app/build/sonar-coverage/jacoco.xml
 
       - name: SonarCloud mobile
-        if: ${{ secrets.SONAR_TOKEN != '' }}
+        if: env.SONAR_TOKEN != ''
         working-directory: client/mobile
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./gradlew sonar \
