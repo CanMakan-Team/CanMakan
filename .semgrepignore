@@ -1,0 +1,8 @@
+# Semgrep skip list (gitignore syntax). Registry pack is `--config p/default` in CI.
+node_modules/
+target/
+build/
+.gradle/
+playwright-report/
+test-results/
+coverage/

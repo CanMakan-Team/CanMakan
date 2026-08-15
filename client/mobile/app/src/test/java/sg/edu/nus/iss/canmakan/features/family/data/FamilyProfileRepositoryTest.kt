@@ -130,6 +130,14 @@ class FamilyProfileRepositoryTest {
         ): Response<ActiveProfileResponse> =
             Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
 
+        override suspend fun getNotificationPreference(): Response<NotificationPreferenceResponse> =
+            Response.success(NotificationPreferenceResponse(notificationsEnabled = true))
+
+        override suspend fun setNotificationPreference(
+            request: SetNotificationPreferenceRequestBody,
+        ): Response<NotificationPreferenceResponse> =
+            Response.success(NotificationPreferenceResponse(request.notificationsEnabled))
+
         override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> =
             Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
 

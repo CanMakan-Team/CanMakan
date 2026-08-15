@@ -84,6 +84,32 @@ class ScanHistoryServiceTest {
     }
 
     @Test
+    @DisplayName("UNRESOLVED and CROSS_CONTAMINATION findings do not leak into allergens_found")
+    void excludesDataQualityFindingsFromAllergens() {
+        Scan scan = baseScan();
+        scan.setVerdict("UNSAFE");
+        scan.setAiExplanation("Contains gluten");
+        // A real allergen match plus the grouped UNRESOLVED caution (whose ingredientName is a
+        // comma-joined list of unverified items) and a cross-contamination finding. Only the real
+        // allergen match may appear in the Allergen list.
+        scan.setFindingsJson(
+                "[{\"restrictionCode\":\"GLUTEN\",\"ingredientName\":\"Corn Semolina\","
+                        + "\"reason\":\"Corn Semolina matches the GLUTEN restriction.\"},"
+                        + "{\"restrictionCode\":\"UNRESOLVED\","
+                        + "\"ingredientName\":\"Sodium Chloride, Reduced Iron, Calcium Carbonate\","
+                        + "\"reason\":\"Treat these ingredients with caution: Sodium Chloride, "
+                        + "Reduced Iron, Calcium Carbonate.\"},"
+                        + "{\"restrictionCode\":\"CROSS_CONTAMINATION\",\"ingredientName\":\"GLUTEN\","
+                        + "\"reason\":\"Possible cross-contamination involving GLUTEN.\"}]");
+        when(scanRepository.findByProfileIdWithProductOrderByScannedAtDesc(1L))
+                .thenReturn(List.of(scan));
+
+        ScanHistoryResponse response = service.getScanHistoryForProfile(1L).getFirst();
+
+        assertThat(response.findingsJson().allergensFound()).containsExactly("Corn Semolina");
+    }
+
+    @Test
     @DisplayName("double-encoded JSON string still maps Finding[]")
     void unwrapsDoubleEncodedJsonString() throws Exception {
         ObjectMapper mapper = new ObjectMapper();

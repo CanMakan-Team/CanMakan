@@ -82,6 +82,7 @@ fun ProfileDrawerContent(
     onCloseClick: () -> Unit,
     onCreateFamilyCircleClick: () -> Unit,
     onManageFamilyClick: () -> Unit,
+    onSettingsClick: () -> Unit,
 ) {
     // Session-local expand/collapse; all sections start open. Not persisted across process death.
     var profilesExpanded by remember { mutableStateOf(true) }
@@ -391,10 +392,13 @@ fun ProfileDrawerContent(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Sign Out", color = AvoidRed)
             }
-            Row(verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(vertical = 8.dp)) {
-                Icon(Icons.Default.Settings, contentDescription = "", tint = OnDark)
-
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clickable { onSettingsClick() }
+                    .padding(vertical = 8.dp),
+            ) {
+                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = OnDark)
             }
         }
     }

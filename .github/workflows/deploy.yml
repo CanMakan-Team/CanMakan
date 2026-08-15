@@ -1,34 +1,48 @@
 name: Deploy Backend to AWS EC2
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
     branches: [main]
 
 concurrency:
   group: deploy-backend
   cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
 jobs:
-  # 1. PATH DETECTION
-  detect-backend-changes:
+  # Promote the JAR CI already verified for this SHA (no second Maven compile).
+  resolve-artifact:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
+      has_jar: ${{ steps.check.outputs.has_jar }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
-        id: filter
-        with:
-          filters: |
-            backend:
-              - 'server/backend/**'
+      - name: Check CI uploaded backend-jar
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+            --jq '.artifacts[].name' | grep -qx backend-jar; then
+            echo "has_jar=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_jar=false" >> "$GITHUB_OUTPUT"
+            echo "No backend-jar artefact (CI skipped backend or upload failed)."
+          fi
 
-  # 2. COMPILE & DEPLOY
-  # Env names mirror server/backend/src/main/resources/application.properties
-  # and .github/workflows/ci.yml (build-backend). Forwarded to EC2 at JAR start.
+  # Env names mirror application.properties. Forwarded to EC2 at JAR start.
   deploy-backend:
-    needs: detect-backend-changes
-    if: needs.detect-backend-changes.outputs.backend == 'true'
+    needs: resolve-artifact
+    if: needs.resolve-artifact.outputs.has_jar == 'true'
     runs-on: ubuntu-latest
+    environment: ${{ vars.DEPLOY_ENVIRONMENT }}
     env:
       # Server
       SERVER_ADDRESS: ${{ secrets.SERVER_ADDRESS }}
@@ -98,20 +112,13 @@ jobs:
       CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH: ${{ secrets.CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH }}
       CANMAKAN_RECOMMENDATION_LLM_ENABLED: ${{ secrets.CANMAKAN_RECOMMENDATION_LLM_ENABLED }}
     steps:
-      - uses: actions/checkout@v7
-
-      # 2.1 DEFINE THE REQUIRED JAVA PACKAGE
-      - name: Set up Java 21
-        uses: actions/setup-java@v5
+      - name: Download verified backend JAR
+        uses: actions/download-artifact@v4.3.0
         with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'maven'
-
-      # 2.2 BUILD THE .JAR PACKAGE
-      - name: Build and Package JAR
-        working-directory: server/backend
-        run: mvn -B clean package -DskipTests
+          name: backend-jar
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          path: server/backend/target
 
       # 2.3 PREPARE REMOTE DEPLOY DIRECTORY
       - name: Ensure remote deploy directory exists

@@ -44,14 +44,6 @@ WHERE barcode = '7750526000895';
 
 UPDATE products
 SET category_tags = CASE
-  WHEN category_tags IS NULL OR TRIM(category_tags) = '' THEN 'en:gluten-free-flour'
-  WHEN CONCAT(',', category_tags, ',') LIKE '%,en:gluten-free-flour,%' THEN category_tags
-  ELSE CONCAT(category_tags, ',', 'en:gluten-free-flour')
-END
-WHERE barcode = '8881300655204';
-
-UPDATE products
-SET category_tags = CASE
   WHEN category_tags IS NULL OR TRIM(category_tags) = '' THEN 'Gluten free bread'
   WHEN CONCAT(',', category_tags, ',') LIKE '%,Gluten free bread,%' THEN category_tags
   ELSE CONCAT(category_tags, ',', 'Gluten free bread')

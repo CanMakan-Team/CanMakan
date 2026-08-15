@@ -123,29 +123,38 @@ Continuous integration builds the backend, web app, and Android app on pushes an
 
 - Require pull request
 - No direct pushes to main
+- Require the **Build Test** check (aggregates Gitleaks, Semgrep, Trivy, stack builds, and SonarCloud when configured)
+- Production deploys use GitHub Environment **`production`** (`main` only) via `vars.DEPLOY_ENVIRONMENT`
 
 ### Secrets Management
 
 - Environment variables, credentials, and secrets are included in gitignore to prevent secrets leakage
-- Implemented Gitleaks via [`.github/workflows/secret-scan.yml`](.github/workflows/secret-scan.yml)
-> Configured Gitleaks to run on: all pull requests, pushes to main <br>
-> Uses actions/checkout with full history (fetch-depth: 0) for commit scanning <br>
-> Uses GitHub-provided GITHUB_TOKEN <br>
+- Gitleaks runs inside [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (`gitleaks` job)
+> Checkout uses full history (`fetch-depth: 0`) <br>
+> Gitleaks 8.21.2 with `--config .gitleaks.toml`; allowlists the test JWT and `google-services.json` (Firebase client key). Fingerprints in [`.gitleaksignore`](.gitleaksignore) <br>
 
 ### Continuous Integration
 
 Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 
-- Runs on all pushes and pull requests
-- Path-filtered jobs on `ubuntu-latest` for backend, web, and mobile
+- Runs on pull requests and pushes to `develop` and `main`
+- Security jobs always run; stack builds are path-filtered on `ubuntu-latest`
 
-| Component | Directory | Build step |
-|-----------|-----------|------------|
-| Backend | `server/backend` | Maven (`mvn clean package -DskipTests`, Java 21) |
-| Web | `client/web` | `npm ci` + `npm run build` (Node 24) |
-| Mobile | `client/mobile` | Gradle `assembleDebug` |
+| Job | What it does |
+|-----|----------------|
+| Gitleaks | Secret scanning |
+| Semgrep | SAST (`semgrep/semgrep:1.173.0 --config p/default`; needs network; skips via [`.semgrepignore`](.semgrepignore)) |
+| Trivy fs | SCA vulns only (CRITICAL/HIGH fails the job; secrets are Gitleaks); CycloneDX SBOM artefact |
+| Trivy config | GitHub Actions / `.github` YAML misconfiguration |
+| Backend | Maven `verify` against job-local MySQL 8 (not RDS), Java 21, JaCoCo; uploads `backend-jar`; SonarCloud `canmakan-backend` |
+| Web | `npm ci` + Vitest with coverage + `npm run build` (Node 24); SonarCloud `canmakan-web` |
+| Mobile | Gradle `assembleDebug testDebugUnitTest` + unit-test coverage XML, then `sonar`; SonarCloud `canmakan-mobile` |
+| Build Test | Required aggregator |
 
-> Backend CI and [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) inject the same `application.properties` env vars via GitHub secrets (DB, JWT, CORS, invites, product APIs, OpenAI, Tavily, AI flags, UC5 recommendations). Deploy forwards them to the EC2 process at JAR start. <br>
+Playwright E2E: [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) on PRs and pushes to `develop` when `client/web/**` changes. Production web deploy re-runs Playwright in [`.github/workflows/deploy-frontends.yml`](.github/workflows/deploy-frontends.yml).
+
+> Backend CI runs `mvn verify` against an ephemeral MySQL 8 service (not RDS) and uploads the verified JAR. Production backend deploy waits for that CI run on `main` and SCP’s the artefact (no `skipTests` rebuild). Runtime env vars still come from GitHub secrets and are forwarded to EC2 at JAR start. Deploy jobs use Environment `production` (`vars.DEPLOY_ENVIRONMENT`). <br>
+> SonarCloud runs after each stack’s tests when `SONAR_TOKEN` is set (org `canmakan-team` is in source). A failed quality gate fails that build job and **Build Test**. Semgrep remains SAST. <br>
 > Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`. Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`, optional `WEB_INVITE_BASE_URLS`. <br>
 > Android SDK is provisioned via `android-actions/setup-android` <br>
 

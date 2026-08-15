@@ -2,6 +2,9 @@ package com.canmakan.backend.product.recommendation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -121,6 +124,20 @@ class AlternativeProductQueryServiceTest {
                 .thenReturn(List.of());
 
         assertTrue(queryService.findSubstituteTagCandidates(source, freshMilksProfile).isEmpty());
+    }
+
+    @Test
+    void findSubstituteTagCandidatesForMilkProfileDoesNotQueryLabelTags() {
+        CatalogProduct source = product("8888200602857", "Fresh milks", "Fresh milk", null);
+
+        for (String tag : freshMilksProfile.includeTags()) {
+            when(catalogProductRepository.findCandidatesByCategoryTag(tag, "8888200602857"))
+                    .thenReturn(List.of());
+        }
+
+        assertTrue(queryService.findSubstituteTagCandidates(source, freshMilksProfile).isEmpty());
+
+        verify(catalogProductRepository, never()).findCandidatesByLabelTag(any(), any());
     }
 
     @Test

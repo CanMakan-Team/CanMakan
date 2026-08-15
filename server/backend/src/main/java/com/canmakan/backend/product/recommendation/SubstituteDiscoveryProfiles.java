@@ -33,7 +33,14 @@ public class SubstituteDiscoveryProfiles {
     );
 
     private static final SubstituteDiscoveryProfile FRESH_MILKS = new SubstituteDiscoveryProfile(
-            List.of("en:milk-substitutes", "en:dairy-substitutes"),
+            List.of(
+                    "en:milk-substitutes",
+                    "en:dairy-substitutes",
+                    "en:oat-based-drinks",
+                    "en:soy-based-drinks",
+                    "en:almond-based-drinks",
+                    "en:unsweetened-plain-soy-based-drinks"
+            ),
             List.of(
                     "en:oat-based-drinks",
                     "en:soy-based-drinks",
@@ -188,6 +195,47 @@ public class SubstituteDiscoveryProfiles {
             "Homogenized milks"
     );
 
+    /** OFF category tags for drinkable cow milk when {@code main_category_en} is too coarse (e.g. Dairies). */
+    private static final List<String> COW_MILK_CATEGORY_TAGS = List.of(
+            "en:fresh-milks",
+            "en:uht-milks",
+            "en:whole-milks",
+            "en:skimmed-milks",
+            "en:pasteurised-milks",
+            "en:flavoured-milks",
+            "en:chocolate-milks",
+            "en:strawberry-milks",
+            "en:homogenized-milks"
+    );
+
+    /** Product-name phrases that indicate a dairy row is not drinkable cow milk. */
+    private static final List<String> NON_DRINKABLE_DAIRY_NAME_PHRASES = List.of(
+            "spread",
+            "butter",
+            "margarine",
+            "cheese",
+            "yoghurt",
+            "yogurt",
+            "kefir",
+            "ice cream",
+            "ice-cream",
+            "condensed milk",
+            "evaporated milk"
+    );
+
+    /** Plant-based milks that must not be treated as cow-milk scan sources. */
+    private static final List<String> PLANT_MILK_NAME_PHRASES = List.of(
+            "soy milk",
+            "soya milk",
+            "almond milk",
+            "oat milk",
+            "coconut milk",
+            "rice milk",
+            "cashew milk",
+            "plant milk",
+            "nut milk"
+    );
+
     private static final List<String> ICE_CREAM_SOURCE_CATEGORIES = List.of(
             "Ice cream cones",
             "Ice cream bars",
@@ -262,6 +310,15 @@ public class SubstituteDiscoveryProfiles {
         profiles.put("Peanut butters", PEANUT_BUTTERS);
         profiles.put("Crunchy peanut butters", PEANUT_BUTTERS);
         return Map.copyOf(profiles);
+    }
+
+    /**
+     * Cow-milk substitute discovery: plant-milk rows ranked with pack-size proximity.
+     */
+    public boolean isMilkSubstituteDiscovery(SubstituteDiscoveryProfile profile) {
+        return profile != null
+                && profile.includeTags() != null
+                && profile.includeTags().contains("en:milk-substitutes");
     }
 
     /**
@@ -349,6 +406,9 @@ public class SubstituteDiscoveryProfiles {
         if (direct.isPresent()) {
             return direct;
         }
+        if (isCowMilkSource(source)) {
+            return Optional.of(FRESH_MILKS);
+        }
         if (isIceCreamSource(source)) {
             return Optional.of(ICE_CREAMS);
         }
@@ -420,7 +480,7 @@ public class SubstituteDiscoveryProfiles {
             return false;
         }
         String category = source.getMainCategoryEn();
-        if (category != null && category.toLowerCase().contains("ice cream")) {
+        if (category != null && category.toLowerCase(Locale.ROOT).contains("ice cream")) {
             return true;
         }
         Set<String> tags = CategoryTagParser.parseTags(source.getCategoryTags());
@@ -428,5 +488,92 @@ public class SubstituteDiscoveryProfiles {
             return true;
         }
         return tags.stream().anyMatch(tag -> tag.contains("ice-cream"));
+    }
+
+    /**
+     * Drinkable cow-milk products, including rows miscategorized as {@code Dairies}
+     * instead of {@code Fresh milks}. Used to route Tier A to plant-milk substitutes
+     * and to skip the coarse same-category pool (which mixes milk with spreads).
+     */
+    static boolean isCowMilkSource(CatalogProduct source) {
+        if (source == null || isBreadSource(source) || isIceCreamSource(source)) {
+            return false;
+        }
+        String category = source.getMainCategoryEn();
+        if (category != null) {
+            String trimmed = category.trim();
+            if (MILK_SOURCE_CATEGORIES.contains(trimmed)) {
+                return true;
+            }
+            for (String milkCategory : MILK_SOURCE_CATEGORIES) {
+                if (milkCategory.equalsIgnoreCase(trimmed)) {
+                    return true;
+                }
+            }
+        }
+        Set<String> categoryTags = CategoryTagParser.parseTags(source.getCategoryTags());
+        if (CategoryTagParser.containsAny(categoryTags, COW_MILK_CATEGORY_TAGS)) {
+            return true;
+        }
+        if (isNonDrinkableDairyProduct(source)) {
+            return false;
+        }
+        if (isPlantMilkProductName(source.getProductName())) {
+            return false;
+        }
+        if (CategoryTagParser.containsTag(source.getAllergens(), "en:milk")
+                && containsCowMilkDrinkSignal(source.getProductName(), source.getIngredientsText())) {
+            return true;
+        }
+        return containsCowMilkDrinkSignal(source.getProductName(), source.getIngredientsText());
+    }
+
+    private static boolean isNonDrinkableDairyProduct(CatalogProduct source) {
+        String haystack = joinLower(source.getProductName(), source.getMainCategoryEn());
+        for (String phrase : NON_DRINKABLE_DAIRY_NAME_PHRASES) {
+            if (haystack.contains(phrase)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isPlantMilkProductName(String productName) {
+        if (productName == null || productName.isBlank()) {
+            return false;
+        }
+        String name = productName.toLowerCase(Locale.ROOT);
+        for (String phrase : PLANT_MILK_NAME_PHRASES) {
+            if (name.contains(phrase)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean containsCowMilkDrinkSignal(String productName, String ingredientsText) {
+        String haystack = joinLower(productName, ingredientsText);
+        if (haystack.isBlank()) {
+            return false;
+        }
+        if (isPlantMilkProductName(productName)) {
+            return false;
+        }
+        for (String phrase : NON_DRINKABLE_DAIRY_NAME_PHRASES) {
+            if (haystack.contains(phrase)) {
+                return false;
+            }
+        }
+        return haystack.contains("milk") || haystack.contains("uht");
+    }
+
+    private static String joinLower(String... values) {
+        StringBuilder builder = new StringBuilder();
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                builder.append(value.toLowerCase(Locale.ROOT)).append(' ');
+            }
+        }
+        return builder.toString().trim();
     }
 }

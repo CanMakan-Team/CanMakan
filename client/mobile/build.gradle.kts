@@ -6,4 +6,17 @@ plugins {
     alias(libs.plugins.hilt.android) apply false
     alias(libs.plugins.ksp) apply false
     id("com.google.gms.google-services") version "4.5.0" apply false
+    id("org.sonarqube") version "7.3.1.8318"
+}
+
+sonar {
+    properties {
+        property("sonar.projectKey", "canmakan-mobile")
+        property("sonar.organization", "canmakan-team")
+        property("sonar.host.url", "https://sonarcloud.io")
+        property(
+            "sonar.coverage.jacoco.xmlReportPaths",
+            "${rootProject.projectDir}/app/build/sonar-coverage/jacoco.xml",
+        )
+    }
 }

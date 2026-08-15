@@ -50,18 +50,20 @@ class MlSparseCatalogRecommender {
         boolean breakfastCerealSubstituteDiscovery =
                 discoveryProfiles.isBreakfastCerealSubstituteDiscovery(substituteProfile);
         boolean peanutSubstituteDiscovery = discoveryProfiles.isPeanutSpreadSubstituteDiscovery(substituteProfile);
+        boolean milkSubstituteDiscovery = discoveryProfiles.isMilkSubstituteDiscovery(substituteProfile);
         boolean narrowSubstituteDiscovery = flourSubstituteDiscovery
                 || breadSubstituteDiscovery
                 || breakfastCerealSubstituteDiscovery
-                || peanutSubstituteDiscovery;
+                || peanutSubstituteDiscovery
+                || milkSubstituteDiscovery;
 
         List<String> tags = new ArrayList<>();
         if (substituteProfile != null && substituteProfile.includeTags() != null) {
             tags.addAll(substituteProfile.includeTags());
         }
         if (flourSubstituteDiscovery
-                && substituteProfile.beverageTags() != null) {
-            for (String flourTag : substituteProfile.beverageTags()) {
+                && substituteProfile.secondaryIncludeTags() != null) {
+            for (String flourTag : substituteProfile.secondaryIncludeTags()) {
                 if (!tags.contains(flourTag)) {
                     tags.add(flourTag);
                 }
@@ -94,7 +96,7 @@ class MlSparseCatalogRecommender {
 
         SubstituteDiscoveryProfile discoveryProfile = new SubstituteDiscoveryProfile(
                 tags,
-                substituteProfile != null ? substituteProfile.beverageTags() : List.of(),
+                substituteProfile != null ? substituteProfile.secondaryIncludeTags() : List.of(),
                 substituteProfile != null ? substituteProfile.deprioritizeTags() : List.of(),
                 labelTags,
                 siblingCategories,
