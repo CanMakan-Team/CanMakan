@@ -13,13 +13,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.canmakan.backend.analytics.dto.ConsumerTrendsDataQuality;
 import com.canmakan.backend.analytics.dto.ConsumerTrendsResponse;
+import com.canmakan.backend.analytics.dto.CategoryScanTrend;
+import com.canmakan.backend.analytics.dto.ConsumerTrendsAppliedFilters;
 import com.canmakan.backend.analytics.dto.DailyTrendPoint;
 import com.canmakan.backend.analytics.dto.FlaggedIngredientTrend;
+import com.canmakan.backend.analytics.dto.PeakScanDay;
+import com.canmakan.backend.analytics.dto.ProductScanTrend;
+import com.canmakan.backend.analytics.dto.RestrictionTrend;
 import com.canmakan.backend.analytics.dto.TrendPeriod;
 import com.canmakan.backend.analytics.dto.TrendSummary;
 import com.canmakan.backend.analytics.exception.ConsumerTrendsValidationException;
 import com.canmakan.backend.analytics.service.ConsumerTrendsService;
 import jakarta.servlet.ServletException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -60,27 +66,42 @@ class AdminControllerTest {
     @Test
     @DisplayName("explicit parameters bind and return the frozen aggregate JSON contract")
     void explicitRequestReturnsAggregateContract() throws Exception {
-        when(consumerTrendsService.generateTrends(FROM, TO, 5))
+        when(consumerTrendsService.generateTrends(FROM, TO, 5, "Snacks"))
                 .thenReturn(representativeResponse());
 
         mockMvc.perform(get(ENDPOINT)
                         .param("from", "2026-08-01")
                         .param("to", "2026-08-07")
-                        .param("limit", "5"))
+                        .param("limit", "5")
+                        .param("category", "Snacks"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.period.from").value("2026-08-01"))
                 .andExpect(jsonPath("$.period.to").value("2026-08-07"))
                 .andExpect(jsonPath("$.period.timezone").value("Asia/Singapore"))
+                .andExpect(jsonPath("$.appliedFilters.category").value("Snacks"))
                 .andExpect(jsonPath("$.summary.totalScans").value(3))
                 .andExpect(jsonPath("$.summary.safeCount").value(1))
                 .andExpect(jsonPath("$.summary.warningCount").value(1))
                 .andExpect(jsonPath("$.summary.unsafeCount").value(1))
+                .andExpect(jsonPath("$.summary.uniqueProducts").value(2))
+                .andExpect(jsonPath("$.summary.averageScansPerDay").value(0.43))
+                .andExpect(jsonPath("$.summary.peakScanDay.date").value("2026-08-01"))
+                .andExpect(jsonPath("$.summary.peakScanDay.scanCount").value(3))
                 .andExpect(jsonPath("$.dailyTrend[0].date").value("2026-08-01"))
                 .andExpect(jsonPath("$.dailyTrend[0].totalCount").value(3))
                 .andExpect(jsonPath("$.dailyTrend[0].safeCount").value(1))
                 .andExpect(jsonPath("$.dailyTrend[0].warningCount").value(1))
                 .andExpect(jsonPath("$.dailyTrend[0].unsafeCount").value(1))
+                .andExpect(jsonPath("$.mostScannedProducts[0].rank").value(1))
+                .andExpect(jsonPath("$.mostScannedProducts[0].productName").value("Snack A"))
+                .andExpect(jsonPath("$.mostScannedProducts[0].scanCount").value(2))
+                .andExpect(jsonPath("$.mostScannedProducts[0].percentage").value(66.67))
+                .andExpect(jsonPath("$.categoryOverview[0].category").value("Snacks"))
+                .andExpect(jsonPath("$.categoryOverview[0].scanCount").value(2))
+                .andExpect(jsonPath("$.categoryOverview[0].percentage").value(66.67))
+                .andExpect(jsonPath("$.topRestrictions[0].restrictionCode").value("PEANUT"))
+                .andExpect(jsonPath("$.topRestrictions[0].flaggedCount").value(2))
                 .andExpect(jsonPath("$.topFlaggedIngredients[0].ingredientName").value("MSG"))
                 .andExpect(jsonPath("$.topFlaggedIngredients[0].flaggedCount").value(2))
                 .andExpect(jsonPath("$.dataQuality.partial").value(false))
@@ -93,19 +114,19 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$..aiExplanation").doesNotExist())
                 .andExpect(jsonPath("$..findingsJson").doesNotExist());
 
-        verify(consumerTrendsService).generateTrends(FROM, TO, 5);
+        verify(consumerTrendsService).generateTrends(FROM, TO, 5, "Snacks");
     }
 
     @Test
     @DisplayName("omitted parameters remain null for service-owned defaults")
     void defaultRequestDelegatesNullParameters() throws Exception {
-        when(consumerTrendsService.generateTrends(null, null, null))
+        when(consumerTrendsService.generateTrends(null, null, null, null))
                 .thenReturn(representativeResponse());
 
         mockMvc.perform(get(ENDPOINT))
                 .andExpect(status().isOk());
 
-        verify(consumerTrendsService).generateTrends(null, null, null);
+        verify(consumerTrendsService).generateTrends(null, null, null, null);
     }
 
     @ParameterizedTest(name = "one-sided {0} parameter returns 400")
@@ -178,6 +199,21 @@ class AdminControllerTest {
     }
 
     @Test
+    @DisplayName("invalid category validation returns 400")
+    void invalidCategoryReturnsBadRequest() throws Exception {
+        String category = "x".repeat(1001);
+        when(consumerTrendsService.generateTrends(FROM, TO, null, category))
+                .thenThrow(new ConsumerTrendsValidationException("Invalid trend criteria."));
+
+        mockMvc.perform(get(ENDPOINT)
+                        .param("from", FROM.toString())
+                        .param("to", TO.toString())
+                        .param("category", category))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").isNotEmpty());
+    }
+
+    @Test
     @DisplayName("malformed ISO date is rejected by Spring binding")
     void malformedDateReturnsBadRequestWithoutCallingService() throws Exception {
         mockMvc.perform(get(ENDPOINT)
@@ -203,7 +239,7 @@ class AdminControllerTest {
         IllegalStateException internalFailure = new IllegalStateException(
                 "Consumer trend analytics are inconsistent"
         );
-        when(consumerTrendsService.generateTrends(null, null, null))
+        when(consumerTrendsService.generateTrends(null, null, null, null))
                 .thenThrow(internalFailure);
 
         ServletException thrown = assertThrows(
@@ -215,15 +251,36 @@ class AdminControllerTest {
     }
 
     private void stubValidationFailure(LocalDate from, LocalDate to, Integer limit) {
-        when(consumerTrendsService.generateTrends(from, to, limit))
+        when(consumerTrendsService.generateTrends(from, to, limit, null))
                 .thenThrow(new ConsumerTrendsValidationException("Invalid trend criteria."));
     }
 
     private static ConsumerTrendsResponse representativeResponse() {
         return new ConsumerTrendsResponse(
                 new TrendPeriod(FROM, TO, "Asia/Singapore"),
-                new TrendSummary(3, 1, 1, 1),
+                new ConsumerTrendsAppliedFilters("Snacks"),
+                new TrendSummary(
+                        3,
+                        1,
+                        1,
+                        1,
+                        2,
+                        new BigDecimal("0.43"),
+                        new PeakScanDay(FROM, 3)
+                ),
                 List.of(new DailyTrendPoint(FROM, 3, 1, 1, 1)),
+                List.of(new ProductScanTrend(
+                        1,
+                        "Snack A",
+                        2,
+                        new BigDecimal("66.67")
+                )),
+                List.of(new CategoryScanTrend(
+                        "Snacks",
+                        2,
+                        new BigDecimal("66.67")
+                )),
+                List.of(new RestrictionTrend("PEANUT", 2)),
                 List.of(new FlaggedIngredientTrend("MSG", 2)),
                 new ConsumerTrendsDataQuality(false, 0),
                 OffsetDateTime.parse("2026-08-08T09:15:30+08:00")
