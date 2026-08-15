@@ -65,7 +65,7 @@ jobs:
 
       - name: Run Semgrep
         run: |
-          docker run --rm -v "$(pwd):/src" returntocorp/semgrep semgrep --config=auto
+          docker run --rm -v "$(pwd):/src" semgrep/semgrep:1.173.0 semgrep --config=auto
 
   # 4. SCA (dependencies / lockfiles)
   sca-scan:
@@ -124,12 +124,26 @@ jobs:
           category: trivy-config
 
   # 6. BACKEND VERIFICATION
-  # Env names mirror server/backend/src/main/resources/application.properties.
-  # Configure matching repository/environment secrets in GitHub Settings.
+  # Tests use a job-local MySQL service, not production RDS secrets.
+  # Remaining env names mirror application.properties for Spring context tests.
   build-backend:
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: canmakan
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
     env:
       # Server
       SERVER_ADDRESS: ${{ secrets.SERVER_ADDRESS }}
@@ -151,13 +165,6 @@ jobs:
       CANMAKAN_EMAIL_RESEND_API_KEY: ${{ secrets.CANMAKAN_EMAIL_RESEND_API_KEY }}
       CANMAKAN_EMAIL_RESEND_FROM: ${{ secrets.CANMAKAN_EMAIL_RESEND_FROM }}
       CANMAKAN_EMAIL_RESEND_API_URL: ${{ secrets.CANMAKAN_EMAIL_RESEND_API_URL }}
-
-      # Datasource
-      MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
-      MYSQL_PORT: ${{ secrets.MYSQL_PORT }}
-      MYSQL_DB: ${{ secrets.MYSQL_DB }}
-      MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
-      MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
 
       # UC19 JWT / refresh
       JWT_ISSUER: ${{ secrets.JWT_ISSUER }}
@@ -208,9 +215,20 @@ jobs:
           java-version: '21'
           cache: 'maven'
 
-      - name: Build with Maven
+      - name: Test and package with Maven
         working-directory: server/backend
-        run: mvn -B clean package -DskipTests
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: 3306
+          MYSQL_DB: canmakan
+          MYSQL_USERNAME: root
+          MYSQL_PASSWORD: root
+          JWT_SIGNING_SECRET: dGVzdC1vbmx5LXNpZ25pbmcta2V5LTMyLWJ5dGVzISE=
+          CANMAKAN_AI_ENABLED: "false"
+          CANMAKAN_RECOMMENDATION_LLM_ENABLED: "false"
+          TAVILY_API_KEY: local-dev-placeholder
+          CANMAKAN_EMAIL_RESEND_ENABLED: "false"
+        run: mvn -B clean verify
 
   # 7. WEB VERIFICATION
   build-web:
@@ -233,6 +251,10 @@ jobs:
       - name: Install web dependencies
         working-directory: client/web
         run: npm ci
+
+      - name: Run web unit tests
+        working-directory: client/web
+        run: npm test
 
       - name: Build web app
         working-directory: client/web
@@ -272,11 +294,11 @@ jobs:
             echo "WEB_INVITE_BASE_URLS=${{ env.WEB_INVITE_BASE_URLS }}" >> client/mobile/local.properties
           fi
 
-      - name: Build mobile app
+      - name: Build and unit-test mobile app
         working-directory: client/mobile
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug testDebugUnitTest
 
   # 9. AGGREGATED STATUS GATE FOR BRANCH PROTECTION
   Build-Test:
