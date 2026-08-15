@@ -86,6 +86,7 @@ def suggested_tags(product: dict[str, Any]) -> list[str]:
     is_cereal = _is_breakfast_cereal(haystack)
     is_ice_cream = "ice cream" in haystack or "ice-cream" in haystack or "sorbet" in haystack
     is_flour = "flour" in haystack
+    is_wrap = any(token in haystack for token in ("wrap", "tortilla", "pita", "flatbread", "roti", "naan"))
 
     if gluten and (is_soy_sauce or is_sauce) and not is_ice_cream:
         suggestions.append("Gluten Free sauces")
@@ -94,7 +95,7 @@ def suggested_tags(product: dict[str, Any]) -> list[str]:
         suggestions.append("Gluten free bread")
     if gluten and is_cereal:
         suggestions.append("Gluten free Breakfast cereals")
-    if gluten and is_flour and not is_cereal and not is_bread:
+    if gluten and is_flour and not is_cereal and not is_bread and not is_wrap:
         suggestions.append("en:gluten-free-flour")
     if dairy_free and is_ice_cream:
         suggestions.append("ice-creams-and-sorbets")

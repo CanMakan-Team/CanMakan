@@ -529,6 +529,97 @@ class AlternativeCandidateFilterTest {
         assertTrue(filter.isAcceptableAlternative(rules, warning, oysterSauce));
     }
 
+    @Test
+    void rejectsDairySpreadForDairyIntoleranceEvenWhenVerdictIsSafe() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("DAIRY", RestrictionCategory.ALLERGEN, RestrictionSeverity.INTOLERANCE)
+        );
+        CatalogProduct spread = catalogProduct(
+                "8888010320453",
+                "Dairies",
+                "en:dairies",
+                null);
+        spread.setProductName("Luxury Spread");
+
+        assertFalse(filter.isAcceptableAlternative(
+                rules,
+                SafetyVerdict.safe("ok", List.of()),
+                spread));
+    }
+
+    @Test
+    void acceptsCashewButterForDairyIntoleranceEvenWhenNameContainsButter() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("DAIRY", RestrictionCategory.ALLERGEN, RestrictionSeverity.INTOLERANCE)
+        );
+        CatalogProduct cashewButter = catalogProduct(
+                "95539553",
+                "Nut butters",
+                "en:nut-butters,en:oilseed-purees",
+                null);
+        cashewButter.setProductName("Organic Cashew Butter");
+
+        assertFalse(AlternativeCandidateFilter.hasDairyCatalogSignals(cashewButter));
+        assertTrue(filter.isAcceptableAlternative(
+                rules,
+                SafetyVerdict.safe("ok", List.of()),
+                cashewButter));
+    }
+
+    @Test
+    void doesNotTreatPlantMilkWithMilkAllergenTagAsCowMilkCatalogProduct() {
+        CatalogProduct soyaMilk = catalogProduct(
+                "8888030019566",
+                "Soy-based drinks",
+                "en:milk-substitutes,en:soy-based-drinks,en:plant-based-milk-alternatives",
+                "en:milk,en:soybeans");
+        soyaMilk.setProductName("Hi-Calcium Fresh Soya Milk");
+
+        assertTrue(AlternativeCandidateFilter.isPlantMilkSubstituteCandidate(soyaMilk));
+        assertFalse(AlternativeCandidateFilter.isCowMilkCatalogProduct(soyaMilk));
+    }
+
+    @Test
+    void rejectsDairyMagnumAsIceCreamSubstitute() {
+        CatalogProduct magnum = catalogProduct(
+                "8712100857645",
+                "Ice cream bars coated with chocolate",
+                "en:ice-creams-and-sorbets,en:ice-cream-bars-coated-with-chocolate",
+                null);
+        magnum.setProductName("Magnum Glace Batonnet Mini Double Peanut Butter");
+        magnum.setIngredientsText("LAIT écrémé réhydraté, sucre, LAIT en poudre entier");
+        magnum.setLabelsTags("en:non-vegan");
+
+        assertFalse(AlternativeCandidateFilter.isIceCreamSubstitute(magnum));
+    }
+
+    @Test
+    void acceptsVeganSorbetAsIceCreamSubstitute() {
+        CatalogProduct acai = catalogProduct(
+                "0797776401178",
+                "Ice creams and sorbets",
+                "ice-creams-and-sorbets,en:ice-creams-and-sorbets",
+                null);
+        acai.setProductName("Acai berry");
+        acai.setIngredientsText("Acai pulp, coconut milk, bananas");
+        acai.setLabelsTags("en:vegan,en:vegetarian");
+
+        assertTrue(AlternativeCandidateFilter.isIceCreamSubstitute(acai));
+    }
+
+    @Test
+    void rejectsAlmondFlourWrapAsFlourSubstitute() {
+        CatalogProduct wrap = catalogProduct(
+                "8881300655204",
+                null,
+                "en:gluten-free-flour",
+                null);
+        wrap.setProductName("Gluten Free Vegan Almond Flour Tortilla Wraps");
+
+        assertFalse(AlternativeCandidateFilter.isFlourSubstitute(wrap));
+        assertFalse(AlternativeCandidateFilter.isGlutenFreeFlourSubstitute(wrap));
+    }
+
     private static CatalogProduct catalogProduct(
             String barcode,
             String category,

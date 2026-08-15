@@ -90,6 +90,7 @@ def main() -> None:
     pairs_path = Path(args.pairs)
     if pairs_path.is_file():
         pairs = json.loads(pairs_path.read_text(encoding="utf-8"))
+        failures = evaluate_pairs(products, pairs)
         if failures:
             print(f"\nlabeled pairs: {failures} diagnostic warning(s) (pre-filter cosine; rule engine still required)")
         else:

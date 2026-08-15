@@ -5,6 +5,7 @@ import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.RestrictionSeverity;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
@@ -25,11 +26,85 @@ import org.springframework.stereotype.Component;
  * WARNING sauce or soy-sauce substitutes that declare reduced or low salt in the
  * product name, labels, or category tags. Other profiles without intolerance rules stay SAFE-only.
  *
- * <p>Catalog hardening rejects obvious same-category triggers (cow milk for DAIRY,
- * wheat flour for GLUTEN) even when the rule engine returns SAFE.
+ * <p>Catalog hardening rejects obvious same-category triggers (cow milk, dairy spreads,
+ * dairy ice cream for DAIRY; wheat flour for GLUTEN) even when the rule engine returns SAFE.
  */
 @Component
 public class AlternativeCandidateFilter {
+
+    private static final List<String> DAIRY_FREE_LABEL_TAGS = List.of(
+            "en:vegan",
+            "en:without-addition-of-dairy-products"
+    );
+
+    private static final List<String> DAIRY_ICE_CREAM_SUBSTITUTE_TAGS = List.of(
+            "ice-creams-and-sorbets",
+            "en:ice-creams-and-sorbets"
+    );
+
+    private static final List<String> NON_VEGAN_LABEL_TAGS = List.of(
+            "en:non-vegan"
+    );
+
+    private static final List<String> NUT_OR_SEED_BUTTER_NAME_PHRASES = List.of(
+            "peanut butter",
+            "nut butter",
+            "seed butter",
+            "cashew butter",
+            "almond butter",
+            "hazelnut butter",
+            "cereal butter",
+            "tahini"
+    );
+
+    private static final List<String> DAIRY_SPREAD_OR_FAT_NAME_PHRASES = List.of(
+            "spread",
+            "butter",
+            "margarine",
+            "ghee",
+            "cream cheese",
+            "sour cream",
+            "whipped cream",
+            "condensed milk",
+            "evaporated milk"
+    );
+
+    private static final List<String> PLANT_MILK_NAME_PHRASES = List.of(
+            "soy milk",
+            "soya milk",
+            "almond milk",
+            "oat milk",
+            "coconut milk",
+            "rice milk",
+            "cashew milk",
+            "plant milk",
+            "nut milk"
+    );
+
+    private static final List<String> COW_DAIRY_INGREDIENT_PHRASES = List.of(
+            "skim milk",
+            "skimmed milk",
+            "whole milk",
+            "milk powder",
+            "milk solids",
+            "buttermilk",
+            "whey",
+            "lactose",
+            "butteroil",
+            "butter oil",
+            "reconstituted milk",
+            "lait",
+            "beurre"
+    );
+
+    private static final List<String> WRAP_OR_FLATBREAD_NAME_PHRASES = List.of(
+            "wrap",
+            "tortilla",
+            "pita",
+            "flatbread",
+            "roti",
+            "naan"
+    );
 
     private static final Set<String> DAIRY_MILK_CATEGORIES = Set.of(
             "Fresh milks",
@@ -88,8 +163,7 @@ public class AlternativeCandidateFilter {
             "en:brown-rice-flour",
             "en:buckwheat-flour",
             "en:amaranth-flour",
-            "en:oat-flour",
-            "en:flours"
+            "en:oat-flour"
     );
 
     private static final Set<String> PEANUT_BUTTER_CATEGORIES = Set.of(
@@ -199,7 +273,7 @@ public class AlternativeCandidateFilter {
     private static boolean violatesCatalogSignals(
             List<RestrictionRule> rules,
             CatalogProduct candidate) {
-        if (hasDairyIntoleranceRule(rules) && isCowMilkCatalogProduct(candidate)) {
+        if (hasDairyIntoleranceRule(rules) && hasDairyCatalogSignals(candidate)) {
             return true;
         }
         if (hasGlutenAvoidanceRule(rules) && isWheatFlourCatalogProduct(candidate)) {
@@ -209,6 +283,9 @@ public class AlternativeCandidateFilter {
     }
 
     static boolean isCowMilkCatalogProduct(CatalogProduct candidate) {
+        if (isPlantMilkSubstituteCandidate(candidate)) {
+            return false;
+        }
         if (candidate.getMainCategoryEn() != null
                 && DAIRY_MILK_CATEGORIES.contains(candidate.getMainCategoryEn())) {
             return true;
@@ -219,6 +296,29 @@ public class AlternativeCandidateFilter {
         }
         return CategoryTagParser.containsTag(candidate.getAllergens(), "en:milk")
                 || CategoryTagParser.containsTag(candidate.getTracesTags(), "en:milk");
+    }
+
+    /**
+     * Plant-based milk alternatives share OFF tags with cow milk and may even
+     * declare {@code en:milk} traces; they must not be catalog-hardened as cow milk.
+     */
+    static boolean isPlantMilkSubstituteCandidate(CatalogProduct candidate) {
+        if (candidate == null) {
+            return false;
+        }
+        if (isPlantMilkProductName(candidate.getProductName())) {
+            return true;
+        }
+        Set<String> categoryTags = CategoryTagParser.parseTags(candidate.getCategoryTags());
+        return categoryTags.contains("en:plant-based-milk-alternatives")
+                || CategoryTagParser.containsAny(categoryTags, List.of(
+                        "en:milk-substitutes",
+                        "en:soy-based-drinks",
+                        "en:oat-based-drinks",
+                        "en:almond-based-drinks",
+                        "en:legume-based-drinks",
+                        "en:cereal-based-drinks",
+                        "en:unsweetened-plain-soy-based-drinks"));
     }
 
     static boolean isWheatFlourCatalogProduct(CatalogProduct candidate) {
@@ -234,7 +334,7 @@ public class AlternativeCandidateFilter {
     }
 
     static boolean isGlutenFreeFlourSubstitute(CatalogProduct candidate) {
-        if (candidate == null) {
+        if (candidate == null || isWrapOrFlatbreadProduct(candidate)) {
             return false;
         }
         Set<String> categoryTags = CategoryTagParser.parseTags(candidate.getCategoryTags());
@@ -242,7 +342,7 @@ public class AlternativeCandidateFilter {
     }
 
     static boolean isFlourSubstitute(CatalogProduct candidate) {
-        if (candidate == null) {
+        if (candidate == null || isWrapOrFlatbreadProduct(candidate)) {
             return false;
         }
         Set<String> categoryTags = CategoryTagParser.parseTags(candidate.getCategoryTags());
@@ -250,7 +350,27 @@ public class AlternativeCandidateFilter {
             return true;
         }
         String name = candidate.getProductName();
-        return name != null && name.toLowerCase().contains("flour");
+        return name != null
+                && name.toLowerCase(Locale.ROOT).contains("flour")
+                && !isWrapOrFlatbreadName(name);
+    }
+
+    static boolean isWrapOrFlatbreadProduct(CatalogProduct candidate) {
+        if (candidate == null) {
+            return false;
+        }
+        String haystack = joinLower(
+                candidate.getProductName(),
+                candidate.getMainCategoryEn(),
+                candidate.getCategoryTags());
+        return containsAnyPhrase(haystack, WRAP_OR_FLATBREAD_NAME_PHRASES);
+    }
+
+    private static boolean isWrapOrFlatbreadName(String productName) {
+        if (productName == null || productName.isBlank()) {
+            return false;
+        }
+        return containsAnyPhrase(productName.toLowerCase(Locale.ROOT), WRAP_OR_FLATBREAD_NAME_PHRASES);
     }
 
     static boolean isPeanutButterCatalogProduct(CatalogProduct candidate) {
@@ -377,10 +497,115 @@ public class AlternativeCandidateFilter {
     }
 
     static boolean isIceCreamSubstitute(CatalogProduct candidate) {
+        if (candidate == null || !isFrozenDessertCandidate(candidate)) {
+            return false;
+        }
+        return isDairyFreeFrozenDessert(candidate);
+    }
+
+    static boolean hasDairyCatalogSignals(CatalogProduct candidate) {
         if (candidate == null) {
             return false;
         }
+        if (isCowMilkCatalogProduct(candidate)) {
+            return true;
+        }
+        if (isDairySpreadOrFatProduct(candidate)) {
+            return true;
+        }
+        return SubstituteDiscoveryProfiles.isIceCreamSource(candidate)
+                && !isDairyFreeFrozenDessert(candidate);
+    }
+
+    static boolean isDairyFreeFrozenDessert(CatalogProduct candidate) {
+        if (candidate == null || hasDeclaredMilkAllergenOrTrace(candidate)) {
+            return false;
+        }
+        Set<String> labelTags = CategoryTagParser.parseTags(candidate.getLabelsTags());
+        if (CategoryTagParser.containsAny(labelTags, DAIRY_FREE_LABEL_TAGS)) {
+            return true;
+        }
+        if (CategoryTagParser.containsAny(labelTags, NON_VEGAN_LABEL_TAGS)) {
+            return false;
+        }
+        if (containsCowDairyIngredientHaystack(candidate)) {
+            return false;
+        }
+        String haystack = joinLower(candidate.getProductName(), candidate.getIngredientsText());
+        return haystack.contains("sorbet")
+                || haystack.contains("popsicle")
+                || haystack.contains("water ice")
+                || haystack.contains("coconut");
+    }
+
+    private static boolean isFrozenDessertCandidate(CatalogProduct candidate) {
+        Set<String> categoryTags = CategoryTagParser.parseTags(candidate.getCategoryTags());
+        if (CategoryTagParser.containsAny(categoryTags, DAIRY_ICE_CREAM_SUBSTITUTE_TAGS)) {
+            return true;
+        }
         return SubstituteDiscoveryProfiles.isIceCreamSource(candidate);
+    }
+
+    private static boolean isDairySpreadOrFatProduct(CatalogProduct candidate) {
+        if (isPlantMilkProductName(candidate.getProductName())) {
+            return false;
+        }
+        String nameHaystack = joinLower(candidate.getProductName());
+        if (containsAnyPhrase(nameHaystack, NUT_OR_SEED_BUTTER_NAME_PHRASES)) {
+            return false;
+        }
+        Set<String> categoryTags = CategoryTagParser.parseTags(candidate.getCategoryTags());
+        if (CategoryTagParser.containsAny(categoryTags, PEANUT_BUTTER_SUBSTITUTE_TAGS)) {
+            return false;
+        }
+        String haystack = joinLower(
+                candidate.getProductName(),
+                candidate.getMainCategoryEn(),
+                candidate.getCategoryTags());
+        return containsAnyPhrase(haystack, DAIRY_SPREAD_OR_FAT_NAME_PHRASES);
+    }
+
+    private static boolean hasDeclaredMilkAllergenOrTrace(CatalogProduct candidate) {
+        return CategoryTagParser.containsTag(candidate.getAllergens(), "en:milk")
+                || CategoryTagParser.containsTag(candidate.getTracesTags(), "en:milk");
+    }
+
+    private static boolean containsCowDairyIngredientHaystack(CatalogProduct candidate) {
+        if (isPlantMilkProductName(candidate.getProductName())) {
+            return false;
+        }
+        String haystack = joinLower(
+                candidate.getProductName(),
+                candidate.getIngredientsText(),
+                candidate.getCategoryTags());
+        if (containsAnyPhrase(haystack, PLANT_MILK_NAME_PHRASES)) {
+            haystack = haystack.replace("coconut milk", " ");
+        }
+        if (haystack.contains("en:milk")) {
+            return true;
+        }
+        return containsAnyPhrase(haystack, COW_DAIRY_INGREDIENT_PHRASES)
+                || haystack.matches(".*\\bmilk\\b.*");
+    }
+
+    private static boolean isPlantMilkProductName(String productName) {
+        if (productName == null || productName.isBlank()) {
+            return false;
+        }
+        String name = productName.toLowerCase(Locale.ROOT);
+        return containsAnyPhrase(name, PLANT_MILK_NAME_PHRASES);
+    }
+
+    private static boolean containsAnyPhrase(String haystack, List<String> phrases) {
+        if (haystack == null || haystack.isBlank()) {
+            return false;
+        }
+        for (String phrase : phrases) {
+            if (haystack.contains(phrase)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean hasRestrictionFinding(SafetyVerdict verdict, String restrictionCode) {
