@@ -37,6 +37,9 @@ def normalize_tags(raw: str | None) -> str:
 
 
 def product_document(product: dict[str, Any]) -> str:
+    """Build a TF-IDF document. Ingredients are omitted: placeholders copy
+    main_category_en and sparse OFF rows would pollute the vocabulary.
+    """
     parts = [
         product.get("product_name") or "",
         product.get("brand") or "",

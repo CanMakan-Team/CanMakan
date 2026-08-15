@@ -39,6 +39,9 @@ class MlContentBasedRanker {
     private static final double MAX_SUGAR_RANGE_G = 50.0;
     private static final double MAX_SODIUM_RANGE_G = 3.0;
     private static final double MAX_SCORE = 0.99;
+    private static final double DOMAIN_BOOST = 0.03;
+    private static final double NUT_BUTTER_EXTRA_BOOST = 0.02;
+    private static final double COOKING_PENALTY = 0.10;
 
     private final ProductFeatureEncoder featureEncoder;
 
@@ -51,8 +54,17 @@ class MlContentBasedRanker {
             List<CatalogProduct> safeCandidates,
             List<RestrictionRule> rules,
             Set<String> priorSafeBarcodes) {
+        return rank(source, safeCandidates, rules, priorSafeBarcodes, null);
+    }
 
-        Map<String, Double> sourceVector = featureEncoder.encode(source);
+    List<AlternativeProductRanker.RankedAlternative> rank(
+            CatalogProduct source,
+            List<CatalogProduct> safeCandidates,
+            List<RestrictionRule> rules,
+            Set<String> priorSafeBarcodes,
+            SubstituteDiscoveryProfile substituteProfile) {
+
+        Map<String, Double> sourceVector = featureEncoder.encodeQuery(source);
         boolean prefersLowSugar = prefersLowSugar(rules);
         boolean nutritionAvailable = hasNutritionPair(source);
 
@@ -66,6 +78,7 @@ class MlContentBasedRanker {
             } else if (prefersLowSugar && featureEncoder.isUnsweetened(candidate)) {
                 score += LOW_SUGAR_BOOST;
             }
+            score += domainAdjustment(candidate, substituteProfile);
             if (priorSafeBarcodes.contains(candidate.getBarcode())) {
                 score += PRIOR_SAFE_BOOST;
             }
@@ -129,5 +142,27 @@ class MlContentBasedRanker {
             return "ml_unsweetened_substitute";
         }
         return "ml_similarity";
+    }
+
+    private static double domainAdjustment(
+            CatalogProduct candidate,
+            SubstituteDiscoveryProfile profile) {
+        if (profile == null || candidate == null) {
+            return 0.0;
+        }
+        Set<String> tags = CategoryTagParser.parseTags(candidate.getCategoryTags());
+        double adjustment = 0.0;
+        if (CategoryTagParser.containsAny(tags, profile.beverageTags())) {
+            adjustment += DOMAIN_BOOST;
+        }
+        if (profile.includeTags() != null
+                && CategoryTagParser.containsAny(Set.copyOf(profile.includeTags()), List.of("en:nut-butters"))
+                && CategoryTagParser.containsAny(tags, List.of("en:nut-butters"))) {
+            adjustment += NUT_BUTTER_EXTRA_BOOST;
+        }
+        if (CategoryTagParser.containsAny(tags, profile.deprioritizeTags())) {
+            adjustment -= COOKING_PENALTY;
+        }
+        return adjustment;
     }
 }

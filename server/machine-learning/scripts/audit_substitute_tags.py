@@ -89,7 +89,8 @@ def suggested_tags(product: dict[str, Any]) -> list[str]:
 
     if gluten and (is_soy_sauce or is_sauce) and not is_ice_cream:
         suggestions.append("Gluten Free sauces")
-    if gluten and is_bread:
+    # Breakfast cereal must not receive bread substitute tags (oat mis-tags).
+    if gluten and is_bread and not is_cereal:
         suggestions.append("Gluten free bread")
     if gluten and is_cereal:
         suggestions.append("Gluten free Breakfast cereals")

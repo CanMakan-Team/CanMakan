@@ -36,7 +36,6 @@ public class RecommendationService {
     private final ScanRepository scanRepository;
     private final MlSparseCatalogRecommender mlSparseCatalogRecommender;
     private final MlContentBasedRanker mlContentBasedRanker;
-    private final LlmRecommendationDiscoveryService llmRecommendationDiscoveryService;
 
     @Value("${canmakan.recommendation.ml.enabled:true}")
     private boolean mlRecommendationEnabled;
@@ -110,23 +109,13 @@ public class RecommendationService {
 	        }
 	    }
 
-	    if (acceptableCandidates.isEmpty() && llmRecommendationDiscoveryService.isEnabled()) {
-	        List<CatalogProduct> llmCandidates =
-	                llmRecommendationDiscoveryService.discoverCandidates(request, source, rules);
-	        acceptableCandidates = filterAcceptable(llmCandidates, rules, substituteProfile);
-	        if (!acceptableCandidates.isEmpty()) {
-	            provenance = MatchProvenance.LLM_DISCOVERY;
-	            discoveryTier = RecommendationDiscoveryTier.TIER_B_LLM_DISCOVERY;
-	        }
-	    }
-
 	    if (acceptableCandidates.isEmpty()) {
 	        return AlternativeProductResponse.empty(source.getBarcode());
 	    }
 
 	    acceptableCandidates = dedupeCandidates(acceptableCandidates, source.getBarcode());
 
-	    // --- step 5: rank ---
+	    // --- step 5: rank (heuristic when ML off; hybrid cosine + domain boosts when ML on) ---
 	    Set<String> priorSafe = loadPriorSafeBarcodes(request.profileId());
 	    List<AlternativeProductRanker.RankedAlternative> ranked = rankCandidates(
 	            source,
@@ -135,9 +124,6 @@ public class RecommendationService {
 	            priorSafe,
 	            provenance,
 	            substituteProfile);
-	    if (shouldUseMlRanking(source, provenance)) {
-	        discoveryTier = RecommendationDiscoveryTier.TIER_C_ML_SPARSE;
-	    }
 
 	    // --- step 6: take top N ---
 	    List<AlternativeProductRanker.RankedAlternative> top = ranked.stream()
@@ -159,24 +145,14 @@ public class RecommendationService {
 	        MatchProvenance provenance,
 	        SubstituteDiscoveryProfile substituteProfile) {
 
-	    if (shouldUseMlRanking(source, provenance)) {
-	        return mlContentBasedRanker.rank(source, acceptableCandidates, rules, priorSafe);
-	    }
-	    if (provenance == MatchProvenance.LLM_DISCOVERY) {
-	        return ranker.rankSameCategory(acceptableCandidates, priorSafe);
+	    if (mlRecommendationEnabled) {
+	        return mlContentBasedRanker.rank(
+	                source, acceptableCandidates, rules, priorSafe, substituteProfile);
 	    }
 	    if (provenance == MatchProvenance.SUBSTITUTE_TAG) {
 	        return ranker.rankSubstituteTags(acceptableCandidates, priorSafe, substituteProfile);
 	    }
 	    return ranker.rankSameCategory(acceptableCandidates, priorSafe);
-	}
-
-	private boolean shouldUseMlRanking(CatalogProduct source, MatchProvenance provenance) {
-	    if (!mlRecommendationEnabled || provenance == MatchProvenance.LLM_DISCOVERY) {
-	        return false;
-	    }
-	    return provenance == MatchProvenance.ML_SIMILARITY
-	            || mlSparseCatalogRecommender.isSparseSource(source);
 	}
 
 	private List<CatalogProduct> filterAcceptable(

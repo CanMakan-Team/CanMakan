@@ -1,6 +1,7 @@
 package com.canmakan.backend.product.recommendation;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,8 +9,8 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
- * Tier C discovery: expand the candidate pool using inferred tags, labels,
- * and sibling categories. Used when Tier A returns fewer than five SAFE items.
+ * Tier C discovery: expand the candidate pool inside a curated use-type slice,
+ * then keep the top cosine neighbors. Never searches the whole catalog.
  */
 @Service
 class MlSparseCatalogRecommender {
@@ -18,12 +19,15 @@ class MlSparseCatalogRecommender {
 
     private final AlternativeProductQueryService queryService;
     private final ProductFeatureEncoder featureEncoder;
+    private final SubstituteDiscoveryProfiles discoveryProfiles;
 
     MlSparseCatalogRecommender(
             AlternativeProductQueryService queryService,
-            ProductFeatureEncoder featureEncoder) {
+            ProductFeatureEncoder featureEncoder,
+            SubstituteDiscoveryProfiles discoveryProfiles) {
         this.queryService = queryService;
         this.featureEncoder = featureEncoder;
+        this.discoveryProfiles = discoveryProfiles;
     }
 
     boolean isSparseSource(CatalogProduct source) {
@@ -41,10 +45,11 @@ class MlSparseCatalogRecommender {
             SubstituteDiscoveryProfile substituteProfile,
             Set<String> alreadyFoundBarcodes) {
 
-        boolean flourSubstituteDiscovery = isFlourSubstituteDiscovery(substituteProfile);
-        boolean breadSubstituteDiscovery = isBreadSubstituteDiscovery(substituteProfile);
-        boolean breakfastCerealSubstituteDiscovery = isBreakfastCerealSubstituteDiscovery(substituteProfile);
-        boolean peanutSubstituteDiscovery = isPeanutSubstituteDiscovery(substituteProfile);
+        boolean flourSubstituteDiscovery = discoveryProfiles.isFlourSubstituteDiscovery(substituteProfile);
+        boolean breadSubstituteDiscovery = discoveryProfiles.isBreadSubstituteDiscovery(substituteProfile);
+        boolean breakfastCerealSubstituteDiscovery =
+                discoveryProfiles.isBreakfastCerealSubstituteDiscovery(substituteProfile);
+        boolean peanutSubstituteDiscovery = discoveryProfiles.isPeanutSpreadSubstituteDiscovery(substituteProfile);
         boolean narrowSubstituteDiscovery = flourSubstituteDiscovery
                 || breadSubstituteDiscovery
                 || breakfastCerealSubstituteDiscovery
@@ -107,35 +112,17 @@ class MlSparseCatalogRecommender {
                 continue;
             }
             additional.putIfAbsent(candidate.getBarcode(), candidate);
-            if (additional.size() >= MAX_CANDIDATES) {
-                break;
-            }
         }
 
-        return new ArrayList<>(additional.values());
-    }
-
-    private static boolean isFlourSubstituteDiscovery(SubstituteDiscoveryProfile profile) {
-        return profile != null
-                && profile.includeTags() != null
-                && profile.includeTags().contains("en:gluten-free-flour");
-    }
-
-    private static boolean isBreadSubstituteDiscovery(SubstituteDiscoveryProfile profile) {
-        return profile != null
-                && profile.includeTags() != null
-                && profile.includeTags().contains("Gluten free bread");
-    }
-
-    private static boolean isBreakfastCerealSubstituteDiscovery(SubstituteDiscoveryProfile profile) {
-        return profile != null
-                && profile.includeTags() != null
-                && profile.includeTags().contains("Gluten free Breakfast cereals");
-    }
-
-    private static boolean isPeanutSubstituteDiscovery(SubstituteDiscoveryProfile profile) {
-        return profile != null
-                && profile.includeTags() != null
-                && profile.includeTags().contains("en:nut-butters");
+        List<CatalogProduct> slice = new ArrayList<>(additional.values());
+        Map<String, Double> sourceVector = featureEncoder.encodeQuery(source);
+        slice.sort(Comparator.comparingDouble(
+                (CatalogProduct candidate) -> CosineSimilarity.between(
+                        sourceVector, featureEncoder.encode(candidate)))
+                .reversed());
+        if (slice.size() > MAX_CANDIDATES) {
+            return new ArrayList<>(slice.subList(0, MAX_CANDIDATES));
+        }
+        return slice;
     }
 }
