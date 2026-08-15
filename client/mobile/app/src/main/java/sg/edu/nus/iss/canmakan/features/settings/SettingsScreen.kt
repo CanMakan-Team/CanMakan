@@ -1,5 +1,11 @@
 package sg.edu.nus.iss.canmakan.features.settings
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,6 +22,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -28,9 +35,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
@@ -51,15 +60,22 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     onScanClick: () -> Unit,
     onHistoryClick: () -> Unit,
+    notificationsEnabled: Boolean,
+    onNotificationsEnabledChanged: (Boolean) -> Unit,
+    notificationsEnabledError: String? = null,
     onConfirmDeleteAccount: () -> Unit
 ) {
-    // Holds whether notifications are currently allowed. In a full
-    // implementation this would be loaded from and saved to a settings
-    // repository instead of starting as a fixed default.
-    var notificationsEnabled by remember { mutableStateOf(true) }
-
     // Controls whether the delete confirmation dialog is visible.
     var showDeleteDialog by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    // Requests the OS permission to post system notifications, required from API 33
+    // onward. The toggle is saved either way -- SystemNotifier re-checks this permission
+    // before every post, so a grant made later from Android's own app settings takes
+    // effect without the user needing to flip this switch again.
+    val requestPostNotificationsPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* Result intentionally ignored; see comment above. */ }
 
     Scaffold(
         topBar = {
@@ -124,10 +140,24 @@ fun SettingsScreen(
                 )
                 Switch(
                     checked = notificationsEnabled,
-                    onCheckedChange = { notificationsEnabled = it },
+                    onCheckedChange = { enabled ->
+                        if (enabled && !hasPostNotificationsPermission(context)) {
+                            requestPostNotificationsPermission.launch(
+                                Manifest.permission.POST_NOTIFICATIONS,
+                            )
+                        }
+                        onNotificationsEnabledChanged(enabled)
+                    },
                     colors = SwitchDefaults.colors(
                         checkedTrackColor = PrimaryGreen
                     )
+                )
+            }
+            if (notificationsEnabledError != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = notificationsEnabledError,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
 
@@ -174,4 +204,14 @@ fun SettingsScreen(
             }
         )
     }
+}
+
+// The POST_NOTIFICATIONS permission only exists from API 33 onward; earlier versions
+// show notifications for any app that posts them, so there is nothing to check.
+private fun hasPostNotificationsPermission(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+    return ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.POST_NOTIFICATIONS,
+    ) == PackageManager.PERMISSION_GRANTED
 }

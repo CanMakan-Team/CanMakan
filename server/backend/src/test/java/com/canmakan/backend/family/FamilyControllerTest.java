@@ -18,6 +18,7 @@ import com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto;
 import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
 import com.canmakan.backend.family.dto.FamilyMeResponse;
+import com.canmakan.backend.family.dto.NotificationPreferenceResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyExceptionHandler;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
@@ -316,6 +317,43 @@ class FamilyControllerTest {
                 .content("{\"profileId\":88}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.profileId").value(88));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/me/preferences/notifications returns 200")
+    void getNotificationPreferenceOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.getNotificationPreference(10L))
+            .thenReturn(new NotificationPreferenceResponse(true));
+
+        mockMvc.perform(get("/api/families/me/preferences/notifications"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.notificationsEnabled").value(true));
+    }
+
+    @Test
+    @DisplayName("PUT /api/families/me/preferences/notifications returns 200")
+    void setNotificationPreferenceOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.setNotificationPreference(eq(10L), eq(false)))
+            .thenReturn(new NotificationPreferenceResponse(false));
+
+        mockMvc.perform(put("/api/families/me/preferences/notifications")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"notificationsEnabled\":false}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.notificationsEnabled").value(false));
+    }
+
+    @Test
+    @DisplayName("PUT /api/families/me/preferences/notifications rejects a missing body field")
+    void setNotificationPreferenceRejectsMissingField() throws Exception {
+        authenticateAs(10L);
+
+        mockMvc.perform(put("/api/families/me/preferences/notifications")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isBadRequest());
     }
 
     @Test

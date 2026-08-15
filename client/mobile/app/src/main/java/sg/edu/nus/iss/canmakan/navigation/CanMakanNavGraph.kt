@@ -102,6 +102,8 @@ fun CanMakanNavGraph(
     val switchProfileError by navGraphViewModel.switchProfileError.collectAsStateWithLifecycle()
     val isSwitchingProfile by navGraphViewModel.isSwitchingProfile.collectAsStateWithLifecycle()
     val hasUnreadNotifications by navGraphViewModel.hasUnreadNotifications.collectAsStateWithLifecycle()
+    val notificationsEnabled by navGraphViewModel.notificationsEnabled.collectAsStateWithLifecycle()
+    val notificationsEnabledError by navGraphViewModel.notificationsEnabledError.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -484,6 +486,9 @@ fun CanMakanNavGraph(
                     onBackClick = { navController.popBackStack() },
                     onScanClick = { navController.navigate(ROUTE_SCANNER) },
                     onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    notificationsEnabled = notificationsEnabled,
+                    onNotificationsEnabledChanged = navGraphViewModel::setNotificationsEnabled,
+                    notificationsEnabledError = notificationsEnabledError,
                     onConfirmDeleteAccount = {
                         // TODO: no backend endpoint exists yet to actually delete the
                         // account. Returning to the scanner rather than signing the
