@@ -6,8 +6,11 @@ title = "canmakan"
 useDefault = true
 
 [allowlist]
-description = "CI and unit-test JWT signing placeholder"
+description = "Test JWT placeholder; Firebase google-services.json client API key (restricted in GCP, expected in Android builds)"
 regexTarget = "secret"
 regexes = [
   '''dGVzdC1vbmx5LXNpZ25pbmcta2V5LTMyLWJ5dGVzISE=''',
+]
+paths = [
+  '''google-services\.json$''',
 ]
