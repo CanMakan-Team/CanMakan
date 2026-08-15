@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -11,12 +12,18 @@ import static org.mockito.Mockito.when;
 
 import com.canmakan.backend.analytics.dto.ConsumerTrendsDataQuality;
 import com.canmakan.backend.analytics.dto.ConsumerTrendsResponse;
+import com.canmakan.backend.analytics.dto.CategoryScanTrend;
 import com.canmakan.backend.analytics.dto.DailyTrendPoint;
 import com.canmakan.backend.analytics.dto.FlaggedIngredientTrend;
+import com.canmakan.backend.analytics.dto.PeakScanDay;
+import com.canmakan.backend.analytics.dto.ProductScanTrend;
+import com.canmakan.backend.analytics.dto.RestrictionTrend;
 import com.canmakan.backend.analytics.dto.TrendPeriod;
 import com.canmakan.backend.analytics.dto.TrendSummary;
 import com.canmakan.backend.analytics.exception.ConsumerTrendsValidationException;
 import com.canmakan.backend.analytics.repository.DailyScanTrendProjection;
+import com.canmakan.backend.analytics.repository.CategoryScanOverviewProjection;
+import com.canmakan.backend.analytics.repository.ProductScanRankingProjection;
 import com.canmakan.backend.analytics.repository.ScanAnalyticsRepository;
 import com.canmakan.backend.analytics.repository.ScanFindingProjection;
 import com.canmakan.backend.analytics.repository.ScanSummaryProjection;
@@ -24,6 +31,7 @@ import com.canmakan.backend.product.verdict.Finding;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.lang.reflect.RecordComponent;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -89,9 +97,11 @@ class ConsumerTrendsServiceTest {
 
         Instant expectedStart = Instant.parse("2026-07-10T16:00:00Z");
         Instant expectedEnd = Instant.parse("2026-08-09T16:00:00Z");
-        verify(repository).aggregateSummary(expectedStart, expectedEnd);
-        verify(repository).aggregateDailyTrend(expectedStart, expectedEnd);
-        verify(repository).findFindingRows(expectedStart, expectedEnd);
+        verify(repository).aggregateSummary(expectedStart, expectedEnd, null);
+        verify(repository).aggregateDailyTrend(expectedStart, expectedEnd, null);
+        verify(repository).findFindingRows(expectedStart, expectedEnd, null);
+        verify(repository).rankProducts(expectedStart, expectedEnd, null);
+        verify(repository).aggregateCategoryOverview(expectedStart, expectedEnd);
     }
 
     @Test
@@ -184,9 +194,9 @@ class ConsumerTrendsServiceTest {
 
         Instant expectedStart = Instant.parse("2026-07-31T16:00:00Z");
         Instant expectedExclusiveEnd = Instant.parse("2026-08-01T16:00:00Z");
-        verify(repository).aggregateSummary(expectedStart, expectedExclusiveEnd);
-        verify(repository).aggregateDailyTrend(expectedStart, expectedExclusiveEnd);
-        verify(repository).findFindingRows(expectedStart, expectedExclusiveEnd);
+        verify(repository).aggregateSummary(expectedStart, expectedExclusiveEnd, null);
+        verify(repository).aggregateDailyTrend(expectedStart, expectedExclusiveEnd, null);
+        verify(repository).findFindingRows(expectedStart, expectedExclusiveEnd, null);
     }
 
     @Test
@@ -200,7 +210,9 @@ class ConsumerTrendsServiceTest {
                 10
         );
 
-        assertThat(response.summary()).isEqualTo(new TrendSummary(0, 0, 0, 0));
+        assertThat(response.summary()).isEqualTo(new TrendSummary(
+                0, 0, 0, 0, 0, new BigDecimal("0.00"), null
+        ));
         assertThat(response.dailyTrend())
                 .containsExactly(
                         new DailyTrendPoint(TODAY.minusDays(2), 0, 0, 0, 0),
@@ -208,6 +220,9 @@ class ConsumerTrendsServiceTest {
                         new DailyTrendPoint(TODAY, 0, 0, 0, 0)
                 );
         assertThat(response.topFlaggedIngredients()).isEmpty();
+        assertThat(response.topRestrictions()).isEmpty();
+        assertThat(response.mostScannedProducts()).isEmpty();
+        assertThat(response.categoryOverview()).isEmpty();
         assertThat(response.dataQuality()).isEqualTo(new ConsumerTrendsDataQuality(false, 0));
     }
 
@@ -237,10 +252,148 @@ class ConsumerTrendsServiceTest {
     }
 
     @Test
+    @DisplayName("calculates unique products, a two-decimal average, and the latest tied peak")
+    void calculatesAddedSummaryMetrics() {
+        stubValidAnalytics(
+                summary(4, 2, 1, 1, 2),
+                List.of(
+                        daily(0, 2, 1, 1, 0),
+                        daily(2, 2, 1, 0, 1)
+                ),
+                List.of()
+        );
+
+        ConsumerTrendsResponse response = service.generateTrends(
+                TODAY.minusDays(2),
+                TODAY,
+                10
+        );
+
+        assertThat(response.summary().uniqueProducts()).isEqualTo(2);
+        assertThat(response.summary().averageScansPerDay()).isEqualByComparingTo("1.33");
+        assertThat(response.summary().peakScanDay()).isEqualTo(new PeakScanDay(TODAY, 2));
+    }
+
+    @Test
+    @DisplayName("normalizes and applies a category without filtering the category overview")
+    void appliesCategoryToFilteredAggregatesOnly() {
+        stubValidAnalytics(
+                summary(2, 1, 1, 0, 1),
+                List.of(daily(0, 2, 1, 1, 0)),
+                List.of(),
+                List.of(product("200", "Snack", 2)),
+                List.of(
+                        category("Snacks and food", 2),
+                        category("Uncategorised", 1),
+                        category("Drinks", 1)
+                )
+        );
+
+        ConsumerTrendsResponse response = service.generateTrends(
+                TODAY,
+                TODAY,
+                10,
+                "  Snacks   and food "
+        );
+
+        assertThat(response.appliedFilters().category()).isEqualTo("Snacks and food");
+        assertThat(response.categoryOverview()).containsExactly(
+                new CategoryScanTrend("Snacks and food", 2, new BigDecimal("50.00")),
+                new CategoryScanTrend("Drinks", 1, new BigDecimal("25.00")),
+                new CategoryScanTrend("Uncategorised", 1, new BigDecimal("25.00"))
+        );
+        verify(repository).aggregateSummary(any(), any(),
+                org.mockito.ArgumentMatchers.eq("Snacks and food"));
+        verify(repository).aggregateDailyTrend(any(), any(),
+                org.mockito.ArgumentMatchers.eq("Snacks and food"));
+        verify(repository).findFindingRows(any(), any(),
+                org.mockito.ArgumentMatchers.eq("Snacks and food"));
+        verify(repository).rankProducts(any(), any(),
+                org.mockito.ArgumentMatchers.eq("Snacks and food"));
+        verify(repository).aggregateCategoryOverview(any(), any());
+    }
+
+    @Test
+    @DisplayName("maps a blank selected category to Uncategorised")
+    void mapsBlankCategoryFilterToUncategorised() {
+        stubValidAnalytics(summary(0, 0, 0, 0), List.of(), List.of());
+
+        ConsumerTrendsResponse response = service.generateTrends(TODAY, TODAY, 10, "   ");
+
+        assertThat(response.appliedFilters().category()).isEqualTo("Uncategorised");
+        verify(repository).aggregateSummary(any(), any(),
+                org.mockito.ArgumentMatchers.eq("Uncategorised"));
+    }
+
+    @Test
+    @DisplayName("rejects a category longer than the verified database field")
+    void rejectsOversizedCategoryBeforeQuerying() {
+        assertThrows(
+                ConsumerTrendsValidationException.class,
+                () -> service.generateTrends(TODAY, TODAY, 10, "x".repeat(1001))
+        );
+
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    @DisplayName("ranks products by count then barcode and uses all filtered scans as denominator")
+    void buildsDeterministicProductRanking() {
+        stubValidAnalytics(
+                summary(5, 2, 2, 1, 2),
+                List.of(daily(0, 5, 2, 2, 1)),
+                List.of(),
+                List.of(
+                        product("200", "Second barcode", 2),
+                        product("100", "First barcode", 2)
+                ),
+                List.of()
+        );
+
+        ConsumerTrendsResponse response = service.generateTrends(TODAY, TODAY, 10);
+
+        assertThat(response.mostScannedProducts()).containsExactly(
+                new ProductScanTrend(1, "First barcode", 2, new BigDecimal("40.00")),
+                new ProductScanTrend(2, "Second barcode", 2, new BigDecimal("40.00"))
+        );
+    }
+
+    @Test
+    @DisplayName("counts each normalized restriction once per scan and excludes sentinels")
+    void aggregatesCanonicalRestrictionCodes() {
+        stubValidAnalytics(
+                summary(3, 0, 3, 0),
+                List.of(daily(0, 3, 0, 3, 0)),
+                List.of(
+                        findingRow(101L, findingsJson(List.of(
+                                new Finding("PEANUT", "Peanut", "match"),
+                                new Finding(" peanut ", "Peanut", "duplicate"),
+                                new Finding("INCOMPLETE_DATA", "unknown", "quality")
+                        ))),
+                        findingRow(102L, findingsJson(List.of(
+                                new Finding("dairy intolerance", "Milk", "match")
+                        ))),
+                        findingRow(103L, findingsJson(List.of(
+                                new Finding("PEANUT", "Peanut", "match")
+                        )))
+                )
+        );
+
+        ConsumerTrendsResponse response = service.generateTrends(TODAY, TODAY, 1);
+
+        assertThat(response.topRestrictions()).containsExactly(
+                new RestrictionTrend("PEANUT", 2),
+                new RestrictionTrend("DAIRY_INTOLERANCE", 1)
+        );
+        assertThat(response.topFlaggedIngredients()).hasSize(1);
+    }
+
+    @Test
     @DisplayName("rejects an inconsistent summary breakdown")
     void rejectsInconsistentSummary() {
         ScanSummaryProjection inconsistentSummary = summary(2, 1, 0, 0);
-        when(repository.aggregateSummary(any(), any())).thenReturn(inconsistentSummary);
+        when(repository.aggregateSummary(any(), any(), nullable(String.class)))
+                .thenReturn(inconsistentSummary);
 
         assertThrows(
                 IllegalStateException.class,
@@ -253,8 +406,9 @@ class ConsumerTrendsServiceTest {
     void rejectsInconsistentDailyBreakdown() {
         ScanSummaryProjection validSummary = summary(1, 0, 1, 0);
         DailyScanTrendProjection inconsistentDay = daily(0, 2, 0, 1, 0);
-        when(repository.aggregateSummary(any(), any())).thenReturn(validSummary);
-        when(repository.aggregateDailyTrend(any(), any()))
+        when(repository.aggregateSummary(any(), any(), nullable(String.class)))
+                .thenReturn(validSummary);
+        when(repository.aggregateDailyTrend(any(), any(), nullable(String.class)))
                 .thenReturn(List.of(inconsistentDay));
 
         assertThrows(
@@ -268,8 +422,9 @@ class ConsumerTrendsServiceTest {
     void rejectsDailyTotalMismatch() {
         ScanSummaryProjection validSummary = summary(2, 0, 2, 0);
         DailyScanTrendProjection incompleteDay = daily(0, 1, 0, 1, 0);
-        when(repository.aggregateSummary(any(), any())).thenReturn(validSummary);
-        when(repository.aggregateDailyTrend(any(), any()))
+        when(repository.aggregateSummary(any(), any(), nullable(String.class)))
+                .thenReturn(validSummary);
+        when(repository.aggregateDailyTrend(any(), any(), nullable(String.class)))
                 .thenReturn(List.of(incompleteDay));
 
         assertThrows(
@@ -285,8 +440,9 @@ class ConsumerTrendsServiceTest {
         DailyScanTrendProjection firstDay = daily(0, 1, 0, 1, 0);
         DailyScanTrendProjection duplicateDay = mock(DailyScanTrendProjection.class);
         when(duplicateDay.getDayOffset()).thenReturn(0L);
-        when(repository.aggregateSummary(any(), any())).thenReturn(validSummary);
-        when(repository.aggregateDailyTrend(any(), any())).thenReturn(List.of(
+        when(repository.aggregateSummary(any(), any(), nullable(String.class)))
+                .thenReturn(validSummary);
+        when(repository.aggregateDailyTrend(any(), any(), nullable(String.class))).thenReturn(List.of(
                 firstDay,
                 duplicateDay
         ));
@@ -303,8 +459,10 @@ class ConsumerTrendsServiceTest {
         ScanSummaryProjection validSummary = summary(0, 0, 0, 0);
         DailyScanTrendProjection outOfRangeDay = mock(DailyScanTrendProjection.class);
         when(outOfRangeDay.getDayOffset()).thenReturn(invalidOffset);
-        when(repository.aggregateSummary(any(), any())).thenReturn(validSummary);
-        when(repository.aggregateDailyTrend(any(), any())).thenReturn(List.of(outOfRangeDay));
+        when(repository.aggregateSummary(any(), any(), nullable(String.class)))
+                .thenReturn(validSummary);
+        when(repository.aggregateDailyTrend(any(), any(), nullable(String.class)))
+                .thenReturn(List.of(outOfRangeDay));
 
         assertThrows(
                 IllegalStateException.class,
@@ -406,7 +564,15 @@ class ConsumerTrendsServiceTest {
 
         ConsumerTrendsResponse response = service.generateTrends(TODAY, TODAY, 10);
 
-        assertThat(response.summary()).isEqualTo(new TrendSummary(4, 1, 2, 1));
+        assertThat(response.summary()).isEqualTo(new TrendSummary(
+                4,
+                1,
+                2,
+                1,
+                0,
+                new BigDecimal("4.00"),
+                new PeakScanDay(TODAY, 4)
+        ));
         assertThat(response.dailyTrend())
                 .containsExactly(new DailyTrendPoint(TODAY, 4, 1, 2, 1));
         assertThat(response.topFlaggedIngredients())
@@ -448,6 +614,10 @@ class ConsumerTrendsServiceTest {
                         TrendPeriod.class,
                         TrendSummary.class,
                         DailyTrendPoint.class,
+                        PeakScanDay.class,
+                        ProductScanTrend.class,
+                        CategoryScanTrend.class,
+                        RestrictionTrend.class,
                         FlaggedIngredientTrend.class,
                         ConsumerTrendsDataQuality.class
                 )
@@ -474,9 +644,21 @@ class ConsumerTrendsServiceTest {
             List<DailyScanTrendProjection> daily,
             List<ScanFindingProjection> findings
     ) {
-        when(repository.aggregateSummary(any(), any())).thenReturn(summary);
-        when(repository.aggregateDailyTrend(any(), any())).thenReturn(daily);
-        when(repository.findFindingRows(any(), any())).thenReturn(findings);
+        stubValidAnalytics(summary, daily, findings, List.of(), List.of());
+    }
+
+    private void stubValidAnalytics(
+            ScanSummaryProjection summary,
+            List<DailyScanTrendProjection> daily,
+            List<ScanFindingProjection> findings,
+            List<ProductScanRankingProjection> products,
+            List<CategoryScanOverviewProjection> categories
+    ) {
+        when(repository.aggregateSummary(any(), any(), nullable(String.class))).thenReturn(summary);
+        when(repository.aggregateDailyTrend(any(), any(), nullable(String.class))).thenReturn(daily);
+        when(repository.findFindingRows(any(), any(), nullable(String.class))).thenReturn(findings);
+        when(repository.rankProducts(any(), any(), nullable(String.class))).thenReturn(products);
+        when(repository.aggregateCategoryOverview(any(), any())).thenReturn(categories);
     }
 
     private static ScanSummaryProjection summary(
@@ -485,11 +667,41 @@ class ConsumerTrendsServiceTest {
             long warning,
             long unsafe
     ) {
+        return summary(total, safe, warning, unsafe, 0);
+    }
+
+    private static ScanSummaryProjection summary(
+            long total,
+            long safe,
+            long warning,
+            long unsafe,
+            long uniqueProducts
+    ) {
         ScanSummaryProjection projection = mock(ScanSummaryProjection.class);
         when(projection.getTotalScans()).thenReturn(total);
         when(projection.getSafeCount()).thenReturn(safe);
         when(projection.getWarningCount()).thenReturn(warning);
         when(projection.getUnsafeCount()).thenReturn(unsafe);
+        when(projection.getUniqueProducts()).thenReturn(uniqueProducts);
+        return projection;
+    }
+
+    private static ProductScanRankingProjection product(
+            String barcode,
+            String productName,
+            long scanCount
+    ) {
+        ProductScanRankingProjection projection = mock(ProductScanRankingProjection.class);
+        when(projection.getBarcode()).thenReturn(barcode);
+        when(projection.getProductName()).thenReturn(productName);
+        when(projection.getScanCount()).thenReturn(scanCount);
+        return projection;
+    }
+
+    private static CategoryScanOverviewProjection category(String name, long scanCount) {
+        CategoryScanOverviewProjection projection = mock(CategoryScanOverviewProjection.class);
+        when(projection.getCategory()).thenReturn(name);
+        when(projection.getScanCount()).thenReturn(scanCount);
         return projection;
     }
 
@@ -520,6 +732,14 @@ class ConsumerTrendsServiceTest {
         List<Finding> findings = Arrays.stream(ingredientNames)
                 .map(name -> new Finding("TEST", name, "test reason"))
                 .toList();
+        try {
+            return objectMapper.writeValueAsString(findings);
+        } catch (JsonProcessingException exception) {
+            throw new AssertionError("Test findings could not be serialized", exception);
+        }
+    }
+
+    private String findingsJson(List<Finding> findings) {
         try {
             return objectMapper.writeValueAsString(findings);
         } catch (JsonProcessingException exception) {
