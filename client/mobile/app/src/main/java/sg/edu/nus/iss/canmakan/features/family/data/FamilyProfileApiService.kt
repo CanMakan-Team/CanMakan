@@ -78,6 +78,14 @@ data class SetActiveProfileRequestBody(
     @SerializedName("profileId") val profileId: Long,
 )
 
+data class NotificationPreferenceResponse(
+    @SerializedName("notificationsEnabled") val notificationsEnabled: Boolean,
+)
+
+data class SetNotificationPreferenceRequestBody(
+    @SerializedName("notificationsEnabled") val notificationsEnabled: Boolean,
+)
+
 interface FamilyProfileApiService {
     @GET("families/me")
     suspend fun getMyFamily(): Response<FamilyMeResponse>
@@ -102,6 +110,16 @@ interface FamilyProfileApiService {
     suspend fun setActiveProfile(
         @Body request: SetActiveProfileRequestBody,
     ): Response<ActiveProfileResponse>
+
+    // Account-level preference, not family-scoped -- served by UserPreferenceController,
+    // not FamilyController, so the path doesn't follow the families/me/* convention above.
+    @GET("users/me/preferences/notifications")
+    suspend fun getNotificationPreference(): Response<NotificationPreferenceResponse>
+
+    @PUT("users/me/preferences/notifications")
+    suspend fun setNotificationPreference(
+        @Body request: SetNotificationPreferenceRequestBody,
+    ): Response<NotificationPreferenceResponse>
 
     @GET("families/me/restriction-summary")
     suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes>
