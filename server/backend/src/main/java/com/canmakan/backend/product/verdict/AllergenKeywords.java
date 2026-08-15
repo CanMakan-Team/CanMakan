@@ -5,6 +5,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Deterministic keyword fallback: maps an ingredient name to a root allergen when the catalog could
@@ -17,8 +18,9 @@ import java.util.regex.Pattern;
  * a nut keyword. The list is deliberately conservative - only near-unambiguous allergen words.
  *
  * <p>Dairy needs an extra guard: "milk" and "yoghurt" also appear in plant-based substitutes such as
- * "almond milk" or "soy yoghurt", which are not dairy. Those words map to DAIRY only when the name
- * carries no plant-source qualifier. Unambiguous dairy words (whey, lactose, casein, ghee) have no
+ * "almond milk" or "soy yoghurt", which are not dairy. Those words map to DAIRY unless immediately
+ * preceded by a plant-source qualifier, so "milk and soy sauce" or "milk chocolate with almonds"
+ * still correctly map to DAIRY. Unambiguous dairy words (whey, lactose, casein, ghee) have no
  * common plant version and always map to DAIRY.
  *
  * @author XieHuayuan
@@ -58,6 +60,20 @@ final class AllergenKeywords {
             "soy", "soya", "almond", "coconut", "rice", "cashew", "hazelnut",
             "macadamia", "hemp", "pea", "walnut", "flax", "quinoa", "plant");
 
+    // Cached compiled patterns so containsWord/matchRoot never recompile a regex per call.
+    private static final Map<String, Pattern> KEYWORD_ROOT_PATTERNS = KEYWORD_ROOTS.keySet().stream()
+            .collect(Collectors.toMap(word -> word, AllergenKeywords::wordPattern, (a, b) -> a, LinkedHashMap::new));
+
+    private static final Map<String, Pattern> QUALIFIABLE_DAIRY_PATTERNS = QUALIFIABLE_DAIRY_WORDS.stream()
+            .collect(Collectors.toMap(word -> word, AllergenKeywords::wordPattern));
+
+    // Matches a plant qualifier immediately preceding a dairy word (e.g. "almond milk", "soy yoghurt"),
+    // so "milk" in "milk and soy sauce" or "milk chocolate with almonds" is still treated as dairy.
+    private static final Map<String, Pattern> PLANT_QUALIFIED_DAIRY_PATTERNS = QUALIFIABLE_DAIRY_WORDS.stream()
+            .collect(Collectors.toMap(word -> word, dairyWord -> Pattern.compile(
+                    "\\b(" + PLANT_MILK_QUALIFIERS.stream().map(Pattern::quote)
+                            .collect(Collectors.joining("|")) + ")\\s+" + Pattern.quote(dairyWord) + "\\b")));
+
     /**
      * @param ingredientName the raw ingredient label
      * @return the matched root allergen code, or {@code null} when no keyword is present
@@ -69,26 +85,24 @@ final class AllergenKeywords {
         String name = ingredientName.toLowerCase(Locale.ROOT);
 
         for (Map.Entry<String, String> entry : KEYWORD_ROOTS.entrySet()) {
-            if (containsWord(name, entry.getKey())) {
+            if (KEYWORD_ROOT_PATTERNS.get(entry.getKey()).matcher(name).find()) {
                 return entry.getValue();
             }
         }
 
-        // "milk"/"yoghurt" indicate dairy only when the name has no plant-source qualifier, so
-        // "almond milk" and "soy yoghurt" are correctly left unmatched (not dairy) here.
-        boolean plantQualified = PLANT_MILK_QUALIFIERS.stream().anyMatch(q -> containsWord(name, q));
-        if (!plantQualified) {
-            for (String dairyWord : QUALIFIABLE_DAIRY_WORDS) {
-                if (containsWord(name, dairyWord)) {
-                    return DAIRY;
-                }
+        // "milk"/"yoghurt" indicate dairy unless immediately preceded by a plant-source qualifier,
+        // so "almond milk" and "soy yoghurt" are correctly left unmatched (not dairy) here, while
+        // "milk and soy sauce" or "milk chocolate with almonds" still resolve to dairy.
+        for (String dairyWord : QUALIFIABLE_DAIRY_WORDS) {
+            if (QUALIFIABLE_DAIRY_PATTERNS.get(dairyWord).matcher(name).find()
+                    && !PLANT_QUALIFIED_DAIRY_PATTERNS.get(dairyWord).matcher(name).find()) {
+                return DAIRY;
             }
         }
         return null;
     }
 
-    /** Whole-word, case-insensitive match, so "buttermilk" does not match the word "milk". */
-    private static boolean containsWord(String name, String word) {
-        return Pattern.compile("\\b" + Pattern.quote(word) + "\\b").matcher(name).find();
+    private static Pattern wordPattern(String word) {
+        return Pattern.compile("\\b" + Pattern.quote(word) + "\\b");
     }
 }
