@@ -201,7 +201,13 @@ public class ScanHistoryService {
                     && !matchedRules.contains(restrictionCode)) {
                 matchedRules.add(restrictionCode);
             }
-            addAllergenIfUseful(allergensFound, finding.ingredientName());
+            // Only real allergen matches belong in the Allergen list. Data-quality findings
+            // (unresolved ingredients, incomplete data, cross-contamination) carry a single
+            // ingredient name or a comma-joined list as their subject and must not be shown as
+            // allergens - otherwise unverified items leak into the Allergen section.
+            if (!isDataQualityCode(restrictionCode)) {
+                addAllergenIfUseful(allergensFound, finding.ingredientName());
+            }
         }
 
         return new ScanHistoryResponse.FindingsDto(matchedRules, allergensFound);
@@ -222,5 +228,21 @@ public class ScanHistoryService {
         if (!allergensFound.contains(trimmed)) {
             allergensFound.add(trimmed);
         }
+    }
+
+    /**
+     * Data-quality finding codes carry ingredient names that are not allergen matches: the grouped
+     * {@code UNRESOLVED} finding joins every unverified ingredient into one subject, while
+     * {@code CROSS_CONTAMINATION} and {@code INCOMPLETE_DATA} describe trace risk or missing data.
+     * These are excluded from the Allergen list. Mirrors the mobile app's isDataQualityCode check.
+     */
+    private static boolean isDataQualityCode(String restrictionCode) {
+        if (restrictionCode == null) {
+            return false;
+        }
+        String normalized = restrictionCode.trim().toUpperCase(Locale.ROOT);
+        return normalized.equals("UNRESOLVED")
+                || normalized.equals("INCOMPLETE_DATA")
+                || normalized.equals("CROSS_CONTAMINATION");
     }
 }

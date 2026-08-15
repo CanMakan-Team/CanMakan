@@ -29,6 +29,32 @@ class AllergenKeywordsTest {
     }
 
     @Test
+    @DisplayName("matches plain milk and unambiguous dairy words")
+    void matchesDairy() {
+        assertEquals("DAIRY", AllergenKeywords.matchRoot("Fresh Milk"));
+        assertEquals("DAIRY", AllergenKeywords.matchRoot("100% Fresh Milk"));
+        assertEquals("DAIRY", AllergenKeywords.matchRoot("Skimmed Milk Powder"));
+        assertEquals("DAIRY", AllergenKeywords.matchRoot("Milk Solids"));
+        assertEquals("DAIRY", AllergenKeywords.matchRoot("Whey Powder"));
+        assertEquals("DAIRY", AllergenKeywords.matchRoot("Lactose"));
+        assertEquals("DAIRY", AllergenKeywords.matchRoot("Sodium Caseinate"));
+        assertEquals("DAIRY", AllergenKeywords.matchRoot("Clarified Butter (Ghee)"));
+        assertEquals("DAIRY", AllergenKeywords.matchRoot("Greek Yoghurt"));
+    }
+
+    @Test
+    @DisplayName("plant-based milks and yoghurts are not treated as dairy")
+    void plantBasedSubstitutesAreNotDairy() {
+        assertNull(AllergenKeywords.matchRoot("Almond Milk"));
+        assertNull(AllergenKeywords.matchRoot("Soy Milk"));
+        assertNull(AllergenKeywords.matchRoot("Soya Milk"));
+        assertNull(AllergenKeywords.matchRoot("Coconut Milk"));
+        assertNull(AllergenKeywords.matchRoot("Rice Milk"));
+        assertNull(AllergenKeywords.matchRoot("Cashew Milk"));
+        assertNull(AllergenKeywords.matchRoot("Soy Yoghurt"));
+    }
+
+    @Test
     void doesNotMatchBenignOrLookalikeNames() {
         assertNull(AllergenKeywords.matchRoot("Purified Water"));
         assertNull(AllergenKeywords.matchRoot("Granulated Cane Sugar"));
