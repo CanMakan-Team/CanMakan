@@ -9,4 +9,6 @@ public interface ScanSummaryProjection {
     long getWarningCount();
 
     long getUnsafeCount();
+
+    long getUniqueProducts();
 }

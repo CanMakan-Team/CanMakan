@@ -2,26 +2,37 @@ package com.canmakan.backend.analytics.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.canmakan.backend.analytics.Uc7IsolatedDatabase;
 import com.canmakan.backend.analytics.dto.ConsumerTrendsDataQuality;
 import com.canmakan.backend.analytics.dto.ConsumerTrendsResponse;
 import com.canmakan.backend.analytics.dto.DailyTrendPoint;
+import com.canmakan.backend.analytics.dto.PeakScanDay;
 import com.canmakan.backend.analytics.dto.TrendSummary;
 import com.canmakan.backend.analytics.repository.ScanAnalyticsRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.TimeZone;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.ContextConfiguration;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+    Uc7IsolatedDatabase.DATASOURCE_URL_PROPERTY,
+    Uc7IsolatedDatabase.DISABLE_AUTOMATIC_SQL_INIT_PROPERTY,
+    Uc7IsolatedDatabase.DISABLE_HIBERNATE_DDL_PROPERTY
+})
 @Transactional
+@ContextConfiguration(initializers = Uc7IsolatedDatabase.class)
 @DisplayName("UC7: ConsumerTrendsService MySQL boundaries")
 class ConsumerTrendsServiceIntegrationTest {
 
@@ -37,6 +48,14 @@ class ConsumerTrendsServiceIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private DataSource dataSource;
+
+    @BeforeEach
+    void verifyIsolatedDatabase() {
+        Uc7IsolatedDatabase.assertConnectedToTestDatabase(dataSource);
+    }
 
     @Test
     @DisplayName("uses Singapore midnight instants through the real JDBC and MySQL path")
@@ -62,7 +81,15 @@ class ConsumerTrendsServiceIntegrationTest {
                     10
             );
 
-            assertThat(response.summary()).isEqualTo(new TrendSummary(2, 0, 1, 1));
+            assertThat(response.summary()).isEqualTo(new TrendSummary(
+                    2,
+                    0,
+                    1,
+                    1,
+                    0,
+                    new BigDecimal("2.00"),
+                    new PeakScanDay(REPORTING_DATE, 2)
+            ));
             assertThat(response.dailyTrend()).containsExactly(
                     new DailyTrendPoint(REPORTING_DATE, 2, 0, 1, 1)
             );

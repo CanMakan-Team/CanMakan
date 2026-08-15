@@ -3,25 +3,30 @@ package com.canmakan.backend.admin;
 import static com.canmakan.backend.shared.security.JwtTestTokenFactory.issueExpiredAccessToken;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.canmakan.backend.analytics.Uc7IsolatedDatabase;
 import com.canmakan.backend.product.verdict.Finding;
 import com.canmakan.backend.shared.security.JwtProperties;
 import com.canmakan.backend.shared.security.JwtService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,15 +39,20 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.test.context.ContextConfiguration;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "MYSQL_DB=canmakan_uc7_test"
+        properties = {
+            Uc7IsolatedDatabase.DATASOURCE_URL_PROPERTY,
+            Uc7IsolatedDatabase.DISABLE_AUTOMATIC_SQL_INIT_PROPERTY,
+            Uc7IsolatedDatabase.DISABLE_HIBERNATE_DDL_PROPERTY
+        }
 )
+@ContextConfiguration(initializers = Uc7IsolatedDatabase.class)
 @DisplayName("UC7: real consumer-trends HTTP runtime")
 class AdminConsumerTrendsRuntimeIntegrationTest {
 
-    private static final String TEST_DATABASE = "canmakan_uc7_test";
     private static final String ENDPOINT = "/api/admin/consumer-trends";
     private static final LocalDate FROM = LocalDate.of(2000, 1, 1);
     private static final LocalDate TO = LocalDate.of(2000, 1, 3);
@@ -62,6 +72,9 @@ class AdminConsumerTrendsRuntimeIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
+    private DataSource dataSource;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     @Autowired
@@ -72,12 +85,12 @@ class AdminConsumerTrendsRuntimeIntegrationTest {
 
     @BeforeEach
     void verifyIsolatedDatabase() {
-        assertThat(jdbcTemplate.queryForObject("SELECT DATABASE()", String.class))
-                .isEqualTo(TEST_DATABASE);
+        Uc7IsolatedDatabase.assertConnectedToTestDatabase(dataSource);
     }
 
     @AfterEach
     void removeFixtures() {
+        Uc7IsolatedDatabase.assertConnectedToTestDatabase(dataSource);
         for (Long scanId : insertedScanIds) {
             jdbcTemplate.update("DELETE FROM scans WHERE id = ?", scanId);
         }
@@ -201,6 +214,13 @@ class AdminConsumerTrendsRuntimeIntegrationTest {
         assertThat(json.at("/summary/safeCount").asLong()).isEqualTo(1);
         assertThat(json.at("/summary/warningCount").asLong()).isEqualTo(1);
         assertThat(json.at("/summary/unsafeCount").asLong()).isEqualTo(1);
+        assertThat(json.at("/summary/uniqueProducts").asLong()).isZero();
+        assertThat(json.path("mostScannedProducts")).isEmpty();
+        assertThat(json.path("categoryOverview")).singleElement().satisfies(category -> {
+            assertThat(category.path("category").asText()).isEqualTo("Uncategorised");
+            assertThat(category.path("scanCount").asLong()).isEqualTo(3);
+            assertThat(category.path("percentage").decimalValue()).isEqualByComparingTo("100.00");
+        });
 
         JsonNode dailyTrend = json.path("dailyTrend");
         assertThat(dailyTrend.size()).isEqualTo(3);
@@ -214,11 +234,54 @@ class AdminConsumerTrendsRuntimeIntegrationTest {
         assertThat(ingredients.get(0).path("flaggedCount").asLong()).isEqualTo(2);
         assertThat(ingredients.get(1).path("ingredientName").asText()).isEqualTo("Milk");
         assertThat(ingredients.get(1).path("flaggedCount").asLong()).isEqualTo(1);
+        assertThat(json.path("topRestrictions")).singleElement().satisfies(restriction -> {
+            assertThat(restriction.path("restrictionCode").asText()).isEqualTo("TEST");
+            assertThat(restriction.path("flaggedCount").asLong()).isEqualTo(2);
+        });
 
         assertThat(json.at("/dataQuality/partial").asBoolean()).isTrue();
         assertThat(json.at("/dataQuality/skippedMalformedFindings").asLong()).isEqualTo(1);
         assertThat(OffsetDateTime.parse(json.path("generatedAt").asText()).getOffset())
                 .isEqualTo(ZoneOffset.ofHours(8));
+        assertAggregateResponseContainsNoPrivateData(json);
+    }
+
+    @Test
+    @DisplayName("default and category requests retain one period-wide category overview")
+    void defaultAndCategoryRequestsReturnCompatibleAggregateContracts() throws Exception {
+        Long adminId = insertAccount("ADMIN", true);
+        String accessToken = jwtService.issueAccessToken(adminId);
+
+        HttpResponse<String> defaultResponse = get(ENDPOINT, accessToken);
+        assertThat(defaultResponse.statusCode()).isEqualTo(200);
+        JsonNode unfiltered = objectMapper.readTree(defaultResponse.body());
+        LocalDate defaultFrom = LocalDate.parse(unfiltered.at("/period/from").asText());
+        LocalDate defaultTo = LocalDate.parse(unfiltered.at("/period/to").asText());
+        assertThat(ChronoUnit.DAYS.between(defaultFrom, defaultTo)).isEqualTo(29);
+        assertThat(unfiltered.at("/period/timezone").asText()).isEqualTo("Asia/Singapore");
+        assertThat(unfiltered.at("/appliedFilters/category").isNull()).isTrue();
+        assertThat(unfiltered.path("categoryOverview")).isNotEmpty();
+        assertAggregateResponseContainsNoPrivateData(unfiltered);
+
+        String category = unfiltered.path("categoryOverview").get(0).path("category").asText();
+        String encodedCategory = URLEncoder.encode(category, StandardCharsets.UTF_8);
+        HttpResponse<String> categoryResponse = get(
+                ENDPOINT + "?category=" + encodedCategory,
+                accessToken
+        );
+
+        assertThat(categoryResponse.statusCode()).isEqualTo(200);
+        JsonNode filtered = objectMapper.readTree(categoryResponse.body());
+        assertThat(filtered.at("/appliedFilters/category").asText()).isEqualTo(category);
+        assertThat(filtered.path("period")).isEqualTo(unfiltered.path("period"));
+        assertThat(filtered.path("categoryOverview"))
+                .isEqualTo(unfiltered.path("categoryOverview"));
+        assertThat(filtered.at("/summary/totalScans").asLong())
+                .isPositive()
+                .isLessThanOrEqualTo(unfiltered.at("/summary/totalScans").asLong());
+        assertThat(filtered.path("dailyTrend").findValuesAsText("date"))
+                .containsExactlyElementsOf(unfiltered.path("dailyTrend").findValuesAsText("date"));
+        assertAggregateResponseContainsNoPrivateData(filtered);
     }
 
     @Test
@@ -245,6 +308,19 @@ class AdminConsumerTrendsRuntimeIntegrationTest {
         );
 
         assertThat(response.statusCode()).isEqualTo(400);
+    }
+
+    @Test
+    @DisplayName("active ADMIN receives 400 for reversed ranges and out-of-range limits")
+    void activeAdminWithInvalidSemanticCriteriaReturnsBadRequestOverRealHttp() throws Exception {
+        Long adminId = insertAccount("ADMIN", true);
+        String accessToken = jwtService.issueAccessToken(adminId);
+
+        assertThat(get(
+                ENDPOINT + "?from=2000-01-03&to=2000-01-01",
+                accessToken
+        ).statusCode()).isEqualTo(400);
+        assertThat(get(ENDPOINT + "?limit=21", accessToken).statusCode()).isEqualTo(400);
     }
 
     private HttpResponse<String> get(String pathAndQuery) throws Exception {
@@ -277,6 +353,33 @@ class AdminConsumerTrendsRuntimeIntegrationTest {
         assertThat(response.statusCode()).isEqualTo(expectedStatus);
         assertThat(objectMapper.readTree(response.body()).path("message").asText())
                 .isEqualTo(expectedMessage);
+    }
+
+    private static void assertAggregateResponseContainsNoPrivateData(JsonNode response) {
+        assertThat(response.properties()).extracting(java.util.Map.Entry::getKey)
+                .containsExactlyInAnyOrder(
+                        "period",
+                        "appliedFilters",
+                        "summary",
+                        "dailyTrend",
+                        "mostScannedProducts",
+                        "categoryOverview",
+                        "topRestrictions",
+                        "topFlaggedIngredients",
+                        "dataQuality",
+                        "generatedAt"
+                );
+        assertThat(response.toString()).doesNotContain(
+                "userId",
+                "profileId",
+                "familyId",
+                "email",
+                "barcode",
+                "scanId",
+                "findingsJson",
+                "findings",
+                "aiExplanation"
+        );
     }
 
     private Long insertAccount(String roleName, boolean active) {

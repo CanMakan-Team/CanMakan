@@ -35,9 +35,10 @@ public class AdminController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(name = "to", required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(name = "limit", required = false) Integer limit
+            @RequestParam(name = "limit", required = false) Integer limit,
+            @RequestParam(name = "category", required = false) String category
     ) {
-        return consumerTrendsService.generateTrends(from, to, limit);
+        return consumerTrendsService.generateTrends(from, to, limit, category);
     }
 
     @GetMapping("/users")
