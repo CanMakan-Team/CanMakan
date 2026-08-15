@@ -14,9 +14,17 @@ UPDATE products
 SET
     main_category_en = COALESCE(NULLIF(TRIM(main_category_en), ''), 'Brown Rice Flour'),
     category_tags = CASE
-        WHEN category_tags IS NULL OR TRIM(category_tags) = '' THEN 'en:gluten-free-flour,Gluten free flour'
-        WHEN CONCAT(',', category_tags, ',') LIKE '%,en:gluten-free-flour,%' THEN category_tags
-        ELSE CONCAT(category_tags, ',', 'en:gluten-free-flour')
+        WHEN category_tags IS NULL OR TRIM(category_tags) = '' THEN 'en:gluten-free-flour,Gluten free flour,en:brown-rice-flour'
+        ELSE TRIM(BOTH ',' FROM CONCAT(
+            CASE
+                WHEN CONCAT(',', category_tags, ',') LIKE '%,en:gluten-free-flour,%' THEN category_tags
+                ELSE CONCAT(category_tags, ',', 'en:gluten-free-flour')
+            END,
+            CASE
+                WHEN CONCAT(',', category_tags, ',') LIKE '%,en:brown-rice-flour,%' THEN ''
+                ELSE ',en:brown-rice-flour'
+            END
+        ))
     END,
     labels_tags = CASE
         WHEN labels_tags IS NULL OR TRIM(labels_tags) = '' THEN 'en:no-gluten'

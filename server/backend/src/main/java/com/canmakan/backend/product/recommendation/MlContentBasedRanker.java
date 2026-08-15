@@ -21,6 +21,8 @@ import org.springframework.stereotype.Service;
  *       + nutritionSimilarity   (when source and candidate both have sugars and sodium per 100g)
  *       + lowSugarBoost         ({@value #LOW_SUGAR_BOOST} when LOW_SUGAR rule and nutrition pair absent)
  *       + packSizeBoost         ({@value PackSizeParser#PACK_SIZE_WEIGHT} × volume similarity for milk substitutes)
+ *       + domainBoost           ({@value #DOMAIN_BOOST} when secondary substitute tags match)
+ *       + flourTypeBoost        ({@value #FLOUR_TYPE_BOOST} for specialty GF flour types)
  *       + priorSafeBoost        ({@value #PRIOR_SAFE_BOOST} when barcode in prior safe scans)
  *       )
  * </pre>
@@ -41,6 +43,7 @@ class MlContentBasedRanker {
     private static final double MAX_SODIUM_RANGE_G = 3.0;
     private static final double MAX_SCORE = 0.99;
     private static final double DOMAIN_BOOST = 0.03;
+    private static final double FLOUR_TYPE_BOOST = 0.05;
     private static final double NUT_BUTTER_EXTRA_BOOST = 0.02;
     private static final double COOKING_PENALTY = 0.10;
 
@@ -159,6 +162,12 @@ class MlContentBasedRanker {
         return "ml_similarity";
     }
 
+    private static boolean isFlourSubstituteProfile(SubstituteDiscoveryProfile profile) {
+        return profile != null
+                && profile.includeTags() != null
+                && profile.includeTags().contains("en:gluten-free-flour");
+    }
+
     private static boolean isMilkSubstituteDiscovery(SubstituteDiscoveryProfile profile) {
         return profile != null
                 && profile.includeTags() != null
@@ -173,15 +182,24 @@ class MlContentBasedRanker {
         }
         Set<String> tags = CategoryTagParser.parseTags(candidate.getCategoryTags());
         double adjustment = 0.0;
-        if (CategoryTagParser.containsAny(tags, profile.secondaryIncludeTags())) {
+        if (CategoryTagParser.containsAnyIncludingMainCategory(
+                candidate.getCategoryTags(),
+                candidate.getMainCategoryEn(),
+                profile.secondaryIncludeTags())) {
             adjustment += DOMAIN_BOOST;
+            if (isFlourSubstituteProfile(profile)) {
+                adjustment += FLOUR_TYPE_BOOST;
+            }
         }
         if (profile.includeTags() != null
                 && CategoryTagParser.containsAny(Set.copyOf(profile.includeTags()), List.of("en:nut-butters"))
                 && CategoryTagParser.containsAny(tags, List.of("en:nut-butters"))) {
             adjustment += NUT_BUTTER_EXTRA_BOOST;
         }
-        if (CategoryTagParser.containsAny(tags, profile.deprioritizeTags())) {
+        if (CategoryTagParser.containsAnyIncludingMainCategory(
+                candidate.getCategoryTags(),
+                candidate.getMainCategoryEn(),
+                profile.deprioritizeTags())) {
             adjustment -= COOKING_PENALTY;
         }
         return adjustment;

@@ -56,7 +56,10 @@ public class AlternativeProductRanker {
             Set<String> tags = CategoryTagParser.parseTags(candidate.getCategoryTags());
             boolean priorSafe = priorSafeBarcodes.contains(candidate.getBarcode());
             boolean deprioritized = profile != null
-                    && CategoryTagParser.containsAny(tags, profile.deprioritizeTags());
+                    && CategoryTagParser.containsAnyIncludingMainCategory(
+                            candidate.getCategoryTags(),
+                            candidate.getMainCategoryEn(),
+                            profile.deprioritizeTags());
             boolean packSizeMatched = packSizeAvailable
                     && PackSizeParser.isStrongPackSizeMatch(source, candidate);
 
@@ -65,7 +68,10 @@ public class AlternativeProductRanker {
                     : 1.0 - (position * 0.01);
 
             if (provenance == MatchProvenance.SUBSTITUTE_TAG && profile != null) {
-                if (CategoryTagParser.containsAny(tags, profile.secondaryIncludeTags())) {
+                if (CategoryTagParser.containsAnyIncludingMainCategory(
+                        candidate.getCategoryTags(),
+                        candidate.getMainCategoryEn(),
+                        profile.secondaryIncludeTags())) {
                     base += SECONDARY_INCLUDE_BOOST;
                 }
                 if (isPeanutSpreadSubstituteProfile(profile)
