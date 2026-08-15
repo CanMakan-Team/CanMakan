@@ -45,9 +45,12 @@ import sg.edu.nus.iss.canmakan.features.family.data.CreateDependantProfileReques
 import sg.edu.nus.iss.canmakan.features.family.data.CreateInvitationRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.DependantProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.InvitationResponse
+import sg.edu.nus.iss.canmakan.features.family.data.NotificationPreferenceResponse
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
 import sg.edu.nus.iss.canmakan.features.family.data.SetActiveProfileRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.SetNotificationPreferenceRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.UserSearchResponse
+import sg.edu.nus.iss.canmakan.shared.notifications.SystemNotifier
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @DisplayName("UC19 / UC8: nav graph session identity and family membership")
@@ -57,6 +60,8 @@ class CanMakanNavGraphViewModelTest {
     private lateinit var sessionStore: AuthSessionStore
     private lateinit var activeProfileManager: ActiveProfileManager
     private lateinit var familyApi: RecordingFamilyProfileApiService
+    private lateinit var notificationsApi: FakeNotificationsApiService
+    private lateinit var systemNotifier: RecordingSystemNotifier
     private lateinit var viewModel: CanMakanNavGraphViewModel
 
     @BeforeEach
@@ -65,12 +70,15 @@ class CanMakanNavGraphViewModelTest {
         sessionStore = AuthSessionStore(FakeAuthSessionPersistence(), Gson())
         activeProfileManager = ActiveProfileManager()
         familyApi = RecordingFamilyProfileApiService()
+        notificationsApi = FakeNotificationsApiService()
+        systemNotifier = RecordingSystemNotifier()
         viewModel = CanMakanNavGraphViewModel(
             activeProfileManager = activeProfileManager,
             dietaryRestrictionRepo = FakeDietaryRestrictionRepository(),
             familyProfileRepository = FamilyProfileRepository(familyApi),
-            notificationsRepository = NotificationsRepository(FakeNotificationsApiService()),
+            notificationsRepository = NotificationsRepository(notificationsApi),
             authSessionStore = sessionStore,
+            systemNotifier = systemNotifier,
         )
         testDispatcher.scheduler.advanceUntilIdle()
     }
@@ -473,6 +481,7 @@ class CanMakanNavGraphViewModelTest {
             familyProfileRepository = FamilyProfileRepository(restoredApi),
             notificationsRepository = NotificationsRepository(FakeNotificationsApiService()),
             authSessionStore = restoredStore,
+            systemNotifier = RecordingSystemNotifier(),
         )
 
         testDispatcher.scheduler.advanceUntilIdle()
@@ -548,6 +557,104 @@ class CanMakanNavGraphViewModelTest {
         )
     }
 
+    @Test
+    fun notificationPreferenceLoadsFromServerOnAccountLoad() {
+        familyApi.notificationPreferenceResponse =
+            Response.success(NotificationPreferenceResponse(notificationsEnabled = false))
+
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.notificationsEnabled.value)
+        assertEquals(1, familyApi.getNotificationPreferenceCalls)
+    }
+
+    @Test
+    fun setNotificationsEnabledUpdatesOptimisticallyThenPersists() {
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.notificationsEnabled.value)
+
+        viewModel.setNotificationsEnabled(false)
+        assertFalse(viewModel.notificationsEnabled.value)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.notificationsEnabled.value)
+        assertEquals(1, familyApi.setNotificationPreferenceCalls)
+        assertNull(viewModel.notificationsEnabledError.value)
+    }
+
+    @Test
+    fun setNotificationsEnabledRollsBackOnFailure() {
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+        familyApi.setNotificationPreferenceResponse = Response.error(
+            500,
+            "{}".toResponseBody("application/json".toMediaType()),
+        )
+
+        viewModel.setNotificationsEnabled(false)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.notificationsEnabled.value)
+        assertEquals(
+            "Could not save notification setting. Check your connection and try again.",
+            viewModel.notificationsEnabledError.value,
+        )
+    }
+
+    @Test
+    fun newUnreadNotificationPostsSystemNotificationOnce() {
+        notificationsApi.notifications = listOf(
+            UserNotificationResponse(
+                id = 1L,
+                type = "FAMILY_INVITE_REQUEST",
+                title = "New invite",
+                body = "You were invited to join a family.",
+                actionToken = "token",
+                expired = false,
+                read = false,
+                updatedAt = null,
+            ),
+        )
+
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, systemNotifier.calls.size)
+        assertEquals("New invite", systemNotifier.calls.single().title)
+
+        // A later refresh of the same still-unread item must not notify again.
+        viewModel.refreshNotifications()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, systemNotifier.calls.size)
+    }
+
+    @Test
+    fun notificationsDisabledIsPassedThroughToSystemNotifier() {
+        familyApi.notificationPreferenceResponse =
+            Response.success(NotificationPreferenceResponse(notificationsEnabled = false))
+        notificationsApi.notifications = listOf(
+            UserNotificationResponse(
+                id = 1L,
+                type = "FAMILY_INVITE_REQUEST",
+                title = "New invite",
+                body = "You were invited to join a family.",
+                actionToken = "token",
+                expired = false,
+                read = false,
+                updatedAt = null,
+            ),
+        )
+
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, systemNotifier.calls.size)
+        assertFalse(systemNotifier.calls.single().notificationsEnabled)
+    }
+
     private fun validSession(): AuthenticatedSession {
         return sessionFor(14L, "person@example.com")
     }
@@ -603,13 +710,25 @@ class CanMakanNavGraphViewModelTest {
     }
 
     private class FakeNotificationsApiService : NotificationsApiService {
+        var notifications: List<UserNotificationResponse> = emptyList()
+
         override suspend fun listMyNotifications(): Response<List<UserNotificationResponse>> =
-            Response.success(emptyList())
+            Response.success(notifications)
 
         override suspend fun markNotificationsRead(): Response<Unit> = Response.success(Unit)
 
         override suspend fun deleteNotification(notificationId: Long): Response<Unit> =
             Response.success(Unit)
+    }
+
+    private class RecordingSystemNotifier : SystemNotifier {
+        data class Call(val id: Int, val title: String, val body: String, val notificationsEnabled: Boolean)
+
+        val calls = mutableListOf<Call>()
+
+        override fun notify(id: Int, title: String, body: String, notificationsEnabled: Boolean) {
+            calls += Call(id, title, body, notificationsEnabled)
+        }
     }
 
     private class FakeDietaryRestrictionRepository : DietaryRestrictionRepository {
@@ -712,6 +831,29 @@ class CanMakanNavGraphViewModelTest {
                 withContext(NonCancellable) { setActiveGate?.await() }
             }
             return setActiveProfileResponse
+        }
+
+        var notificationPreferenceResponse: Response<NotificationPreferenceResponse> =
+            Response.success(NotificationPreferenceResponse(notificationsEnabled = true))
+        var setNotificationPreferenceResponse: Response<NotificationPreferenceResponse>? = null
+        var getNotificationPreferenceCalls = 0
+        var setNotificationPreferenceCalls = 0
+
+        override suspend fun getNotificationPreference(): Response<NotificationPreferenceResponse> {
+            getNotificationPreferenceCalls++
+            return notificationPreferenceResponse
+        }
+
+        override suspend fun setNotificationPreference(
+            request: SetNotificationPreferenceRequestBody,
+        ): Response<NotificationPreferenceResponse> {
+            setNotificationPreferenceCalls++
+            setNotificationPreferenceResponse?.let { return it }
+            val response = Response.success(
+                NotificationPreferenceResponse(notificationsEnabled = request.notificationsEnabled),
+            )
+            notificationPreferenceResponse = response
+            return response
         }
 
         override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> =

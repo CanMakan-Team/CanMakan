@@ -23,8 +23,10 @@ import sg.edu.nus.iss.canmakan.features.family.data.ActiveProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsRepository
+import sg.edu.nus.iss.canmakan.features.notifications.data.UserNotificationResponse
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
+import sg.edu.nus.iss.canmakan.shared.notifications.SystemNotifier
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -42,6 +44,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val familyProfileRepository: FamilyProfileRepository,
     private val notificationsRepository: NotificationsRepository,
     private val authSessionStore: AuthSessionStore,
+    private val systemNotifier: SystemNotifier,
 ) : ViewModel() {
 
     val currentProfileId: StateFlow<Long> = activeProfileManager.currentProfileId
@@ -97,6 +100,19 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val _hasUnreadNotifications = MutableStateFlow(false)
     val hasUnreadNotifications: StateFlow<Boolean> = _hasUnreadNotifications.asStateFlow()
 
+    // Backs the Settings screen's ON/OFF toggle. Defaults to disabled, matching the
+    // server-side default for a user with no stored preference yet -- a user must
+    // explicitly opt in, which is what triggers the OS permission prompt.
+    private val _notificationsEnabled = MutableStateFlow(false)
+    val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
+
+    private val _notificationsEnabledError = MutableStateFlow<String?>(null)
+    val notificationsEnabledError: StateFlow<String?> = _notificationsEnabledError.asStateFlow()
+
+    // Ids of unread notifications already posted to the system tray, so a later refresh
+    // of the same still-unread item does not notify twice.
+    private val notifiedNotificationIds = mutableSetOf<Long>()
+
     private val reloadMutex = Mutex()
     private var observedAccount = false
     private var currentAccountKey: AuthAccountKey? = null
@@ -106,8 +122,10 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private var accountReloadJob: Job? = null
     private var restrictionJob: Job? = null
     private var notificationsJob: Job? = null
+    private var notificationsEnabledJob: Job? = null
     private var switchGeneration = 0L
     private var createFamilyGeneration = 0L
+    private var notificationsEnabledGeneration = 0L
 
     init {
         viewModelScope.launch {
@@ -148,11 +166,16 @@ class CanMakanNavGraphViewModel @Inject constructor(
         accountReloadJob?.cancel()
         restrictionJob?.cancel()
         notificationsJob?.cancel()
+        notificationsEnabledJob?.cancel()
+        notificationsEnabledGeneration++
         clearAccountScopedState(hasSession = accountKey != null)
 
         if (accountKey != null) {
             accountReloadJob = viewModelScope.launch { reloadFamilyContext(accountKey) }
-            notificationsJob = viewModelScope.launch { refreshNotifications(accountKey) }
+            notificationsJob = viewModelScope.launch {
+                loadNotificationPreference(accountKey)
+                refreshNotifications(accountKey)
+            }
         } else {
             _isLoading.value = false
         }
@@ -174,7 +197,62 @@ class CanMakanNavGraphViewModel @Inject constructor(
         _isCreatingFamily.value = false
         _isSwitchingProfile.value = false
         _hasUnreadNotifications.value = false
+        _notificationsEnabled.value = false
+        _notificationsEnabledError.value = null
+        notifiedNotificationIds.clear()
         _isLoading.value = hasSession
+    }
+
+    fun clearNotificationsEnabledError() {
+        _notificationsEnabledError.value = null
+    }
+
+    /**
+     * Sets whether CanMakan may post system notifications. Optimistic: the toggle flips
+     * immediately and rolls back only if the PUT to persist it fails.
+     */
+    fun setNotificationsEnabled(enabled: Boolean) {
+        val accountKey = authSessionStore.accountKey.value
+        if (accountKey == null) {
+            _notificationsEnabledError.value = "Sign in before changing notification settings."
+            return
+        }
+        if (_notificationsEnabled.value == enabled) return
+
+        val previous = _notificationsEnabled.value
+        notificationsEnabledJob?.cancel()
+        val generation = ++notificationsEnabledGeneration
+        _notificationsEnabledError.value = null
+        _notificationsEnabled.value = enabled
+        notificationsEnabledJob = viewModelScope.launch {
+            try {
+                val saved = familyProfileRepository.setNotificationPreference(enabled)
+                if (!isCurrentAccount(accountKey) || generation != notificationsEnabledGeneration) return@launch
+                _notificationsEnabled.value = saved
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                if (!isCurrentAccount(accountKey) || generation != notificationsEnabledGeneration) return@launch
+                Timber.w(exception, "Failed to save notification preference")
+                _notificationsEnabled.value = previous
+                _notificationsEnabledError.value =
+                    "Could not save notification setting. Check your connection and try again."
+            }
+        }
+    }
+
+    private suspend fun loadNotificationPreference(accountKey: AuthAccountKey) {
+        val generation = notificationsEnabledGeneration
+        try {
+            val enabled = familyProfileRepository.getNotificationPreference()
+            if (!isCurrentAccount(accountKey) || generation != notificationsEnabledGeneration) return
+            _notificationsEnabled.value = enabled
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            // Non-fatal: keep the last known value (defaults to disabled) until next refresh.
+            Timber.w(exception, "Error loading notification preference")
+        }
     }
 
     fun clearSwitchProfileError() {
@@ -423,13 +501,37 @@ class CanMakanNavGraphViewModel @Inject constructor(
         try {
             val notifications = notificationsRepository.listMine()
             if (!isCurrentAccount(accountKey)) return
-            _hasUnreadNotifications.value = notifications.any { !it.read && !it.expired }
+            val unread = notifications.filter { !it.read && !it.expired }
+            _hasUnreadNotifications.value = unread.isNotEmpty()
+            notifyNewlyUnread(unread)
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: Exception) {
             // Non-fatal: the bell badge simply keeps its last known state until the next refresh.
             Timber.w(exception, "Error refreshing notification badge state")
         }
+    }
+
+    /**
+     * Posts a system notification for each unread inbox item not already posted, then
+     * updates the seen set so the next refresh only reports genuinely new arrivals.
+     * [SystemNotifier] itself decides whether the post is actually shown (the user's
+     * toggle, the OS permission); this only decides which items are candidates.
+     */
+    private fun notifyNewlyUnread(unread: List<UserNotificationResponse>) {
+        val newlyUnread = unread.filter { it.id !in notifiedNotificationIds }
+        newlyUnread.forEach { notification ->
+            systemNotifier.notify(
+                id = notification.id.toInt(),
+                title = notification.title,
+                body = notification.body?.takeIf { it.isNotBlank() }
+                    ?: "You have a new update in CanMakan.",
+                notificationsEnabled = _notificationsEnabled.value,
+            )
+        }
+        notifiedNotificationIds += newlyUnread.map { it.id }
+        // Drop ids that are no longer unread, so a later re-arrival notifies again.
+        notifiedNotificationIds.retainAll(unread.map { it.id }.toSet())
     }
 
     fun clearCreateFamilyError() {
