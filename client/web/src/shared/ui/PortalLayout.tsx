@@ -22,13 +22,13 @@ const familyNavigation: NavigationItem[] = [
   { label: 'Family Members', to: '/family/members', icon: '♙' },
   { label: 'Restriction Summary', to: '/family/restrictions', icon: '▦' },
   { label: 'Family Scan History', to: '/family/history', icon: '◷' },
+  { label: 'Verdict Trends', to: '/family/verdict-trends', icon: '↗' },
   { label: 'Account Settings', to: '/family/account', icon: '⚙' },
 ]
 
 const systemNavigation: NavigationItem[] = [
   { label: 'Dashboard', to: '/system', icon: '⌂' },
   { label: 'Consumer Trends', to: '/system/trends', icon: '↗' },
-  { label: 'Verdict Trends', to: '/system/verdict-trends', icon: '↗' },
   { label: 'User Accounts & Access', to: '/system/users', icon: '♙' },
   { label: 'Future Features', to: '/system/future', icon: '◇' },
 ]
