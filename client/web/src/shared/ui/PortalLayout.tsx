@@ -28,6 +28,7 @@ const familyNavigation: NavigationItem[] = [
 const systemNavigation: NavigationItem[] = [
   { label: 'Dashboard', to: '/system', icon: '⌂' },
   { label: 'Consumer Trends', to: '/system/trends', icon: '↗' },
+  { label: 'Verdict Trends', to: '/system/verdict-trends', icon: '↗' },
   { label: 'User Accounts & Access', to: '/system/users', icon: '♙' },
   { label: 'Future Features', to: '/system/future', icon: '◇' },
 ]
