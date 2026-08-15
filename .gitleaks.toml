@@ -1,12 +1,13 @@
 # Extends default Gitleaks rules. Do not disable useDefault.
+# Syntax is Gitleaks 8.21.x ([allowlist], not [[allowlists]]).
 title = "canmakan"
 
 [extend]
 useDefault = true
 
-# Test-only JWT (same value as application-default.properties). Not used in production.
-[[allowlists]]
+[allowlist]
 description = "CI and unit-test JWT signing placeholder"
+regexTarget = "secret"
 regexes = [
   '''dGVzdC1vbmx5LXNpZ25pbmcta2V5LTMyLWJ5dGVzISE=''',
 ]

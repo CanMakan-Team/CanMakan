@@ -53,7 +53,7 @@ jobs:
           sudo mv gitleaks /usr/local/bin/
 
       - name: Run Gitleaks
-        run: gitleaks detect --source . --verbose
+        run: gitleaks detect --source . --verbose --config .gitleaks.toml
 
   # 3. SAST
   sast-scan:

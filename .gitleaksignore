@@ -1,2 +1,2 @@
-1fdff105e64d91c89a43be635bdcd3f2c63c552d:server/backend/src/test/resources/application-default.properties:generic-api-key:2
-27ec3ec448151cf56c722ca7a42d9ced776996bf:client/mobile/app/google-services.json:gcp-api-key:18
+# Test-only JWT in ci.yml (generic-api-key). Same value as application-default.properties.
+91e859ee19430b7011480ef5553d405fc4a191df:.github/workflows/ci.yml:generic-api-key:226
