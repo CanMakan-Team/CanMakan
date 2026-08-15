@@ -1,131 +1,98 @@
-# CI/CD Pipeline Architecture Design
+# CI/CD Pipeline Architecture (DevSecOps)
 
 ## 1. Overview
-The continuous integration and continuous deployment (CI/CD) architecture leverages **GitHub Actions** to automate the building, testing, security scanning, and deployment of the CanMakan full-stack application.
-The pipeline employs a monorepo strategy utilising **path-based filtering** and **concurrency controls** to independently route deployments for the Spring Boot backend, React web frontend, and Kotlin Android mobile application without executing unnecessary jobs. It now features an integrated End-to-End (E2E) testing workflow to ensure web application stability prior to deployment.
 
-## 2. Implemented Architecture
-### A. Code Quality & Security (CI)
-* **Branch-Gated Workflow:** The pipeline utilizes a `develop` branch for integration. Branch protection rules enforce the `Build Test` status check to pass on both the `develop` and `main` branches prior to merging[cite: 2]. CodeQL is also enabled as part of these Branch Protection Rules[cite: 2].
-* **Static Application Security Testing (SAST):** Semgrep is implemented in `ci.yml` to automatically analyze source code for security vulnerabilities[cite: 2].
-* **Software Composition Analysis (SCA):** Trivy is implemented in `ci.yml` to scan dependencies and file systems for critical and high-severity vulnerabilities[cite: 2].
-* **Secret Scanning:** Automated scanning workflows intercept and audit pull requests for accidentally committed credentials, API keys, and sensitive data.
-* **Dependency Management:** GitHub Dependabot is configured (`dependabot.yml`) to audit and update vulnerable repository dependencies routinely.
-* **Build Assembly Checks:** PRs must pass compilation and build steps before merging to the `main` branch to prevent broken code from entering the deployment pipeline.
+CanMakan uses **GitHub Actions** for a monorepo: Spring Boot (`server/backend`), React/Vite (`client/web`), and Kotlin Android (`client/mobile`).
 
-### B. Backend Deployment (`deploy.yml`)
-* **Trigger:** Push to `main` with changes in `server/backend/**`.
-* **Build:** Configures JDK 21 (Temurin) and executes a clean Maven package.
-* **Deploy (AWS EC2 - Blue/Green Deployment):**
-  * Transfers the compiled `.jar` artefact to the EC2 instance via SCP.
-  * Implements a Blue/Green deployment mechanism by running two instances of the Spring Boot app on a single AWS-EC2 instance using ports 8080 and 8081[cite: 2].
-  * Utilizes an Nginx reverse proxy to silently switch traffic to the newly deployed instance only after it successfully passes health checks, ensuring zero downtime during releases[cite: 2].
+**CI** (verify and scan) is one workflow. **CD** stays in separate workflows with deploy secrets and `push` to `main` only.
 
-### C. End-to-End Testing (E2E)
-* **Web App Testing (Playwright)**
-  * **Trigger:** Push or Pull Request to `main` with changes in `client/web/**`.
-  * **Execution:** Installs Node.js 24, resolves dependencies, caches Playwright browsers, and runs the E2E test suite (`npx playwright test`).
-  * **Test Coverage:**
-    * Authentication and Route Guarding: Unauthenticated users are redirected to login.
-    * Authentication and Route Guarding: Valid credentials grant access to the portal.
-    * Authentication and Route Guarding: Sign out clears the session and redirects to login.
-    * Authentication and Route Guarding: Session persists across page reloads.
-    * Verify responsiveness of CanMakan Web Navigation Elements.
-  * **Reporting:** Uploads `playwright-report` as a GitHub artefact (retained for 30 days) for debugging.
+Engineers open pull requests into **`develop`**, then promote **`develop` → `main`**. Production deploys run on GitHub’s merge `push` to `main`.
 
-### D. Frontend Deployments (`deploy-frontends.yml`)
-* **Web App (React/Vite -> Firebase Hosting)**
-  * **Trigger:** Successful completion of the "E2E Playwright Tests" workflow (`workflow_run`) with detected changes in `client/web/**`.
-  * **Build:** Configures Node.js, resolves dependencies, and executes `npm run build`. GitHub Variables (e.g., `VITE_API_BASE_URL`) are injected into the environment during build-time to replace Vite placeholders.
-  * **Deploy:** Pushes the compiled static `dist` folder to Firebase Hosting using the Firebase Extended action.
+## 2. Workflows
 
-* **Mobile App (Kotlin -> Firebase App Distribution)**
-  * **Trigger:** Successful workflow run with detected changes in `client/mobile/**`.
-  * **Build:** Configures JDK 21 (Temurin), grants Gradle execution permissions, and assembles the release APK.
-  * **Deploy:** Shreds decoded keystore post-build for security, then uploads the `app-release.apk` to Firebase App Distribution for the `qa-team` testing group.
+| Workflow | Trigger | Role |
+|----------|---------|------|
+| [`ci.yml`](.github/workflows/ci.yml) | PR / push to `develop` and `main`, `workflow_dispatch` | Gitleaks, Semgrep, Trivy fs, Trivy config, path-filtered builds, **Build Test** |
+| [`e2e.yml`](.github/workflows/e2e.yml) | PR to `develop`/`main`, push to `develop`, `workflow_dispatch` | Playwright when `client/web/**` changes |
+| [`deploy.yml`](.github/workflows/deploy.yml) | Push to `main` and `server/backend/**` | EC2 blue/green JAR deploy |
+| [`deploy-frontends.yml`](.github/workflows/deploy-frontends.yml) | Push to `main` and web/mobile paths | Web: Playwright then Firebase Hosting. Mobile: App Distribution (no E2E wait) |
 
----
+Branch protection should require **Build Test**. Gitleaks, Semgrep, Trivy, and config scan always run inside that aggregator, so unused stack jobs can skip without blocking.
 
-## 3. Pipeline Architecture Diagram
+## 3. Continuous integration (`ci.yml`)
+
+Concurrency: `ci-${{ github.ref }}` (cancel superseded runs). Default permissions: `contents: read`.
+
+| Job | When | What |
+|-----|------|------|
+| `detect-changes` | always | Path filter backend / web / mobile |
+| `gitleaks` | always | Secret scan, `fetch-depth: 0`, Gitleaks 8.21.2 |
+| `sast-scan` | always | Semgrep `--config=auto` |
+| `sca-scan` | always | Trivy filesystem SCA, CRITICAL/HIGH, `exit-code: 1`, SARIF upload |
+| `config-scan` | always | Trivy `config` on `.github` (workflow YAML + Dependabot), CRITICAL/HIGH, `exit-code: 1`, SARIF upload |
+| `build-backend` | `server/backend/**` | JDK 21, `mvn -B clean package -DskipTests` |
+| `build-web` | `client/web/**` | Node 24, `npm ci` + `npm run build` |
+| `build-mobile` | `client/mobile/**` | `assembleDebug` |
+| **Build Test** | always | Fails if any of the above failed or was cancelled; skipped stack builds are allowed |
+
+There is no separate `secret-scan.yml`. Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml)) still opens weekly upgrade PRs (SCA complementary to Trivy).
+
+## 4. End-to-end (`e2e.yml`)
+
+Playwright on PRs into `develop`/`main` and on pushes to **`develop`** when `client/web/**` changes. Reports upload for 30 days.
+
+Pushes to **`main`** do not run this workflow. Web production deploy runs Playwright in `deploy-frontends.yml` instead, so `main` is not scanned twice.
+
+## 5. Continuous deployment
+
+### Backend (`deploy.yml`)
+
+Push to `main` with `server/backend/**`. Maven package, SCP to EC2, blue/green on ports 8080/8081, `/actuator/health`, Nginx swap, SIGTERM of the old process.
+
+### Frontends (`deploy-frontends.yml`)
+
+Push to `main` with `client/web/**` or `client/mobile/**`. Path filter uses the push SHA (not `workflow_run`).
+
+- **Web:** Playwright job, then Vite build and Firebase Hosting. Concurrency group `deploy-web-${{ github.ref }}`.
+- **Mobile:** signed release APK to Firebase App Distribution (`qa-team`). Does **not** wait on Playwright. Concurrency group `deploy-mobile-${{ github.ref }}`. Keystore is removed after the job.
+
+## 6. Pipeline diagram
 
 ```mermaid
-graph TD
-    A[Push/Merge to Main/Develop Branch] --> B{Path Filter Detection}
+flowchart TD
+  pr[PR_or_push_develop_main] --> ci[ci.yml]
+  ci --> gl[gitleaks]
+  ci --> sg[semgrep]
+  ci --> tv[trivy_fs_SCA]
+  ci --> yml[trivy_config_Actions_YAML]
+  ci --> builds[path_filtered_builds]
+  ci --> gate[Build_Test]
 
-    %% Security Flow
-    A --> S[Secret Scanner, Semgrep SAST, Trivy SCA & Dependabot]
+  pr --> e2ePr[e2e.yml_PRs_and_develop]
 
-    classDef wideBox width:350px;
-    class A,S wideBox;
-
-    %% Backend Flow
-    B -->|server/backend/**| C[Backend Job]
-    C --> D[Setup JDK 21]
-    D --> E[Maven Build JAR]
-    E --> F[SCP Transfer to AWS EC2]
-    F --> G[Deploy to Idle Port 8080/8081]
-    G --> H[Health Check]
-    H --> H2[Nginx Traffic Switch]
-    H2 --> LIVE_B((Backend Live))
-
-    %% Web Flow
-    B -->|client/web/**| W_E2E[E2E Playwright Tests Job]
-    W_E2E -->|On Success| I[Web Deploy Job]
-    I --> J[Setup Node.js]
-    J --> K[Inject Env Vars]
-    K --> L[Vite Build Static Assets]
-    L --> M[Deploy via Firebase CLI]
-    M --> N((Web Frontend Live))
-
-    %% Mobile Flow
-    B -->|client/mobile/**| O[Mobile Job]
-    O --> P[Setup JDK 21]
-    P --> Q[Gradle Assemble Release APK]
-    Q --> R[Upload to Firebase App Distribution]
-    R --> T((Mobile Ready for QA))
-
-    %% Styling Classes
-    classDef backend fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#333;
-    classDef web fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#333;
-    classDef mobile fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#333;
-    classDef live fill:#fce4ec,stroke:#388e3c,stroke-width:2px,color:#333;
-    classDef testing fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#333;
-
-    %% Class Assignments
-    class C,D,E,F,G,H,H2 backend;
-    class I,J,K,L,M web;
-    class W_E2E testing;
-    class O,P,Q,R mobile;
-    class LIVE_B,N,T live;
-
+  pushMain[push_main] --> be[deploy.yml_backend]
+  pushMain --> fe[deploy-frontends.yml]
+  fe --> webPath{client_web}
+  fe --> mobPath{client_mobile}
+  webPath -->|yes| e2eMain[Playwright]
+  e2eMain --> fb[Firebase_Hosting]
+  mobPath -->|yes| apk[App_Distribution]
 ```
 
----
+## 7. Identified gaps
 
-## 4. Identified Gaps & Future Enhancements
+### Gap 1: Direct host execution
 
-While the current pipeline fulfils standard CI/CD requirements, several architectural gaps exist that can be optimised for a production-grade environment.
+The JAR runs on the EC2 OS. Docker (and a registry) would freeze the Java runtime.
 
-### Gap 1: Direct Host Execution (Lack of Containerization)
+### Gap 2: Tests skipped in CI and CD
 
-* **Current State:** The JAR file runs directly on the EC2 OS, making it vulnerable to environment drift (e.g., Java version mismatches).
-* **Future Enhancement:** Introduce **Docker**. Containerize the Spring Boot application and update the GitHub Action to push the image to a registry (like Docker Hub or AWS ECR). Deploying a container ensures the application runs exactly as it did during testing.
+CI and backend deploy use `mvn package -DskipTests`. Web CI does not run Vitest. Mobile CI does not run unit tests. Prefer `mvn verify` against job-local MySQL, `npm test`, and `testDebugUnitTest` on PRs, and deploy a tested artefact.
 
-### Gap 2: Skipped Automated Testing in CD
+### Gap 3: Manual database schema management
 
-* **Current State:** The backend build executes `mvn package -DskipTests`, bypassing unit and integration tests during deployment to speed up execution.
-* **Future Enhancement:** Split the backend pipeline into discrete `Test` and `Deploy` jobs. Run Unit/Integration tests automatically, and only allow the SCP deployment to proceed if the `Test` job passes.
+RDS DDL is not applied by the pipeline. Flyway or Liquibase would version SQL in git.
 
-### Gap 3: Manual Database Schema Management
+### Gap 4: Mobile store delivery
 
-* **Current State:** There is no automated workflow for executing database schema changes (DDL) on the AWS RDS instance.
-* **Future Enhancement:** Integrate a database migration tool like **Flyway** or **Liquibase** into the Spring Boot backend. This allows the application to automatically and safely apply version-controlled SQL scripts upon startup.
-
-### Gap 4: Mobile App Delivery Limits
-
-* **Current State:** The mobile application is delivered to Firebase App Distribution, requiring manual download by testers.
-* **Future Enhancement:** Integrate **Fastlane** into the GitHub Actions mobile workflow to automate signing, screenshot generation, and direct publishing to the Google Play Store internal testing tracks.
-
-```
-
-```
+Testers install from Firebase App Distribution. Play Store internal tracks are not automated.

@@ -123,29 +123,36 @@ Continuous integration builds the backend, web app, and Android app on pushes an
 
 - Require pull request
 - No direct pushes to main
+- Require the **Build Test** check (aggregates Gitleaks, Semgrep, Trivy, and stack builds)
 
 ### Secrets Management
 
 - Environment variables, credentials, and secrets are included in gitignore to prevent secrets leakage
-- Implemented Gitleaks via [`.github/workflows/secret-scan.yml`](.github/workflows/secret-scan.yml)
-> Configured Gitleaks to run on: all pull requests, pushes to main <br>
-> Uses actions/checkout with full history (fetch-depth: 0) for commit scanning <br>
-> Uses GitHub-provided GITHUB_TOKEN <br>
+- Gitleaks runs inside [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (`gitleaks` job)
+> Checkout uses full history (`fetch-depth: 0`) <br>
+> Gitleaks 8.21.2 <br>
 
 ### Continuous Integration
 
 Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 
-- Runs on all pushes and pull requests
-- Path-filtered jobs on `ubuntu-latest` for backend, web, and mobile
+- Runs on pull requests and pushes to `develop` and `main`
+- Security jobs always run; stack builds are path-filtered on `ubuntu-latest`
 
-| Component | Directory | Build step |
-|-----------|-----------|------------|
-| Backend | `server/backend` | Maven (`mvn clean package -DskipTests`, Java 21) |
-| Web | `client/web` | `npm ci` + `npm run build` (Node 24) |
-| Mobile | `client/mobile` | Gradle `assembleDebug` |
+| Job | What it does |
+|-----|----------------|
+| Gitleaks | Secret scanning |
+| Semgrep | SAST |
+| Trivy fs | SCA (CRITICAL/HIGH fails the job) |
+| Trivy config | GitHub Actions / `.github` YAML misconfiguration |
+| Backend | Maven `mvn clean package -DskipTests` (Java 21) |
+| Web | `npm ci` + `npm run build` (Node 24) |
+| Mobile | Gradle `assembleDebug` |
+| Build Test | Required aggregator |
 
-> Backend CI and [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) inject the same `application.properties` env vars via GitHub secrets (DB, JWT, CORS, invites, product APIs, OpenAI, Tavily, AI flags, UC5 recommendations). Deploy forwards them to the EC2 process at JAR start. <br>
+Playwright E2E: [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) on PRs and pushes to `develop` when `client/web/**` changes. Production web deploy re-runs Playwright in [`.github/workflows/deploy-frontends.yml`](.github/workflows/deploy-frontends.yml).
+
+> Backend CI and [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) inject `application.properties` env vars via GitHub secrets. Deploy forwards them to EC2 at JAR start. <br>
 > Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`. Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`, optional `WEB_INVITE_BASE_URLS`. <br>
 > Android SDK is provisioned via `android-actions/setup-android` <br>
 
