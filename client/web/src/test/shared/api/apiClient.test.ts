@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  apiBaseUrl,
   apiRequest,
   configureApiAuthBridge,
 } from '../../../shared/api/apiClient'
@@ -32,7 +33,7 @@ describe('apiRequest', () => {
     await apiRequest('/api/families/me')
 
     expect(fetch).toHaveBeenCalledWith(
-      'http://localhost:8080/api/families/me',
+      `${apiBaseUrl}/api/families/me`,
       expect.objectContaining({
         credentials: 'include',
         headers: expect.any(Headers),
