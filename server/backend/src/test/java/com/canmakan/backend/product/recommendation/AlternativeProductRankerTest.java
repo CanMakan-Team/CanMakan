@@ -69,6 +69,7 @@ class AlternativeProductRankerTest {
                 "en:milk-substitutes,en:plant-based-creams-for-cooking,en:coconut-milks-and-creams");
 
         List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rankSubstituteTags(
+                null,
                 List.of(coconutCooking, oatDrink),
                 Set.of(),
                 freshMilksProfile
@@ -91,6 +92,7 @@ class AlternativeProductRankerTest {
                 "en:milk-substitutes,en:soy-based-drinks");
 
         List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rankSubstituteTags(
+                null,
                 List.of(soyDrink),
                 Set.of(),
                 freshMilksProfile
@@ -114,6 +116,7 @@ class AlternativeProductRankerTest {
                 "en:oilseed-purees,en:cereal-butters,en:tahini");
 
         List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rankSubstituteTags(
+                null,
                 List.of(genericOilseed, tahini),
                 Set.of(),
                 peanutProfile
@@ -138,6 +141,7 @@ class AlternativeProductRankerTest {
                 "en:oilseed-purees,en:cereal-butters,en:tahini");
 
         List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rankSubstituteTags(
+                null,
                 List.of(tahini, cashewButter),
                 Set.of(),
                 peanutProfile
@@ -147,6 +151,34 @@ class AlternativeProductRankerTest {
         assertEquals("substitute_category", ranked.get(0).matchReason());
     }
 
+    @Test
+    void packSizeBoostPrefersMatchingVolumeForMilkSubstitutes() {
+        CatalogProduct source = productWithQuantity(
+                "8888200602857",
+                "Farmhouse Fresh Milk",
+                "1 l",
+                null);
+        CatalogProduct oneLitreSoy = productWithQuantity(
+                "8850025000521",
+                "Soya Milk Unsweetened",
+                "1 Litre",
+                "en:milk-substitutes,en:soy-based-drinks");
+        CatalogProduct smallSoy = productWithQuantity(
+                "small",
+                "Soya Milk Unsweetened Small",
+                "375 ml",
+                "en:milk-substitutes,en:soy-based-drinks");
+
+        List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rankSubstituteTags(
+                source,
+                List.of(smallSoy, oneLitreSoy),
+                Set.of(),
+                freshMilksProfile);
+
+        assertEquals("8850025000521", ranked.get(0).product().getBarcode());
+        assertEquals("substitute_pack_size", ranked.get(0).matchReason());
+    }
+
     private static CatalogProduct product(String barcode, String name, String categoryTags) {
         CatalogProduct product = new CatalogProduct();
         product.setBarcode(barcode);
@@ -154,6 +186,16 @@ class AlternativeProductRankerTest {
         product.setMainCategoryEn("Breakfast cereals");
         product.setIngredientsText("Rice flour");
         product.setCategoryTags(categoryTags);
+        return product;
+    }
+
+    private static CatalogProduct productWithQuantity(
+            String barcode,
+            String name,
+            String quantity,
+            String categoryTags) {
+        CatalogProduct product = product(barcode, name, categoryTags);
+        product.setQuantity(quantity);
         return product;
     }
 }

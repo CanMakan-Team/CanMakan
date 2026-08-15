@@ -74,13 +74,44 @@ class MlSparseCatalogRecommenderTest {
         oatDrink.setBarcode("7394376618253");
         oatDrink.setProductName("Oatly barista edition");
 
-        when(queryService.findExpandedSubstituteCandidates(eq(source), org.mockito.ArgumentMatchers.any()))
+        when(queryService.findExpandedSubstituteCandidates(eq(source), org.mockito.ArgumentMatchers.argThat(
+                profile -> profile.labelTags().isEmpty()
+                        && profile.siblingCategories().isEmpty()
+                        && profile.includeTags().contains("en:milk-substitutes"))))
                 .thenReturn(List.of(oatDrink));
 
         List<CatalogProduct> discovered = recommender.discoverCandidates(source, null);
 
         assertEquals(1, discovered.size());
         assertEquals("7394376618253", discovered.getFirst().getBarcode());
+        verify(queryService).findExpandedSubstituteCandidates(eq(source), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void milkProfileSkipsBroadVeganLabelExpansion() {
+        CatalogProduct source = new CatalogProduct();
+        source.setBarcode("8888200602857");
+        source.setProductName("Farmhouse Fresh Milk");
+        source.setMainCategoryEn("Fresh milks");
+        source.setIngredientsText("Fresh milks");
+
+        CatalogProduct oatDrink = new CatalogProduct();
+        oatDrink.setBarcode("7394376618253");
+        oatDrink.setProductName("Oatly barista edition");
+        oatDrink.setCategoryTags("en:milk-substitutes,en:oat-based-drinks");
+
+        SubstituteDiscoveryProfile milkProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Fresh milks").orElseThrow();
+
+        when(queryService.findExpandedSubstituteCandidates(eq(source), org.mockito.ArgumentMatchers.argThat(
+                profile -> profile.labelTags().isEmpty()
+                        && profile.siblingCategories().isEmpty()
+                        && profile.includeTags().contains("en:soy-based-drinks"))))
+                .thenReturn(List.of(oatDrink));
+
+        List<CatalogProduct> discovered = recommender.discoverCandidates(source, milkProfile);
+
+        assertEquals(1, discovered.size());
         verify(queryService).findExpandedSubstituteCandidates(eq(source), org.mockito.ArgumentMatchers.any());
     }
 

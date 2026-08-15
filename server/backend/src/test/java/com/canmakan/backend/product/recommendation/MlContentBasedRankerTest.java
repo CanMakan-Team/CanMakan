@@ -111,6 +111,77 @@ class MlContentBasedRankerTest {
     }
 
     @Test
+    void wheatFlourRanksTaggedBrownRiceFlourAmongTopSubstitutes() {
+        CatalogProduct source = new CatalogProduct();
+        source.setBarcode("9555064500016");
+        source.setProductName("Superfine Wheat Flour");
+        source.setBrand("Baker Choice");
+        source.setMainCategoryEn("Wheat flours");
+        source.setCategoryTags(
+                "en:plant-based-foods-and-beverages,en:plant-based-foods,en:cereals-and-potatoes,"
+                        + "en:cereals-and-their-products,en:flours,en:cereal-flours,en:wheat-flours");
+        source.setIngredientsText("Wheat Flour, Iron, Niacin, Vitamin B2, Vitamin B1, Folic Acid");
+        source.setAllergens("en:gluten");
+
+        CatalogProduct brownRiceFlour = gfFlour(
+                "8887501030642",
+                "Organic Brown Rice Flour",
+                "Brown Rice Flour",
+                "Organic Brown Rice",
+                "en:no-gluten,en:gluten-free,en:gluten-free-flour");
+        CatalogProduct coconutFlour = gfFlour(
+                "8888263533730",
+                "Coconut Flour",
+                "Dried coconut flour",
+                "Organic Coconut",
+                "en:plant-based-foods-and-beverages,en:plant-based-foods,en:dried-coconut-flour,"
+                        + "en:no-gluten,en:gluten-free,en:gluten-free-flour");
+        CatalogProduct cornFlour = gfFlour(
+                "8888030023662",
+                "Corn Flour",
+                "Corn starch",
+                "Corn flour",
+                "en:plant-based-foods-and-beverages,en:plant-based-foods,en:corn-starch,"
+                        + "en:no-gluten,en:gluten-free,en:gluten-free-flour");
+        CatalogProduct flyingManCorn = gfFlour(
+                "8888231120016",
+                "Corn Flour",
+                "Corn Flour",
+                "Corn Flour",
+                "en:no-gluten,en:gluten-free,en:gluten-free-flour");
+        CatalogProduct buckwheat = gfFlour(
+                "8887501030697",
+                "Organic Buckwheat Flour",
+                "Buckwheat Flour",
+                "Buckwheat Flour",
+                "en:no-gluten,en:gluten-free,en:gluten-free-flour");
+        CatalogProduct amaranth = gfFlour(
+                "8906055442630",
+                "Organic Amaranath Flour",
+                "Amaranth flour",
+                "Organic Amaranth (Rajgira) Seeds",
+                "en:no-gluten,en:gluten-free,en:gluten-free-flour");
+
+        SubstituteDiscoveryProfile wheatProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Wheat flours").orElseThrow();
+        List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rank(
+                source,
+                List.of(coconutFlour, cornFlour, flyingManCorn, buckwheat, amaranth, brownRiceFlour),
+                List.of(new RestrictionRule("GLUTEN", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID)),
+                Set.of(),
+                wheatProfile);
+
+        assertEquals(6, ranked.size());
+        int brownRiceFlourRank = ranked.stream()
+                .map(alternative -> alternative.product().getBarcode())
+                .toList()
+                .indexOf("8887501030642");
+        assertTrue(brownRiceFlourRank >= 0 && brownRiceFlourRank < ranked.size() - 1,
+                "brown rice flour should outrank at least the weakest candidate, was at rank " + brownRiceFlourRank);
+        assertEquals("ml_similarity", ranked.get(brownRiceFlourRank).matchReason());
+    }
+
+    @Test
     void nutButterDomainBoostRanksCashewAboveTahini() {
         CatalogProduct source = new CatalogProduct();
         source.setBarcode("8888260007616");
@@ -145,6 +216,40 @@ class MlContentBasedRankerTest {
     }
 
     @Test
+    void packSizeBoostPrefersMatchingVolumeForMilkSubstitutes() {
+        SubstituteDiscoveryProfile freshMilksProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Fresh milks").orElseThrow();
+        CatalogProduct source = farmhouseFreshMilk();
+        source.setQuantity("1 l");
+        CatalogProduct oneLitreSoy = plantMilk(
+                "8850025000521",
+                "Soya Milk",
+                "Home Soy",
+                "Soy-based drinks",
+                "Soy milk 99.6%",
+                "en:dairy-substitutes,en:milk-substitutes,en:soy-based-drinks");
+        oneLitreSoy.setQuantity("1 Litre");
+        CatalogProduct smallSoy = plantMilk(
+                "small",
+                "Soya Milk Small",
+                "Home Soy",
+                "Soy-based drinks",
+                "Soy milk 99.6%",
+                "en:dairy-substitutes,en:milk-substitutes,en:soy-based-drinks");
+        smallSoy.setQuantity("375 ml");
+
+        List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rank(
+                source,
+                List.of(smallSoy, oneLitreSoy),
+                List.of(),
+                Set.of(),
+                freshMilksProfile);
+
+        assertEquals("8850025000521", ranked.getFirst().product().getBarcode());
+        assertEquals("ml_pack_size_match", ranked.getFirst().matchReason());
+    }
+
+    @Test
     void detectsSparseSourceWhenIngredientsDuplicateCategory() {
         ProductFeatureEncoder encoder = new ProductFeatureEncoder(
                 new ProductFeatureVectorStore(new com.fasterxml.jackson.databind.ObjectMapper(), ""));
@@ -167,6 +272,21 @@ class MlContentBasedRankerTest {
         product.setCategoryTags("en:dairies,en:milks,en:fresh-milks");
         product.setIngredientsText("Fresh milks");
         product.setAllergens("en:milk");
+        return product;
+    }
+
+    private static CatalogProduct gfFlour(
+            String barcode,
+            String name,
+            String category,
+            String ingredients,
+            String tags) {
+        CatalogProduct product = new CatalogProduct();
+        product.setBarcode(barcode);
+        product.setProductName(name);
+        product.setMainCategoryEn(category);
+        product.setIngredientsText(ingredients);
+        product.setCategoryTags(tags);
         return product;
     }
 
