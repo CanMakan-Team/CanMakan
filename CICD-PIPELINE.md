@@ -26,7 +26,7 @@ Concurrency: `ci-${{ github.ref }}` (cancel superseded runs). Default permission
 | Job | When | What |
 |-----|------|------|
 | `detect-changes` | always | Path filter backend / web / mobile |
-| `gitleaks` | always | Secret scan, `fetch-depth: 0`, Gitleaks 8.21.2 |
+| `gitleaks` | always | Secret scan, `fetch-depth: 0`, Gitleaks 8.21.2; [`.gitleaks.toml`](.gitleaks.toml) allowlists the test JWT only |
 | `sast-scan` | always | Semgrep `semgrep/semgrep:1.173.0` `--config=auto` (needs network) |
 | `sca-scan` | always | Trivy filesystem SCA, CRITICAL/HIGH, `exit-code: 1`, SARIF upload |
 | `config-scan` | always | Trivy `config` on `.github` (workflow YAML + Dependabot), CRITICAL/HIGH, `exit-code: 1`, SARIF upload |

@@ -131,7 +131,7 @@ Continuous integration builds the backend, web app, and Android app on pushes an
 - Environment variables, credentials, and secrets are included in gitignore to prevent secrets leakage
 - Gitleaks runs inside [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (`gitleaks` job)
 > Checkout uses full history (`fetch-depth: 0`) <br>
-> Gitleaks 8.21.2 <br>
+> Gitleaks 8.21.2; [`.gitleaks.toml`](.gitleaks.toml) allowlists the test-only JWT used in CI and Spring tests <br>
 
 ### Continuous Integration
 

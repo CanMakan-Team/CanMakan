@@ -1,0 +1,12 @@
+# Extends default Gitleaks rules. Do not disable useDefault.
+title = "canmakan"
+
+[extend]
+useDefault = true
+
+# Test-only JWT (same value as application-default.properties). Not used in production.
+[[allowlists]]
+description = "CI and unit-test JWT signing placeholder"
+regexes = [
+  '''dGVzdC1vbmx5LXNpZ25pbmcta2V5LTMyLWJ5dGVzISE=''',
+]
