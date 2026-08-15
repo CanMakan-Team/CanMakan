@@ -3,7 +3,10 @@ import {
   familyApiService,
   familyEndpoints,
 } from '../../../../features/family/api/familyApiService'
-import { configureApiAuthBridge } from '../../../../shared/api/apiClient'
+import {
+  apiBaseUrl,
+  configureApiAuthBridge,
+} from '../../../../shared/api/apiClient'
 import { jsonResponse } from '../../../testUtils'
 
 /** Test suite for familyApiService.
@@ -36,7 +39,7 @@ describe('familyApiService live UC8 calls', () => {
 
     expect(me.familyId).toBe(3)
     expect(fetch).toHaveBeenCalledWith(
-      `http://localhost:8080${familyEndpoints.me}`,
+      `${apiBaseUrl}${familyEndpoints.me}`,
       expect.any(Object),
     )
     const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
@@ -66,7 +69,7 @@ describe('familyApiService live UC8 calls', () => {
 
     const init = vi.mocked(fetch).mock.calls[0][1]
     expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
-      `http://localhost:8080${familyEndpoints.families}`,
+      `${apiBaseUrl}${familyEndpoints.families}`,
     )
     expect(init?.method).toBe('POST')
     expect(JSON.parse(String(init?.body))).toEqual({ familyName: 'Wong Family' })
@@ -81,7 +84,7 @@ describe('familyApiService live UC8 calls', () => {
     await familyApiService.setProfileActive(88, false)
 
     expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
-      `http://localhost:8080${familyEndpoints.profiles}/88`,
+      `${apiBaseUrl}${familyEndpoints.profiles}/88`,
     )
     const init = vi.mocked(fetch).mock.calls[0][1]
     expect(init?.method).toBe('PATCH')

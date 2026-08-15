@@ -20,6 +20,9 @@ import org.springframework.stereotype.Service;
  *         contentSimilarity × {@value #CONTENT_SIM_SCALE}
  *       + nutritionSimilarity   (when source and candidate both have sugars and sodium per 100g)
  *       + lowSugarBoost         ({@value #LOW_SUGAR_BOOST} when LOW_SUGAR rule and nutrition pair absent)
+ *       + packSizeBoost         ({@value PackSizeParser#PACK_SIZE_WEIGHT} × volume similarity for milk substitutes)
+ *       + domainBoost           ({@value #DOMAIN_BOOST} when secondary substitute tags match)
+ *       + flourTypeBoost        ({@value #FLOUR_TYPE_BOOST} for specialty GF flour types)
  *       + priorSafeBoost        ({@value #PRIOR_SAFE_BOOST} when barcode in prior safe scans)
  *       )
  * </pre>
@@ -40,6 +43,7 @@ class MlContentBasedRanker {
     private static final double MAX_SODIUM_RANGE_G = 3.0;
     private static final double MAX_SCORE = 0.99;
     private static final double DOMAIN_BOOST = 0.03;
+    private static final double FLOUR_TYPE_BOOST = 0.05;
     private static final double NUT_BUTTER_EXTRA_BOOST = 0.02;
     private static final double COOKING_PENALTY = 0.10;
 
@@ -67,16 +71,27 @@ class MlContentBasedRanker {
         Map<String, Double> sourceVector = featureEncoder.encodeQuery(source);
         boolean prefersLowSugar = prefersLowSugar(rules);
         boolean nutritionAvailable = hasNutritionPair(source);
+        boolean milkSubstituteDiscovery = isMilkSubstituteDiscovery(substituteProfile);
+        boolean packSizeAvailable = milkSubstituteDiscovery
+                && PackSizeParser.resolveVolumeMl(source).isPresent();
 
         List<AlternativeProductRanker.RankedAlternative> ranked = new ArrayList<>();
         for (CatalogProduct candidate : safeCandidates) {
             double similarity = CosineSimilarity.between(sourceVector, featureEncoder.encode(candidate));
             double score = similarity * CONTENT_SIM_SCALE;
 
-            if (nutritionAvailable && hasNutritionPair(candidate)) {
+            boolean nutritionMatched = nutritionAvailable && hasNutritionPair(candidate);
+            boolean unsweetenedMatched = prefersLowSugar && featureEncoder.isUnsweetened(candidate);
+            boolean packSizeMatched = packSizeAvailable
+                    && PackSizeParser.isStrongPackSizeMatch(source, candidate);
+
+            if (nutritionMatched) {
                 score += nutritionSimilarity(source, candidate);
-            } else if (prefersLowSugar && featureEncoder.isUnsweetened(candidate)) {
+            } else if (unsweetenedMatched) {
                 score += LOW_SUGAR_BOOST;
+            }
+            if (packSizeAvailable && PackSizeParser.resolveVolumeMl(candidate).isPresent()) {
+                score += PackSizeParser.weightedBoost(source, candidate);
             }
             score += domainAdjustment(candidate, substituteProfile);
             if (priorSafeBarcodes.contains(candidate.getBarcode())) {
@@ -88,10 +103,10 @@ class MlContentBasedRanker {
                     candidate,
                     BigDecimal.valueOf(score).setScale(4, RoundingMode.HALF_UP),
                     resolveMatchReason(
-                            prefersLowSugar,
-                            nutritionAvailable && hasNutritionPair(candidate),
                             priorSafeBarcodes.contains(candidate.getBarcode()),
-                            candidate)));
+                            nutritionMatched && prefersLowSugar,
+                            unsweetenedMatched,
+                            packSizeMatched)));
         }
 
         ranked.sort(Comparator.comparing(AlternativeProductRanker.RankedAlternative::score).reversed());
@@ -127,21 +142,36 @@ class MlContentBasedRanker {
         return ((sugarSim + sodiumSim) / 2.0) * NUTRITION_WEIGHT;
     }
 
-    private String resolveMatchReason(
-            boolean prefersLowSugar,
-            boolean nutritionMatched,
+    private static String resolveMatchReason(
             boolean priorSafe,
-            CatalogProduct candidate) {
+            boolean nutritionMatched,
+            boolean unsweetenedMatched,
+            boolean packSizeMatched) {
         if (priorSafe) {
             return "ml_prior_safe_scan";
         }
-        if (nutritionMatched && prefersLowSugar) {
+        if (nutritionMatched) {
             return "ml_nutrition_match";
         }
-        if (prefersLowSugar && featureEncoder.isUnsweetened(candidate)) {
+        if (unsweetenedMatched) {
             return "ml_unsweetened_substitute";
         }
+        if (packSizeMatched) {
+            return "ml_pack_size_match";
+        }
         return "ml_similarity";
+    }
+
+    private static boolean isFlourSubstituteProfile(SubstituteDiscoveryProfile profile) {
+        return profile != null
+                && profile.includeTags() != null
+                && profile.includeTags().contains("en:gluten-free-flour");
+    }
+
+    private static boolean isMilkSubstituteDiscovery(SubstituteDiscoveryProfile profile) {
+        return profile != null
+                && profile.includeTags() != null
+                && profile.includeTags().contains("en:milk-substitutes");
     }
 
     private static double domainAdjustment(
@@ -152,15 +182,24 @@ class MlContentBasedRanker {
         }
         Set<String> tags = CategoryTagParser.parseTags(candidate.getCategoryTags());
         double adjustment = 0.0;
-        if (CategoryTagParser.containsAny(tags, profile.beverageTags())) {
+        if (CategoryTagParser.containsAnyIncludingMainCategory(
+                candidate.getCategoryTags(),
+                candidate.getMainCategoryEn(),
+                profile.secondaryIncludeTags())) {
             adjustment += DOMAIN_BOOST;
+            if (isFlourSubstituteProfile(profile)) {
+                adjustment += FLOUR_TYPE_BOOST;
+            }
         }
         if (profile.includeTags() != null
                 && CategoryTagParser.containsAny(Set.copyOf(profile.includeTags()), List.of("en:nut-butters"))
                 && CategoryTagParser.containsAny(tags, List.of("en:nut-butters"))) {
             adjustment += NUT_BUTTER_EXTRA_BOOST;
         }
-        if (CategoryTagParser.containsAny(tags, profile.deprioritizeTags())) {
+        if (CategoryTagParser.containsAnyIncludingMainCategory(
+                candidate.getCategoryTags(),
+                candidate.getMainCategoryEn(),
+                profile.deprioritizeTags())) {
             adjustment -= COOKING_PENALTY;
         }
         return adjustment;

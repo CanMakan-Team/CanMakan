@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { authService } from '../../../features/auth/authService'
+import { apiBaseUrl } from '../../../shared/api/apiClient'
 import { jsonResponse } from '../../testUtils'
 
 /** Test suite for authService.
@@ -44,7 +45,7 @@ describe('authService', () => {
       prototype: false,
     })
     expect(fetch).toHaveBeenCalledWith(
-      'http://localhost:8080/api/auth/login',
+      `${apiBaseUrl}/api/auth/login`,
       expect.objectContaining({ method: 'POST' }),
     )
     const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
