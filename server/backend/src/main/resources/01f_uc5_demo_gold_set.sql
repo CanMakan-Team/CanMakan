@@ -14,9 +14,17 @@ UPDATE products
 SET
     main_category_en = COALESCE(NULLIF(TRIM(main_category_en), ''), 'Brown Rice Flour'),
     category_tags = CASE
-        WHEN category_tags IS NULL OR TRIM(category_tags) = '' THEN 'en:gluten-free-flour,Gluten free flour'
-        WHEN CONCAT(',', category_tags, ',') LIKE '%,en:gluten-free-flour,%' THEN category_tags
-        ELSE CONCAT(category_tags, ',', 'en:gluten-free-flour')
+        WHEN category_tags IS NULL OR TRIM(category_tags) = '' THEN 'en:gluten-free-flour,Gluten free flour,en:brown-rice-flour'
+        ELSE TRIM(BOTH ',' FROM CONCAT(
+            CASE
+                WHEN CONCAT(',', category_tags, ',') LIKE '%,en:gluten-free-flour,%' THEN category_tags
+                ELSE CONCAT(category_tags, ',', 'en:gluten-free-flour')
+            END,
+            CASE
+                WHEN CONCAT(',', category_tags, ',') LIKE '%,en:brown-rice-flour,%' THEN ''
+                ELSE ',en:brown-rice-flour'
+            END
+        ))
     END,
     labels_tags = CASE
         WHEN labels_tags IS NULL OR TRIM(labels_tags) = '' THEN 'en:no-gluten'
@@ -50,6 +58,12 @@ SET category_tags = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', IFNULL(category_tags,
 WHERE barcode IN ('8887143802515', '8886478600698')
   AND CONCAT(',', IFNULL(category_tags, ''), ',') LIKE '%,Gluten free bread,%';
 
+-- Forbid: almond-flour wraps are not baking-flour substitutes
+UPDATE products
+SET category_tags = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', IFNULL(category_tags, ''), ','), ',en:gluten-free-flour,', ','))
+WHERE barcode = '8881300655204'
+  AND CONCAT(',', IFNULL(category_tags, ''), ',') LIKE '%,en:gluten-free-flour,%';
+
 -- ---------------------------------------------------------------------------
 -- Profile 2 Michael — fish sauce + low-sodium sauces
 -- ---------------------------------------------------------------------------
@@ -76,6 +90,11 @@ WHERE barcode IN ('0078895160482', '12456419');
 -- ---------------------------------------------------------------------------
 -- Profile 3 Emily — Farmhouse milk + unsweetened plant milks
 -- ---------------------------------------------------------------------------
+UPDATE products
+SET main_category_en = 'Fresh milks'
+WHERE barcode = '8888200602734'
+  AND (main_category_en IS NULL OR main_category_en = 'Dairies');
+
 UPDATE products
 SET
     main_category_en = 'Fresh milks',

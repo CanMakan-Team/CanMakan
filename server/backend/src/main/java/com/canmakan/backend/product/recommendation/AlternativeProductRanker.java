@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 public class AlternativeProductRanker {
 
     private static final double SUBSTITUTE_BASE_SCORE = 0.95;
-    private static final double BEVERAGE_BOOST = 0.03;
+    private static final double SECONDARY_INCLUDE_BOOST = 0.03;
     private static final double NUT_BUTTER_EXTRA_BOOST = 0.02;
     private static final double COOKING_PENALTY = 0.10;
     private static final double PRIOR_SAFE_BOOST = 0.10;
@@ -21,14 +21,15 @@ public class AlternativeProductRanker {
     public List<RankedAlternative> rankSameCategory(
             List<CatalogProduct> safeCandidates,
             Set<String> priorSafeBarcodes) {
-        return rank(safeCandidates, priorSafeBarcodes, MatchProvenance.SAME_CATEGORY, null);
+        return rank(null, safeCandidates, priorSafeBarcodes, MatchProvenance.SAME_CATEGORY, null);
     }
 
     public List<RankedAlternative> rankSubstituteTags(
+            CatalogProduct source,
             List<CatalogProduct> safeCandidates,
             Set<String> priorSafeBarcodes,
             SubstituteDiscoveryProfile profile) {
-        return rank(safeCandidates, priorSafeBarcodes, MatchProvenance.SUBSTITUTE_TAG, profile);
+        return rank(source, safeCandidates, priorSafeBarcodes, MatchProvenance.SUBSTITUTE_TAG, profile);
     }
 
     public List<RankedAlternative> rank(
@@ -38,10 +39,16 @@ public class AlternativeProductRanker {
     }
 
     private List<RankedAlternative> rank(
+            CatalogProduct source,
             List<CatalogProduct> safeCandidates,
             Set<String> priorSafeBarcodes,
             MatchProvenance provenance,
             SubstituteDiscoveryProfile profile) {
+
+        boolean milkSubstituteDiscovery = isMilkSubstituteDiscovery(profile);
+        boolean packSizeAvailable = milkSubstituteDiscovery
+                && source != null
+                && PackSizeParser.resolveVolumeMl(source).isPresent();
 
         List<RankedAlternative> ranked = new ArrayList<>();
         int position = 0;
@@ -49,15 +56,23 @@ public class AlternativeProductRanker {
             Set<String> tags = CategoryTagParser.parseTags(candidate.getCategoryTags());
             boolean priorSafe = priorSafeBarcodes.contains(candidate.getBarcode());
             boolean deprioritized = profile != null
-                    && CategoryTagParser.containsAny(tags, profile.deprioritizeTags());
+                    && CategoryTagParser.containsAnyIncludingMainCategory(
+                            candidate.getCategoryTags(),
+                            candidate.getMainCategoryEn(),
+                            profile.deprioritizeTags());
+            boolean packSizeMatched = packSizeAvailable
+                    && PackSizeParser.isStrongPackSizeMatch(source, candidate);
 
             double base = provenance == MatchProvenance.SUBSTITUTE_TAG
                     ? SUBSTITUTE_BASE_SCORE - (position * 0.01)
                     : 1.0 - (position * 0.01);
 
             if (provenance == MatchProvenance.SUBSTITUTE_TAG && profile != null) {
-                if (CategoryTagParser.containsAny(tags, profile.beverageTags())) {
-                    base += BEVERAGE_BOOST;
+                if (CategoryTagParser.containsAnyIncludingMainCategory(
+                        candidate.getCategoryTags(),
+                        candidate.getMainCategoryEn(),
+                        profile.secondaryIncludeTags())) {
+                    base += SECONDARY_INCLUDE_BOOST;
                 }
                 if (isPeanutSpreadSubstituteProfile(profile)
                         && CategoryTagParser.containsAny(tags, List.of("en:nut-butters"))) {
@@ -66,10 +81,13 @@ public class AlternativeProductRanker {
                 if (deprioritized) {
                     base -= COOKING_PENALTY;
                 }
+                if (packSizeAvailable && PackSizeParser.resolveVolumeMl(candidate).isPresent()) {
+                    base += PackSizeParser.weightedBoost(source, candidate);
+                }
             }
 
             double score = priorSafe ? Math.min(base + PRIOR_SAFE_BOOST, MAX_SCORE) : base;
-            String reason = resolveMatchReason(provenance, priorSafe, deprioritized);
+            String reason = resolveMatchReason(provenance, priorSafe, deprioritized, packSizeMatched);
             ranked.add(new RankedAlternative(candidate, BigDecimal.valueOf(score), reason));
             position++;
         }
@@ -80,14 +98,24 @@ public class AlternativeProductRanker {
     private static String resolveMatchReason(
             MatchProvenance provenance,
             boolean priorSafe,
-            boolean deprioritized) {
+            boolean deprioritized,
+            boolean packSizeMatched) {
         if (priorSafe) {
             return "prior_safe_scan";
         }
         if (provenance == MatchProvenance.SUBSTITUTE_TAG) {
+            if (packSizeMatched) {
+                return "substitute_pack_size";
+            }
             return deprioritized ? "substitute_category_cooking" : "substitute_category";
         }
         return "category_match";
+    }
+
+    private static boolean isMilkSubstituteDiscovery(SubstituteDiscoveryProfile profile) {
+        return profile != null
+                && profile.includeTags() != null
+                && profile.includeTags().contains("en:milk-substitutes");
     }
 
     private static boolean isPeanutSpreadSubstituteProfile(SubstituteDiscoveryProfile profile) {

@@ -1,6 +1,7 @@
 package com.canmakan.backend.product.recommendation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -18,8 +19,10 @@ class SubstituteDiscoveryProfilesTest {
 
         assertTrue(profile.includeTags().contains("en:milk-substitutes"));
         assertTrue(profile.includeTags().contains("en:dairy-substitutes"));
-        assertTrue(profile.beverageTags().contains("en:oat-based-drinks"));
-        assertTrue(profile.beverageTags().contains("en:soy-based-drinks"));
+        assertTrue(profile.includeTags().contains("en:oat-based-drinks"));
+        assertTrue(profile.includeTags().contains("en:soy-based-drinks"));
+        assertTrue(profile.secondaryIncludeTags().contains("en:oat-based-drinks"));
+        assertTrue(profile.secondaryIncludeTags().contains("en:soy-based-drinks"));
         assertTrue(profile.deprioritizeTags().contains("en:plant-based-creams-for-cooking"));
         assertTrue(profile.deprioritizeTags().contains("en:coconut-milks-and-creams"));
     }
@@ -31,7 +34,7 @@ class SubstituteDiscoveryProfilesTest {
         assertTrue(profile.includeTags().contains("en:gluten-free-flour"));
         assertTrue(profile.includeTags().contains("Gluten free flour"));
         assertTrue(profile.includeTags().contains("Gluten-free flour"));
-        assertTrue(profile.beverageTags().contains("en:corn-starch"));
+        assertTrue(profile.secondaryIncludeTags().contains("en:corn-starch"));
         assertTrue(profile.deprioritizeTags().contains("en:oat-flour"));
     }
 
@@ -77,7 +80,7 @@ class SubstituteDiscoveryProfilesTest {
         assertTrue(profiles.isBreakfastCerealSubstituteDiscovery(profile));
         assertEquals(List.of("en:no-gluten", "en:certified-gluten-free"), profile.labelTags());
         assertEquals(List.of("Breakfast cereals"), profile.siblingCategories());
-        assertTrue(profile.beverageTags().isEmpty());
+        assertTrue(profile.secondaryIncludeTags().isEmpty());
         assertTrue(profile.deprioritizeTags().isEmpty());
     }
 
@@ -145,7 +148,7 @@ class SubstituteDiscoveryProfilesTest {
         assertEquals(List.of(
                 "en:nut-butters",
                 "en:tahini",
-                "en:cereal-butters"), peanutButters.beverageTags());
+                "en:cereal-butters"), peanutButters.secondaryIncludeTags());
         assertEquals(List.of("en:honeys"), peanutButters.excludeCategoryTags());
         assertEquals(List.of("en:peanuts"), peanutButters.excludeTracesTags());
         assertEquals(peanutButters, profiles.forSourceCategory("Crunchy peanut butters").orElseThrow());
@@ -262,5 +265,49 @@ class SubstituteDiscoveryProfilesTest {
     void unknownSourceCategoryReturnsEmpty() {
         assertTrue(profiles.forSourceCategory("Snacks").isEmpty());
         assertTrue(profiles.forSourceCategory(null).isEmpty());
+    }
+
+    @Test
+    void dairiesFreshMilkResolvesToPlantMilkSubstituteProfile() {
+        CatalogProduct magnoliaMilk = new CatalogProduct();
+        magnoliaMilk.setBarcode("8888200602734");
+        magnoliaMilk.setProductName("100% Fresh Milk");
+        magnoliaMilk.setMainCategoryEn("Dairies");
+        magnoliaMilk.setCategoryTags("en:dairies");
+        magnoliaMilk.setIngredientsText("Fresh Milk 100%");
+
+        SubstituteDiscoveryProfile profile = profiles.forSourceProduct(magnoliaMilk).orElseThrow();
+
+        assertEquals(
+                profiles.forSourceCategory("Fresh milks").orElseThrow(),
+                profile);
+        assertTrue(SubstituteDiscoveryProfiles.isCowMilkSource(magnoliaMilk));
+    }
+
+    @Test
+    void dairiesSpreadIsNotCowMilkSource() {
+        CatalogProduct spread = new CatalogProduct();
+        spread.setBarcode("8888010320453");
+        spread.setProductName("Luxury Spread");
+        spread.setMainCategoryEn("Dairies");
+        spread.setCategoryTags("en:dairies");
+
+        assertTrue(profiles.forSourceProduct(spread).isEmpty());
+        assertFalse(SubstituteDiscoveryProfiles.isCowMilkSource(spread));
+    }
+
+    @Test
+    void uhtMilkMiscategorizedAsDairiesIsCowMilkSource() {
+        CatalogProduct uhtMilk = new CatalogProduct();
+        uhtMilk.setBarcode("8888200601416");
+        uhtMilk.setProductName("UHT Low Fat Milk");
+        uhtMilk.setMainCategoryEn("Dairies");
+        uhtMilk.setCategoryTags("en:dairies");
+        uhtMilk.setAllergens("en:milk");
+
+        assertTrue(SubstituteDiscoveryProfiles.isCowMilkSource(uhtMilk));
+        assertEquals(
+                profiles.forSourceCategory("Fresh milks").orElseThrow(),
+                profiles.forSourceProduct(uhtMilk).orElseThrow());
     }
 }
