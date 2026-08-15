@@ -143,7 +143,7 @@ Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 | Job | What it does |
 |-----|----------------|
 | Gitleaks | Secret scanning |
-| Semgrep | SAST (`semgrep/semgrep:1.173.0 --config=.semgrep.yml` / `p/default`; needs network) |
+| Semgrep | SAST (`semgrep/semgrep:1.173.0 --config p/default`; needs network; skips via [`.semgrepignore`](.semgrepignore)) |
 | Trivy fs | SCA vulns only (CRITICAL/HIGH fails the job; secrets are Gitleaks); CycloneDX SBOM artefact |
 | Trivy config | GitHub Actions / `.github` YAML misconfiguration |
 | Backend | Maven `verify` against job-local MySQL 8 (not RDS), Java 21, JaCoCo; uploads `backend-jar`; SonarCloud `canmakan-backend` |

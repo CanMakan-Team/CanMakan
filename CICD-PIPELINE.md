@@ -23,7 +23,7 @@ Each category has **one primary tool**. Overlaps (Trivy can scan secrets; Depend
 | Category | Tool | Where it runs | Config | Why this tool |
 |----------|------|---------------|--------|----------------|
 | Secret scanning | Gitleaks **8.21.2** | `ci.yml` job `gitleaks` | [`.gitleaks.toml`](.gitleaks.toml) (`[allowlist]`, `useDefault = true`); [`.gitleaksignore`](.gitleaksignore); `gitleaks detect --source . --verbose --config .gitleaks.toml`; checkout `fetch-depth: 0` | Built for git history and one allowlist. Trivy `fs` can also flag secrets; we turn that off (`scanners: vuln`) so Trivy red means CVEs, not the same test JWT Gitleaks already allowlists |
-| SAST | Semgrep **1.173.0** | `ci.yml` job `sast-scan` | Docker `semgrep/semgrep:1.173.0 semgrep --config=.semgrep.yml` (needs network). Policy: [`.semgrep.yml`](.semgrep.yml) (`include: p/default`, excludes for `node_modules` / `target` / `build`) | Fast security-pattern scan on every PR. Rule set is in git (`p/default`), not `--config=auto`. CodeQL would be a second, slower SAST. SonarCloud is the quality gate, not this SAST job |
+| SAST | Semgrep **1.173.0** | `ci.yml` job `sast-scan` | Docker `semgrep/semgrep:1.173.0 semgrep --config p/default` (needs network). Path skips: [`.semgrepignore`](.semgrepignore) | Fast security-pattern scan on every PR. Registry pack `p/default` is passed on the CLI (a local YAML file must have a top-level `rules:` key; `include: p/default` is not valid). Not `--config=auto`. CodeQL would be a second, slower SAST. SonarCloud is the quality gate, not this SAST job |
 | SCA (CVE scan) | Trivy filesystem | `ci.yml` job `sca-scan` | `aquasecurity/trivy-action@v0.36.0`, `scan-type: fs`, `scanners: vuln`, `severity: CRITICAL,HIGH`, table then SARIF; CycloneDX artefact `trivy-sbom` (14 days, `exit-code: 0`) | Answers “does the tree **right now** contain a known CRITICAL/HIGH CVE?” and fails **Build Test**. SBOM is an artefact, not the gate |
 | SCA (upgrade PRs) | Dependabot | GitHub (not Actions YAML jobs) | [`.github/dependabot.yml`](.github/dependabot.yml): weekly Monday, npm / Maven / Gradle / GitHub Actions, PR limit 5, labels | Answers “move us off old versions **before** they become a gate failure.” Trivy does not bump `pom.xml` / lockfiles. Dependabot does not fail the PR that introduced the vuln today |
 | IaC / workflow config | Trivy config | `ci.yml` job `config-scan` | `scan-type: config`, `scan-ref: .github`, CRITICAL/HIGH, SARIF, `exit-code: 1` | Same Trivy family, different scan type: misconfigured Actions/Dependabot YAML, not library CVEs |
@@ -91,7 +91,7 @@ Concurrency: `ci-${{ github.ref }}` (cancel superseded runs). Permissions: `cont
 |-----|------|------|
 | `detect-changes` | always | `dorny/paths-filter` on `server/backend/**`, `client/web/**`, `client/mobile/**` |
 | `gitleaks` | always | `fetch-depth: 0`, Gitleaks **8.21.2**, `gitleaks detect --config .gitleaks.toml` |
-| `sast-scan` | always | Docker `semgrep/semgrep:1.173.0 --config=.semgrep.yml` (`p/default`) |
+| `sast-scan` | always | Docker `semgrep/semgrep:1.173.0 --config p/default`; [`.semgrepignore`](.semgrepignore) |
 | `sca-scan` | always | Trivy `fs`, `scanners: vuln` only, CRITICAL/HIGH, table + SARIF; CycloneDX SBOM artefact `trivy-sbom` |
 | `config-scan` | always | Trivy `config` on `.github`, CRITICAL/HIGH, SARIF, `exit-code: 1` |
 | `build-backend` | backend paths | JDK 21, MySQL **8.0** service, `mvn -B clean verify` (not RDS) + JaCoCo; SonarCloud `canmakan-backend` (`qualitygate.wait`); stages one fat JAR, uploads **`backend-jar`** (14 days) |
@@ -200,7 +200,7 @@ Testers install from Firebase App Distribution. Play Store internal tracks are n
 
 There is no dynamic application security test against a running API or host (for example OWASP ZAP on staging). Playwright checks web behaviour, not security payloads. DAST needs a live URL; it does not belong in `ci.yml` against production.
 
-**Closed in-repo (no extra GitHub/cloud setup):** CycloneDX SBOM artefact from Trivy (`trivy-sbom`); Semgrep [`.semgrep.yml`](.semgrep.yml) with `p/default`. Optional GitHub Artifact Attestations / SLSA provenance for the JAR is still not implemented.
+**Closed in-repo (no extra GitHub/cloud setup):** CycloneDX SBOM artefact from Trivy (`trivy-sbom`); Semgrep `--config p/default` plus [`.semgrepignore`](.semgrepignore). Optional GitHub Artifact Attestations / SLSA provenance for the JAR is still not implemented.
 
 Suggested order if capacity is limited: staging or Flyway (incident class), then Docker/DAST, then Play Store.
 

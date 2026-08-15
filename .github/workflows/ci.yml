@@ -65,7 +65,7 @@ jobs:
 
       - name: Run Semgrep
         run: |
-          docker run --rm -v "$(pwd):/src" semgrep/semgrep:1.173.0 semgrep --config=.semgrep.yml
+          docker run --rm -v "$(pwd):/src" semgrep/semgrep:1.173.0 semgrep --config p/default
 
   # 4. SCA (dependencies / lockfiles)
   sca-scan:
