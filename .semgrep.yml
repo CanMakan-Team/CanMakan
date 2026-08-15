@@ -1,0 +1,13 @@
+# Stable Semgrep policy for CI (not --config=auto).
+# p/default is a maintained ruleset; excludes keep generated trees out of SAST.
+include:
+  - p/default
+
+exclude:
+  - '**/node_modules/**'
+  - '**/target/**'
+  - '**/build/**'
+  - '**/.gradle/**'
+  - '**/playwright-report/**'
+  - '**/test-results/**'
+  - '**/coverage/**'

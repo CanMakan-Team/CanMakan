@@ -24,8 +24,8 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       mobile: ${{ steps.filter.outputs.mobile }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: dorny/paths-filter@v4.0.3
         id: filter
         with:
           filters: |
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
@@ -61,11 +61,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Run Semgrep
         run: |
-          docker run --rm -v "$(pwd):/src" semgrep/semgrep:1.173.0 semgrep --config=auto
+          docker run --rm -v "$(pwd):/src" semgrep/semgrep:1.173.0 semgrep --config=.semgrep.yml
 
   # 4. SCA (dependencies / lockfiles)
   sca-scan:
@@ -76,7 +76,7 @@ jobs:
       security-events: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Run Trivy filesystem scanner
         uses: aquasecurity/trivy-action@v0.36.0
@@ -102,10 +102,30 @@ jobs:
 
       - name: Upload Trivy filesystem SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v4.37.7
         with:
           sarif_file: trivy-fs-results.sarif
           category: trivy-fs
+
+      - name: Write CycloneDX SBOM
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          scanners: vuln
+          format: 'cyclonedx'
+          output: 'trivy-sbom.cdx.json'
+          exit-code: '0'
+
+      - name: Upload CycloneDX SBOM
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: trivy-sbom
+          path: trivy-sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 14
 
   # 5. GITHUB ACTIONS YAML / CONFIG MISCONFIGURATION
   config-scan:
@@ -116,7 +136,7 @@ jobs:
       security-events: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Run Trivy config scanner
         uses: aquasecurity/trivy-action@v0.36.0
@@ -130,7 +150,7 @@ jobs:
 
       - name: Upload Trivy config SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v4.37.7
         with:
           sarif_file: trivy-config-results.sarif
           category: trivy-config
@@ -218,19 +238,19 @@ jobs:
       CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH: ${{ secrets.CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH }}
       CANMAKAN_RECOMMENDATION_LLM_ENABLED: ${{ secrets.CANMAKAN_RECOMMENDATION_LLM_ENABLED }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Set up Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v5.7.0
         with:
           distribution: 'temurin'
           java-version: '21'
           cache: 'maven'
 
       - name: Cache SonarQube packages
-        uses: actions/cache@v4
+        uses: actions/cache@v4.3.0
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
@@ -283,7 +303,7 @@ jobs:
           ls -la staged-backend-jar
 
       - name: Upload verified backend JAR
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: backend-jar
           path: staged-backend-jar/*.jar
@@ -299,12 +319,12 @@ jobs:
       VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
       VITE_USE_MOCK_API: ${{ secrets.VITE_USE_MOCK_API }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: '24'
           cache: 'npm'
@@ -320,7 +340,7 @@ jobs:
 
       - name: SonarCloud web
         if: ${{ secrets.SONAR_TOKEN != '' }}
-        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+        uses: SonarSource/sonarqube-scan-action@v8.1.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -344,19 +364,19 @@ jobs:
       BASE_URL: ${{ secrets.MOBILE_BASE_URL }}
       WEB_INVITE_BASE_URLS: ${{ secrets.WEB_INVITE_BASE_URLS }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v5.7.0
         with:
           distribution: 'temurin'
           java-version: '21'
           cache: 'gradle'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v4.0.1
 
       - name: Configure Android SDK path
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > client/mobile/local.properties
