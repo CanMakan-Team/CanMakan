@@ -54,6 +54,7 @@ import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryViewMo
 import sg.edu.nus.iss.canmakan.features.family.ui.InviteFamilyMemberScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.ManageFamilyScreen
 import sg.edu.nus.iss.canmakan.features.notifications.NotificationsInboxScreen
+import sg.edu.nus.iss.canmakan.features.settings.SettingsScreen
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
@@ -63,6 +64,7 @@ private const val ROUTE_MANAGE_FAMILY = "family/manage"
 private const val ROUTE_INVITE_MEMBER = "family/invite"
 private const val ROUTE_DEPENDANT_PROFILE = "family/dependant"
 private const val ROUTE_NOTIFICATIONS = "notifications"
+private const val ROUTE_SETTINGS = "settings"
 
 /* The top-level screen. It wires together the navigation between the
  * three screens, the side drawer, and the edit dietary requirements sheet.
@@ -219,6 +221,10 @@ fun CanMakanNavGraph(
                     onManageFamilyClick = {
                         closeDrawer()
                         navController.navigate(ROUTE_MANAGE_FAMILY)
+                    },
+                    onSettingsClick = {
+                        closeDrawer()
+                        navController.navigate(ROUTE_SETTINGS)
                     },
                 )
             }
@@ -468,6 +474,22 @@ fun CanMakanNavGraph(
                         navController.popBackStack()
                     },
                     onMarkedAllRead = { navGraphViewModel.refreshNotifications() },
+                )
+            }
+            composable(ROUTE_SETTINGS) {
+                SettingsScreen(
+                    onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
+                    hasUnreadNotifications = hasUnreadNotifications,
+                    onBackClick = { navController.popBackStack() },
+                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
+                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onConfirmDeleteAccount = {
+                        // TODO: no backend endpoint exists yet to actually delete the
+                        // account. Returning to the scanner rather than signing the
+                        // user out, since doing so would imply deletion succeeded.
+                        navigateToScannerHome()
+                    },
                 )
             }
         }

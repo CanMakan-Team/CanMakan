@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.auth.ui
+package sg.edu.nus.iss.canmakan.features.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
