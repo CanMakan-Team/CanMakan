@@ -67,9 +67,15 @@ public class RecommendationService {
 	    List<RestrictionRule> rules = restrictionRuleLoader.load(request.profileId());
 	    boolean preferLowSodiumSauceSubstitutes = AlternativeCandidateFilter.hasLowSodiumPreference(rules)
 	            && SubstituteDiscoveryProfiles.isSauceSource(source);
+	    boolean skipSameCategoryForCowMilkSubstitutes = SubstituteDiscoveryProfiles.isCowMilkSource(source);
+	    boolean skipSameCategoryForIceCreamSubstitutes =
+	            SubstituteDiscoveryProfiles.isIceCreamSource(source);
+	    boolean useExpandedSubstituteDiscovery = preferLowSodiumSauceSubstitutes;
 
 	    // --- step 3: query same-category candidates (exclude source) ---
 	    List<CatalogProduct> candidates = preferLowSodiumSauceSubstitutes
+	            || skipSameCategoryForCowMilkSubstitutes
+	            || skipSameCategoryForIceCreamSubstitutes
 	            ? List.of()
 	            : queryService.findSameCategoryCandidates(source);
 
@@ -84,7 +90,7 @@ public class RecommendationService {
 	                discoveryProfiles.forSourceProduct(source);
 	        if (profile.isPresent()) {
 	            substituteProfile = profile.get();
-	            List<CatalogProduct> tagCandidates = preferLowSodiumSauceSubstitutes
+	            List<CatalogProduct> tagCandidates = useExpandedSubstituteDiscovery
 	                    ? queryService.findExpandedSubstituteCandidates(source, substituteProfile)
 	                    : queryService.findSubstituteTagCandidates(source, substituteProfile);
 	            acceptableCandidates = filterAcceptable(tagCandidates, rules, substituteProfile);
@@ -150,7 +156,7 @@ public class RecommendationService {
 	                source, acceptableCandidates, rules, priorSafe, substituteProfile);
 	    }
 	    if (provenance == MatchProvenance.SUBSTITUTE_TAG) {
-	        return ranker.rankSubstituteTags(acceptableCandidates, priorSafe, substituteProfile);
+	        return ranker.rankSubstituteTags(source, acceptableCandidates, priorSafe, substituteProfile);
 	    }
 	    return ranker.rankSameCategory(acceptableCandidates, priorSafe);
 	}

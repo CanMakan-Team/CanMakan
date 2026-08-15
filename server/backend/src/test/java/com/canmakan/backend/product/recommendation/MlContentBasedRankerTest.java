@@ -145,6 +145,40 @@ class MlContentBasedRankerTest {
     }
 
     @Test
+    void packSizeBoostPrefersMatchingVolumeForMilkSubstitutes() {
+        SubstituteDiscoveryProfile freshMilksProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Fresh milks").orElseThrow();
+        CatalogProduct source = farmhouseFreshMilk();
+        source.setQuantity("1 l");
+        CatalogProduct oneLitreSoy = plantMilk(
+                "8850025000521",
+                "Soya Milk",
+                "Home Soy",
+                "Soy-based drinks",
+                "Soy milk 99.6%",
+                "en:dairy-substitutes,en:milk-substitutes,en:soy-based-drinks");
+        oneLitreSoy.setQuantity("1 Litre");
+        CatalogProduct smallSoy = plantMilk(
+                "small",
+                "Soya Milk Small",
+                "Home Soy",
+                "Soy-based drinks",
+                "Soy milk 99.6%",
+                "en:dairy-substitutes,en:milk-substitutes,en:soy-based-drinks");
+        smallSoy.setQuantity("375 ml");
+
+        List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rank(
+                source,
+                List.of(smallSoy, oneLitreSoy),
+                List.of(),
+                Set.of(),
+                freshMilksProfile);
+
+        assertEquals("8850025000521", ranked.getFirst().product().getBarcode());
+        assertEquals("ml_pack_size_match", ranked.getFirst().matchReason());
+    }
+
+    @Test
     void detectsSparseSourceWhenIngredientsDuplicateCategory() {
         ProductFeatureEncoder encoder = new ProductFeatureEncoder(
                 new ProductFeatureVectorStore(new com.fasterxml.jackson.databind.ObjectMapper(), ""));

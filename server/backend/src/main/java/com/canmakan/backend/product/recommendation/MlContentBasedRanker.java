@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
  *         contentSimilarity × {@value #CONTENT_SIM_SCALE}
  *       + nutritionSimilarity   (when source and candidate both have sugars and sodium per 100g)
  *       + lowSugarBoost         ({@value #LOW_SUGAR_BOOST} when LOW_SUGAR rule and nutrition pair absent)
+ *       + packSizeBoost         ({@value PackSizeParser#PACK_SIZE_WEIGHT} × volume similarity for milk substitutes)
  *       + priorSafeBoost        ({@value #PRIOR_SAFE_BOOST} when barcode in prior safe scans)
  *       )
  * </pre>
@@ -67,16 +68,27 @@ class MlContentBasedRanker {
         Map<String, Double> sourceVector = featureEncoder.encodeQuery(source);
         boolean prefersLowSugar = prefersLowSugar(rules);
         boolean nutritionAvailable = hasNutritionPair(source);
+        boolean milkSubstituteDiscovery = isMilkSubstituteDiscovery(substituteProfile);
+        boolean packSizeAvailable = milkSubstituteDiscovery
+                && PackSizeParser.resolveVolumeMl(source).isPresent();
 
         List<AlternativeProductRanker.RankedAlternative> ranked = new ArrayList<>();
         for (CatalogProduct candidate : safeCandidates) {
             double similarity = CosineSimilarity.between(sourceVector, featureEncoder.encode(candidate));
             double score = similarity * CONTENT_SIM_SCALE;
 
-            if (nutritionAvailable && hasNutritionPair(candidate)) {
+            boolean nutritionMatched = nutritionAvailable && hasNutritionPair(candidate);
+            boolean unsweetenedMatched = prefersLowSugar && featureEncoder.isUnsweetened(candidate);
+            boolean packSizeMatched = packSizeAvailable
+                    && PackSizeParser.isStrongPackSizeMatch(source, candidate);
+
+            if (nutritionMatched) {
                 score += nutritionSimilarity(source, candidate);
-            } else if (prefersLowSugar && featureEncoder.isUnsweetened(candidate)) {
+            } else if (unsweetenedMatched) {
                 score += LOW_SUGAR_BOOST;
+            }
+            if (packSizeAvailable && PackSizeParser.resolveVolumeMl(candidate).isPresent()) {
+                score += PackSizeParser.weightedBoost(source, candidate);
             }
             score += domainAdjustment(candidate, substituteProfile);
             if (priorSafeBarcodes.contains(candidate.getBarcode())) {
@@ -88,10 +100,10 @@ class MlContentBasedRanker {
                     candidate,
                     BigDecimal.valueOf(score).setScale(4, RoundingMode.HALF_UP),
                     resolveMatchReason(
-                            prefersLowSugar,
-                            nutritionAvailable && hasNutritionPair(candidate),
                             priorSafeBarcodes.contains(candidate.getBarcode()),
-                            candidate)));
+                            nutritionMatched && prefersLowSugar,
+                            unsweetenedMatched,
+                            packSizeMatched)));
         }
 
         ranked.sort(Comparator.comparing(AlternativeProductRanker.RankedAlternative::score).reversed());
@@ -127,21 +139,30 @@ class MlContentBasedRanker {
         return ((sugarSim + sodiumSim) / 2.0) * NUTRITION_WEIGHT;
     }
 
-    private String resolveMatchReason(
-            boolean prefersLowSugar,
-            boolean nutritionMatched,
+    private static String resolveMatchReason(
             boolean priorSafe,
-            CatalogProduct candidate) {
+            boolean nutritionMatched,
+            boolean unsweetenedMatched,
+            boolean packSizeMatched) {
         if (priorSafe) {
             return "ml_prior_safe_scan";
         }
-        if (nutritionMatched && prefersLowSugar) {
+        if (nutritionMatched) {
             return "ml_nutrition_match";
         }
-        if (prefersLowSugar && featureEncoder.isUnsweetened(candidate)) {
+        if (unsweetenedMatched) {
             return "ml_unsweetened_substitute";
         }
+        if (packSizeMatched) {
+            return "ml_pack_size_match";
+        }
         return "ml_similarity";
+    }
+
+    private static boolean isMilkSubstituteDiscovery(SubstituteDiscoveryProfile profile) {
+        return profile != null
+                && profile.includeTags() != null
+                && profile.includeTags().contains("en:milk-substitutes");
     }
 
     private static double domainAdjustment(
@@ -152,7 +173,7 @@ class MlContentBasedRanker {
         }
         Set<String> tags = CategoryTagParser.parseTags(candidate.getCategoryTags());
         double adjustment = 0.0;
-        if (CategoryTagParser.containsAny(tags, profile.beverageTags())) {
+        if (CategoryTagParser.containsAny(tags, profile.secondaryIncludeTags())) {
             adjustment += DOMAIN_BOOST;
         }
         if (profile.includeTags() != null
