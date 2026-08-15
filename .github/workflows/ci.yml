@@ -11,6 +11,10 @@ permissions:
   contents: read
   pull-requests: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # 1. ANALYZE CHANGES IN MOBILE, WEB & BACKEND
   detect-changes:
@@ -32,7 +36,26 @@ jobs:
             mobile:
               - 'client/mobile/**'
 
-  # 2. SAST & CODE QUALITY GATE
+  # 2. SECRET SCANNING
+  gitleaks:
+    name: Secret Scan (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install Gitleaks
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz \
+            | tar -xz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+
+      - name: Run Gitleaks
+        run: gitleaks detect --source . --verbose --config .gitleaks.toml
+
+  # 3. SAST
   sast-scan:
     name: Static Code Analysis (Semgrep)
     runs-on: ubuntu-latest
@@ -42,33 +65,97 @@ jobs:
 
       - name: Run Semgrep
         run: |
-          docker run --rm -v "$(pwd):/src" returntocorp/semgrep semgrep --config=auto
+          docker run --rm -v "$(pwd):/src" semgrep/semgrep:1.173.0 semgrep --config=auto
 
-  # 3. SCA & DEPENDENCY VULNERABILITY GATE
+  # 4. SCA (dependencies / lockfiles)
   sca-scan:
     name: Software Composition Analysis (Trivy)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      # Skip Docker Build entirely and scan the repository code filesystem directly
-      - name: Run Trivy vulnerability scanner
+      - name: Run Trivy filesystem scanner
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+          scanners: vuln
+          format: 'table'
           severity: 'CRITICAL,HIGH'
-  
-  # 4. BACKEND VERIFICATION
-  # Env names mirror server/backend/src/main/resources/application.properties.
-  # Configure matching repository/environment secrets in GitHub Settings.
+          exit-code: '1'
+
+      - name: Write Trivy filesystem SARIF
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          scanners: vuln
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Upload Trivy filesystem SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-fs-results.sarif
+          category: trivy-fs
+
+  # 5. GITHUB ACTIONS YAML / CONFIG MISCONFIGURATION
+  config-scan:
+    name: Workflow Config Scan (Trivy)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Run Trivy config scanner
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'config'
+          scan-ref: '.github'
+          format: 'sarif'
+          output: 'trivy-config-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+
+      - name: Upload Trivy config SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-config-results.sarif
+          category: trivy-config
+
+  # 6. BACKEND VERIFICATION
+  # Tests use a job-local MySQL service, not production RDS secrets.
+  # Remaining env names mirror application.properties for Spring context tests.
   build-backend:
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: canmakan
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
     env:
       # Server
       SERVER_ADDRESS: ${{ secrets.SERVER_ADDRESS }}
@@ -90,13 +177,6 @@ jobs:
       CANMAKAN_EMAIL_RESEND_API_KEY: ${{ secrets.CANMAKAN_EMAIL_RESEND_API_KEY }}
       CANMAKAN_EMAIL_RESEND_FROM: ${{ secrets.CANMAKAN_EMAIL_RESEND_FROM }}
       CANMAKAN_EMAIL_RESEND_API_URL: ${{ secrets.CANMAKAN_EMAIL_RESEND_API_URL }}
-
-      # Datasource
-      MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
-      MYSQL_PORT: ${{ secrets.MYSQL_PORT }}
-      MYSQL_DB: ${{ secrets.MYSQL_DB }}
-      MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
-      MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
 
       # UC19 JWT / refresh
       JWT_ISSUER: ${{ secrets.JWT_ISSUER }}
@@ -147,11 +227,22 @@ jobs:
           java-version: '21'
           cache: 'maven'
 
-      - name: Build with Maven
+      - name: Test and package with Maven
         working-directory: server/backend
-        run: mvn -B clean package -DskipTests
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: 3306
+          MYSQL_DB: canmakan
+          MYSQL_USERNAME: root
+          MYSQL_PASSWORD: root
+          JWT_SIGNING_SECRET: dGVzdC1vbmx5LXNpZ25pbmcta2V5LTMyLWJ5dGVzISE=
+          CANMAKAN_AI_ENABLED: "false"
+          CANMAKAN_RECOMMENDATION_LLM_ENABLED: "false"
+          TAVILY_API_KEY: local-dev-placeholder
+          CANMAKAN_EMAIL_RESEND_ENABLED: "false"
+        run: mvn -B clean verify
 
-  # 5. WEB VERIFICATION
+  # 7. WEB VERIFICATION
   build-web:
     needs: detect-changes
     if: needs.detect-changes.outputs.web == 'true'
@@ -173,11 +264,15 @@ jobs:
         working-directory: client/web
         run: npm ci
 
+      - name: Run web unit tests
+        working-directory: client/web
+        run: npm test
+
       - name: Build web app
         working-directory: client/web
         run: npm run build
 
-  # 6. MOBILE VERIFICATION
+  # 8. MOBILE VERIFICATION
   build-mobile:
     needs: detect-changes
     if: needs.detect-changes.outputs.mobile == 'true'
@@ -211,45 +306,48 @@ jobs:
             echo "WEB_INVITE_BASE_URLS=${{ env.WEB_INVITE_BASE_URLS }}" >> client/mobile/local.properties
           fi
 
-      - name: Build mobile app
+      - name: Build and unit-test mobile app
         working-directory: client/mobile
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug testDebugUnitTest
 
-  # 7. AGGREGATED STATUS GATE FOR BRANCH PROTECTION
+  # 9. AGGREGATED STATUS GATE FOR BRANCH PROTECTION
   Build-Test:
     name: Build Test
     runs-on: ubuntu-latest
-    # CRITICAL: Depend on ALL jobs so this execution block evaluates every outcome directly.
-    needs: [detect-changes, sast-scan, sca-scan, build-backend, build-web, build-mobile]
+    needs: [detect-changes, gitleaks, sast-scan, sca-scan, config-scan, build-backend, build-web, build-mobile]
     if: always()
     steps:
       - name: Evaluate sub-job results
         run: |
-          # 1. Parse outcomes map directly
+          GITLEAKS_RESULT="${{ needs.gitleaks.result }}"
           SAST_RESULT="${{ needs.sast-scan.result }}"
           SCA_RESULT="${{ needs.sca-scan.result }}"
+          CONFIG_RESULT="${{ needs.config-scan.result }}"
           BACKEND_RESULT="${{ needs.build-backend.result }}"
           WEB_RESULT="${{ needs.build-web.result }}"
           MOBILE_RESULT="${{ needs.build-mobile.result }}"
-          
+
           echo "=== Job Evaluation Details ==="
+          echo "Gitleaks Secret Scan:   $GITLEAKS_RESULT"
           echo "SAST Security Analysis: $SAST_RESULT"
           echo "SCA Dependency Scan:    $SCA_RESULT"
+          echo "Workflow Config Scan:   $CONFIG_RESULT"
           echo "Backend Monorepo Stack: $BACKEND_RESULT"
           echo "Web Frontend Stack:    $WEB_RESULT"
           echo "Mobile Android Stack:   $MOBILE_RESULT"
           echo "=============================="
 
-          # 2. Assert safety: Drop if any security tool or active compiler dropped/failed
-          if [[ "$SAST_RESULT" == "failure" || "$SAST_RESULT" == "cancelled" || \
+          if [[ "$GITLEAKS_RESULT" == "failure" || "$GITLEAKS_RESULT" == "cancelled" || \
+                "$SAST_RESULT" == "failure" || "$SAST_RESULT" == "cancelled" || \
                 "$SCA_RESULT" == "failure" || "$SCA_RESULT" == "cancelled" || \
+                "$CONFIG_RESULT" == "failure" || "$CONFIG_RESULT" == "cancelled" || \
                 "$BACKEND_RESULT" == "failure" || "$BACKEND_RESULT" == "cancelled" || \
                 "$WEB_RESULT" == "failure" || "$WEB_RESULT" == "cancelled" || \
                 "$MOBILE_RESULT" == "failure" || "$MOBILE_RESULT" == "cancelled" ]]; then
-            echo "❌ Critical failure or execution cancellation detected across code quality tools or compilers."
+            echo "One or more required CI jobs failed or were cancelled."
             exit 1
           fi
 
-          echo "✅ Status Gate Verified: All executed sub-modules passed successfully or skipped safely."
+          echo "All executed sub-modules passed successfully or skipped safely."
