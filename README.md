@@ -144,7 +144,7 @@ Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 |-----|----------------|
 | Gitleaks | Secret scanning |
 | Semgrep | SAST (`semgrep/semgrep:1.173.0 --config=auto`; needs network) |
-| Trivy fs | SCA (CRITICAL/HIGH fails the job) |
+| Trivy fs | SCA vulns only (CRITICAL/HIGH fails the job; secrets are Gitleaks) |
 | Trivy config | GitHub Actions / `.github` YAML misconfiguration |
 | Backend | Maven `verify` against job-local MySQL 8 (not RDS), Java 21 |
 | Web | `npm ci` + `npm test` (Vitest) + `npm run build` (Node 24) |
