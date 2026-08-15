@@ -111,10 +111,51 @@ class MlContentBasedRankerTest {
     }
 
     @Test
+    void nutButterDomainBoostRanksCashewAboveTahini() {
+        CatalogProduct source = new CatalogProduct();
+        source.setBarcode("8888260007616");
+        source.setProductName("Peanut Butter Crunchy");
+        source.setMainCategoryEn("Peanut butters");
+        source.setCategoryTags("en:peanut-butters,en:oilseed-purees");
+        source.setAllergens("en:peanuts");
+
+        CatalogProduct cashew = new CatalogProduct();
+        cashew.setBarcode("95539553");
+        cashew.setProductName("Organic Cashew Butter");
+        cashew.setMainCategoryEn("Mixed nut butters");
+        cashew.setCategoryTags("en:oilseed-purees,en:nut-butters");
+
+        CatalogProduct tahini = new CatalogProduct();
+        tahini.setBarcode("8888536703136");
+        tahini.setProductName("Organic Tahini");
+        tahini.setMainCategoryEn("White tahini");
+        tahini.setCategoryTags("en:oilseed-purees,en:tahini");
+
+        SubstituteDiscoveryProfile peanutProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Peanut butters").orElseThrow();
+
+        List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rank(
+                source,
+                List.of(tahini, cashew),
+                List.of(new RestrictionRule("PEANUT", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID)),
+                Set.of(),
+                peanutProfile);
+
+        assertEquals("95539553", ranked.getFirst().product().getBarcode());
+    }
+
+    @Test
     void detectsSparseSourceWhenIngredientsDuplicateCategory() {
         ProductFeatureEncoder encoder = new ProductFeatureEncoder(
                 new ProductFeatureVectorStore(new com.fasterxml.jackson.databind.ObjectMapper(), ""));
         assertTrue(encoder.isSparseSource(farmhouseFreshMilk()));
+        CatalogProduct peanutButter = new CatalogProduct();
+        peanutButter.setProductName("Crunchy Peanut Butter");
+        peanutButter.setAllergens("en:peanuts");
+        double full = encoder.encode(peanutButter).getOrDefault("peanut", 0.0);
+        double query = encoder.encodeQuery(peanutButter).getOrDefault("peanut", 0.0);
+        assertTrue(full > 0.0);
+        assertTrue(query < full);
     }
 
     private static CatalogProduct farmhouseFreshMilk() {
