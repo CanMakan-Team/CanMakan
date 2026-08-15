@@ -188,6 +188,7 @@ extensions.configure<ApplicationExtension> {
 
     buildTypes {
         getByName("debug") {
+            enableUnitTestCoverage = true
             buildConfigField(
                 "String",
                 "BASE_URL",
