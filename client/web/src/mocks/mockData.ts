@@ -179,51 +179,98 @@ export const scanRecords: ScanRecord[] = [
   },
 ]
 
+export interface SyntheticConsumerTrendProduct {
+  productName: string
+  category: string
+  share: number
+}
+
+export const consumerTrendProductTemplates: SyntheticConsumerTrendProduct[] = [
+  { productName: 'Synthetic wholegrain snack bites', category: 'Snacks', share: 0.1 },
+  { productName: 'Synthetic oat beverage', category: 'Beverages', share: 0.09 },
+  { productName: 'Synthetic rice crackers', category: 'Snacks', share: 0.08 },
+  { productName: 'Synthetic tomato pantry sauce', category: 'Pantry staples', share: 0.07 },
+  { productName: 'Synthetic sparkling fruit drink', category: 'Beverages', share: 0.065 },
+  { productName: 'Synthetic seed and cereal bar', category: 'Snacks', share: 0.06 },
+  { productName: 'Synthetic canned chickpeas', category: 'Pantry staples', share: 0.055 },
+  { productName: 'Synthetic coconut drink', category: 'Beverages', share: 0.05 },
+  { productName: 'Synthetic baked vegetable crisps', category: 'Snacks', share: 0.045 },
+  { productName: 'Synthetic cooking paste', category: 'Pantry staples', share: 0.04 },
+  { productName: 'Synthetic herbal tea', category: 'Beverages', share: 0.035 },
+  { productName: 'Synthetic dried fruit mix', category: 'Snacks', share: 0.03 },
+  { productName: 'Synthetic soup base', category: 'Pantry staples', share: 0.025 },
+  { productName: 'Synthetic long-name product for accessible wrapping and display verification', category: 'Uncategorised', share: 0.02 },
+  { productName: 'Synthetic mixed grain pouch', category: 'Pantry staples', share: 0.018 },
+  { productName: 'Synthetic label-incomplete item', category: 'Uncategorised', share: 0.012 },
+]
+
+/** Static synthetic example; mockAdminRepository derives requested periods from this vocabulary. */
 export const consumerTrends: ConsumerTrendsResponse = {
   period: {
-    from: '2026-07-01',
+    from: '2026-07-27',
     to: '2026-07-29',
     timezone: 'Asia/Singapore',
   },
+  appliedFilters: { category: null },
   summary: {
-    totalScans: 1264,
-    safeCount: 824,
-    warningCount: 286,
-    unsafeCount: 154,
+    totalScans: 27,
+    safeCount: 17,
+    warningCount: 7,
+    unsafeCount: 3,
+    uniqueProducts: 14,
+    averageScansPerDay: 9,
+    peakScanDay: { date: '2026-07-29', scanCount: 10 },
   },
   dailyTrend: [
     {
       date: '2026-07-27',
-      totalCount: 435,
-      safeCount: 280,
-      warningCount: 100,
-      unsafeCount: 55,
+      totalCount: 8,
+      safeCount: 5,
+      warningCount: 2,
+      unsafeCount: 1,
     },
     {
       date: '2026-07-28',
-      totalCount: 412,
-      safeCount: 270,
-      warningCount: 92,
-      unsafeCount: 50,
+      totalCount: 9,
+      safeCount: 6,
+      warningCount: 2,
+      unsafeCount: 1,
     },
     {
       date: '2026-07-29',
-      totalCount: 417,
-      safeCount: 274,
-      warningCount: 94,
-      unsafeCount: 49,
+      totalCount: 10,
+      safeCount: 6,
+      warningCount: 3,
+      unsafeCount: 1,
     },
   ],
+  mostScannedProducts: consumerTrendProductTemplates.slice(0, 14).map((product, index) => ({
+    rank: index + 1,
+    productName: product.productName,
+    scanCount: [4, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1][index],
+    percentage: Number(
+      (([4, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1][index] / 27) * 100).toFixed(2),
+    ),
+  })),
+  categoryOverview: [
+    { category: 'Snacks', scanCount: 10, percentage: 37.04 },
+    { category: 'Beverages', scanCount: 8, percentage: 29.63 },
+    { category: 'Pantry staples', scanCount: 6, percentage: 22.22 },
+    { category: 'Uncategorised', scanCount: 3, percentage: 11.11 },
+  ],
+  topRestrictions: [
+    { restrictionCode: 'PEANUT_ALLERGY', flaggedCount: 5 },
+    { restrictionCode: 'HIGH_SUGAR_WARNING', flaggedCount: 4 },
+    { restrictionCode: 'DAIRY_INTOLERANCE', flaggedCount: 3 },
+  ],
   topFlaggedIngredients: [
-    { ingredientName: 'Peanut', flaggedCount: 148 },
-    { ingredientName: 'Milk', flaggedCount: 131 },
-    { ingredientName: 'Wheat / gluten', flaggedCount: 96 },
-    { ingredientName: 'Shellfish', flaggedCount: 71 },
-    { ingredientName: 'Egg', flaggedCount: 58 },
+    { ingredientName: 'Peanut', flaggedCount: 5 },
+    { ingredientName: 'Milk solids', flaggedCount: 3 },
+    { ingredientName: 'Wheat flour', flaggedCount: 2 },
   ],
   dataQuality: {
-    partial: true,
-    skippedMalformedFindings: 3,
+    partial: false,
+    skippedMalformedFindings: 0,
   },
   generatedAt: '2026-07-29T10:00:00+08:00',
 }
