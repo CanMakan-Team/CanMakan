@@ -47,6 +47,7 @@ export function AppRoutes() {
               element={<FamilyRestrictionSummaryPage />}
             />
             <Route path="history" element={<FamilyScanHistoryPage />} />
+            <Route path="verdict-trends" element={<VerdictTrendsPage />} />
             <Route path="account" element={<FamilyAccountPage />} />
           </Route>
         </Route>
@@ -56,7 +57,6 @@ export function AppRoutes() {
         <Route path="/system" element={<PortalLayout portal="system" />}>
           <Route index element={<SystemDashboardPage />} />
           <Route path="trends" element={<ConsumerTrendsPage />} />
-          <Route path="verdict-trends" element={<VerdictTrendsPage />} />
           <Route path="users" element={<UserAccessPage />} />
           <Route path="future" element={<FutureFeaturesPage />} />
         </Route>
