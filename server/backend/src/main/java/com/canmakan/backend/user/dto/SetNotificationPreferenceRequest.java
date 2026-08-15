@@ -1,9 +1,9 @@
-package com.canmakan.backend.family.dto;
+package com.canmakan.backend.user.dto;
 
 import jakarta.validation.constraints.NotNull;
 
 /**
- * Request body for PUT /api/families/me/preferences/notifications.
+ * Request body for PUT /api/users/me/preferences/notifications.
  *
  * @author Amelia
  */

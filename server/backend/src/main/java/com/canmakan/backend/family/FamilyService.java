@@ -21,7 +21,6 @@ import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
 import com.canmakan.backend.family.dto.FamilyScanHistoryDto;
 import com.canmakan.backend.family.dto.InvitationPreviewResponse;
 import com.canmakan.backend.family.dto.InvitationResponse;
-import com.canmakan.backend.family.dto.NotificationPreferenceResponse;
 import com.canmakan.backend.family.dto.PendingInvitationResponse;
 import com.canmakan.backend.family.dto.UpdateProfileRequest;
 import com.canmakan.backend.family.dto.UserSearchResponse;
@@ -665,33 +664,6 @@ public class FamilyService {
             preference.setActiveProfileId(null);
             userPreferenceRepository.saveAndFlush(preference);
         });
-    }
-
-    /**
-     * Returns whether the caller currently allows CanMakan to post system notifications.
-     * A user with no stored preference row yet gets the entity's default (enabled).
-     */
-    @Transactional(readOnly = true)
-    public NotificationPreferenceResponse getNotificationPreference(long userId) {
-        UserPreference preference = userPreferenceRepository.findById(userId)
-            .orElseGet(UserPreference::new);
-        return new NotificationPreferenceResponse(preference.getNotificationsEnabled());
-    }
-
-    /**
-     * Persists the caller's notification preference, creating the preference row on first use.
-     */
-    @Transactional
-    public NotificationPreferenceResponse setNotificationPreference(long userId, boolean enabled) {
-        UserPreference preference = userPreferenceRepository.findById(userId)
-            .orElseGet(() -> {
-                UserPreference created = new UserPreference();
-                created.setUserId(userId);
-                return created;
-            });
-        preference.setNotificationsEnabled(enabled);
-        userPreferenceRepository.saveAndFlush(preference);
-        return new NotificationPreferenceResponse(preference.getNotificationsEnabled());
     }
 
     // Convert the active profile response

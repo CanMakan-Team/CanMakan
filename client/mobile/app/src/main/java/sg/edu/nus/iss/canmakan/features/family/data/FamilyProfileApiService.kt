@@ -111,10 +111,12 @@ interface FamilyProfileApiService {
         @Body request: SetActiveProfileRequestBody,
     ): Response<ActiveProfileResponse>
 
-    @GET("families/me/preferences/notifications")
+    // Account-level preference, not family-scoped -- served by UserPreferenceController,
+    // not FamilyController, so the path doesn't follow the families/me/* convention above.
+    @GET("users/me/preferences/notifications")
     suspend fun getNotificationPreference(): Response<NotificationPreferenceResponse>
 
-    @PUT("families/me/preferences/notifications")
+    @PUT("users/me/preferences/notifications")
     suspend fun setNotificationPreference(
         @Body request: SetNotificationPreferenceRequestBody,
     ): Response<NotificationPreferenceResponse>

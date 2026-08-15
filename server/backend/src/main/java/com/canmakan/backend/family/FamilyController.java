@@ -12,9 +12,7 @@ import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
 import com.canmakan.backend.family.dto.FamilyScanHistoryDto;
 import com.canmakan.backend.family.dto.InvitationResponse;
-import com.canmakan.backend.family.dto.NotificationPreferenceResponse;
 import com.canmakan.backend.family.dto.SetActiveProfileRequest;
-import com.canmakan.backend.family.dto.SetNotificationPreferenceRequest;
 import com.canmakan.backend.family.dto.SetProfileActiveRequest;
 import com.canmakan.backend.family.dto.UpdateProfileRequest;
 import com.canmakan.backend.family.dto.UserSearchResponse;
@@ -106,30 +104,6 @@ public class FamilyController {
         ActiveProfileResponse active = familyService.setActiveProfile(userId, request.profileId());
         log.info("PUT /families/me/active-profile → 200 profileId={}", active.profileId());
         return active;
-    }
-
-    // GET /api/families/me/preferences/notifications -> current notification preference
-    @GetMapping("/me/preferences/notifications")
-    public NotificationPreferenceResponse getNotificationPreference(
-            @AuthenticationPrincipal AuthUserDetails userDetails) {
-        long userId = AuthUserChecker.requireUserId(userDetails);
-        NotificationPreferenceResponse preference = familyService.getNotificationPreference(userId);
-        log.info("GET /families/me/preferences/notifications → 200 enabled={}",
-            preference.notificationsEnabled());
-        return preference;
-    }
-
-    // PUT /api/families/me/preferences/notifications -> set notification preference
-    @PutMapping("/me/preferences/notifications")
-    public NotificationPreferenceResponse setNotificationPreference(
-            @AuthenticationPrincipal AuthUserDetails userDetails,
-            @Valid @RequestBody SetNotificationPreferenceRequest request) {
-        long userId = AuthUserChecker.requireUserId(userDetails);
-        NotificationPreferenceResponse preference =
-            familyService.setNotificationPreference(userId, request.notificationsEnabled());
-        log.info("PUT /families/me/preferences/notifications → 200 enabled={}",
-            preference.notificationsEnabled());
-        return preference;
     }
 
     // GET /api/families/me/restriction-summary -> get the restriction summary for the authenticated user

@@ -31,7 +31,6 @@ import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
 import com.canmakan.backend.family.dto.FamilyScanHistoryDto;
 import com.canmakan.backend.family.dto.InvitationResponse;
-import com.canmakan.backend.family.dto.NotificationPreferenceResponse;
 import com.canmakan.backend.family.dto.UserSearchResponse;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
@@ -865,58 +864,6 @@ class FamilyServiceTest {
             InactiveProfileException.class,
             () -> familyService.setActiveProfile(10L, 88L)
         );
-    }
-
-    @Test
-    @DisplayName("getNotificationPreference defaults to disabled when no preference row exists")
-    void getNotificationPreferenceDefaultsToDisabled() {
-        when(userPreferenceRepository.findById(10L)).thenReturn(Optional.empty());
-
-        NotificationPreferenceResponse response = familyService.getNotificationPreference(10L);
-
-        assertFalse(response.notificationsEnabled());
-    }
-
-    @Test
-    @DisplayName("getNotificationPreference reflects a stored disabled preference")
-    void getNotificationPreferenceReflectsStoredValue() {
-        UserPreference stored = new UserPreference();
-        stored.setUserId(10L);
-        stored.setNotificationsEnabled(false);
-        when(userPreferenceRepository.findById(10L)).thenReturn(Optional.of(stored));
-
-        NotificationPreferenceResponse response = familyService.getNotificationPreference(10L);
-
-        assertFalse(response.notificationsEnabled());
-    }
-
-    @Test
-    @DisplayName("setNotificationPreference persists a new preference row on first use")
-    void setNotificationPreferenceCreatesRow() {
-        when(userPreferenceRepository.findById(10L)).thenReturn(Optional.empty());
-        when(userPreferenceRepository.saveAndFlush(any(UserPreference.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
-
-        NotificationPreferenceResponse response = familyService.setNotificationPreference(10L, false);
-
-        assertFalse(response.notificationsEnabled());
-        verify(userPreferenceRepository).saveAndFlush(any(UserPreference.class));
-    }
-
-    @Test
-    @DisplayName("setNotificationPreference updates an existing preference row")
-    void setNotificationPreferenceUpdatesRow() {
-        UserPreference stored = new UserPreference();
-        stored.setUserId(10L);
-        stored.setNotificationsEnabled(true);
-        when(userPreferenceRepository.findById(10L)).thenReturn(Optional.of(stored));
-        when(userPreferenceRepository.saveAndFlush(any(UserPreference.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
-
-        NotificationPreferenceResponse response = familyService.setNotificationPreference(10L, false);
-
-        assertFalse(response.notificationsEnabled());
-        assertFalse(stored.getNotificationsEnabled());
     }
 
     @Test
