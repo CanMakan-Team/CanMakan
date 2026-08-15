@@ -123,7 +123,7 @@ Continuous integration builds the backend, web app, and Android app on pushes an
 
 - Require pull request
 - No direct pushes to main
-- Require the **Build Test** check (aggregates Gitleaks, Semgrep, Trivy, and stack builds)
+- Require the **Build Test** check (aggregates Gitleaks, Semgrep, Trivy, stack builds, and SonarCloud when configured)
 - Production deploys use GitHub Environment **`production`** (`main` only) via `vars.DEPLOY_ENVIRONMENT`
 
 ### Secrets Management
@@ -146,14 +146,15 @@ Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 | Semgrep | SAST (`semgrep/semgrep:1.173.0 --config=auto`; needs network) |
 | Trivy fs | SCA vulns only (CRITICAL/HIGH fails the job; secrets are Gitleaks) |
 | Trivy config | GitHub Actions / `.github` YAML misconfiguration |
-| Backend | Maven `verify` against job-local MySQL 8 (not RDS), Java 21; uploads `backend-jar` |
-| Web | `npm ci` + `npm test` (Vitest) + `npm run build` (Node 24) |
-| Mobile | Gradle `assembleDebug testDebugUnitTest` |
+| Backend | Maven `verify` against job-local MySQL 8 (not RDS), Java 21, JaCoCo; uploads `backend-jar`; SonarCloud `canmakan-backend` |
+| Web | `npm ci` + Vitest with coverage + `npm run build` (Node 24); SonarCloud `canmakan-web` |
+| Mobile | Gradle `assembleDebug testDebugUnitTest` + unit-test coverage XML, then `sonar`; SonarCloud `canmakan-mobile` |
 | Build Test | Required aggregator |
 
 Playwright E2E: [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) on PRs and pushes to `develop` when `client/web/**` changes. Production web deploy re-runs Playwright in [`.github/workflows/deploy-frontends.yml`](.github/workflows/deploy-frontends.yml).
 
 > Backend CI runs `mvn verify` against an ephemeral MySQL 8 service (not RDS) and uploads the verified JAR. Production backend deploy waits for that CI run on `main` and SCP’s the artefact (no `skipTests` rebuild). Runtime env vars still come from GitHub secrets and are forwarded to EC2 at JAR start. Deploy jobs use Environment `production` (`vars.DEPLOY_ENVIRONMENT`). <br>
+> SonarCloud runs after each stack’s tests when `SONAR_TOKEN` is set (org `canmakan-team` is in source). A failed quality gate fails that build job and **Build Test**. Semgrep remains SAST. <br>
 > Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`. Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`, optional `WEB_INVITE_BASE_URLS`. <br>
 > Android SDK is provisioned via `android-actions/setup-android` <br>
 

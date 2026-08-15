@@ -14,13 +14,13 @@ CanMakan uses **GitHub Actions** for a monorepo: Spring Boot (`server/backend`),
 
 Engineers open pull requests into **`develop`**, then promote **`develop` → `main`**. Direct pushes to `main` are not used. **`develop` is integration only** (CI + Playwright; no staging host). **`main` is production**.
 
-Security jobs in CI: **Gitleaks** (secrets), **Semgrep** (SAST), **Trivy fs** (SCA vulns), **Trivy config** (Actions YAML). There is no CodeQL, Sonar, or Snyk workflow. There is no separate `secret-scan.yml`.
+Security jobs in CI: **Gitleaks** (secrets), **Semgrep** (SAST), **Trivy fs** (SCA vulns), **Trivy config** (Actions YAML). **SonarCloud** is the maintainability / coverage quality gate on each stack build. There is no CodeQL or Snyk workflow. There is no separate `secret-scan.yml`.
 
 ## 2. Workflows
 
 | Workflow | Trigger | Role |
 |----------|---------|------|
-| [`ci.yml`](.github/workflows/ci.yml) | PR / push to `develop` and `main`, `workflow_dispatch` | Gitleaks, Semgrep, Trivy fs, Trivy config, path-filtered builds, **Build Test**, `backend-jar` upload |
+| [`ci.yml`](.github/workflows/ci.yml) | PR / push to `develop` and `main`, `workflow_dispatch` | Gitleaks, Semgrep, Trivy fs, Trivy config, path-filtered builds + SonarCloud, **Build Test**, `backend-jar` upload |
 | [`e2e.yml`](.github/workflows/e2e.yml) | PR to `develop`/`main`, push to `develop`, `workflow_dispatch` | Playwright when `client/web/**` changes |
 | [`deploy.yml`](.github/workflows/deploy.yml) | `workflow_run`: successful **CI** on `main`, and artefact `backend-jar` exists | EC2 blue/green of the verified JAR |
 | [`deploy-frontends.yml`](.github/workflows/deploy-frontends.yml) | `push` to `main` and web/mobile (or this workflow file) | Web: Playwright then Hosting. Mobile: App Distribution |
@@ -40,6 +40,7 @@ These are not in YAML; they are required for CD to match this design.
 | Repository Actions variable | **`DEPLOY_ENVIRONMENT=production`** (`vars.`, not an Environment secret) |
 | Deploy jobs | `environment: ${{ vars.DEPLOY_ENVIRONMENT }}` (a literal `environment: production` fails the Actions language service until the Environment exists) |
 | SARIF upload | Trivy jobs always upload SARIF. On a **private** repo this only appears in the Security tab if GitHub Advanced Security is enabled; there is no “Allow SARIF” toggle. Failure is still the **table** scan (`exit-code: 1`) |
+| SonarCloud | Org **`canmakan-team`**. Projects **`canmakan-backend`**, **`canmakan-web`**, **`canmakan-mobile`**. Repo secret **`SONAR_TOKEN`**. Analysis is in `ci.yml` (not a separate `build.yml`). Scans skip until the token is set |
 
 ## 4. Continuous integration (`ci.yml`)
 
@@ -52,14 +53,18 @@ Concurrency: `ci-${{ github.ref }}` (cancel superseded runs). Permissions: `cont
 | `sast-scan` | always | Docker `semgrep/semgrep:1.173.0 --config=auto` (needs network) |
 | `sca-scan` | always | Trivy `fs`, `scanners: vuln` only (secrets left to Gitleaks), CRITICAL/HIGH, table then SARIF (`aquasecurity/trivy-action@v0.36.0`) |
 | `config-scan` | always | Trivy `config` on `.github`, CRITICAL/HIGH, SARIF, `exit-code: 1` |
-| `build-backend` | backend paths | JDK 21, MySQL **8.0** service, `mvn -B clean verify` (not RDS). Step env: test JWT, AI/LLM off, Tavily placeholder, Resend off. Stages one fat JAR (skips `*.jar.original`), uploads artefact **`backend-jar`** (14 days) |
-| `build-web` | web paths | Node 24, `npm ci`, `npm test`, `npm run build` |
-| `build-mobile` | mobile paths | `android-actions/setup-android`, `assembleDebug testDebugUnitTest` |
+| `build-backend` | backend paths | JDK 21, MySQL **8.0** service, `mvn -B clean verify` (not RDS) + JaCoCo; SonarCloud `canmakan-backend` (`qualitygate.wait`); stages one fat JAR, uploads **`backend-jar`** (14 days) |
+| `build-web` | web paths | Node 24, `npm ci`, Vitest with lcov, SonarCloud `canmakan-web`, `npm run build` |
+| `build-mobile` | mobile paths | `assembleDebug testDebugUnitTest createDebugUnitTestCoverageReport`, JaCoCo XML for Sonar, then Gradle `sonar` (`canmakan-mobile`) |
 | **Build Test** | `if: always()` | Fails if any needed job is `failure` or `cancelled`; `skipped` stack builds are allowed |
 
 Gitleaks allowlists ([`.gitleaks.toml`](.gitleaks.toml), Gitleaks **8.21.x** `[allowlist]` syntax, `useDefault = true`): CI test JWT `dGVzdC1vbmx5LXNpZ25pbmcta2V5LTMyLWJ5dGVzISE=`, path `google-services.json`. Fingerprints in [`.gitleaksignore`](.gitleaksignore). Restrict the Firebase Android client key in GCP.
 
 Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml)) opens weekly PRs (Monday) for npm, Maven, Gradle, and GitHub Actions.
+
+SonarCloud (maintainability / coverage) runs **inside** the path-filtered build jobs after tests. Semgrep stays SAST. Organization is **`canmakan-team`**. Project keys: `canmakan-backend` (`pom.xml`), `canmakan-web` ([`client/web/sonar-project.properties`](client/web/sonar-project.properties)), `canmakan-mobile` (Gradle). `sonar.qualitygate.wait=true` fails that job (and **Build Test**) when the gate is red. Steps skip until `SONAR_TOKEN` is set.
+
+There is no repo-root `.github/workflows/build.yml` or root `sonar-project.properties`. SonarCloud’s sample assumes a single project on `master`. This monorepo already scans web from `ci.yml` (`projectBaseDir: client/web`, scanner **v8.1.0**) after Vitest coverage. A root properties file would label backend and mobile as `canmakan-web`.
 
 ## 5. End-to-end (`e2e.yml`)
 
@@ -107,7 +112,7 @@ flowchart TD
   PRM --> CHK
 
   M --> CI[ci.yml]
-  CI --> S[Gitleaks, Semgrep, Trivy]
+  CI --> S[Gitleaks, Semgrep, Trivy, SonarCloud]
   CI --> B[Path-filtered builds]
   S --> G[Build Test]
   B --> G
@@ -144,10 +149,6 @@ The JAR runs on the EC2 OS. Docker (and a registry) would freeze the Java runtim
 
 RDS DDL is not applied by the pipeline. Flyway or Liquibase would version SQL in git.
 
-### Gap 4: Code quality gate
+### Gap 4: Mobile store delivery
 
-Semgrep is SAST, not a maintainability/coverage quality gate. SonarCloud (or ESLint / Detekt / Checkstyle in CI) is not implemented.
-
-### Gap 5: Mobile store delivery
-
-Testers install from Firebase App Distribution. Play Store internal tracks are not automated.
+Testers install from Firebase App Distribution. Play Store internal tracks are not automated. JVM unit-test coverage is uploaded to SonarCloud; Compose UI, CameraX, and ML Kit still need instrumented tests if those surfaces should count toward the gate.
