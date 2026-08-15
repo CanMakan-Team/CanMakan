@@ -29,7 +29,7 @@ jobs:
     needs: detect-backend-changes
     if: needs.detect-backend-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ vars.DEPLOY_ENVIRONMENT }}
     env:
       # Server
       SERVER_ADDRESS: ${{ secrets.SERVER_ADDRESS }}

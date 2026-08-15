@@ -47,14 +47,14 @@ Pushes to **`main`** do not run this workflow. Web production deploy runs Playwr
 
 ### Backend (`deploy.yml`)
 
-Push to `main` with `server/backend/**`. Maven package (`-DskipTests`), SCP to EC2, blue/green on ports 8080/8081, `/actuator/health`, Nginx swap, SIGTERM of the old process. The deploy job uses GitHub Environment **`production`** (create it in repo settings; optional reviewers).
+Push to `main` with `server/backend/**`. Maven package (`-DskipTests`), SCP to EC2, blue/green on ports 8080/8081, `/actuator/health`, Nginx swap, SIGTERM of the old process. The deploy job uses `environment: ${{ vars.DEPLOY_ENVIRONMENT }}` (set the Actions variable to `production` and create that Environment; optional reviewers).
 
 ### Frontends (`deploy-frontends.yml`)
 
 Push to `main` with `client/web/**` or `client/mobile/**`. Path filter uses the push SHA (not `workflow_run`).
 
-- **Web:** Playwright job, then Vite build and Firebase Hosting. Concurrency group `deploy-web-${{ github.ref }}`. Environment **`production`**.
-- **Mobile:** signed release APK to Firebase App Distribution (`qa-team`). Does **not** wait on Playwright. Concurrency group `deploy-mobile-${{ github.ref }}`. Environment **`production`**. Keystore is removed after the job.
+- **Web:** Playwright job, then Vite build and Firebase Hosting. Concurrency group `deploy-web-${{ github.ref }}`. Environment from `vars.DEPLOY_ENVIRONMENT`.
+- **Mobile:** signed release APK to Firebase App Distribution (`qa-team`). Does **not** wait on Playwright. Concurrency group `deploy-mobile-${{ github.ref }}`. Environment from `vars.DEPLOY_ENVIRONMENT`. Keystore is removed after the job.
 
 ## 6. Pipeline diagram
 
@@ -113,7 +113,7 @@ RDS DDL is not applied by the pipeline. Flyway or Liquibase would version SQL in
 
 ### Gap 5: Branch protection still a repo setting
 
-Deploy jobs reference GitHub Environment **`production`**. Create that Environment in the repo (optional required reviewers). **Build Test** must still be marked required on `develop` and `main`; YAML cannot enforce that. Remove any leftover **Secret Scan** required check.
+Deploy jobs use `environment: ${{ vars.DEPLOY_ENVIRONMENT }}`. Create Environment **`production`**, set repository variable **`DEPLOY_ENVIRONMENT`** to that name, optional reviewers. **Build Test** must still be marked required on `develop` and `main`. Remove any leftover **Secret Scan** required check.
 
 ### Gap 6: Code quality gate
 

@@ -95,7 +95,7 @@ jobs:
     needs: [detect-frontend-changes, e2e]
     if: needs.detect-frontend-changes.outputs.web == 'true'
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ vars.DEPLOY_ENVIRONMENT }}
     concurrency:
       group: deploy-web-${{ github.ref }}
       cancel-in-progress: true
@@ -137,7 +137,7 @@ jobs:
     needs: detect-frontend-changes
     if: needs.detect-frontend-changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ vars.DEPLOY_ENVIRONMENT }}
     concurrency:
       group: deploy-mobile-${{ github.ref }}
       cancel-in-progress: true

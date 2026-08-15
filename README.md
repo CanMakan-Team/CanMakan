@@ -124,7 +124,7 @@ Continuous integration builds the backend, web app, and Android app on pushes an
 - Require pull request
 - No direct pushes to main
 - Require the **Build Test** check (aggregates Gitleaks, Semgrep, Trivy, and stack builds)
-- Create GitHub Environment **`production`** for deploy jobs (optional reviewers). Until it exists, CD jobs that set `environment: production` may wait or fail.
+- Create GitHub Environment **`production`** and Actions variable **`DEPLOY_ENVIRONMENT`** = `production` (deploy jobs use `environment: ${{ vars.DEPLOY_ENVIRONMENT }}`). Optional reviewers. Until both exist, CD may skip protection or fail.
 
 ### Secrets Management
 
