@@ -82,6 +82,26 @@ class FamilyProfileRepository @Inject constructor(
             ?: throw IllegalStateException("Empty body for PUT /families/me/active-profile")
     }
 
+    suspend fun getNotificationPreference(): Boolean {
+        val response = apiService.getNotificationPreference()
+        if (!response.isSuccessful) {
+            throw CreateFamilyException(messageFromError(response), response.code())
+        }
+        return response.body()?.notificationsEnabled
+            ?: throw IllegalStateException("Empty body for GET /users/me/preferences/notifications")
+    }
+
+    suspend fun setNotificationPreference(enabled: Boolean): Boolean {
+        val response = apiService.setNotificationPreference(
+            SetNotificationPreferenceRequestBody(notificationsEnabled = enabled),
+        )
+        if (!response.isSuccessful) {
+            throw CreateFamilyException(messageFromError(response), response.code())
+        }
+        return response.body()?.notificationsEnabled
+            ?: throw IllegalStateException("Empty body for PUT /users/me/preferences/notifications")
+    }
+
     private fun messageFromError(response: Response<*>): String {
         val raw = response.errorBody()?.string().orEmpty()
         if (raw.isBlank()) {
