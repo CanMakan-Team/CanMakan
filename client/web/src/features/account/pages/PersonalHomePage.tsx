@@ -42,14 +42,18 @@ export function PersonalHomePage() {
   const [catalog, setCatalog] = useState<DietaryRestrictionOption[]>([])
   const [profileLoading, setProfileLoading] = useState(true)
   const [memberCount, setMemberCount] = useState<number | null>(null)
-  const [recentScans, setRecentScans] = useState<PersonalScanHistoryItem[]>([])
-  const [scanHistoryReady, setScanHistoryReady] = useState(false)
+  const [fetchedScans, setFetchedScans] = useState<PersonalScanHistoryItem[]>([])
+  const [loadedScanProfileId, setLoadedScanProfileId] = useState<number | null>(null)
   const [testerNoticeDismissed, setTesterNoticeDismissed] = useState(() =>
     readTesterNoticeDismissed(),
   )
-  const [appInstalledDismissed, setAppInstalledDismissed] = useState(() =>
-    readMobileAppInstalled(session?.userId),
-  )
+  const sessionUserId = session?.userId
+  const [dismissedInstalledForUserId, setDismissedInstalledForUserId] = useState<
+    number | undefined
+  >()
+  const appInstalledDismissed =
+    (sessionUserId != null && dismissedInstalledForUserId === sessionUserId) ||
+    readMobileAppInstalled(sessionUserId)
 
   useEffect(() => {
     let active = true
@@ -86,38 +90,33 @@ export function PersonalHomePage() {
     }
   }, [familyLoading, hasFamily])
 
+  const profileId = profile?.profileId
   useEffect(() => {
-    setAppInstalledDismissed(readMobileAppInstalled(session?.userId))
-  }, [session?.userId])
-
-  useEffect(() => {
-    if (profileLoading) {
-      return
-    }
-    const profileId = profile?.profileId
-    if (profileId == null) {
-      setRecentScans([])
-      setScanHistoryReady(true)
+    if (profileLoading || profileId == null) {
       return
     }
     let active = true
-    setScanHistoryReady(false)
     selfProfileApiService.getScanHistoryForProfile(profileId).then(
       (scans) => {
         if (!active) return
-        setRecentScans(scans.slice(0, RECENT_SCAN_LIMIT))
-        setScanHistoryReady(true)
+        setFetchedScans(scans.slice(0, RECENT_SCAN_LIMIT))
+        setLoadedScanProfileId(profileId)
       },
       () => {
         if (!active) return
-        setRecentScans([])
-        setScanHistoryReady(true)
+        setFetchedScans([])
+        setLoadedScanProfileId(profileId)
       },
     )
     return () => {
       active = false
     }
-  }, [profileLoading, profile?.profileId])
+  }, [profileLoading, profileId])
+
+  const recentScans =
+    profileId == null || loadedScanProfileId !== profileId ? [] : fetchedScans
+  const scanHistoryReady =
+    !profileLoading && (profileId == null || loadedScanProfileId === profileId)
 
   const restrictionNames = useMemo(
     () => (profile ? labelsForRestrictions(profile.restrictions, catalog) : []),
@@ -170,8 +169,8 @@ export function PersonalHomePage() {
               type="button"
               className="button button--secondary home-banner__installed"
               onClick={() => {
-                writeMobileAppInstalled(session?.userId)
-                setAppInstalledDismissed(true)
+                writeMobileAppInstalled(sessionUserId)
+                setDismissedInstalledForUserId(sessionUserId)
               }}
             >
               I already have it installed
