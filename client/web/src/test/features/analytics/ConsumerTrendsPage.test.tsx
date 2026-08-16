@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConsumerTrendsPage } from '../../../features/analytics/ConsumerTrendsPage'
 import { consumerTrendsApiService } from '../../../features/analytics/consumerTrendsApiService'
 import { buildPeriodQuery } from '../../../features/analytics/consumerTrendsDateRange'
+import { downloadConsumerTrendsReport } from '../../../features/analytics/consumerTrendsReport'
 import type {
   ConsumerTrendsQuery,
   ConsumerTrendsResponse,
@@ -13,6 +14,10 @@ vi.mock('../../../features/analytics/consumerTrendsApiService', () => ({
   consumerTrendsApiService: {
     getConsumerTrends: vi.fn(),
   },
+}))
+
+vi.mock('../../../features/analytics/consumerTrendsReport', () => ({
+  downloadConsumerTrendsReport: vi.fn(),
 }))
 
 const dailyTrend = Array.from({ length: 7 }, (_, index) => ({
@@ -68,9 +73,16 @@ function daysInQuery(query: ConsumerTrendsQuery): number {
 describe('ConsumerTrendsPage', () => {
   beforeEach(() => {
     vi.mocked(consumerTrendsApiService.getConsumerTrends).mockReset()
+    vi.mocked(downloadConsumerTrendsReport).mockReset()
+    vi.mocked(downloadConsumerTrendsReport).mockResolvedValue()
     vi.mocked(consumerTrendsApiService.getConsumerTrends).mockImplementation(
       async (query = {}) => ({
         ...populatedResponse,
+        period: {
+          ...populatedResponse.period,
+          from: query.from ?? populatedResponse.period.from,
+          to: query.to ?? populatedResponse.period.to,
+        },
         appliedFilters: { category: query.category ?? null },
       }),
     )
@@ -134,7 +146,8 @@ describe('ConsumerTrendsPage', () => {
     const outcomeTable = screen.getByRole('table', { name: 'Exact scan verdict counts and percentages' })
     expect(within(outcomeTable).getByRole('rowheader', { name: 'UNSAFE' })).toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/)
-    expect(screen.queryByRole('button', { name: /report|export|print|csv|pdf/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeEnabled()
+    expect(screen.getByText(/Raw scans and personal information are excluded/)).toBeInTheDocument()
   })
 
   it('paginates five products on a common scale and resets pagination for filter changes', async () => {
@@ -212,6 +225,7 @@ describe('ConsumerTrendsPage', () => {
     expect(screen.getByText(/2 scan finding records could not be read/)).toBeInTheDocument()
     expect(screen.getByText('No activity')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: /Line chart of total scans/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeDisabled()
 
     const categoryPanel = screen.getByRole('heading', { name: 'Scan Activity by Category' }).closest('section')
     expect(categoryPanel).not.toBeNull()
@@ -236,6 +250,7 @@ describe('ConsumerTrendsPage', () => {
 
     render(<ConsumerTrendsPage />)
     expect(screen.getByText('Loading consumer trends…')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeDisabled()
     await waitFor(() => expect(consumerTrendsApiService.getConsumerTrends).toHaveBeenCalledTimes(1))
 
     await act(async () => rejectRequest(new Error('Synthetic analytics outage')))
@@ -244,5 +259,127 @@ describe('ConsumerTrendsPage', () => {
     vi.mocked(consumerTrendsApiService.getConsumerTrends).mockResolvedValue(populatedResponse)
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByRole('heading', { name: 'Daily Scan Activity' })).toBeInTheDocument()
+  })
+
+  it('safely normalises absent aggregate collections and rejects missing core metrics', async () => {
+    const queryPeriodResponse = (query: ConsumerTrendsQuery = {}) => ({
+      ...populatedResponse,
+      period: {
+        ...populatedResponse.period,
+        from: query.from ?? populatedResponse.period.from,
+        to: query.to ?? populatedResponse.period.to,
+      },
+    })
+    vi.mocked(consumerTrendsApiService.getConsumerTrends).mockImplementationOnce(async (query) => ({
+      ...queryPeriodResponse(query),
+      dailyTrend: undefined,
+      mostScannedProducts: undefined,
+      categoryOverview: undefined,
+      topRestrictions: undefined,
+      topFlaggedIngredients: undefined,
+    }) as unknown as ConsumerTrendsResponse)
+
+    const { unmount } = render(<ConsumerTrendsPage />)
+    expect(await screen.findByRole('heading', { name: 'Daily Scan Activity' })).toBeInTheDocument()
+    expect(screen.getByText('No products were resolved for this period.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeEnabled()
+    unmount()
+
+    vi.mocked(consumerTrendsApiService.getConsumerTrends).mockImplementationOnce(async (query) => ({
+      ...queryPeriodResponse(query),
+      summary: { ...populatedResponse.summary, averageScansPerDay: undefined },
+    }) as unknown as ConsumerTrendsResponse)
+    render(<ConsumerTrendsPage />)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The consumer trends data is incomplete. Please refresh and try again.',
+    )
+    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeDisabled()
+  })
+
+  it('disables export as soon as the selected filter no longer matches the loaded response', async () => {
+    const user = userEvent.setup()
+    render(<ConsumerTrendsPage />)
+    await screen.findByRole('heading', { name: 'Daily Scan Activity' })
+
+    let finishFilterLoad: (response: ConsumerTrendsResponse) => void = () => undefined
+    vi.mocked(consumerTrendsApiService.getConsumerTrends).mockImplementationOnce(
+      () => new Promise((resolve) => {
+        finishFilterLoad = resolve
+      }),
+    )
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Product Category' }), 'Snacks')
+    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeDisabled()
+    expect(downloadConsumerTrendsReport).not.toHaveBeenCalled()
+
+    const latestQuery = vi.mocked(consumerTrendsApiService.getConsumerTrends).mock.calls.at(-1)?.[0]
+    await act(async () => finishFilterLoad({
+      ...populatedResponse,
+      period: {
+        ...populatedResponse.period,
+        from: latestQuery?.from ?? populatedResponse.period.from,
+        to: latestQuery?.to ?? populatedResponse.period.to,
+      },
+      appliedFilters: { category: 'Snacks' },
+    }))
+    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeEnabled()
+  })
+
+  it('generates a report from the loaded filtered response without another analytics request', async () => {
+    const user = userEvent.setup()
+    render(<ConsumerTrendsPage />)
+    await screen.findByRole('heading', { name: 'Daily Scan Activity' })
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Product Category' }), 'Snacks')
+    await waitFor(() => expect(consumerTrendsApiService.getConsumerTrends).toHaveBeenLastCalledWith(
+      expect.objectContaining({ category: 'Snacks' }),
+    ))
+    const requestCount = vi.mocked(consumerTrendsApiService.getConsumerTrends).mock.calls.length
+
+    await user.click(screen.getByRole('button', { name: 'Generate CSV Report' }))
+
+    expect(downloadConsumerTrendsReport).toHaveBeenCalledTimes(1)
+    expect(downloadConsumerTrendsReport).toHaveBeenCalledWith(expect.objectContaining({
+      period: expect.objectContaining({ timezone: 'Asia/Singapore' }),
+      appliedFilters: { category: 'Snacks' },
+    }))
+    expect(consumerTrendsApiService.getConsumerTrends).toHaveBeenCalledTimes(requestCount)
+    expect(await screen.findByRole('status')).toHaveTextContent('Consumer trends report downloaded.')
+  })
+
+  it('prevents duplicate export while generation is in progress', async () => {
+    const user = userEvent.setup()
+    let finishDownload: () => void = () => undefined
+    vi.mocked(downloadConsumerTrendsReport).mockImplementationOnce(
+      () => new Promise<void>((resolve) => {
+        finishDownload = resolve
+      }),
+    )
+    render(<ConsumerTrendsPage />)
+    await screen.findByRole('heading', { name: 'Daily Scan Activity' })
+
+    await user.click(screen.getByRole('button', { name: 'Generate CSV Report' }))
+    const generatingButton = screen.getByRole('button', { name: 'Generating…' })
+    expect(generatingButton).toBeDisabled()
+    await user.click(generatingButton)
+    expect(downloadConsumerTrendsReport).toHaveBeenCalledTimes(1)
+
+    await act(async () => finishDownload())
+    expect(await screen.findByRole('status')).toHaveTextContent('downloaded')
+  })
+
+  it('shows a safe actionable error when report download fails', async () => {
+    const user = userEvent.setup()
+    vi.mocked(downloadConsumerTrendsReport).mockRejectedValueOnce(
+      new Error('Internal browser details with Bearer secret'),
+    )
+    render(<ConsumerTrendsPage />)
+    await screen.findByRole('heading', { name: 'Daily Scan Activity' })
+
+    await user.click(screen.getByRole('button', { name: 'Generate CSV Report' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('The report could not be downloaded. No file was saved. Please try again.')
+    expect(alert).not.toHaveTextContent('Bearer secret')
+    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeEnabled()
   })
 })
