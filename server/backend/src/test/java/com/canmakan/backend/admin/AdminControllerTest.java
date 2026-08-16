@@ -64,13 +64,9 @@ class AdminControllerTest {
                 .standaloneSetup(new AdminController(
                         consumerTrendsService,
                         userAccountManagementService,
-<<<<<<< HEAD
+                        usageStatisticsService,
                         adminScanFeedbackService,
                         org.mockito.Mockito.mock(SystemHealthService.class)
-=======
-                        usageStatisticsService,
-                        adminScanFeedbackService
->>>>>>> origin/develop
                 ))
                 .setControllerAdvice(new AdminExceptionHandler())
                 .build();

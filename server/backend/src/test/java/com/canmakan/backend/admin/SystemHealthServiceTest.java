@@ -3,6 +3,7 @@ package com.canmakan.backend.admin;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -74,6 +75,39 @@ class SystemHealthServiceTest {
         };
     }
 
+    private static SystemHealthRepository.AiExecutionSummaryRow summaryRow(
+            long total, long tier3Count, Double averageLatencyMs, Integer maxLatencyMs) {
+        return new SystemHealthRepository.AiExecutionSummaryRow() {
+            public Long getTotal() {
+                return total;
+            }
+
+            public Long getTier3Count() {
+                return tier3Count;
+            }
+
+            public Double getAverageLatencyMs() {
+                return averageLatencyMs;
+            }
+
+            public Integer getMaxLatencyMs() {
+                return maxLatencyMs;
+            }
+        };
+    }
+
+    private static SystemHealthRepository.LatencyBucketRow bucketRow(int bucketIndex, double averageLatencyMs) {
+        return new SystemHealthRepository.LatencyBucketRow() {
+            public Integer getBucketIndex() {
+                return bucketIndex;
+            }
+
+            public Double getAverageLatencyMs() {
+                return averageLatencyMs;
+            }
+        };
+    }
+
     private static SystemHealthRepository.ScanQualityRow qualityRow(
             long total, long safe, long warning, long unsafe, long incomplete) {
         return new SystemHealthRepository.ScanQualityRow() {
@@ -126,11 +160,15 @@ class SystemHealthServiceTest {
     @Test
     @DisplayName("aggregates status, AI execution, audit trail and scan quality")
     void aggregatesSystemHealth() {
-        when(repository.findAiExecutionRowsSince(any())).thenReturn(List.of(
-                aiRow(1, "TIER_1_RULES", 100),
-                aiRow(2, "TIER_1_RULES", 200),
+        when(repository.findAiExecutionSummarySince(any()))
+                .thenReturn(summaryRow(4, 2, 675.0, 1500));
+        when(repository.findSlowestAiExecutionRowsSince(any(), anyInt())).thenReturn(List.of(
+                aiRow(4, "TIER_3_LLM", 1500),
                 aiRow(3, "TIER_3_LLM", 900),
-                aiRow(4, "TIER_3_LLM", 1500)));
+                aiRow(2, "TIER_1_RULES", 200),
+                aiRow(1, "TIER_1_RULES", 100)));
+        when(repository.findLatencyTrendSince(any(), anyLong(), anyLong(), anyInt())).thenReturn(List.of(
+                bucketRow(11, 675.0)));
         when(repository.findRecentAuditRows(anyInt())).thenReturn(List.of(
                 auditRow("sysadmin@canmakan.com", "SUSPEND")));
         when(repository.findScanQualitySince(any())).thenReturn(qualityRow(10, 6, 3, 1, 2));
@@ -161,7 +199,9 @@ class SystemHealthServiceTest {
     @Test
     @DisplayName("handles empty data without dividing by zero")
     void handlesEmptyData() {
-        when(repository.findAiExecutionRowsSince(any())).thenReturn(List.of());
+        when(repository.findAiExecutionSummarySince(any())).thenReturn(summaryRow(0, 0, null, null));
+        when(repository.findSlowestAiExecutionRowsSince(any(), anyInt())).thenReturn(List.of());
+        when(repository.findLatencyTrendSince(any(), anyLong(), anyLong(), anyInt())).thenReturn(List.of());
         when(repository.findRecentAuditRows(anyInt())).thenReturn(List.of());
         when(repository.findScanQualitySince(any())).thenReturn(qualityRow(0, 0, 0, 0, 0));
 

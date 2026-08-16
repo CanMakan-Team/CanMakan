@@ -14,7 +14,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 import javax.sql.DataSource;
@@ -42,7 +41,6 @@ public class SystemHealthService {
     private static final int TREND_BUCKETS = 12;
     private static final int SLOWEST_LIMIT = 5;
     private static final int AUDIT_LIMIT = 20;
-    private static final String TIER_3 = "TIER_3_LLM";
     private static final String UP = "UP";
     private static final String DOWN = "DOWN";
     private static final long MIN_FREE_DISK_BYTES = 10L * 1024 * 1024;
@@ -104,26 +102,19 @@ public class SystemHealthService {
     }
 
     private AiExecutionHealth aiExecutionHealth(Instant since, Instant now) {
-        List<SystemHealthRepository.AiExecutionRow> rows = repository.findAiExecutionRowsSince(since);
+        SystemHealthRepository.AiExecutionSummaryRow summary = repository.findAiExecutionSummarySince(since);
 
-        long total = rows.size();
-        long tier3 = rows.stream()
-                .filter(row -> TIER_3.equalsIgnoreCase(row.getExecutionTier()))
-                .count();
-
-        List<Integer> latencies = rows.stream()
-                .map(SystemHealthRepository.AiExecutionRow::getLatencyMs)
-                .filter(value -> value != null)
-                .toList();
-        long averageLatency = latencies.isEmpty()
+        long total = summary == null ? 0 : value(summary.getTotal());
+        long tier3 = summary == null ? 0 : value(summary.getTier3Count());
+        long averageLatency = summary == null || summary.getAverageLatencyMs() == null
                 ? 0
-                : Math.round(latencies.stream().mapToInt(Integer::intValue).average().orElse(0));
-        long maxLatency = latencies.stream().mapToInt(Integer::intValue).max().orElse(0);
+                : Math.round(summary.getAverageLatencyMs());
+        long maxLatency = summary == null || summary.getMaxLatencyMs() == null
+                ? 0
+                : summary.getMaxLatencyMs();
 
-        List<SlowCall> slowestCalls = rows.stream()
+        List<SlowCall> slowestCalls = repository.findSlowestAiExecutionRowsSince(since, SLOWEST_LIMIT).stream()
                 .filter(row -> row.getLatencyMs() != null && row.getScanId() != null)
-                .sorted(Comparator.comparingInt(SystemHealthRepository.AiExecutionRow::getLatencyMs).reversed())
-                .limit(SLOWEST_LIMIT)
                 .map(row -> new SlowCall(row.getScanId(), row.getExecutionTier(), row.getLatencyMs()))
                 .toList();
 
@@ -132,28 +123,26 @@ public class SystemHealthService {
                 averageLatency,
                 maxLatency,
                 total,
-                latencyTrend(rows, since, now),
+                latencyTrend(since, now),
                 slowestCalls);
     }
 
-    /** Averages latency into {@link #TREND_BUCKETS} equal time slices across the window. */
-    private List<Integer> latencyTrend(
-            List<SystemHealthRepository.AiExecutionRow> rows, Instant since, Instant now) {
+    /** Averages latency into {@link #TREND_BUCKETS} equal time slices across the window, in SQL. */
+    private List<Integer> latencyTrend(Instant since, Instant now) {
         long spanMs = Math.max(1, now.toEpochMilli() - since.toEpochMilli());
-        long[] sums = new long[TREND_BUCKETS];
-        int[] counts = new int[TREND_BUCKETS];
-        for (SystemHealthRepository.AiExecutionRow row : rows) {
-            if (row.getLatencyMs() == null || row.getCreatedAtEpochMs() == null) {
-                continue;
-            }
-            long offset = row.getCreatedAtEpochMs() - since.toEpochMilli();
-            int bucket = (int) Math.min(TREND_BUCKETS - 1, Math.max(0, offset * TREND_BUCKETS / spanMs));
-            sums[bucket] += row.getLatencyMs();
-            counts[bucket]++;
-        }
         List<Integer> trend = new ArrayList<>(TREND_BUCKETS);
         for (int index = 0; index < TREND_BUCKETS; index++) {
-            trend.add(counts[index] == 0 ? 0 : (int) Math.round((double) sums[index] / counts[index]));
+            trend.add(0);
+        }
+        for (SystemHealthRepository.LatencyBucketRow row
+                : repository.findLatencyTrendSince(since, since.toEpochMilli(), spanMs, TREND_BUCKETS)) {
+            if (row.getBucketIndex() == null || row.getAverageLatencyMs() == null) {
+                continue;
+            }
+            int bucket = row.getBucketIndex();
+            if (bucket >= 0 && bucket < TREND_BUCKETS) {
+                trend.set(bucket, (int) Math.round(row.getAverageLatencyMs()));
+            }
         }
         return trend;
     }
