@@ -337,6 +337,7 @@ class LoginViewModelTest {
 
         assertEquals(expectedMessage, viewModel.uiState.value.loginError)
         assertNull(viewModel.uiState.value.authenticatedUser)
+        assertNull(sessionStore.currentAccessToken())
     }
 
     private fun enterCredentials(

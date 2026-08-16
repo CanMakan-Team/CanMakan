@@ -19,15 +19,14 @@ Implements authentication and authorization infrastructure used by the whole app
   claims; `JwtAuthenticationFilter` validates them and reloads the current
   account status and role before populating the security context.
 
-The current stateless filter chain protects `/api/auth/me`, `/api/families/**`,
-`/api/invitations/**`, `/api/profiles/**`, authenticated restriction catalog access,
-and `POST /api/scan/assess`. It restricts `POST /api/profiles/me` to `USER`,
-restricts `/api/admin/**` to `ADMIN`, and keeps
-registration, login, refresh, logout, and health public at the bearer-authorization
-layer. The refresh endpoint authenticates an opaque, hashed-at-rest, one-time
-refresh session from a path-scoped HttpOnly cookie. Remaining business
-routes stay temporarily permitted until their owning Use Cases adopt resource
-authorization.
+The stateless filter chain uses an explicit public allow-list for registration,
+login, refresh, logout, invitation preview, health, and CORS preflight. It
+protects every other `/api/**` route, including scan validate/assess/history,
+families, invitations, notifications, profiles, recommendations, restrictions,
+and user preferences. It restricts self-profile setup/read/update to `USER`,
+restricts `/api/admin/**` to `ADMIN`, and denies non-API fallback routes by
+default. The refresh endpoint authenticates an opaque, hashed-at-rest, one-time
+refresh session from a path-scoped HttpOnly cookie.
 
 ## Note
 Login, refresh, and logout HTTP flows live in the `auth` package. This package

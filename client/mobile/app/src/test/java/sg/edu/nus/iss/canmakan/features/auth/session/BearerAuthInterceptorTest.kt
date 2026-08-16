@@ -56,10 +56,14 @@ class BearerAuthInterceptorTest {
     }
 
     @Test
-    fun businessRequestOnTheConfiguredOriginReceivesAuthenticationContext() {
+    fun scanValidationOnTheConfiguredOriginReceivesAuthenticationContext() {
         saveToken(TEST_TOKEN_A)
+        val scanRequest = Request.Builder()
+            .url(requireNotNull(API_BASE_URL.resolve("scan/validate")))
+            .post("{\"barcode\":\"3017620422003\"}".toRequestBody(JSON_MEDIA_TYPE))
+            .build()
 
-        val captured = executeAndCapture(protectedRequest("family/profiles"))
+        val captured = executeAndCapture(scanRequest)
 
         assertEquals("Bearer $TEST_TOKEN_A", captured.header(AUTHORIZATION))
     }
