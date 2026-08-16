@@ -17,10 +17,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RecommendationService {
@@ -37,6 +39,7 @@ public class RecommendationService {
     private final ScanRepository scanRepository;
     private final MlSparseCatalogRecommender mlSparseCatalogRecommender;
     private final MlContentBasedRanker mlContentBasedRanker;
+    private final PythonTfidfRankClient pythonTfidfRankClient;
 
     @Value("${canmakan.recommendation.ml.enabled:true}")
     private boolean mlRecommendationEnabled;
@@ -152,6 +155,18 @@ public class RecommendationService {
 	        MatchProvenance provenance,
 	        SubstituteDiscoveryProfile substituteProfile) {
 
+	    if (mlRecommendationEnabled && pythonTfidfRankClient.isConfigured()) {
+	        try {
+	            List<AlternativeProductRanker.RankedAlternative> pythonRanked = pythonTfidfRankClient.rank(
+	                    source, acceptableCandidates, rules, priorSafe, substituteProfile);
+	            if (!pythonRanked.isEmpty()) {
+	                return pythonRanked;
+	            }
+	            log.warn("Python TF-IDF ranker returned no ranked candidates; falling back to Java ranker");
+	        } catch (PythonTfidfRankClientException exception) {
+	            log.warn("Python TF-IDF ranker unavailable; falling back to Java ranker: {}", exception.getMessage());
+	        }
+	    }
 	    if (mlRecommendationEnabled) {
 	        return mlContentBasedRanker.rank(
 	                source, acceptableCandidates, rules, priorSafe, substituteProfile);
