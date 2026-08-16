@@ -155,7 +155,7 @@ export function SelfProfileSetupPage() {
       setSuccessMessage('')
       return
     }
-    if (Object.keys(selected).length === 0) {
+    if (existingProfileId == null && Object.keys(selected).length === 0) {
       setError('Select at least one dietary restriction or set up your profile later.')
       setSuccessMessage('')
       return
