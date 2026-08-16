@@ -6,6 +6,19 @@ import type { FamilyRestrictionSumRes } from '../../../shared/api/types'
 import { EmptyState, ErrorState, LoadingState } from '../../../shared/ui/PageState'
 import { StatusBadge } from '../../../shared/ui/StatusBadge'
 
+// Map each restriction code to the index of the group it belongs to in
+// restrictionGroups, which is already ordered Religious requirements ->
+// Allergies and intolerances -> Specific diets and health preferences. The
+// grid columns below are sorted by this group index, then alphabetically by
+// label within a group, so the layout stays consistent regardless of which
+// member happens to introduce a code first.
+const restrictionGroupIndex = new Map<string, number>()
+restrictionGroups.forEach((group, groupIndex) => {
+  for (const option of group.options) {
+    restrictionGroupIndex.set(option.value, groupIndex)
+  }
+})
+
 export function FamilyRestrictionSummaryPage() {
   const [data, setData] = useState<FamilyRestrictionSumRes | null>(null)
   const [loading, setLoading] = useState(true)
@@ -69,7 +82,20 @@ export function FamilyRestrictionSummaryPage() {
         })
       }
     }
-    return result
+
+    // Order columns as Religious requirements, then Allergies and
+    // intolerances, then Specific diets and health preferences, following
+    // restrictionGroups, and alphabetically by label within each group. The
+    // dairy-family alias column groups with DAIRY. Any code absent from
+    // restrictionGroups sorts to the end.
+    return result.sort((a, b) => {
+      const groupKeyA = a.key === 'DAIRY_FAMILY' ? 'DAIRY' : a.key
+      const groupKeyB = b.key === 'DAIRY_FAMILY' ? 'DAIRY' : b.key
+      const groupIndexA = restrictionGroupIndex.get(groupKeyA) ?? Number.MAX_SAFE_INTEGER
+      const groupIndexB = restrictionGroupIndex.get(groupKeyB) ?? Number.MAX_SAFE_INTEGER
+      if (groupIndexA !== groupIndexB) return groupIndexA - groupIndexB
+      return a.label.localeCompare(b.label)
+    })
   }, [activeMembers])
 
   return (
