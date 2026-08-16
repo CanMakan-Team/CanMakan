@@ -63,7 +63,9 @@ class ScanFeedbackRepositoryPaginationIntegrationTest {
 
         Set<Long> firstPageIds = idsOf(firstPage);
         Set<Long> secondPageIds = idsOf(secondPage);
-        assertThat(firstPageIds).doesNotContainAnyElementsOf(secondPageIds);
+        // isNotEmpty() first so the disjointness check below can't trivially
+        // pass on an empty set (Sonar java:S5841).
+        assertThat(firstPageIds).isNotEmpty().doesNotContainAnyElementsOf(secondPageIds);
 
         LocalDateTime lastOfFirstPage = firstPage.getContent().get(firstPage.getContent().size() - 1).getCreatedAt();
         LocalDateTime firstOfSecondPage = secondPage.getContent().get(0).getCreatedAt();
@@ -76,8 +78,10 @@ class ScanFeedbackRepositoryPaginationIntegrationTest {
         Page<AdminScanFeedbackView> negativeOnly =
                 repository.findForAdmin(SINCE, null, null, false, null, PageRequest.of(0, 5));
 
-        assertThat(negativeOnly.getContent()).isNotEmpty();
+        // Chained on one assertion (rather than a separate isNotEmpty() statement)
+        // so allSatisfy() can't trivially pass on an empty page (Sonar java:S5841).
         assertThat(negativeOnly.getContent())
+                .isNotEmpty()
                 .allSatisfy(row -> assertThat(row.getIsPositive()).isFalse());
     }
 
