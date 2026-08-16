@@ -7,6 +7,10 @@ import { fileURLToPath } from 'node:url'
 const webRoot = path.dirname(fileURLToPath(import.meta.url))
 const clientRoot = path.resolve(webRoot, '..')
 const mascotDrawable = path.resolve(clientRoot, 'shared/assets/mascot/drawable')
+const androidXxxhdpiLauncher = path.resolve(
+  clientRoot,
+  'mobile/app/src/main/res/mipmap-xxxhdpi',
+)
 const emailFallbackMascot = path.join(mascotDrawable, 'canmakan_mascot_wave.png')
 
 function readFileOrThrow(filePath) {
@@ -51,6 +55,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@mascot': mascotDrawable,
+      '@launcher': androidXxxhdpiLauncher,
     },
   },
   server: {

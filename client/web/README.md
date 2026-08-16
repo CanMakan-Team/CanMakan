@@ -18,8 +18,9 @@ Invitation emails still use the stable hosted path
 mascots into `public/`.
 
 The browser favicon is the Android launcher at
-`client/mobile/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp`. Do not copy a
-separate icon into `public/`.
+`client/mobile/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp`, imported via
+the `@launcher` alias in `src/app/documentIcons.ts`. Do not copy a separate
+icon into `public/`.
 
 ## Selected Web features
 
