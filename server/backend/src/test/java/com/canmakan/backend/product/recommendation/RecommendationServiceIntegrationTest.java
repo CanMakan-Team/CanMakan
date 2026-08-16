@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
  * {@link com.canmakan.backend.product.history.ScanHistoryRepositoryTest}: seed data
  * from {@code 01_products.sql} and {@code 05_household_dietary_data.sql}.
  */
-@SpringBootTest
+@SpringBootTest(properties = "canmakan.recommendation.ml.ranker-url=")
 @Transactional
 @DisplayName("UC5: RecommendationService integration")
 class RecommendationServiceIntegrationTest {

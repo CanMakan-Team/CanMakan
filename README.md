@@ -70,7 +70,7 @@ remain pending.
 |   |       |-- admin/
 |   |       |-- knowledgebase/
 |   |       `-- integration/       # Open Food Facts, OpenRouter, etc.
-|   |-- machine-learning/          # Reserved ML component
+|   |-- machine-learning/          # Python TF-IDF rank API (UC5)
 |   `-- agentic-ai/                # Reserved Agentic AI and RAG component
 |
 |-- database/                      # Reserved database area
