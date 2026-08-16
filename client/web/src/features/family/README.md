@@ -66,7 +66,7 @@ SELF-profile save/skip, and session restoration never open the family form.
 
 | Piece | Notes |
 | --- | --- |
-| `FamilyMembersPage` | Roster with role + inactive badge; manage actions for PRIMARY_ADMIN only |
+| `FamilyMembersPage` | PRIMARY_ADMIN roster: invite, edit, activate, remove |
 | `EditFamilyProfileModal` | Live `PUT /me/profiles/{id}`; D3 restricts restriction edits to self + dependants |
 | `familyApiService` | `updateProfile`, `setProfileActive`, `removeMember`, `removeDependantProfile`, `getProfiles`, `getScanHistory` (PRIMARY_ADMIN) |
 | Soft-remove | Linked → `DELETE /me/members/{userId}`; dependant → `DELETE /me/profiles/{id}` |

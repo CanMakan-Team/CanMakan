@@ -125,7 +125,7 @@ export function FamilyMembersPage() {
     }
   }
 
-  /** Render the family members page. */
+  /** Render the family members page. PRIMARY_ADMIN only (FamilyMeGate + redirect). */
   return (
     <>
       <header className="page-header">
@@ -133,29 +133,26 @@ export function FamilyMembersPage() {
           <p className="eyebrow">Family profiles</p>
           <h1>Family Members</h1>
           <p>
-            {isPrimaryAdmin
-              ? 'Link a registered App User or create a non-login dependant profile. Edit metadata, toggle scan eligibility, or soft-remove members.'
-              : 'View family profiles and dietary requirements. Only the primary admin can invite, edit, or remove members.'}
+            Link a registered App User or create a non-login dependant profile.
+            Edit metadata, toggle scan eligibility, or soft-remove members.
           </p>
         </div>
-        {isPrimaryAdmin && (
-          <div className="page-header__actions">
-            <button
-              className="button button--secondary"
-              type="button"
-              onClick={() => setOpenModal('link')}
-            >
-              Invite to Family
-            </button>
-            <button
-              className="button button--primary"
-              type="button"
-              onClick={() => setOpenModal('create')}
-            >
-              Create New Profile
-            </button>
-          </div>
-        )}
+        <div className="page-header__actions">
+          <button
+            className="button button--secondary"
+            type="button"
+            onClick={() => setOpenModal('link')}
+          >
+            Invite to Family
+          </button>
+          <button
+            className="button button--primary"
+            type="button"
+            onClick={() => setOpenModal('create')}
+          >
+            Create New Profile
+          </button>
+        </div>
       </header>
 
       <div className="sr-live" aria-live="polite">
@@ -169,11 +166,7 @@ export function FamilyMembersPage() {
       ) : members.length === 0 ? (
         <EmptyState
           title="No family profiles yet"
-          description={
-            isPrimaryAdmin
-              ? 'Link an existing App User or create a new dependant profile.'
-              : 'Ask your family primary admin to add profiles.'
-          }
+          description="Link an existing App User or create a new dependant profile."
         />
       ) : (
         <>
@@ -184,7 +177,7 @@ export function FamilyMembersPage() {
               const busy = busyId === member.profileId
               const caption = profileDisplayCaption(member, {
                 selfProfileId,
-                isPrimaryAdmin,
+                isPrimaryAdmin: true,
               })
               return (
                 <article
@@ -198,9 +191,7 @@ export function FamilyMembersPage() {
                     <div>
                       <h2>{member.profileName}</h2>
                       {caption ? <p>{caption}</p> : null}
-                      {isPrimaryAdmin ? (
-                        <p>{formatCode(member.ageGroup)}</p>
-                      ) : null}
+                      <p>{formatCode(member.ageGroup)}</p>
                     </div>
                     <span className="source-label">
                       {!member.profileActive
@@ -218,34 +209,32 @@ export function FamilyMembersPage() {
                       <span className="tag--empty">No restrictions recorded</span>
                     )}
                   </div>
-                  {isPrimaryAdmin && (
-                    <div className="profile-card__actions">
-                      <button
-                        className="button button--secondary button--full"
-                        type="button"
-                        disabled={busy}
-                        onClick={() => setEditingMember(member)}
-                      >
-                        Edit dietary profile
-                      </button>
-                      <button
-                        className="button button--secondary button--full"
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void toggleActive(member)}
-                      >
-                        {member.profileActive ? 'Deactivate' : 'Reactivate'}
-                      </button>
-                      <button
-                        className="button button--danger button--full"
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void removeMember(member)}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  )}
+                  <div className="profile-card__actions">
+                    <button
+                      className="button button--secondary button--full"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setEditingMember(member)}
+                    >
+                      Edit dietary profile
+                    </button>
+                    <button
+                      className="button button--secondary button--full"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void toggleActive(member)}
+                    >
+                      {member.profileActive ? 'Deactivate' : 'Reactivate'}
+                    </button>
+                    <button
+                      className="button button--danger button--full"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void removeMember(member)}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </article>
               )
             })}
@@ -253,22 +242,22 @@ export function FamilyMembersPage() {
         </>
       )}
 
-      {isPrimaryAdmin && openModal === 'link' && (
+      {openModal === 'link' && (
         <LinkExistingUserModal
           onClose={() => setOpenModal(null)}
           onSuccess={handleSuccess}
         />
       )}
-      {isPrimaryAdmin && openModal === 'create' && (
+      {openModal === 'create' && (
         <CreateFamilyProfileModal
           onClose={() => setOpenModal(null)}
           onSuccess={handleSuccess}
         />
       )}
-      {isPrimaryAdmin && editingMember && (
+      {editingMember && (
         <EditFamilyProfileModal
           member={editingMember}
-          isPrimaryAdmin={isPrimaryAdmin}
+          isPrimaryAdmin
           onClose={() => setEditingMember(null)}
           onSuccess={handleSuccess}
         />
