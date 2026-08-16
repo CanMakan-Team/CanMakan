@@ -41,6 +41,7 @@ account-owned profile is active.
 | Feature            | Purpose                                      |
 |--------------------|----------------------------------------------|
 | `auth`             | Login, logout, session handling              |
+| `account`          | Notification preference and delete account   |
 | `dietaryprofile`   | User dietary preferences and constraints     |
 | `family`           | Family members and active profile switching  |
 | `product`          | Scanning, verdicts, recommendations, history |
