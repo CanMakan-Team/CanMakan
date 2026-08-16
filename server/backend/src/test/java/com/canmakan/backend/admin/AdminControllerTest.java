@@ -24,6 +24,7 @@ import com.canmakan.backend.analytics.dto.TrendPeriod;
 import com.canmakan.backend.analytics.dto.TrendSummary;
 import com.canmakan.backend.analytics.exception.ConsumerTrendsValidationException;
 import com.canmakan.backend.analytics.service.ConsumerTrendsService;
+import com.canmakan.backend.analytics.service.UsageStatisticsService;
 import jakarta.servlet.ServletException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -57,7 +58,8 @@ class AdminControllerTest {
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new AdminController(
                         consumerTrendsService,
-                        userAccountManagementService
+                        userAccountManagementService,
+                        mock(UsageStatisticsService.class)
                 ))
                 .setControllerAdvice(new AdminExceptionHandler())
                 .build();

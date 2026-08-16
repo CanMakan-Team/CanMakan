@@ -1,0 +1,147 @@
+package com.canmakan.backend.analytics.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
+import com.canmakan.backend.analytics.dto.UsageStatisticsResponse;
+import com.canmakan.backend.analytics.dto.UsageStatisticsResponse.ActivationStep;
+import com.canmakan.backend.analytics.repository.AppUserProjection;
+import com.canmakan.backend.analytics.repository.UsageStatisticsRepository;
+import com.canmakan.backend.analytics.repository.UserScanInstantProjection;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+/**
+ * Unit tests for the UC15 usage-statistics aggregation over a deterministic dataset and fixed clock.
+ *
+ * @author XieHuayuan
+ */
+@ExtendWith(MockitoExtension.class)
+@DisplayName("UC15: UsageStatisticsService aggregation")
+class UsageStatisticsServiceTest {
+
+    private static final Instant NOW = Instant.parse("2026-02-01T00:00:00Z");
+
+    @Mock
+    private UsageStatisticsRepository repository;
+
+    private UsageStatisticsService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new UsageStatisticsService(repository, Clock.fixed(NOW, ZoneOffset.UTC));
+    }
+
+    private static long daysAgoMs(double days) {
+        return NOW.minus((long) (days * 24 * 60), ChronoUnit.MINUTES).toEpochMilli();
+    }
+
+    private static AppUserProjection user(long id, double createdDaysAgo, long profileCount) {
+        return new AppUserProjection() {
+            public Long getUserId() {
+                return id;
+            }
+
+            public Long getCreatedAtEpochMs() {
+                return daysAgoMs(createdDaysAgo);
+            }
+
+            public Long getProfileCount() {
+                return profileCount;
+            }
+        };
+    }
+
+    private static UserScanInstantProjection scan(long userId, double scannedDaysAgo) {
+        return new UserScanInstantProjection() {
+            public Long getUserId() {
+                return userId;
+            }
+
+            public Long getScannedAtEpochMs() {
+                return daysAgoMs(scannedDaysAgo);
+            }
+        };
+    }
+
+    @Test
+    @DisplayName("computes activity, activation, retention and inactivity from users and scans")
+    void computesUsageStatistics() {
+        // 4 app users; U4 has no dietary profile and no scans.
+        when(repository.findAppUsers()).thenReturn(List.of(
+                user(1, 100, 1),
+                user(2, 40, 1),
+                user(3, 3, 1),
+                user(4, 100, 0)));
+        // U1 is active today and repeat-scans; U2 active ~10 days ago; U3 active 2 days ago.
+        when(repository.findAppUserScans()).thenReturn(List.of(
+                scan(1, 0.5),
+                scan(1, 5),
+                scan(2, 10),
+                scan(3, 2)));
+
+        UsageStatisticsResponse response = service.generate(30);
+
+        // Active-user windows.
+        assertThat(response.kpis().dailyActiveUsers()).isEqualTo(1);
+        assertThat(response.activity().weeklyActiveUsers()).isEqualTo(2);
+        assertThat(response.activity().monthlyActiveUsers()).isEqualTo(3);
+        assertThat(response.kpis().stickinessPct()).isEqualTo(33);
+
+        // New sign-ups within the 30-day period and new-vs-returning split.
+        assertThat(response.kpis().newSignups()).isEqualTo(1);
+        assertThat(response.activity().newUsersPct()).isEqualTo(33);
+        assertThat(response.activity().returningUsersPct()).isEqualTo(67);
+
+        // Retention and churn.
+        assertThat(response.retention().totalUsers()).isEqualTo(4);
+        assertThat(response.retention().inactive30d()).isEqualTo(1);
+        assertThat(response.retention().day1Pct()).isEqualTo(75);
+        assertThat(response.retention().day7Pct()).isEqualTo(67);
+        assertThat(response.retention().churnPct()).isEqualTo(0);
+        assertThat(response.retention().resurrectedUsers()).isEqualTo(0);
+
+        // Activation funnel percentages relative to registered users.
+        Map<String, Integer> funnel = new java.util.HashMap<>();
+        for (ActivationStep step : response.acquisition().activationFunnel()) {
+            funnel.put(step.label(), step.percent());
+        }
+        assertThat(funnel.get("Registered")).isEqualTo(100);
+        assertThat(funnel.get("Profile set up")).isEqualTo(75);
+        assertThat(funnel.get("First scan")).isEqualTo(75);
+        assertThat(funnel.get("Repeat scan")).isEqualTo(25);
+
+        // One daily-registration bucket per day in the period.
+        assertThat(response.acquisition().dailyNewRegistrations()).hasSize(30);
+        // 7 weekday rows in the heatmap.
+        assertThat(response.engagement().heatmap()).hasSize(7);
+    }
+
+    @Test
+    @DisplayName("handles no users and no scans without dividing by zero")
+    void handlesEmptyData() {
+        when(repository.findAppUsers()).thenReturn(new ArrayList<>());
+        when(repository.findAppUserScans()).thenReturn(new ArrayList<>());
+
+        UsageStatisticsResponse response = service.generate(7);
+
+        assertThat(response.retention().totalUsers()).isZero();
+        assertThat(response.kpis().stickinessPct()).isZero();
+        assertThat(response.activity().newUsersPct()).isZero();
+        assertThat(response.retention().inactive30d()).isZero();
+        assertThat(response.acquisition().dailyNewRegistrations()).hasSize(7);
+    }
+}
