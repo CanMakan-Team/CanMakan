@@ -134,7 +134,9 @@ p {
 }
 
 .login-greeting-mascot {
-  margin-bottom: 1.5rem;
+  width: 7.25rem;
+  height: 7.25rem;
+  margin-bottom: 0.85rem;
 }
 
 .button {
@@ -219,7 +221,10 @@ p {
 }
 
 .login-page {
-  padding: clamp(1.25rem, 4vw, 3.5rem);
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: auto;
+  padding: clamp(0.85rem, 2.2vh, 1.75rem) clamp(1.25rem, 4vw, 3.5rem);
 }
 
 .centered-page {
@@ -245,9 +250,10 @@ p {
 .login-composition {
   display: grid;
   width: min(100%, 1060px);
+  max-height: 100%;
   grid-template-columns: minmax(0, 1.05fr) minmax(390px, 0.8fr);
   align-items: center;
-  gap: clamp(2rem, 6vw, 5.5rem);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
 }
 
 .family-login-introduction,
@@ -259,7 +265,11 @@ p {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: clamp(3rem, 8vh, 5.5rem);
+  margin-bottom: clamp(1.25rem, 4vh, 2.5rem);
+}
+
+.login-page--family .login-brand {
+  margin-bottom: 0.85rem;
 }
 
 .login-brand strong {
@@ -286,7 +296,7 @@ p {
 .family-login-introduction h1,
 .system-login-introduction h1 {
   max-width: 600px;
-  font-size: clamp(2.5rem, 5vw, 4.6rem);
+  font-size: clamp(1.85rem, 3.2vw, 3rem);
 }
 
 .family-login-introduction > p:last-child,
@@ -2339,12 +2349,16 @@ caption,
   }
 
   .login-brand {
-    margin-bottom: 2.25rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .login-page--family .login-brand {
+    margin-bottom: 0.65rem;
   }
 
   .family-login-introduction h1,
   .system-login-introduction h1 {
-    font-size: clamp(2.3rem, 8vw, 3.6rem);
+    font-size: clamp(1.7rem, 7vw, 2.4rem);
   }
 
   .sidebar {

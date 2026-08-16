@@ -145,7 +145,7 @@ export function UserRegisterPage() {
           aria-labelledby="family-register-intro-title"
         >
           <LoginBrand />
-          <CanMakanMascot pose="wave" size="hero" className="login-greeting-mascot" />
+          <CanMakanMascot pose="wave" size="large" className="login-greeting-mascot" />
           <p className="eyebrow">Welcome</p>
           <h1 id="family-register-intro-title">Glad you're here. Let's get you an account.</h1>
           <p>

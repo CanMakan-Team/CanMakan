@@ -9,7 +9,7 @@ export function UserLoginPage() {
       <div className="login-composition login-composition--family">
         <section className="family-login-introduction" aria-labelledby="family-entry-title">
           <LoginBrand />
-          <CanMakanMascot pose="wave" size="hero" className="login-greeting-mascot" />
+          <CanMakanMascot pose="wave" size="large" className="login-greeting-mascot" />
           <p className="eyebrow">Welcome</p>
           <h1 id="family-entry-title">Dietary support for you, and for your family when you choose.</h1>
           <p>

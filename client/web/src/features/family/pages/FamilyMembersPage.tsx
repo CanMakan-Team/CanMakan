@@ -21,7 +21,7 @@ import { useFamilyMe } from '../useFamilyMe'
 type OpenModal = 'link' | 'create' | null
 
 export function FamilyMembersPage() {
-  const { family, isPrimaryAdmin } = useFamilyMe()
+  const { family, isPrimaryAdmin, reload } = useFamilyMe()
   const selfProfileId = family?.selfProfileId ?? null
   const [members, setMembers] = useState<FamilyMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,6 +52,7 @@ export function FamilyMembersPage() {
 
   const handleSuccess = (message: string) => {
     setNotice(message)
+    reload()
     void loadMembers()
   }
 
@@ -103,6 +104,7 @@ export function FamilyMembersPage() {
         throw new Error('This member cannot be removed.')
       }
       setNotice(`${member.profileName} was removed from the family roster.`)
+      reload()
       await loadMembers()
     } catch (caughtError) {
       setError(getErrorMessage(caughtError))
