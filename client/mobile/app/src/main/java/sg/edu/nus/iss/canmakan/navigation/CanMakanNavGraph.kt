@@ -49,6 +49,7 @@ import sg.edu.nus.iss.canmakan.features.product.history.ui.HistoryScreen
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.features.product.scan.ScannerScreen
 import sg.edu.nus.iss.canmakan.features.product.verdict.ProductDetailScreen
+import sg.edu.nus.iss.canmakan.features.product.verdict.ScanFeedbackViewModel
 import sg.edu.nus.iss.canmakan.features.family.ui.CreateDependantProfileScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.CreateFamilyCircleScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryScreen
@@ -384,12 +385,23 @@ fun CanMakanNavGraph(
 
                 // Otherwise, show the product detail screen with the pending verdict
                 } else {
+                    val scanFeedbackViewModel: ScanFeedbackViewModel = hiltViewModel()
+                    val feedbackSubmissionState by scanFeedbackViewModel.submissionState.collectAsStateWithLifecycle()
+
                     ProductDetailScreen(
                         product = detail.product,
                         verdict = detail.verdict,
                         flags = detail.flags,
                         alternatives = detail.alternatives,
                         profileName = activeProfile.profileName,
+                        scanId = detail.scanId,
+                        feedbackSubmissionState = feedbackSubmissionState,
+                        onSubmitPositiveFeedback = { scanId ->
+                            scanFeedbackViewModel.submitPositiveFeedback(scanId)
+                        },
+                        onSubmitNegativeFeedback = { scanId, comment ->
+                            scanFeedbackViewModel.submitNegativeFeedback(scanId, comment)
+                        },
                         explanation = detail.explanation,
                         alternativesError = detail.alternativesError,
                         onBackClick = { navController.popBackStack() },
