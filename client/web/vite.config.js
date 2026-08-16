@@ -5,61 +5,59 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const webRoot = path.dirname(fileURLToPath(import.meta.url))
-const mascotDrawable = path.resolve(webRoot, '../shared/assets/mascot/drawable')
+const clientRoot = path.resolve(webRoot, '..')
+const mascotDrawable = path.resolve(clientRoot, 'shared/assets/mascot/drawable')
+const emailFallbackMascot = path.join(mascotDrawable, 'canmakan_mascot_wave.png')
 
-const SHARED_MASCOT_PUBLIC_FILES = [
-  { file: 'canmakan_mascot_wave.png', publicPath: '/mascot/canmakan-mascot-wave.png' },
-  { file: 'canmakan_mascot_scan.png', publicPath: '/mascot/canmakan-mascot-scan.png' },
-  { file: 'canmakan_mascot_safe.png', publicPath: '/mascot/canmakan-mascot-safe.png' },
-  { file: 'canmakan_mascot_warning.png', publicPath: '/mascot/canmakan-mascot-warning.png' },
-  { file: 'canmakan_mascot_unsafe.png', publicPath: '/mascot/canmakan-mascot-unsafe.png' },
-  { file: 'canmakan_mascot_wave.png', publicPath: '/email/canmakan-mascot-wave.png' },
-]
-
-function readSharedMascot(fileName) {
-  const filePath = path.join(mascotDrawable, fileName)
+function readFileOrThrow(filePath) {
   if (!fs.existsSync(filePath)) {
-    throw new Error(`Missing shared mascot asset: ${filePath}`)
+    throw new Error(`Missing shared client asset: ${filePath}`)
   }
   return fs.readFileSync(filePath)
 }
 
-function sharedMascotPlugin() {
-  const byPublicPath = new Map(
-    SHARED_MASCOT_PUBLIC_FILES.map((entry) => [entry.publicPath, entry.file]),
-  )
+/**
+ * Invitation emails fall back to this unhashed URL when the CID attachment is
+ * missing. Keep the path stable; in-app mascot poses are imported and hashed.
+ */
+function emailMascotFallbackPlugin() {
+  const publicPath = '/email/canmakan-mascot-wave.png'
 
   return {
-    name: 'shared-mascot-assets',
+    name: 'email-mascot-fallback',
     configureServer(server) {
       server.middlewares.use((request, response, next) => {
         const urlPath = request.url?.split('?')[0]
-        const fileName = urlPath ? byPublicPath.get(urlPath) : undefined
-        if (!fileName) {
+        if (urlPath !== publicPath) {
           next()
           return
         }
         response.setHeader('Content-Type', 'image/png')
-        response.end(readSharedMascot(fileName))
+        response.end(readFileOrThrow(emailFallbackMascot))
       })
     },
     generateBundle() {
-      const emitted = new Set()
-      for (const entry of SHARED_MASCOT_PUBLIC_FILES) {
-        if (emitted.has(entry.publicPath)) continue
-        emitted.add(entry.publicPath)
-        this.emitFile({
-          type: 'asset',
-          fileName: entry.publicPath.slice(1),
-          source: readSharedMascot(entry.file),
-        })
-      }
+      this.emitFile({
+        type: 'asset',
+        fileName: publicPath.slice(1),
+        source: readFileOrThrow(emailFallbackMascot),
+      })
     },
   }
 }
 
 export default defineConfig({
-  plugins: [react(), sharedMascotPlugin()],
+  plugins: [react(), emailMascotFallbackPlugin()],
+  resolve: {
+    alias: {
+      '@mascot': mascotDrawable,
+    },
+  },
+  server: {
+    fs: {
+      allow: [clientRoot],
+    },
+  },
   test: {
     include: ['./src/test/**/*.{test,spec}.{ts,tsx}'],
     environment: 'jsdom',

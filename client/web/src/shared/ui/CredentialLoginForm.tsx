@@ -213,10 +213,6 @@ export function CredentialLoginForm({
           New to CanMakan? <Link to={resolvedRegisterPath}>Create an account</Link>
         </p>
       ) : null}
-      <p className="login-card__security">
-        Your sign-in details are handled securely and are not displayed after
-        you sign in.
-      </p>
     </>
   )
 }

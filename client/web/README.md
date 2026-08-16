@@ -12,8 +12,14 @@ Bearer access token). Other family and analytics surfaces may still use browser 
 when `VITE_USE_MOCK_API=true`.
 
 Mascot PNGs are shared with Android under `client/shared/assets/mascot/`.
-Vite serves them as `/mascot/canmakan-mascot-*.png`; do not copy them into
-`public/`.
+The web client imports them from that folder (Vite hashes the filenames).
+Invitation emails still use the stable hosted path
+`/email/canmakan-mascot-wave.png`, served from the same wave PNG. Do not copy
+mascots into `public/`.
+
+The browser favicon is the Android launcher at
+`client/mobile/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp`. Do not copy a
+separate icon into `public/`.
 
 ## Selected Web features
 

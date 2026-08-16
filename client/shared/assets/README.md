@@ -12,12 +12,12 @@ root and must contain only resource-type folders such as `drawable/`.
 | Client | How the folder is referenced |
 | --- | --- |
 | Mobile | Extra Android `res` directory at `mascot/` (`drawable/` is the resource type) |
-| Web | Vite serves and ships them as `/mascot/canmakan-mascot-*.png` |
+| Web | Vite imports the PNGs from `drawable/` (hashed asset URLs at build) |
 
 Edit the files in `mascot/drawable/` only. Do not copy them into
 `client/web/public` or `client/mobile/app/src/main/res/drawable`.
 
 The invitation email still embeds a classpath copy at
 `server/backend/src/main/resources/email/canmakan-mascot-wave.png`.
-The web hosted fallback URL `/email/canmakan-mascot-wave.png` is served
-from this folder by Vite.
+When that CID attach is missing, the HTML falls back to the hosted URL
+`/email/canmakan-mascot-wave.png`, which Vite serves from this folder.
