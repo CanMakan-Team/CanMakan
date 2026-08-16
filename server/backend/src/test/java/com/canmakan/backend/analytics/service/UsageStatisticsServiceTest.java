@@ -151,15 +151,20 @@ class UsageStatisticsServiceTest {
         when(repository.findAppUsers()).thenReturn(List.of(
                 user(1, 500, 1),
                 user(2, 500, 1),
-                user(3, 15, 1)));
+                user(3, 15, 1),
+                user(4, 500, 1)));
         when(repository.findAppUserScans()).thenReturn(List.of(
-                // User 1: inactive for >30 days before the current window, then returns -> resurrected.
+                // User 1: last prior scan is older than the previous 30-day window, then returns
+                // in the current window -> resurrected, and not part of the churn denominator.
                 scan(1, 80),
                 scan(1, 2),
-                // User 2: active in the prior 30-day window only -> churned in current window.
+                // User 2: active in the prior 30-day window only -> churned.
                 scan(2, 40),
-                // User 3: new active user inside current period.
-                scan(3, 10)));
+                // User 3: new active user inside the current period.
+                scan(3, 10),
+                // User 4: active in both the prior and current 30-day windows -> retained.
+                scan(4, 45),
+                scan(4, 5)));
 
         UsageStatisticsResponse oversized = service.generate(999);
         UsageStatisticsResponse response = service.generate(30);
