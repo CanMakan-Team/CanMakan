@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useSession } from '../../auth/useSession'
 
 type PersonalHomeState = {
-  profileSetup?: 'created' | 'deferred'
+  profileSetup?: 'created' | 'updated' | 'deferred'
 }
 
 /** Family-independent landing surface for an authenticated platform USER. */
@@ -13,9 +13,11 @@ export function PersonalHomePage() {
   const profileMessage =
     navigationState?.profileSetup === 'created'
       ? 'Your personal Dietary Profile was created successfully.'
-      : navigationState?.profileSetup === 'deferred'
-        ? 'Dietary Profile setup was skipped. No empty profile was created.'
-        : 'Your personal Dietary Profile is optional and can be set up independently.'
+      : navigationState?.profileSetup === 'updated'
+        ? 'Your personal Dietary Profile was updated successfully.'
+        : navigationState?.profileSetup === 'deferred'
+          ? 'Dietary Profile setup was skipped. No empty profile was created.'
+          : 'Your personal Dietary Profile is optional and can be set up independently.'
 
   return (
     <>

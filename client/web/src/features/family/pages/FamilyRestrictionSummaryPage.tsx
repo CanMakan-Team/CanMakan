@@ -148,8 +148,9 @@ export function FamilyRestrictionSummaryPage() {
                       // Any restriction present on the dietary profile counts as
                       // selected for this column; the grid does not grade by
                       // severity, it only reports what the profile has chosen.
-                      // Lactose-family codes share one column because
-                      // the backend treats those codes as dairy-family aliases.
+                      // Lactose-family codes share one column so that any legacy
+                      // or alternate spelling of the dairy restriction still
+                      // displays under a single "Lactose Intolerance" column.
                       const isSelected = member.restrictions.some((r) =>
                         column.matchCodes.has(r.code.trim().toUpperCase())
                       )

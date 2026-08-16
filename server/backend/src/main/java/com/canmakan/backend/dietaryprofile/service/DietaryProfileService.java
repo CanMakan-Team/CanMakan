@@ -5,6 +5,7 @@ import com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto;
 import com.canmakan.backend.dietaryprofile.dto.DietaryRestrictionDto;
 import com.canmakan.backend.dietaryprofile.dto.SelfProfileResponse;
 import com.canmakan.backend.dietaryprofile.exception.SelfProfileAlreadyExistsException;
+import com.canmakan.backend.dietaryprofile.exception.SelfProfileNotFoundException;
 import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
 import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
 import com.canmakan.backend.dietaryprofile.model.ProfileRestriction;
@@ -94,6 +95,60 @@ public class DietaryProfileService {
                 Map.Entry::getKey,
                 entry -> entry.getValue().severity()
             ))
+        );
+    }
+
+    /**
+     * Fetches the authenticated account's standalone SELF profile, including its
+     * current restriction selections, so a client can pre-populate an edit form.
+     *
+     * <p>Read-only transactional on purpose: {@code spring.jpa.open-in-view} is
+     * disabled, so the lazy {@code profileRestrictions} collection accessed in
+     * {@link #toSelfProfileResponse} would otherwise throw
+     * {@code LazyInitializationException} once the repository call above returns
+     * and the Hibernate session closes.
+     */
+    @Transactional(readOnly = true)
+    public SelfProfileResponse getSelfProfile(long userId) {
+        DietaryProfile profile = dietaryProfileRepository.findByLinkedUser_Id(userId)
+            .orElseThrow(SelfProfileNotFoundException::new);
+        return toSelfProfileResponse(profile);
+    }
+
+    /**
+     * Updates the authenticated account's existing SELF profile name and replaces
+     * its restriction selections. Unlike {@link #createSelfProfile}, this requires
+     * the profile to already exist.
+     */
+    @Transactional
+    public SelfProfileResponse updateSelfProfile(
+            long userId, CreateSelfProfileRequest request) {
+        DietaryProfile profile = dietaryProfileRepository.findByLinkedUser_Id(userId)
+            .orElseThrow(SelfProfileNotFoundException::new);
+
+        Map<Long, ResolvedRestriction> resolvedRestrictions =
+            resolveRestrictionSelections(request.restrictions(), true);
+
+        profile.setProfileName(request.profileName());
+        applyRestrictionSelections(profile, resolvedRestrictions);
+        dietaryProfileRepository.saveAndFlush(profile);
+
+        return toSelfProfileResponse(profile);
+    }
+
+    private SelfProfileResponse toSelfProfileResponse(DietaryProfile profile) {
+        Map<Long, String> restrictions = new LinkedHashMap<>();
+        for (ProfileRestriction profileRestriction : profile.getProfileRestrictions()) {
+            restrictions.put(
+                profileRestriction.getDietaryRestriction().getId(),
+                profileRestriction.getSeverityLevel());
+        }
+        return new SelfProfileResponse(
+            profile.getId(),
+            profile.getProfileName(),
+            profile.getRelationship(),
+            profile.isActive(),
+            restrictions
         );
     }
 

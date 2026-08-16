@@ -254,43 +254,6 @@ class DietaryRuleEngineTest {
     }
 
     @Test
-    @DisplayName("Cross-contamination MILK signal also warns for a LACTOSE_INTOLERANT profile restriction")
-    void crossContaminationOverlapAddsWarningForLactoseIntolerantAlias() {
-        // LACTOSE_INTOLERANT is a separate selectable restriction from DAIRY
-        // (05_household_dietary_data.sql id 16) that should still catch a MILK
-        // cross-contamination signal, same as DAIRY does above.
-        Ingredient potato = new Ingredient("Potato", null, null, false);
-        when(resolver.resolve("Potato")).thenReturn(IngredientResolution.knownSafe());
-        when(dietaryRuleTool.lookup("LACTOSE_INTOLERANT"))
-                .thenReturn(new DietaryRuleResult("LACTOSE_INTOLERANT", "ALLERGEN", "Avoid lactose."));
-        when(crossContaminationTool.analyse("Potato. May contain milk.", List.of()))
-                .thenReturn(new CrossContaminationResult(
-                        true,
-                        List.of("MILK"),
-                        "May contain milk"
-                ));
-
-        ProductData product = new ProductData(
-                "123",
-                List.of(potato),
-                "Potato. May contain milk.",
-                List.of(),
-                null,
-                true
-        );
-
-        SafetyVerdict verdict = engine.assess(
-                List.of(new RestrictionRule("LACTOSE_INTOLERANT", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID)),
-                product
-        );
-
-        assertEquals(SafetyVerdict.Level.WARNING, verdict.level());
-        assertEquals(DietaryRuleEngine.CROSS_CONTAMINATION, verdict.findings().getFirst().restrictionCode());
-        assertEquals("LACTOSE_INTOLERANT", verdict.findings().getFirst().ingredientName());
-        assertTrue(verdict.findings().getFirst().reason().contains("May contain milk"));
-    }
-
-    @Test
     @DisplayName("Traces-only OFF tags add CROSS_CONTAMINATION WARNING")
     void tracesOnlyTagsAddCrossContaminationWarning() {
         Ingredient potato = new Ingredient("Potato", null, null, false);

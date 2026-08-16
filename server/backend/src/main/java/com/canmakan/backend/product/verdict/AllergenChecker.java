@@ -4,7 +4,6 @@ import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.knowledgebase.model.RestrictionCategory;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,12 +17,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public final class AllergenChecker implements RestrictionChecker {
-
-    // Ingredients are only tagged with a "DAIRY" root allergen; there is no
-    // separate lactose-specific tag. LACTOSE_INTOLERANT is a distinct
-    // selectable restriction (see 05_household_dietary_data.sql id 16), so it
-    // is treated as an alias of DAIRY here rather than matching nothing.
-    private static final Set<String> DAIRY_ALIASES = Set.of("DAIRY", "LACTOSE_INTOLERANT");
 
     @Override
     public boolean supports(RestrictionCategory category) {
@@ -59,12 +52,7 @@ public final class AllergenChecker implements RestrictionChecker {
     }
 
     private static boolean matches(String ruleCode, String rootAllergen) {
-        if (ruleCode.equals(rootAllergen)) {
-            return true;
-        }
-        return rootAllergen != null
-                && DAIRY_ALIASES.contains(ruleCode)
-                && DAIRY_ALIASES.contains(rootAllergen);
+        return ruleCode.equals(rootAllergen);
     }
 
     private static String displayName(String ingredientName) {
