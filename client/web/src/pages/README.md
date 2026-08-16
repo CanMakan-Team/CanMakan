@@ -6,7 +6,8 @@ Top-level route entry pages.
 Holds standalone pages that sit outside feature folders (login/register screens).
 
 ## Contains
-- User login page (`/login`) — live credentials; `/family-login` redirects here
+- User login page (`/login`) — live credentials; after sign-in, USER accounts
+  (including family PRIMARY_ADMIN) go to `/me`. `/family-login` redirects here
 - User register page (`/register`) — UC18; `/family-register` redirects here
 - System admin login page (`/system-admin-login`) — live credentials
 

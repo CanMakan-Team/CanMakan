@@ -81,6 +81,18 @@ test('Verify Responsiveness of CanMakan Web Navigation Elements', async ({ page,
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
   });
 
+  await page.route('**/api/restrictions', route => {
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+  });
+
+  await page.route('**/api/profiles/me', route => {
+    route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ message: 'No SELF profile exists for this account yet.' }),
+    });
+  });
+
   // 1. Go to login page
   await page.goto('/login');
 
@@ -91,7 +103,7 @@ test('Verify Responsiveness of CanMakan Web Navigation Elements', async ({ page,
   await page.click('button[type="submit"]');
 
   // 3. Wait until navigated into the protected portal
-  await page.waitForURL(/\/family(\/dashboard)?$/, { timeout: 15000 });
+  await page.waitForURL(/\/me$/, { timeout: 15000 });
 
   // 4. Assert layout based on viewport size
   if (isMobile) {

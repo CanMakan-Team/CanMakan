@@ -80,13 +80,25 @@ test.describe('Authentication and Route Guarding', () => {
         body: JSON.stringify([])
       });
     });
+
+    await page.route('**/api/restrictions', route => {
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
+
+    await page.route('**/api/profiles/me', route => {
+      route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'No SELF profile exists for this account yet.' }),
+      });
+    });
   }
 
   test('Unauthenticated Users are Redirected to Login', async ({ page }) => {
     await page.route('**/api/auth/refresh', route => {
       route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Unauthorized' }) });
     });
-    await page.goto('/family');
+    await page.goto('/me');
     await expect(page).toHaveURL(/.*\/login/);
   });
 
@@ -148,6 +160,18 @@ test.describe('Authentication and Route Guarding', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
 
+    await page.route('**/api/restrictions', route => {
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
+
+    await page.route('**/api/profiles/me', route => {
+      route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'No SELF profile exists for this account yet.' }),
+      });
+    });
+
     // 3. Start unauthenticated on the login page
     await page.goto('/login');
     
@@ -162,15 +186,15 @@ test.describe('Authentication and Route Guarding', () => {
     await page.click('button[type="submit"]');
 
     // 5. Verify successful entry into the portal
-    await expect(page.locator('h1').filter({ hasText: /Good (morning|afternoon|evening)/ })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Your CanMakan account' })).toBeVisible({ timeout: 15000 });
   });
 
   test('Sign Out Clears Session and Redirects to Login', async ({ page }) => {
     await mockAuthenticatedUser(page);
     await page.route('**/api/auth/logout', route => route.fulfill({ status: 200 }));
 
-    await page.goto('/family');
-    await expect(page.locator('h1').filter({ hasText: /Good (morning|afternoon|evening)/ })).toBeVisible({ timeout: 15000 });
+    await page.goto('/me');
+    await expect(page.getByRole('heading', { name: 'Your CanMakan account' })).toBeVisible({ timeout: 15000 });
 
     const mobileMenuButton = page.locator('.mobile-header .icon-button');
     if (await mobileMenuButton.isVisible()) {
@@ -191,12 +215,12 @@ test.describe('Authentication and Route Guarding', () => {
   test('Session Persists Across Page Reloads', async ({ page }) => {
     await mockAuthenticatedUser(page);
 
-    await page.goto('/family');
-    await expect(page.locator('h1').filter({ hasText: /Good (morning|afternoon|evening)/ })).toBeVisible({ timeout: 15000 });
+    await page.goto('/me');
+    await expect(page.getByRole('heading', { name: 'Your CanMakan account' })).toBeVisible({ timeout: 15000 });
     
     await page.reload();
     
-    await expect(page).toHaveURL(/.*\/family/);
-    await expect(page.locator('h1').filter({ hasText: /Good (morning|afternoon|evening)/ })).toBeVisible({ timeout: 15000 });
+    await expect(page).toHaveURL(/.*\/me/);
+    await expect(page.getByRole('heading', { name: 'Your CanMakan account' })).toBeVisible({ timeout: 15000 });
   });
 });

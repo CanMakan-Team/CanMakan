@@ -8,7 +8,7 @@ import { isPasswordWithinBcryptLimit } from '../validation/authFields'
 import { getEmailValidationError } from '../validation/email'
 import { PasswordField } from './PasswordField'
 import { pendingRegistrationOnboardingStore } from '../../features/auth/pendingRegistrationOnboardingStore'
-import { ME_SETUP_PROFILE_PATH } from '../../app/userPortalPaths'
+import { ME_SETUP_PROFILE_PATH, ME_PATH } from '../../app/userPortalPaths'
 
 /**
  * Email/password login form shared by portal entry pages.
@@ -20,7 +20,7 @@ import { ME_SETUP_PROFILE_PATH } from '../../app/userPortalPaths'
 interface CredentialLoginFormProps {
   portal: Portal
   expectedRole: Role
-  destination: '/family' | '/system'
+  destination: typeof ME_PATH | '/system'
   buttonLabel: string
   buttonClassName: string
   registerPath?: string

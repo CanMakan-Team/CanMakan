@@ -1,6 +1,6 @@
 import { CredentialLoginForm } from '../shared/ui/CredentialLoginForm'
 import { CanMakanMascot, LoginBrand } from '../shared/ui/CanMakanMascot'
-import { USER_REGISTER_PATH } from '../app/userPortalPaths'
+import { USER_REGISTER_PATH, ME_PATH } from '../app/userPortalPaths'
 
 /** USER portal login — live email/password against POST /api/auth/login. */
 export function UserLoginPage() {
@@ -25,7 +25,7 @@ export function UserLoginPage() {
           <CredentialLoginForm
             portal="FAMILY"
             expectedRole="ROLE_APP_USER"
-            destination="/family"
+            destination={ME_PATH}
             buttonLabel="Enter CanMakan"
             buttonClassName="button--primary"
             registerPath={USER_REGISTER_PATH}

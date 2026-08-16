@@ -20,10 +20,11 @@ describe('userPortalSections', () => {
     expect(labels).not.toContain('Family Members')
   })
 
-  it('shows family admin tools for PRIMARY_ADMIN', () => {
-    const labels = userPortalSections({ hasFamily: true, isPrimaryAdmin: true })
-      .flatMap((section) => section.items)
-      .map((item) => item.label)
+  it('shows family admin tools for PRIMARY_ADMIN after Personal', () => {
+    const sections = userPortalSections({ hasFamily: true, isPrimaryAdmin: true })
+    expect(sections.map((section) => section.label)).toEqual(['Personal', 'Family'])
+
+    const labels = sections.flatMap((section) => section.items).map((item) => item.label)
 
     expect(labels).toContain('Family Members')
     expect(labels).toContain('Family Overview')

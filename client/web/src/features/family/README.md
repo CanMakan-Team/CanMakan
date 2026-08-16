@@ -50,7 +50,7 @@ family/
 
 | Piece | Notes |
 | --- | --- |
-| `UserLandingPage` | PRIMARY_ADMIN → dashboard; MEMBER or 404 → `/me` |
+| `UserLandingPage` | `/family` → `/me` for every USER, including PRIMARY_ADMIN |
 | `FamilyMeGate` | Protects family-admin routes; MEMBER and no-circle users go to `/me` |
 | `pages/FamilyCirclePage` | Explicit create if 404; existing admin → dashboard; member → `/me` |
 | `pages/CreateFamilyCirclePage` | Family name; `POST /api/families` |

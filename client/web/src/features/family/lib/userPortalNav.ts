@@ -27,7 +27,7 @@ export function userPortalSections(options: {
   isPrimaryAdmin: boolean
 }): NavigationSection[] {
   const personal: NavigationSection = {
-    label: 'Account',
+    label: 'Personal',
     items: [
       { label: 'Home', to: ME_PATH, icon: '◇' },
       { label: 'Dietary Profile', to: ME_SETUP_PROFILE_PATH, icon: '◇' },
@@ -35,20 +35,19 @@ export function userPortalSections(options: {
     ],
   }
 
+  const familyAdmin: NavigationSection = {
+    label: 'Family',
+    items: [
+      { label: 'Family Overview', to: FAMILY_DASHBOARD_PATH, icon: '⌂' },
+      { label: 'Family Members', to: FAMILY_MEMBERS_PATH, icon: '♙' },
+      { label: 'Restriction Summary', to: FAMILY_RESTRICTIONS_PATH, icon: '▦' },
+      { label: 'Family Scan History', to: FAMILY_HISTORY_PATH, icon: '◷' },
+      { label: 'Verdict Trends', to: FAMILY_VERDICT_TRENDS_PATH, icon: '↗' },
+    ],
+  }
+
   if (options.isPrimaryAdmin) {
-    return [
-      {
-        label: 'Family',
-        items: [
-          { label: 'Family Overview', to: FAMILY_DASHBOARD_PATH, icon: '⌂' },
-          { label: 'Family Members', to: FAMILY_MEMBERS_PATH, icon: '♙' },
-          { label: 'Restriction Summary', to: FAMILY_RESTRICTIONS_PATH, icon: '▦' },
-          { label: 'Family Scan History', to: FAMILY_HISTORY_PATH, icon: '◷' },
-          { label: 'Verdict Trends', to: FAMILY_VERDICT_TRENDS_PATH, icon: '↗' },
-        ],
-      },
-      personal,
-    ]
+    return [personal, familyAdmin]
   }
 
   if (!options.hasFamily) {
