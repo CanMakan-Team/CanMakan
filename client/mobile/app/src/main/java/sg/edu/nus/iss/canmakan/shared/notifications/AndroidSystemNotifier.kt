@@ -28,7 +28,14 @@ class AndroidSystemNotifier @Inject constructor(
 
     override fun notify(id: Int, title: String, body: String, notificationsEnabled: Boolean) {
         if (!notificationsEnabled) return
-        if (!hasPostPermission()) {
+        // Lint requires checkSelfPermission (or SecurityException handling) at the notify
+        // call site; a helper method is not treated as a permission check.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             Timber.i("Skipped system notification: POST_NOTIFICATIONS not granted.")
             return
         }
@@ -39,17 +46,11 @@ class AndroidSystemNotifier @Inject constructor(
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        notificationManagerCompat.notify(id, notification)
-    }
-
-    private fun hasPostPermission(): Boolean {
-        // The permission only exists from API 33 onward; earlier versions show
-        // notifications for any app that posts them.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
-        return ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS,
-        ) == PackageManager.PERMISSION_GRANTED
+        try {
+            notificationManagerCompat.notify(id, notification)
+        } catch (exception: SecurityException) {
+            Timber.w(exception, "Skipped system notification: permission rejected.")
+        }
     }
 
     // NotificationChannel is required from API 26 onward, which matches this app's minSdk,
