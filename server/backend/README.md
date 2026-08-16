@@ -113,9 +113,9 @@ Refresh-session configuration:
 JSON and set the opaque refresh token only as an HttpOnly cookie scoped to
 `/api/auth`. The default is `SameSite=Lax`. Cross-site HTTPS deployments must
 explicitly select `None` and satisfy the stricter startup validation above.
-Login, refresh, and logout also require the non-secret session-intent header;
-browser Origins must exactly match the configured allow-list, while native
-clients omit Origin but still send the header.
+Login, refresh, logout, and `DELETE /api/auth/account` also require the non-secret
+session-intent header; browser Origins must exactly match the configured
+allow-list, while native clients omit Origin but still send the header.
 
 Optional env vars (only needed when exercising those features):
 

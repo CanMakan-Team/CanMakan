@@ -24,6 +24,7 @@ enum class AuthFailureType {
     INVALID_CREDENTIALS,
     UNAUTHENTICATED,
     FORBIDDEN,
+    CONFLICT,
     SERVER,
     NETWORK,
     INVALID_RESPONSE,
@@ -39,4 +40,6 @@ interface AuthRepository {
     suspend fun login(email: String, password: String): AuthResult<AuthenticatedSession>
 
     suspend fun getCurrentUser(): AuthResult<AuthenticatedUser>
+
+    suspend fun deleteOwnAccount(): AuthResult<Unit>
 }

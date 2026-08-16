@@ -76,6 +76,8 @@ Contract: `docs/api/families.md`
 ## Notes
 - `FamilyAccountPage` loads the authoritative `/api/auth/me`, family context,
   and SELF profile; it does not expose token or request-header details.
+  **Delete My Account** calls `DELETE /api/auth/account` for the signed-in user
+  only (never the viewed family profile), then signs out.
 - Aligns with backend `family` package
 - Dietary details may also touch `dietaryprofile`
 - Uses shared layout (`PortalLayout`) for the portal shell

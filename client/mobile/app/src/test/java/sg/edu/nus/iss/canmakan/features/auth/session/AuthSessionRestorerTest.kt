@@ -293,6 +293,9 @@ class AuthSessionRestorerTest {
             currentUserCalls++
             return resultProvider()
         }
+
+        override suspend fun deleteOwnAccount(): AuthResult<Unit> =
+            error("not used by restoration")
     }
 
     private class FakeSessionPersistence : AuthSessionPersistence {

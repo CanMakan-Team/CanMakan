@@ -55,6 +55,7 @@ import sg.edu.nus.iss.canmakan.features.family.ui.InviteFamilyMemberScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.ManageFamilyScreen
 import sg.edu.nus.iss.canmakan.features.notifications.NotificationsInboxScreen
 import sg.edu.nus.iss.canmakan.features.settings.SettingsScreen
+import sg.edu.nus.iss.canmakan.features.settings.SettingsViewModel
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
@@ -479,6 +480,9 @@ fun CanMakanNavGraph(
                 )
             }
             composable(ROUTE_SETTINGS) {
+                val settingsViewModel: SettingsViewModel = hiltViewModel()
+                val isDeletingAccount by settingsViewModel.isDeletingAccount.collectAsStateWithLifecycle()
+                val deleteAccountError by settingsViewModel.deleteAccountError.collectAsStateWithLifecycle()
                 SettingsScreen(
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
@@ -489,11 +493,10 @@ fun CanMakanNavGraph(
                     notificationsEnabled = notificationsEnabled,
                     onNotificationsEnabledChanged = navGraphViewModel::setNotificationsEnabled,
                     notificationsEnabledError = notificationsEnabledError,
+                    isDeletingAccount = isDeletingAccount,
+                    deleteAccountError = deleteAccountError,
                     onConfirmDeleteAccount = {
-                        // TODO: no backend endpoint exists yet to actually delete the
-                        // account. Returning to the scanner rather than signing the
-                        // user out, since doing so would imply deletion succeeded.
-                        navigateToScannerHome()
+                        settingsViewModel.deleteOwnAccount(onSuccess = onSignOut)
                     },
                 )
             }

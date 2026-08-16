@@ -1,9 +1,11 @@
 package com.canmakan.backend.auth.exception;
 
+import com.canmakan.backend.admin.exception.ProtectedAccountOperationException;
 import com.canmakan.backend.auth.AuthController;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.InvitationConflictException;
 import com.canmakan.backend.family.exception.InvitationEmailMismatchException;
+import com.canmakan.backend.family.exception.LastPrimaryAdminException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
@@ -92,7 +94,9 @@ public class AuthExceptionHandler {
     // Handle invitation conflict exception
     @ExceptionHandler({
         InvitationConflictException.class,
-        AlreadyInFamilyException.class
+        AlreadyInFamilyException.class,
+        LastPrimaryAdminException.class,
+        ProtectedAccountOperationException.class
     })
     public ResponseEntity<Map<String, String>> handleInviteClaimConflict(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

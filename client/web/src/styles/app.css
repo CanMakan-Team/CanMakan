@@ -1602,6 +1602,22 @@ caption {
   width: 100%;
 }
 
+.account-danger {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.2rem;
+}
+
+.account-danger h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.account-danger p {
+  margin: 0;
+  color: var(--color-web-526961);
+}
+
 .donut-layout {
   display: grid;
   grid-template-columns: minmax(155px, 0.55fr) minmax(260px, 1fr);
