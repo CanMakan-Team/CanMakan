@@ -224,26 +224,6 @@ fun ProfileDrawerContent(
                     Spacer(modifier = Modifier.height(4.dp))
                 }
             }
-
-            if (!hasFamily) {
-                Spacer(modifier = Modifier.height(12.dp))
-                if (!noFamilyMessage.isNullOrBlank()) {
-                    Text(
-                        text = noFamilyMessage,
-                        color = DrawerTextMuted,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                if (hasUserSession) {
-                    OutlinedButton(
-                        onClick = onCreateFamilyCircleClick,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Create family circle", color = DrawerTextMuted)
-                    }
-                }
-            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -307,24 +287,25 @@ fun ProfileDrawerContent(
             )
         }
 
-        // Family section: dietary summary for all members; manage actions for PRIMARY_ADMIN.
-        if (hasFamily) {
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                thickness = 1.dp,
-                color = Divider
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            DrawerSectionHeader(
-                title = "FAMILY",
-                expanded = familyExpanded,
-                onToggle = { familyExpanded = !familyExpanded },
-            )
+        // Family section: create circle when none exists; otherwise dietary
+        // summary for all members and manage actions for PRIMARY_ADMIN.
+        Spacer(modifier = Modifier.height(10.dp))
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = 8.dp),
+            thickness = 1.dp,
+            color = Divider
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        DrawerSectionHeader(
+            title = "FAMILY",
+            expanded = familyExpanded,
+            onToggle = { familyExpanded = !familyExpanded },
+        )
 
-            if (familyExpanded) {
-                Spacer(modifier = Modifier.height(8.dp))
+        if (familyExpanded) {
+            Spacer(modifier = Modifier.height(8.dp))
 
+            if (hasFamily) {
                 val isFamilySelected = currentRoute?.startsWith("family/restrictions") == true
                 NavigationDrawerItem(
                     label = {
@@ -369,6 +350,23 @@ fun ProfileDrawerContent(
                         selected = isManageSelected,
                         onClick = onManageFamilyClick,
                     )
+                }
+            } else {
+                if (!noFamilyMessage.isNullOrBlank()) {
+                    Text(
+                        text = noFamilyMessage,
+                        color = DrawerTextMuted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                if (hasUserSession) {
+                    OutlinedButton(
+                        onClick = onCreateFamilyCircleClick,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Create family circle", color = DrawerTextMuted)
+                    }
                 }
             }
         }
