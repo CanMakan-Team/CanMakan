@@ -13,6 +13,9 @@ Before making changes:
 - Keep brand colors in `design-tokens/colors.json` and regenerate platform
   theme files with `node design-tokens/generate.mjs` (do not hand-edit
   generated `Color.kt` or `tokens.css`).
+- Keep shared mascot PNGs in `client/shared/assets/mascot/` (Android extra
+  `res` directory + Vite public mapping). Do not copy them into
+  `client/web/public` or `client/mobile/app/src/main/res/drawable`.
 - Never add credentials, passwords, secrets, or API keys.
 - Update documentation whenever architecture or APIs change.
 - Run the relevant tests before completing future coding tasks.

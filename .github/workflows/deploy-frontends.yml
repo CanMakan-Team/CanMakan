@@ -7,6 +7,7 @@ on:
     paths:
       - 'client/web/**'
       - 'client/mobile/**'
+      - 'client/shared/**'
       - '.github/workflows/deploy-frontends.yml'
 
 permissions:
@@ -30,8 +31,10 @@ jobs:
           filters: |
             web:
               - 'client/web/**'
+              - 'client/shared/**'
             mobile:
               - 'client/mobile/**'
+              - 'client/shared/**'
 
   e2e:
     name: Playwright E2E
@@ -48,6 +51,7 @@ jobs:
         with:
           sparse-checkout: |
             client/web
+            client/shared
 
       - name: Setup Node.js
         uses: actions/setup-node@v7.0.0

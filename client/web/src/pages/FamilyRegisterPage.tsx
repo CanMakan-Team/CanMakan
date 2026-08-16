@@ -4,6 +4,7 @@ import { ApiError, getErrorMessage } from '../shared/api/apiErrors'
 import { pendingRegistrationOnboardingStore } from '../features/auth/pendingRegistrationOnboardingStore'
 import { useSession } from '../features/auth/useSession'
 import { familyApiService } from '../features/family/api/familyApiService'
+import { CanMakanMascot, LoginBrand } from '../shared/ui/CanMakanMascot'
 import { PasswordField } from '../shared/ui/PasswordField'
 import { getRegistrationPasswordError } from '../shared/validation/authFields'
 import { getEmailValidationError } from '../shared/validation/email'
@@ -11,7 +12,7 @@ import { getProfileNameError } from '../shared/validation/profileFields'
 import { FAMILY_ROOT_PATH, ME_SETUP_PROFILE_PATH, USER_LOGIN_PATH } from '../app/userPortalPaths'
 
 /** UC18 account registration followed by the authoritative UC19 login flow. */
-export function FamilyRegisterPage() {
+export function UserRegisterPage() {
   const [searchParams] = useSearchParams()
   const invitationToken = searchParams.get('invitationToken')?.trim() || undefined
   const [profileName, setProfileName] = useState('')
@@ -153,10 +154,8 @@ export function FamilyRegisterPage() {
           className="family-login-introduction"
           aria-labelledby="family-register-intro-title"
         >
-          <div className="login-brand">
-            <span className="brand-mark" aria-hidden="true">CM</span>
-            <strong>CanMakan</strong>
-          </div>
+          <LoginBrand />
+          <CanMakanMascot pose="wave" size="hero" className="login-greeting-mascot" />
           <p className="eyebrow">User Portal</p>
           <h1 id="family-register-intro-title">Create your CanMakan account.</h1>
           <p>

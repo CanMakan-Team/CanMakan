@@ -186,6 +186,7 @@ export function UserAccessPage() {
         <EmptyState
           title="No accounts match"
           description="Change the email, role or status filters and try again."
+          showMascot={false}
         />
       ) : (
         <section className="panel panel--table">

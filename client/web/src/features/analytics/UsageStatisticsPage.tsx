@@ -146,7 +146,11 @@ export function UsageStatisticsPage() {
       ) : data ? (
         <UsageStatisticsResult data={data} />
       ) : (
-        <EmptyState title="No usage data" description="No usage statistics are available yet." />
+        <EmptyState
+          title="No usage data"
+          description="No usage statistics are available yet."
+          showMascot={false}
+        />
       )}
     </>
   )

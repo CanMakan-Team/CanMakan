@@ -12,6 +12,8 @@ dietary information.
 
 Shared brand colors live under `design-tokens/` (JSON source → generated
 Compose `Color.kt` and web `tokens.css`). See `design-tokens/README.md`.
+Shared mascot images live under `client/shared/assets/mascot/` and are
+referenced by both the Android and web clients.
 
 The machine-learning, agentic AI, database, and deployment technology choices
 remain pending.
@@ -26,6 +28,7 @@ remain pending.
 |   `-- README.md
 |
 |-- client/
+|   |-- shared/                    # Cross-client assets (mascot PNGs)
 |   |-- mobile/                    # Android Kotlin + Jetpack Compose
 |   |   `-- app/src/main/java/sg/edu/nus/iss/canmakan/
 |   |       |-- shared/            # DI, network, UI kit, shared models, utils

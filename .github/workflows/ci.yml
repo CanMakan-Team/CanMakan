@@ -34,8 +34,10 @@ jobs:
               - 'server/backend/**'
             web:
               - 'client/web/**'
+              - 'client/shared/**'
             mobile:
               - 'client/mobile/**'
+              - 'client/shared/**'
             machine-learning:
               - 'server/machine-learning/**'
 

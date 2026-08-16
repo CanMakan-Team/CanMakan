@@ -3,7 +3,7 @@ import { CanMakanMascot, LoginBrand } from '../shared/ui/CanMakanMascot'
 import { USER_REGISTER_PATH } from '../app/userPortalPaths'
 
 /** USER portal login — live email/password against POST /api/auth/login. */
-export function FamilyLoginPage() {
+export function UserLoginPage() {
   return (
     <main className="login-page login-page--family">
       <div className="login-composition login-composition--family">

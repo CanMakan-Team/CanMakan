@@ -265,6 +265,7 @@ export function AdminScanFeedbackPage() {
         <EmptyState
           title="No feedback matches"
           description="Change the keyword, restriction, period, type or resolved filters and try again."
+          showMascot={false}
         />
       ) : (
         <section className="panel panel--table">

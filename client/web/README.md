@@ -11,6 +11,10 @@ UC8 family create/`/me` always call the live Spring Boot API** (UC19 JWT
 Bearer access token). Other family and analytics surfaces may still use browser mocks
 when `VITE_USE_MOCK_API=true`.
 
+Mascot PNGs are shared with Android under `client/shared/assets/mascot/`.
+Vite serves them as `/mascot/canmakan-mascot-*.png`; do not copy them into
+`public/`.
+
 ## Selected Web features
 
 The primary information architecture implements the latest selected scope:

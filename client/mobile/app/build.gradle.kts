@@ -245,6 +245,13 @@ extensions.configure<ApplicationExtension> {
         xmlReport = true
         xmlOutput = file("build/reports/lint-results-debug.xml")
     }
+
+    sourceSets {
+        getByName("main") {
+            // Shared mascot PNGs (Android resource names) live with web under client/shared.
+            res.srcDir(file("../../shared/assets/mascot"))
+        }
+    }
 }
 
 kotlin {

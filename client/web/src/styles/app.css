@@ -102,6 +102,41 @@ p {
   font-weight: 800;
 }
 
+.canmakan-mascot {
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.canmakan-mascot--compact {
+  width: 3rem;
+  height: 3rem;
+}
+
+.canmakan-mascot--banner {
+  width: 4.5rem;
+  height: 4.5rem;
+}
+
+.canmakan-mascot--medium {
+  width: 6rem;
+  height: 6rem;
+}
+
+.canmakan-mascot--large {
+  width: 8.75rem;
+  height: 8.75rem;
+}
+
+.canmakan-mascot--hero {
+  width: 10.5rem;
+  height: 10.5rem;
+}
+
+.login-greeting-mascot {
+  margin-bottom: 1.5rem;
+}
+
 .button {
   display: inline-flex;
   min-height: 2.7rem;
@@ -1010,6 +1045,10 @@ input[readonly] {
   color: var(--muted);
   background: color-mix(in srgb, var(--color-surface) 70%, transparent);
   text-align: center;
+}
+
+.page-state .canmakan-mascot {
+  margin-bottom: 1rem;
 }
 
 .page-state p {
