@@ -136,12 +136,12 @@ export function buildConsumerTrendsCsv(
 }
 
 function filenameSegment(value: string): string {
-  return value
+  const normalized = value
     .normalize('NFKC')
     .replace(INVALID_FILENAME_CHARACTERS, '-')
     .replace(/^-+|-+$/gu, '')
     .toLocaleLowerCase('en-SG')
-    .slice(0, 48) || 'filtered'
+  return Array.from(normalized).slice(0, 48).join('') || 'filtered'
 }
 
 export function buildConsumerTrendsFilename(data: ConsumerTrendsResponse): string {
