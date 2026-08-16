@@ -490,7 +490,8 @@ jobs:
             fi
           }
 
-          # Path-filtered stack jobs may be skipped when no files changed in that area.
+          # Path-filtered stack jobs may be skipped (no path changes) or cancelled
+          # when concurrency cancels an older run after a newer push on the same branch.
           require_success_or_skipped() {
             local label="$1"
             local result="$2"
@@ -498,11 +499,11 @@ jobs:
               success)
                 echo "OK: $label passed"
                 ;;
-              skipped)
-                echo "OK: $label skipped (no matching path changes)"
+              skipped|cancelled)
+                echo "OK: $label $result (no matching path changes or superseded by a newer run)"
                 ;;
               *)
-                echo "FAIL: $label (expected success or skipped, got $result)"
+                echo "FAIL: $label (expected success, skipped, or cancelled, got $result)"
                 FAILED=1
                 ;;
             esac
@@ -522,4 +523,4 @@ jobs:
             exit 1
           fi
 
-          echo "All executed sub-modules passed successfully or skipped safely."
+          echo "All executed sub-modules passed, skipped safely, or were superseded by a newer run."
