@@ -218,78 +218,138 @@ public class UsageStatisticsService {
         return new Retention(day1Pct, day7Pct, day30Pct, resurrected, churnPct, inactive30d, totalUsers);
     }
 
+    /**
+     * Session length, sessions per user, active days per week, and a weekday-by-hour heatmap.
+     * Session splitting is extracted so this method only folds per-user results.
+     */
     private Engagement buildEngagement(
             Map<Long, List<Instant>> scansByUser,
             Instant now,
             Instant periodStart) {
 
-        long totalSessions = 0;
-        long timedSessions = 0;
-        long totalSessionSeconds = 0;
-        long activeUserCount = 0;
-        long totalActiveDays = 0;
-        int[][] heatmapCounts = new int[7][HEATMAP_HOUR_BUCKETS];
-        int maxCell = 0;
-
+        EngagementTotals totals = new EngagementTotals();
         for (List<Instant> allScans : scansByUser.values()) {
-            List<Instant> periodScans = allScans.stream()
-                    .filter(t -> !t.isBefore(periodStart) && !t.isAfter(now))
-                    .toList();
-            if (periodScans.isEmpty()) {
-                continue;
-            }
-            activeUserCount++;
+            addUserEngagement(totals, scansInPeriod(allScans, periodStart, now));
+        }
+        return totals.toEngagement(periodStart, now);
+    }
 
-            Set<LocalDate> activeDays = new HashSet<>();
-            Instant sessionStart = periodScans.get(0);
-            Instant previous = periodScans.get(0);
-            int sessionScanCount = 1;
-            for (int index = 0; index < periodScans.size(); index++) {
-                Instant current = periodScans.get(index);
-                if (index > 0 && current.getEpochSecond() - previous.getEpochSecond() > SESSION_GAP_SECONDS) {
-                    totalSessions++;
-                    if (sessionScanCount > 1) {
-                        timedSessions++;
-                        totalSessionSeconds += previous.getEpochSecond() - sessionStart.getEpochSecond();
-                    }
-                    sessionStart = current;
-                    sessionScanCount = 0;
+    private static List<Instant> scansInPeriod(List<Instant> allScans, Instant periodStart, Instant now) {
+        return allScans.stream()
+                .filter(t -> !t.isBefore(periodStart) && !t.isAfter(now))
+                .toList();
+    }
+
+    private void addUserEngagement(EngagementTotals totals, List<Instant> periodScans) {
+        if (periodScans.isEmpty()) {
+            return;
+        }
+        totals.activeUserCount++;
+        totals.totalActiveDays += accumulateSessionsAndHeatmap(totals, periodScans);
+    }
+
+    /**
+     * Walks one user's scans in time order: a gap longer than {@link #SESSION_GAP_SECONDS} starts a
+     * new session. Heatmap cells use Asia/Singapore local time.
+     */
+    private int accumulateSessionsAndHeatmap(EngagementTotals totals, List<Instant> periodScans) {
+        Set<LocalDate> activeDays = new HashSet<>();
+        Instant sessionStart = periodScans.get(0);
+        Instant previous = periodScans.get(0);
+        int sessionScanCount = 1;
+        for (int index = 0; index < periodScans.size(); index++) {
+            Instant current = periodScans.get(index);
+            if (isNewSession(index, current, previous)) {
+                closeSession(totals, sessionStart, previous, sessionScanCount);
+                sessionStart = current;
+                sessionScanCount = 0;
+            }
+            previous = current;
+            sessionScanCount++;
+            recordHeatmapCell(totals, current, activeDays);
+        }
+        closeSession(totals, sessionStart, previous, sessionScanCount);
+        return activeDays.size();
+    }
+
+    private static boolean isNewSession(int index, Instant current, Instant previous) {
+        return index > 0 && current.getEpochSecond() - previous.getEpochSecond() > SESSION_GAP_SECONDS;
+    }
+
+    private static void closeSession(
+            EngagementTotals totals,
+            Instant sessionStart,
+            Instant sessionEnd,
+            int sessionScanCount) {
+        totals.totalSessions++;
+        if (sessionScanCount <= 1) {
+            return;
+        }
+        totals.timedSessions++;
+        totals.totalSessionSeconds += sessionEnd.getEpochSecond() - sessionStart.getEpochSecond();
+    }
+
+    private static void recordHeatmapCell(
+            EngagementTotals totals,
+            Instant scannedAt,
+            Set<LocalDate> activeDays) {
+        LocalDateTime local = LocalDateTime.ofInstant(scannedAt, BUSINESS_ZONE);
+        activeDays.add(local.toLocalDate());
+        int row = local.getDayOfWeek().getValue() - 1;
+        int bucket = Math.min(HEATMAP_HOUR_BUCKETS - 1, local.getHour() / 2);
+        totals.heatmapCounts[row][bucket]++;
+        totals.maxCell = Math.max(totals.maxCell, totals.heatmapCounts[row][bucket]);
+    }
+
+    /** Mutable counters for one usage-statistics period. */
+    private static final class EngagementTotals {
+        long totalSessions;
+        long timedSessions;
+        long totalSessionSeconds;
+        long activeUserCount;
+        long totalActiveDays;
+        final int[][] heatmapCounts = new int[7][HEATMAP_HOUR_BUCKETS];
+        int maxCell;
+
+        Engagement toEngagement(Instant periodStart, Instant now) {
+            long periodDays = Math.max(1, ChronoUnit.DAYS.between(periodStart, now));
+            return new Engagement(
+                    divideOrZero(totalSessionSeconds, timedSessions),
+                    roundPerUser(totalSessions, activeUserCount),
+                    activeDaysPerWeek(periodDays),
+                    normalizedHeatmap());
+        }
+
+        private double activeDaysPerWeek(long periodDays) {
+            if (activeUserCount == 0) {
+                return 0;
+            }
+            return round1(((double) totalActiveDays / activeUserCount) * 7.0 / periodDays);
+        }
+
+        private List<List<Double>> normalizedHeatmap() {
+            List<List<Double>> heatmap = new ArrayList<>();
+            for (int[] rowCounts : heatmapCounts) {
+                List<Double> row = new ArrayList<>();
+                for (int cell : rowCounts) {
+                    row.add(cellShare(cell, maxCell));
                 }
-                previous = current;
-                sessionScanCount++;
-
-                LocalDateTime local = LocalDateTime.ofInstant(current, BUSINESS_ZONE);
-                activeDays.add(local.toLocalDate());
-                int row = local.getDayOfWeek().getValue() - 1;
-                int bucket = Math.min(HEATMAP_HOUR_BUCKETS - 1, local.getHour() / 2);
-                heatmapCounts[row][bucket]++;
-                maxCell = Math.max(maxCell, heatmapCounts[row][bucket]);
+                heatmap.add(row);
             }
-            totalSessions++;
-            if (sessionScanCount > 1) {
-                timedSessions++;
-                totalSessionSeconds += previous.getEpochSecond() - sessionStart.getEpochSecond();
-            }
-            totalActiveDays += activeDays.size();
+            return heatmap;
         }
+    }
 
-        long averageSessionSeconds = timedSessions == 0 ? 0 : Math.round((double) totalSessionSeconds / timedSessions);
-        double sessionsPerUser = activeUserCount == 0 ? 0 : round1((double) totalSessions / activeUserCount);
-        long periodDays = Math.max(1, ChronoUnit.DAYS.between(periodStart, now));
-        double activeDaysPerWeek = activeUserCount == 0
-                ? 0
-                : round1(((double) totalActiveDays / activeUserCount) * 7.0 / periodDays);
+    private static double cellShare(int cell, int maxCell) {
+        return maxCell == 0 ? 0.0 : round2((double) cell / maxCell);
+    }
 
-        List<List<Double>> heatmap = new ArrayList<>();
-        for (int[] rowCounts : heatmapCounts) {
-            List<Double> row = new ArrayList<>();
-            for (int cell : rowCounts) {
-                row.add(maxCell == 0 ? 0.0 : round2((double) cell / maxCell));
-            }
-            heatmap.add(row);
-        }
+    private static long divideOrZero(long total, long count) {
+        return count == 0 ? 0 : Math.round((double) total / count);
+    }
 
-        return new Engagement(averageSessionSeconds, sessionsPerUser, activeDaysPerWeek, heatmap);
+    private static double roundPerUser(long total, long activeUserCount) {
+        return activeUserCount == 0 ? 0 : round1((double) total / activeUserCount);
     }
 
     /** Users with at least one scan in the inclusive window {@code [from, to]}. */
