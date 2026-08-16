@@ -43,7 +43,7 @@ public class AdminScanFeedbackService {
      * summary stats computed over the full filtered set (not just the
      * returned page). All filter parameters are optional (null skips that
      * filter); {@code periodDays} defaults to 30, {@code page} to 0 and
-     * {@code pageSize} to 30.
+     * {@code pageSize} to 30, capped at a maximum of 30.
      */
     @Transactional(readOnly = true)
     public AdminScanFeedbackListResponse listFeedback(
@@ -63,7 +63,9 @@ public class AdminScanFeedbackService {
         String normalizedRestrictionCode = blankToNull(restrictionCode);
 
         int resolvedPage = page == null || page < 0 ? 0 : page;
-        int resolvedPageSize = pageSize == null || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
+        int resolvedPageSize = pageSize == null || pageSize <= 0 || pageSize > DEFAULT_PAGE_SIZE
+                ? DEFAULT_PAGE_SIZE
+                : pageSize;
         Pageable pageable = PageRequest.of(resolvedPage, resolvedPageSize);
 
         Page<AdminScanFeedbackView> resultPage = scanFeedbackRepository.findForAdmin(
