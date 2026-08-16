@@ -55,6 +55,25 @@ public class DietaryProfileController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @GetMapping("/profiles/me")
+    public SelfProfileResponse getMySelfProfile(
+            @AuthenticationPrincipal AuthUserDetails userDetails) {
+        long userId = AuthUserChecker.requireUserId(userDetails);
+        SelfProfileResponse response = dietaryProfileService.getSelfProfile(userId);
+        log.info("GET /profiles/me → 200 profileId={}", response.profileId());
+        return response;
+    }
+
+    @PutMapping("/profiles/me")
+    public SelfProfileResponse updateMySelfProfile(
+            @AuthenticationPrincipal AuthUserDetails userDetails,
+            @Valid @RequestBody CreateSelfProfileRequest request) {
+        long userId = AuthUserChecker.requireUserId(userDetails);
+        SelfProfileResponse response = dietaryProfileService.updateSelfProfile(userId, request);
+        log.info("PUT /profiles/me → 200 profileId={}", response.profileId());
+        return response;
+    }
+
     @GetMapping("/profiles/{profileId}/restrictions")
     public Map<Long, String> getDietaryRestrictionsForProfile(
             @AuthenticationPrincipal AuthUserDetails userDetails,

@@ -55,6 +55,10 @@ INSERT INTO dietary_restrictions (id, code, display_name, category, description)
 -- dairy-tagged ingredient's root_allergen column, and AllergenChecker matches
 -- restrictions to ingredients by exact code equality. Renaming it here without
 -- also touching ~30 ingredient rows would silently stop all dairy matching.
+-- Display name is 'Lactose Intolerance'. It briefly duplicated the now-removed
+-- id 16 'LACTOSE_INTOLERANT' row (near-identical 'Lactose Intolerant' label)
+-- and showed as two checkboxes on the Dietary Profile page; that row was
+-- removed rather than this one, since DAIRY is the code used everywhere else.
 (2, 'DAIRY', 'Lactose Intolerance', 'ALLERGEN', 'Avoid milk solids, lactose, whey, and dairy fats.'),
 (3, 'PEANUT', 'Peanut Allergy', 'ALLERGEN', 'Severe reaction to peanuts and peanut derivatives.'),
 (4, 'SHELLFISH', 'Shellfish Allergy', 'ALLERGEN', 'Avoid crab, shrimp, lobster, and shellfish extracts.'),
@@ -73,11 +77,12 @@ INSERT INTO dietary_restrictions (id, code, display_name, category, description)
 -- ReligiousChecker only ever matches the HALAL code, ignoring everything
 -- else), so this is a safe rename rather than a DAIRY-style alias situation.
 (15, 'KOSHER', 'Kosher', 'RELIGIOUS', 'Requires kosher-certified ingredients; forbids pork and shellfish, and does not mix meat with dairy'),
--- New: mirrors the web portal lactose/dairy family (UI merges lactose alias into Lactose Intolerance)
--- as two separate options. AllergenChecker and DietaryRuleEngine treat this
--- code as an alias of DAIRY so it flags the same dairy ingredients (see the
--- comment on id 2) rather than silently matching nothing.
-(16, 'LACTOSE_INTOLERANT', 'Lactose Intolerant', 'ALLERGEN', 'Avoid lactose found in milk and dairy products.'),
+-- id 16 'LACTOSE_INTOLERANT' removed: it duplicated id 2 'DAIRY' (same dairy
+-- ingredients, same alias handling), showing as two near-identical checkboxes
+-- ("Lactose Intolerance" / "Lactose Intolerant") under Allergen. DAIRY is now
+-- the single code for lactose intolerance, keeping the 'Lactose Intolerance'
+-- display name above. No profile_restrictions or ingredient_restrictions rows
+-- referenced id 16, so removing it is safe.
 -- Code matches the 'TREE_NUT' root_allergen already used by ingredient rows
 -- (e.g. Hazelnut, Cashew Nuts), so this one is immediately functional.
 (17, 'TREE_NUT', 'Tree Nut Allergy', 'ALLERGEN', 'Avoid almonds, cashews, hazelnuts, walnuts, and other tree nuts.'),

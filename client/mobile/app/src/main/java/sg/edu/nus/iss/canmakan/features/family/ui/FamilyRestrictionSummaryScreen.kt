@@ -404,8 +404,9 @@ private fun EmptyStateView(onNavigateToEditMembers: () -> Unit) {
 }
 
 /**
- * One matrix row. Dairy-family backend codes ([DAIRY_FAMILY_CODES]) collapse into a single
- * row because AllergenChecker treats them as aliases; catalog codes stay unchanged.
+ * One matrix row. Dairy-family codes ([DAIRY_FAMILY_CODES]) collapse into a single row so
+ * any legacy or alternate spelling of the dairy restriction still displays as one entry;
+ * catalog codes stay unchanged. The backend catalog itself now has a single `DAIRY` row.
  */
 private data class MatrixRestrictionRow(
     val matchCodes: Set<String>,
@@ -413,7 +414,7 @@ private data class MatrixRestrictionRow(
     val category: String,
 )
 
-/** Backend codes that share dairy ingredient matching (see AllergenChecker.DAIRY_ALIASES). */
+/** Codes treated as the same dairy/lactose restriction for display purposes. */
 private val DAIRY_FAMILY_CODES = setOf(
     "DAIRY",
     "LACTOSE_INTOLERANT",
