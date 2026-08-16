@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { FamilyRegisterPage } from '../../../pages/FamilyRegisterPage'
+import { UserRegisterPage } from '../../../pages/UserRegisterPage'
 import { SessionProvider } from '../../../features/auth/SessionProvider'
 import { authService } from '../../../features/auth/authService'
 import { familyApiService } from '../../../features/family/api/familyApiService'
@@ -39,8 +39,8 @@ function renderRegisterPage(initialEntry = '/family-register') {
     <SessionProvider>
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
-          <Route path="/family-register" element={<FamilyRegisterPage />} />
-          <Route path="/register" element={<FamilyRegisterPage />} />
+          <Route path="/family-register" element={<UserRegisterPage />} />
+          <Route path="/register" element={<UserRegisterPage />} />
           <Route path="/me/setup-profile" element={<p>Dietary setup</p>} />
           <Route path="/family/setup-profile" element={<p>Dietary setup</p>} />
           <Route path="/family" element={<p>Family destination</p>} />
@@ -59,7 +59,7 @@ async function enterRegistration(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Confirm password'), 'Password1!')
 }
 
-describe('FamilyRegisterPage', () => {
+describe('UserRegisterPage', () => {
   beforeEach(() => {
     authSessionStore.clear()
     pendingRegistrationOnboardingStore.clear()

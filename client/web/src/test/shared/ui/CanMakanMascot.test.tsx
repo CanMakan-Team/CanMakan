@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { CANMAKAN_MASCOT_POSES, CanMakanMascot } from '../../../shared/ui/CanMakanMascot'
 import { EmptyState } from '../../../shared/ui/PageState'
-import { FamilyLoginPage } from '../../../pages/FamilyLoginPage'
+import { UserLoginPage } from '../../../pages/UserLoginPage'
 import { SessionProvider } from '../../../features/auth/SessionProvider'
 import { authService } from '../../../features/auth/authService'
 import { ApiError } from '../../../shared/api/apiErrors'
@@ -71,7 +71,7 @@ describe('CanMakanMascot', () => {
     render(
       <SessionProvider>
         <MemoryRouter>
-          <FamilyLoginPage />
+          <UserLoginPage />
         </MemoryRouter>
       </SessionProvider>,
     )

@@ -19,8 +19,8 @@ import { FutureFeaturesPage } from '../../features/admin/FutureFeaturesPage'
 import { SystemDashboardPage } from '../../features/admin/SystemDashboardPage'
 import { UserAccessPage } from '../../features/admin/UserAccessPage'
 import { PortalLayout } from '../../shared/ui/PortalLayout'
-import { FamilyLoginPage } from '../../pages/FamilyLoginPage'
-import { FamilyRegisterPage } from '../../pages/FamilyRegisterPage'
+import { UserLoginPage } from '../../pages/UserLoginPage'
+import { UserRegisterPage } from '../../pages/UserRegisterPage'
 import { SystemAdminLoginPage } from '../../pages/SystemAdminLoginPage'
 import { InviteLandingPage } from '../../features/family/pages/InviteLandingPage'
 import { NotFoundPage } from '../../pages/NotFoundPage'
@@ -44,8 +44,8 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to={USER_LOGIN_PATH} replace />} />
-      <Route path={USER_LOGIN_PATH} element={<FamilyLoginPage />} />
-      <Route path={USER_REGISTER_PATH} element={<FamilyRegisterPage />} />
+      <Route path={USER_LOGIN_PATH} element={<UserLoginPage />} />
+      <Route path={USER_REGISTER_PATH} element={<UserRegisterPage />} />
       <Route
         path={LEGACY_USER_LOGIN_PATH}
         element={<RedirectWithSearch to={USER_LOGIN_PATH} />}

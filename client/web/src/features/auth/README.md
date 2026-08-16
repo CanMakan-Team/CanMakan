@@ -44,7 +44,7 @@ Do **not** confuse these three ideas:
 
 Vitest suites live under `src/test/` (mirroring features/shared). Coverage includes
 `authService`, `SessionProvider`, `ProtectedRoute`, `CredentialLoginForm`, and
-`FamilyRegisterPage`.
+`UserRegisterPage`.
 
 ## Notes
 - The access token and mapped portal roles are memory-only. The browser does not
