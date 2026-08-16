@@ -102,10 +102,12 @@ debug.
 
 CI runs `testDebugUnitTest` then Gradle `sonar` for `canmakan-mobile`. Notification
 preference logic is covered in `FamilyProfileRepositoryTest` and
-`CanMakanNavGraphViewModelTest`. Sonar coverage exclusions omit Compose screens,
-`MainActivity`, `AndroidSystemNotifier`, Hilt modules, and generated DI; those
-files remain in Semgrep/Sonar issue scans. Generated Hilt/Dagger output is not a
-coverage target.
+`CanMakanNavGraphViewModelTest`. Sonar coverage exclusions omit Compose screens
+(`*Screen*.kt`), sheets, nav graphs, shared UI widgets, `MainActivity`,
+`BarcodeAnalyzer`, `AndroidSystemNotifier`, Hilt modules, and generated DI; those
+Kotlin files remain in Semgrep/Sonar issue scans. Launcher and mascot images are
+excluded from Sonar analysis (they are not UTF-8 sources). Generated Hilt/Dagger
+output is not a coverage target.
 See `local.properties.example`. The backend listens on `0.0.0.0:8080` so the
 debug build can reach emulator (`10.0.2.2`) and LAN endpoints. Native Retrofit
 does not use browser CORS. The main/release network-security configuration
