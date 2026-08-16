@@ -16,6 +16,7 @@ vi.mock('../../features/family/api/familyApiService', () => ({
     getMyFamily: vi.fn(),
     createFamily: vi.fn(),
     claimInvitation: vi.fn(),
+    getMembers: vi.fn(),
   },
 }))
 
@@ -64,7 +65,9 @@ describe('AppRoutes USER and family boundaries', () => {
     vi.mocked(familyApiService.getMyFamilyOrNull).mockReset()
     vi.mocked(familyApiService.getMyFamily).mockReset()
     vi.mocked(familyApiService.createFamily).mockReset()
+    vi.mocked(familyApiService.getMembers).mockReset()
     vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue(null)
+    vi.mocked(familyApiService.getMembers).mockResolvedValue([])
     vi.mocked(selfProfileApiService.getCatalog).mockReset()
     vi.mocked(selfProfileApiService.getSelfProfile).mockReset()
     vi.mocked(selfProfileApiService.createSelfProfile).mockReset()
@@ -110,5 +113,38 @@ describe('AppRoutes USER and family boundaries', () => {
     expect(
       await screen.findByRole('heading', { name: 'Your CanMakan account' }),
     ).toBeInTheDocument()
+  })
+
+  it('keeps a family MEMBER off /family/members', async () => {
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue({
+      familyId: 3,
+      familyName: 'Wong Family',
+      memberRole: 'MEMBER',
+      selfProfileId: 77,
+      createdByUserId: 10,
+    })
+
+    renderRoutes('/family/members', appUserSession())
+
+    expect(
+      await screen.findByRole('heading', { name: 'Your CanMakan account' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Family Members' })).not.toBeInTheDocument()
+    expect(familyApiService.getMembers).not.toHaveBeenCalled()
+  })
+
+  it('keeps a user with no Family Circle off /family/members', async () => {
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue(null)
+
+    renderRoutes('/family/members', appUserSession())
+
+    expect(
+      await screen.findByRole('heading', { name: 'Your CanMakan account' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Family Members' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'This feature uses a Family Circle' }),
+    ).not.toBeInTheDocument()
+    expect(familyApiService.getMembers).not.toHaveBeenCalled()
   })
 })

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Navigate } from 'react-router-dom'
+import { ME_PATH } from '../../../app/userPortalPaths'
 import { getErrorMessage } from '../../../shared/api/apiErrors'
 import { familyApiService } from '../api/familyApiService'
 import type { FamilyMember } from '../../../shared/api/types'
@@ -21,7 +23,7 @@ import { useFamilyMe } from '../useFamilyMe'
 type OpenModal = 'link' | 'create' | null
 
 export function FamilyMembersPage() {
-  const { family, isPrimaryAdmin, reload } = useFamilyMe()
+  const { family, isPrimaryAdmin, reload, loading: familyLoading } = useFamilyMe()
   const selfProfileId = family?.selfProfileId ?? null
   const [members, setMembers] = useState<FamilyMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -46,9 +48,19 @@ export function FamilyMembersPage() {
   }, [])
 
   useEffect(() => {
+    if (familyLoading || !isPrimaryAdmin) {
+      return
+    }
     const timeoutId = window.setTimeout(() => void loadMembers(), 0)
     return () => window.clearTimeout(timeoutId)
-  }, [loadMembers])
+  }, [loadMembers, familyLoading, isPrimaryAdmin])
+
+  if (familyLoading) {
+    return <LoadingState label="Loading family members…" />
+  }
+  if (!isPrimaryAdmin) {
+    return <Navigate to={ME_PATH} replace />
+  }
 
   const handleSuccess = (message: string) => {
     setNotice(message)

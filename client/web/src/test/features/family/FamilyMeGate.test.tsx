@@ -56,21 +56,15 @@ describe('FamilyMeGate', () => {
     })
   })
 
-  it('keeps personal navigation available on 404 without opening family creation', async () => {
+  it('sends a visitor with no family to personal home instead of family admin pages', async () => {
     vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue(null)
 
-    renderGate()
+    renderGate('/family/members')
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole('heading', { name: 'This feature uses a Family Circle' }),
-      ).toBeInTheDocument()
-    })
-    expect(screen.getByRole('link', { name: 'Return to personal home' })).toHaveAttribute(
-      'href',
-      '/me',
-    )
-    expect(screen.queryByLabelText(/family name/i)).not.toBeInTheDocument()
+    expect(await screen.findByText('Personal home')).toBeInTheDocument()
+    expect(screen.queryByText('Family members')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'This feature uses a Family Circle' }))
+      .not.toBeInTheDocument()
     expect(familyApiService.createFamily).not.toHaveBeenCalled()
   })
 

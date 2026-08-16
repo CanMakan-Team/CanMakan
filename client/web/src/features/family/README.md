@@ -11,7 +11,7 @@ users without a circle use `/me` instead of these pages.
 
 ```
 family/
-  FamilyMeGate.tsx      # PRIMARY_ADMIN only; 404 offers circle/personal links
+  FamilyMeGate.tsx      # PRIMARY_ADMIN only; others go to /me
   FamilyMeContext.tsx   # Provider for GET /families/me (USER portal nav)
   useFamilyMe.ts        # Hook for membership in layout and personal home
   README.md
@@ -51,7 +51,7 @@ family/
 | Piece | Notes |
 | --- | --- |
 | `UserLandingPage` | PRIMARY_ADMIN → dashboard; MEMBER or 404 → `/me` |
-| `FamilyMeGate` | Protects family-only routes; members redirect to `/me`; **404** offers personal/explicit-family links |
+| `FamilyMeGate` | Protects family-admin routes; MEMBER and no-circle users go to `/me` |
 | `pages/FamilyCirclePage` | Explicit create if 404; existing admin → dashboard; member → `/me` |
 | `pages/CreateFamilyCirclePage` | Family name; `POST /api/families` |
 | `api/familyApiService.getMyFamily` / `createFamily` | **Always live** (Bearer JWT); not mocked |
