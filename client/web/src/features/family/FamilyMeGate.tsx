@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, Outlet } from 'react-router-dom'
+import { Link, Navigate, Outlet } from 'react-router-dom'
+import { FAMILY_CIRCLE_PATH, ME_PATH } from '../../app/userPortalPaths'
 import { ApiError, getErrorMessage } from '../../shared/api/apiErrors'
 import type { FamilyMe } from '../../shared/api/types'
 import { ErrorState, LoadingState } from '../../shared/ui/PageState'
 import { familyApiService } from './api/familyApiService'
+import { isPrimaryAdminRole } from './lib/familyRoles'
 
 /**
  * Loads GET /families/me only for family-scoped pages.
- * A 404 offers Family Circle options without opening the creation form automatically.
- *
- * @author Amelia
+ * Members are sent to /me. A 404 offers Family Circle options without opening create.
  */
 export function FamilyMeGate() {
   const [family, setFamily] = useState<FamilyMe | null>(null)
@@ -17,10 +17,6 @@ export function FamilyMeGate() {
   const [error, setError] = useState('')
   const [needsCreate, setNeedsCreate] = useState(false)
 
-  // load my family
-  // This function is used to load the family information from the server.
-  // Missing membership leaves personal routes available and requires an explicit family action.
-  // If the family information is found, it will set the family information to the state.
   const loadMe = useCallback(async () => {
     setLoading(true)
     setError('')
@@ -40,8 +36,6 @@ export function FamilyMeGate() {
     }
   }, [])
 
-  // UC8 use effect
-  // Deferred so setState is not synchronous in the effect body (eslint react-hooks).
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadMe(), 0)
     return () => window.clearTimeout(timeoutId)
@@ -59,19 +53,23 @@ export function FamilyMeGate() {
         <p className="eyebrow">Optional Family Circle</p>
         <h1 id="family-required-heading">This feature uses a Family Circle</h1>
         <p>
-          Your personal account and Dietary Profile remain available without one.
-          Open Family Circle management only if you want household features.
+          Your personal account remains available without one. Household
+          management is for the family admin after a circle exists.
         </p>
         <div className="page-header__actions">
-          <Link className="button button--primary" to="/family/circle">
+          <Link className="button button--primary" to={FAMILY_CIRCLE_PATH}>
             Open Family Circle options
           </Link>
-          <Link className="button button--secondary" to="/family/personal">
+          <Link className="button button--secondary" to={ME_PATH}>
             Return to personal home
           </Link>
         </div>
       </section>
     )
+  }
+
+  if (!isPrimaryAdminRole(family.memberRole)) {
+    return <Navigate to={ME_PATH} replace />
   }
 
   return <Outlet />

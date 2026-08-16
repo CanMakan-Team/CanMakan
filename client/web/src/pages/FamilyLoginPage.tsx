@@ -1,6 +1,7 @@
 import { CredentialLoginForm } from '../shared/ui/CredentialLoginForm'
+import { USER_REGISTER_PATH } from '../app/userPortalPaths'
 
-/** Family portal login — live email/password against POST /api/auth/login. */
+/** USER portal login — live email/password against POST /api/auth/login. */
 export function FamilyLoginPage() {
   return (
     <main className="login-page login-page--family">
@@ -33,7 +34,7 @@ export function FamilyLoginPage() {
             destination="/family"
             buttonLabel="Enter CanMakan"
             buttonClassName="button--primary"
-            registerPath="/family-register"
+            registerPath={USER_REGISTER_PATH}
           />
         </section>
       </div>

@@ -8,6 +8,7 @@ import { PasswordField } from '../shared/ui/PasswordField'
 import { getRegistrationPasswordError } from '../shared/validation/authFields'
 import { getEmailValidationError } from '../shared/validation/email'
 import { getProfileNameError } from '../shared/validation/profileFields'
+import { FAMILY_ROOT_PATH, ME_SETUP_PROFILE_PATH, USER_LOGIN_PATH } from '../app/userPortalPaths'
 
 /** UC18 account registration followed by the authoritative UC19 login flow. */
 export function FamilyRegisterPage() {
@@ -45,8 +46,8 @@ export function FamilyRegisterPage() {
       <Navigate
         to={
           pendingRegistrationOnboardingStore.peekForEmail(session.email)
-            ? '/family/setup-profile'
-            : '/family'
+            ? ME_SETUP_PROFILE_PATH
+            : FAMILY_ROOT_PATH
         }
         replace
       />
@@ -59,7 +60,7 @@ export function FamilyRegisterPage() {
     if (normalizedEmail) parameters.set('email', normalizedEmail)
     if (invitationToken) parameters.set('invitationToken', invitationToken)
     const query = parameters.toString()
-    return query ? `/family-login?${query}` : '/family-login'
+    return query ? `${USER_LOGIN_PATH}?${query}` : USER_LOGIN_PATH
   }
 
   const clearValidationError = () => {
@@ -131,7 +132,7 @@ export function FamilyRegisterPage() {
             // the user finishes or defers that step.
           }
         }
-        navigate('/family/setup-profile', { replace: true })
+        navigate(ME_SETUP_PROFILE_PATH, { replace: true })
       } else {
         setSubmitError(
           'Your account was created, but automatic sign-in failed. Log in to continue.',
@@ -156,7 +157,7 @@ export function FamilyRegisterPage() {
             <span className="brand-mark" aria-hidden="true">CM</span>
             <strong>CanMakan</strong>
           </div>
-          <p className="eyebrow">Family Portal</p>
+          <p className="eyebrow">User Portal</p>
           <h1 id="family-register-intro-title">Create your CanMakan account.</h1>
           <p>
             Create your account, then optionally set up one personal dietary profile.

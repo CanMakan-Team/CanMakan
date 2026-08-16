@@ -19,6 +19,7 @@ function renderPage() {
       <Routes>
         <Route path="/family/circle" element={<FamilyCirclePage />} />
         <Route path="/family/dashboard" element={<p>Family dashboard</p>} />
+        <Route path="/me" element={<p>Personal home</p>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -64,7 +65,7 @@ describe('FamilyCirclePage', () => {
     expect(familyApiService.createFamily).toHaveBeenCalledWith('Wong Family')
   })
 
-  it('preserves an existing family membership and dashboard entry', async () => {
+  it('sends an existing family member to personal home', async () => {
     vi.mocked(familyApiService.getMyFamily).mockResolvedValue({
       familyId: 9,
       familyName: 'Wong Family',
@@ -74,8 +75,7 @@ describe('FamilyCirclePage', () => {
     })
     renderPage()
 
-    expect(await screen.findByRole('heading', { name: 'Wong Family' })).toBeInTheDocument()
-    expect(screen.getByText(/Family role: MEMBER/)).toBeInTheDocument()
+    expect(await screen.findByText('Personal home')).toBeInTheDocument()
     expect(familyApiService.createFamily).not.toHaveBeenCalled()
   })
 })

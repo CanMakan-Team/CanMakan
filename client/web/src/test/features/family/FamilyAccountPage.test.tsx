@@ -20,7 +20,7 @@ vi.mock('../../../features/auth/authService', () => ({
 
 vi.mock('../../../features/family/api/familyApiService', () => ({
   familyApiService: {
-    getMyFamily: vi.fn(),
+    getMyFamilyOrNull: vi.fn(),
     getAccountProfiles: vi.fn(),
   },
 }))
@@ -63,7 +63,7 @@ describe('FamilyAccountPage', () => {
       role: 'USER',
       active: true,
     })
-    vi.mocked(familyApiService.getMyFamily).mockResolvedValue({
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue({
       familyId: 3,
       familyName: 'Verified Family',
       memberRole: 'PRIMARY_ADMIN',
@@ -149,5 +149,15 @@ describe('FamilyAccountPage', () => {
       ),
     )
     expect(sessionValue.logout).not.toHaveBeenCalled()
+  })
+
+  it('loads account settings when the user has no family circle', async () => {
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue(null)
+    renderPage()
+
+    await screen.findByRole('heading', { name: 'Account Settings' })
+    expect(screen.getByText('None')).toBeInTheDocument()
+    expect(screen.getByText('Not in a family')).toBeInTheDocument()
+    expect(familyApiService.getAccountProfiles).not.toHaveBeenCalled()
   })
 })

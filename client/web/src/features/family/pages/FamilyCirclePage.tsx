@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { FAMILY_DASHBOARD_PATH, ME_PATH } from '../../../app/userPortalPaths'
 import { ApiError, getErrorMessage } from '../../../shared/api/apiErrors'
 import type { FamilyMe } from '../../../shared/api/types'
 import { ErrorState, LoadingState } from '../../../shared/ui/PageState'
 import { familyApiService } from '../api/familyApiService'
+import { isPrimaryAdminRole } from '../lib/familyRoles'
 import { CreateFamilyCirclePage } from './CreateFamilyCirclePage'
 
-/** Explicit entry point for optional family-circle creation and management. */
+/** Explicit entry for optional family-circle creation. Existing members are redirected. */
 export function FamilyCirclePage() {
   const navigate = useNavigate()
   const [family, setFamily] = useState<FamilyMe | null>(null)
@@ -42,27 +44,20 @@ export function FamilyCirclePage() {
   if (missing) {
     return (
       <CreateFamilyCirclePage
-        onCreated={() => navigate('/family/dashboard', { replace: true })}
+        onCreated={() => navigate(FAMILY_DASHBOARD_PATH, { replace: true })}
       />
     )
   }
-  if (!family) return <ErrorState message="Family Circle status is unavailable." onRetry={loadFamily} />
+  if (!family) {
+    return (
+      <ErrorState message="Family Circle status is unavailable." onRetry={loadFamily} />
+    )
+  }
 
   return (
-    <section className="panel" aria-labelledby="family-circle-heading">
-      <p className="eyebrow">Family Circle</p>
-      <h1 id="family-circle-heading">{family.familyName}</h1>
-      <p>
-        Your family membership is active. Family role: {family.memberRole.replaceAll('_', ' ')}.
-      </p>
-      <div className="page-header__actions">
-        <Link className="button button--primary" to="/family/dashboard">
-          Open family dashboard
-        </Link>
-        <Link className="button button--secondary" to="/family/personal">
-          Return to personal home
-        </Link>
-      </div>
-    </section>
+    <Navigate
+      to={isPrimaryAdminRole(family.memberRole) ? FAMILY_DASHBOARD_PATH : ME_PATH}
+      replace
+    />
   )
 }

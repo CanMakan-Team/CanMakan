@@ -13,11 +13,11 @@ Handles live login/register, session context, and route protection against UC19 
 - Access denied UI
 
 ## UC18 web registration
-- Public route `/family-register`
+- Public route `/register` (`/family-register` redirects here)
 - Collects email, password confirmation and pending personal Profile Name; only
   email/password are sent to public registration
 - After `201`, calls the authoritative UC19 login path and opens protected
-  `/family/setup-profile`
+  `/me/setup-profile`
 - Profile Name remains in credential-free memory until authenticated
   `POST /api/profiles/me`; Set Up Later creates no profile
 - If automatic login fails, registration is not retried and normal login is
@@ -27,7 +27,7 @@ Handles live login/register, session context, and route protection against UC19 
 - Invitation login remains on the page while claiming and exposes a retry when
   the authenticated claim fails
 
-## Platform role vs family portal access
+## Platform role vs User Portal access
 
 Do **not** confuse these three ideas:
 
@@ -35,7 +35,7 @@ Do **not** confuse these three ideas:
 2. **Web session roles** mapped client-side from JWT role — used by `ProtectedRoute`.
 3. **Family membership role** on `family_members.member_role` — `PRIMARY_ADMIN` vs `MEMBER`.
 
-| Account | Mapped web roles | `/family-login` | `/system-admin-login` |
+| Account | Mapped web roles | `/login` | `/system-admin-login` |
 | --- | --- | --- | --- |
 | Platform **USER** | `ROLE_APP_USER` | Allowed | Blocked |
 | Platform **ADMIN** | `ROLE_SYSTEM_ADMIN` | Blocked | Allowed |

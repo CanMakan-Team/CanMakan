@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { USER_LOGIN_PATH } from '../../app/userPortalPaths'
 import type { Role } from '../../shared/api/types'
 import { ErrorState, LoadingState } from '../../shared/ui/PageState'
 import { useSession } from './useSession'
@@ -20,7 +21,7 @@ export function ProtectedRoute({ requiredRole }: { requiredRole: Role }) {
   const loginPath =
     requiredRole === 'ROLE_SYSTEM_ADMIN'
       ? '/system-admin-login'
-      : '/family-login'
+      : USER_LOGIN_PATH
 
   if (restoring) {
     return <LoadingState label="Restoring your secure session…" />

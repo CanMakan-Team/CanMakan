@@ -64,7 +64,7 @@ export function InviteLandingPage() {
   }, [token, session, navigate, handoffToApp])
 
   if (!token) {
-    return <Navigate to="/family-register" replace />
+    return <Navigate to="/register" replace />
   }
 
   const appLink = canmakanInviteDeepLink(token)
@@ -115,8 +115,8 @@ export function InviteLandingPage() {
     )
   }
 
-  const registerPath = `/family-register?invitationToken=${encodeURIComponent(token)}`
-  const loginPath = `/family-login?invitationToken=${encodeURIComponent(token)}`
+  const registerPath = `/register?invitationToken=${encodeURIComponent(token)}`
+  const loginPath = `/login?invitationToken=${encodeURIComponent(token)}`
 
   return (
     <main className="login-page login-page--family">

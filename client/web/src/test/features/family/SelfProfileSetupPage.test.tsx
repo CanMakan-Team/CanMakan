@@ -5,11 +5,11 @@ import userEvent from '@testing-library/user-event'
 import { SessionContext, type SessionContextValue } from '../../../features/auth/SessionContext'
 import { pendingRegistrationOnboardingStore } from '../../../features/auth/pendingRegistrationOnboardingStore'
 import { SelfProfileSetupPage } from '../../../features/family/pages/SelfProfileSetupPage'
-import { selfProfileApiService } from '../../../features/family/api/selfProfileApiService'
+import { selfProfileApiService } from '../../../features/account/api/selfProfileApiService'
 import { ApiError } from '../../../shared/api/apiErrors'
 import { appUserSession } from '../../testUtils'
 
-vi.mock('../../../features/family/api/selfProfileApiService', () => ({
+vi.mock('../../../features/account/api/selfProfileApiService', () => ({
   selfProfileApiService: {
     getCatalog: vi.fn(),
     createSelfProfile: vi.fn(),
@@ -39,10 +39,10 @@ const sessionValue: SessionContextValue = {
 function renderPage() {
   return render(
     <SessionContext.Provider value={sessionValue}>
-      <MemoryRouter initialEntries={['/family/setup-profile']}>
+      <MemoryRouter initialEntries={['/me/setup-profile']}>
         <Routes>
-          <Route path="/family/setup-profile" element={<SelfProfileSetupPage />} />
-          <Route path="/family/personal" element={<p>Personal destination</p>} />
+          <Route path="/me/setup-profile" element={<SelfProfileSetupPage />} />
+          <Route path="/me" element={<p>Personal destination</p>} />
           <Route path="/invite/:token" element={<p>Invitation continuation</p>} />
         </Routes>
       </MemoryRouter>

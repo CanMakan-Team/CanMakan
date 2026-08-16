@@ -13,7 +13,7 @@ function renderLanding() {
     <MemoryRouter initialEntries={['/family']}>
       <Routes>
         <Route path="/family" element={<UserLandingPage />} />
-        <Route path="/family/personal" element={<p>Personal home</p>} />
+        <Route path="/me" element={<p>Personal home</p>} />
         <Route path="/family/dashboard" element={<p>Family dashboard</p>} />
       </Routes>
     </MemoryRouter>,
@@ -31,7 +31,7 @@ describe('UserLandingPage', () => {
     expect(await screen.findByText('Personal home')).toBeInTheDocument()
   })
 
-  it('preserves the existing family dashboard for a family member', async () => {
+  it('routes a family member to personal home', async () => {
     vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue({
       familyId: 9,
       familyName: 'Wong Family',
@@ -42,7 +42,21 @@ describe('UserLandingPage', () => {
 
     renderLanding()
 
-    expect(await screen.findByText('Family dashboard')).toBeInTheDocument()
+    expect(await screen.findByText('Personal home')).toBeInTheDocument()
     await waitFor(() => expect(familyApiService.getMyFamilyOrNull).toHaveBeenCalledTimes(1))
+  })
+
+  it('routes a family admin to the family dashboard', async () => {
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue({
+      familyId: 9,
+      familyName: 'Wong Family',
+      memberRole: 'PRIMARY_ADMIN',
+      selfProfileId: 77,
+      createdByUserId: 10,
+    })
+
+    renderLanding()
+
+    expect(await screen.findByText('Family dashboard')).toBeInTheDocument()
   })
 })

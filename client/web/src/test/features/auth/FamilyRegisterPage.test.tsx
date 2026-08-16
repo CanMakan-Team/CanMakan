@@ -40,8 +40,11 @@ function renderRegisterPage(initialEntry = '/family-register') {
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/family-register" element={<FamilyRegisterPage />} />
+          <Route path="/register" element={<FamilyRegisterPage />} />
+          <Route path="/me/setup-profile" element={<p>Dietary setup</p>} />
           <Route path="/family/setup-profile" element={<p>Dietary setup</p>} />
           <Route path="/family" element={<p>Family destination</p>} />
+          <Route path="/login" element={<LocationProbe />} />
           <Route path="/family-login" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
@@ -138,7 +141,7 @@ describe('FamilyRegisterPage', () => {
     )
     expect(screen.getByRole('link', { name: 'Log in here' })).toHaveAttribute(
       'href',
-      '/family-login?email=person%40example.com',
+      '/login?email=person%40example.com',
     )
     expect(screen.getByRole('button', { name: 'Account created' })).toBeDisabled()
     expect(screen.getByLabelText('Password')).toHaveValue('')
@@ -163,7 +166,7 @@ describe('FamilyRegisterPage', () => {
     )
     expect(screen.getByRole('link', { name: 'Log in here' })).toHaveAttribute(
       'href',
-      '/family-login?email=person%40example.com',
+      '/login?email=person%40example.com',
     )
     expect(pendingRegistrationOnboardingStore.peekForEmail('person@example.com')).toBeNull()
   })

@@ -65,10 +65,34 @@ describe('FamilyMeGate', () => {
     })
     expect(screen.getByRole('link', { name: 'Return to personal home' })).toHaveAttribute(
       'href',
-      '/family/personal',
+      '/me',
     )
     expect(screen.queryByLabelText(/family name/i)).not.toBeInTheDocument()
     expect(familyApiService.createFamily).not.toHaveBeenCalled()
+  })
+
+  it('sends a family member to personal home instead of family admin pages', async () => {
+    vi.mocked(familyApiService.getMyFamily).mockResolvedValue({
+      familyId: 3,
+      familyName: 'Wong Family',
+      memberRole: 'MEMBER',
+      selfProfileId: 77,
+      createdByUserId: 10,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/family/members']}>
+        <Routes>
+          <Route path="/family" element={<FamilyMeGate />}>
+            <Route path="members" element={<p>Family members</p>} />
+          </Route>
+          <Route path="/me" element={<p>Personal home</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('Personal home')).toBeInTheDocument()
+    expect(screen.queryByText('Family members')).not.toBeInTheDocument()
   })
 
   it('shows retryable error when /me fails for a non-404 reason', async () => {

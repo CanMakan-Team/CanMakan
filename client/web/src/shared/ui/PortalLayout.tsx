@@ -5,6 +5,10 @@ import {
   useLocation,
   useNavigate,
 } from 'react-router-dom'
+import { USER_LOGIN_PATH } from '../../app/userPortalPaths'
+import { FamilyMeProvider } from '../../features/family/FamilyMeContext'
+import { useFamilyMe } from '../../features/family/useFamilyMe'
+import { userPortalSections } from '../../features/family/lib/userPortalNav'
 import { useSession } from '../../features/auth/useSession'
 
 interface NavigationItem {
@@ -13,36 +17,10 @@ interface NavigationItem {
   icon: string
 }
 
-/** A labelled group of navigation items, rendered with a heading in the sidebar. */
 interface NavigationSection {
   label: string
   items: NavigationItem[]
 }
-
-// The "Home" entry (/family) still exists as a route so login can resolve a
-// family admin straight to Family Overview, but it is not shown as its own
-// sidebar link.
-const familySections: NavigationSection[] = [
-  {
-    label: 'Family',
-    items: [
-      { label: 'Family Overview', to: '/family/dashboard', icon: '⌂' },
-      { label: 'Family Circle', to: '/family/circle', icon: '♙' },
-      { label: 'Family Members', to: '/family/members', icon: '♙' },
-      { label: 'Restriction Summary', to: '/family/restrictions', icon: '▦' },
-      { label: 'Family Scan History', to: '/family/history', icon: '◷' },
-      { label: 'Verdict Trends', to: '/family/verdict-trends', icon: '↗' },
-    ],
-  },
-  {
-    label: 'Personal',
-    items: [
-      { label: 'Personal Home', to: '/family/personal', icon: '◇' },
-      { label: 'Dietary Profile', to: '/family/setup-profile', icon: '◇' },
-      { label: 'Account Settings', to: '/family/account', icon: '⚙' },
-    ],
-  },
-]
 
 const systemSections: NavigationSection[] = [
   {
@@ -57,22 +35,43 @@ const systemSections: NavigationSection[] = [
 ]
 
 export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
+  if (portal === 'system') {
+    return <PortalShell portal="system" sections={systemSections} />
+  }
+
+  return (
+    <FamilyMeProvider>
+      <UserPortalShell />
+    </FamilyMeProvider>
+  )
+}
+
+function UserPortalShell() {
+  const { hasFamily, isPrimaryAdmin } = useFamilyMe()
+  const sections = userPortalSections({ hasFamily, isPrimaryAdmin })
+  return <PortalShell portal="family" sections={sections} />
+}
+
+function PortalShell({
+  portal,
+  sections,
+}: {
+  portal: 'family' | 'system'
+  sections: NavigationSection[]
+}) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { session, logout } = useSession()
   const navigate = useNavigate()
   const location = useLocation()
 
-  // CMK-55 Read the Web Version, Falling Back for Local Development
   const appVersion = import.meta.env.VITE_APP_VERSION || 'Local Development'
-
-  const sections = portal === 'family' ? familySections : systemSections
   const navigation = sections.flatMap((section) => section.items)
   const portalName =
     portal === 'family' ? 'CanMakan User Portal' : 'System Administration'
 
   const signOut = () => {
     void logout()
-    navigate(portal === 'family' ? '/family-login' : '/system-admin-login')
+    navigate(portal === 'family' ? USER_LOGIN_PATH : '/system-admin-login')
   }
 
   return (
@@ -101,7 +100,7 @@ export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end={item.to === `/${portal}`}
+                  end={item.to === `/${portal}` || item.to === '/me'}
                   onClick={() => setMenuOpen(false)}
                   className={({ isActive }) =>
                     isActive ? 'sidebar__link sidebar__link--active' : 'sidebar__link'
@@ -129,12 +128,9 @@ export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
           <button className="sidebar__signout" type="button" onClick={signOut}>
             Sign out
           </button>
-
-          {/* CMK-55 Display the Web Version, Falling Back for Local Development */}
           <span style={{ fontSize: '0.65rem', color: '#91ada3', padding: '0 0.6rem' }}>
             Version {appVersion}
           </span>
-          
         </div>
       </aside>
       {menuOpen && (
@@ -161,7 +157,9 @@ export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
             {navigation.find(
               (item) =>
                 item.to === location.pathname ||
-                (item.to !== `/${portal}` && location.pathname.startsWith(item.to)),
+                (item.to !== `/${portal}` &&
+                  item.to !== '/me' &&
+                  location.pathname.startsWith(item.to)),
             )?.label ?? portalName}
           </span>
         </header>

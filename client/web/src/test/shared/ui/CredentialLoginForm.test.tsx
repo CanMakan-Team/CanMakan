@@ -51,7 +51,7 @@ function renderFamilyLogin(initialEntry = '/family-login') {
             }
           />
           <Route path="/family" element={<p>Family destination</p>} />
-          <Route path="/family/setup-profile" element={<p>Dietary setup</p>} />
+          <Route path="/me/setup-profile" element={<p>Dietary setup</p>} />
           <Route path="/family-register" element={<p>Register page</p>} />
         </Routes>
       </MemoryRouter>
