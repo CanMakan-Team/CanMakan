@@ -5,15 +5,16 @@ keep its own copy.
 
 ## Mascot poses
 
-PNG files in [`drawable/`](./drawable/) use Android resource names
-(`canmakan_mascot_wave.png`, and so on).
+PNG files in [`mascot/drawable/`](./mascot/drawable/) use Android resource names
+(`canmakan_mascot_wave.png`, and so on). `mascot/` is an extra Android `res`
+root and must contain only resource-type folders such as `drawable/`.
 
 | Client | How the folder is referenced |
 | --- | --- |
-| Mobile | Extra Android `res` directory (`drawable/` is the resource type) |
+| Mobile | Extra Android `res` directory at `mascot/` (`drawable/` is the resource type) |
 | Web | Vite serves and ships them as `/mascot/canmakan-mascot-*.png` |
 
-Edit the files in this folder only. Do not copy them into
+Edit the files in `mascot/drawable/` only. Do not copy them into
 `client/web/public` or `client/mobile/app/src/main/res/drawable`.
 
 The invitation email still embeds a classpath copy at

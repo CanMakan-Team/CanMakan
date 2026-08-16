@@ -107,8 +107,9 @@ preference logic is covered in `FamilyProfileRepositoryTest` and
 (`*Screen*.kt`), sheets, nav graphs, shared UI widgets, `MainActivity`,
 `BarcodeAnalyzer`, `AndroidSystemNotifier`, Hilt modules, and generated DI; those
 Kotlin files remain in Semgrep/Sonar issue scans. Launcher images stay under
-`app/src/main/res`. Mascot PNGs live in `client/shared/assets/mascot/` and are
-wired in as an extra Android `res` directory. Those binaries are excluded from
+`app/src/main/res`. Mascot PNGs live in `client/shared/assets/mascot/drawable/`
+and are wired in as an extra Android `res` directory at
+`client/shared/assets/mascot/` (resource-type folders only). Those binaries are excluded from
 Sonar analysis (they are not UTF-8 sources). Generated Hilt/Dagger
 output is not a coverage target.
 See `local.properties.example`. The backend listens on `0.0.0.0:8080` so the

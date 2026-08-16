@@ -81,7 +81,7 @@ test('Verify Responsiveness of CanMakan Web Navigation Elements', async ({ page,
   });
 
   // 1. Go to login page
-  await page.goto('/family-login');
+  await page.goto('/login');
 
   // 2. Fill in credentials and submit
   await page.fill('input[type="email"]', 'david@example.com');

@@ -248,7 +248,7 @@ extensions.configure<ApplicationExtension> {
 
     sourceSets {
         getByName("main") {
-            // Shared mascot PNGs (Android resource names) live with web under client/shared.
+            // Shared mascot PNGs live under client/shared/assets/mascot (drawable/ only).
             res.srcDir(file("../../shared/assets/mascot"))
         }
     }

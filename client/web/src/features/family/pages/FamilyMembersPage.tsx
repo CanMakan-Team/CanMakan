@@ -9,6 +9,7 @@ import { EditFamilyProfileModal } from '../components/EditFamilyProfileModal'
 import { LinkExistingUserModal } from '../components/LinkExistingUserModal'
 import { formatCode } from '../lib/profileOptions'
 import { profileDisplayCaption } from '../lib/profileDisplay'
+import { useFamilyMe } from '../useFamilyMe'
 
 /**
  * FamilyMembersPage component for displaying the family members
@@ -20,9 +21,9 @@ import { profileDisplayCaption } from '../lib/profileDisplay'
 type OpenModal = 'link' | 'create' | null
 
 export function FamilyMembersPage() {
+  const { family, isPrimaryAdmin } = useFamilyMe()
+  const selfProfileId = family?.selfProfileId ?? null
   const [members, setMembers] = useState<FamilyMember[]>([])
-  const [isPrimaryAdmin, setIsPrimaryAdmin] = useState(false)
-  const [selfProfileId, setSelfProfileId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [error, setError] = useState('')
@@ -35,13 +36,8 @@ export function FamilyMembersPage() {
     setLoading(true)
     setError('')
     try {
-      const [loadedMembers, me] = await Promise.all([
-        familyApiService.getMembers(),
-        familyApiService.getMyFamily(),
-      ])
+      const loadedMembers = await familyApiService.getMembers()
       setMembers(loadedMembers)
-      setIsPrimaryAdmin(me.memberRole === 'PRIMARY_ADMIN')
-      setSelfProfileId(me.selfProfileId)
     } catch (caughtError) {
       setError(getErrorMessage(caughtError))
     } finally {

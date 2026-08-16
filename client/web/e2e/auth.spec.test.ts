@@ -86,7 +86,7 @@ test.describe('Authentication and Route Guarding', () => {
       route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Unauthorized' }) });
     });
     await page.goto('/family');
-    await expect(page).toHaveURL(/.*\/family-login/);
+    await expect(page).toHaveURL(/.*\/login/);
   });
 
   test('Valid Credentials Grant Access to the Portal', async ({ page }) => {
@@ -148,7 +148,7 @@ test.describe('Authentication and Route Guarding', () => {
     });
 
     // 3. Start unauthenticated on the login page
-    await page.goto('/family-login');
+    await page.goto('/login');
     
     // 4. Fill credentials into the rendered form
     const emailInput = page.locator('#family-email');
@@ -182,7 +182,7 @@ test.describe('Authentication and Route Guarding', () => {
     await signOutButton.scrollIntoViewIfNeeded();
 
     await Promise.all([
-      page.waitForURL(/.*\/family-login/, { timeout: 15000 }),
+      page.waitForURL(/.*\/login/, { timeout: 15000 }),
       signOutButton.click({ force: true })
     ]);
   });
