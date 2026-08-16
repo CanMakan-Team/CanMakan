@@ -19,8 +19,6 @@ sonar {
             "sonar.coverage.jacoco.xmlReportPaths",
             "${rootProject.projectDir}/app/build/sonar-coverage/jacoco.xml",
         )
-        property("sonar.sources", "app/src/main/java")
-        property("sonar.tests", "app/src/test/java")
         property(
             "sonar.coverage.exclusions",
             listOf(
