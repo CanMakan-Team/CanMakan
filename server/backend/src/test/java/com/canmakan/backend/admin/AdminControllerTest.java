@@ -22,6 +22,7 @@ import com.canmakan.backend.analytics.dto.ProductScanTrend;
 import com.canmakan.backend.analytics.dto.RestrictionTrend;
 import com.canmakan.backend.analytics.dto.TrendPeriod;
 import com.canmakan.backend.analytics.dto.TrendSummary;
+import com.canmakan.backend.analytics.dto.UsageStatisticsResponse;
 import com.canmakan.backend.analytics.exception.ConsumerTrendsValidationException;
 import com.canmakan.backend.analytics.service.ConsumerTrendsService;
 import com.canmakan.backend.analytics.service.UsageStatisticsService;
@@ -50,19 +51,65 @@ class AdminControllerTest {
     private MockMvc mockMvc;
     private ConsumerTrendsService consumerTrendsService;
     private UserAccountManagementService userAccountManagementService;
+    private UsageStatisticsService usageStatisticsService;
 
     @BeforeEach
     void setUp() {
         consumerTrendsService = mock(ConsumerTrendsService.class);
         userAccountManagementService = mock(UserAccountManagementService.class);
+        usageStatisticsService = mock(UsageStatisticsService.class);
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new AdminController(
                         consumerTrendsService,
                         userAccountManagementService,
-                        mock(UsageStatisticsService.class)
+                        usageStatisticsService
                 ))
                 .setControllerAdvice(new AdminExceptionHandler())
                 .build();
+    }
+
+    @Test
+    @DisplayName("usage statistics defaults to a 7-day period when request param is omitted")
+    void usageStatisticsUsesDefaultPeriod() throws Exception {
+        UsageStatisticsResponse payload = new UsageStatisticsResponse(
+                7,
+                "2026-08-16T10:00:00Z",
+                new UsageStatisticsResponse.Kpis(1, 2, 3, 4),
+                new UsageStatisticsResponse.Acquisition(List.of(), List.of()),
+                new UsageStatisticsResponse.Activity(2, 3, 4, 50, 40, 60),
+                new UsageStatisticsResponse.Retention(1, 2, 3, 4, 5, 6, 7),
+                new UsageStatisticsResponse.Engagement(4, 2.3, 1.4, List.of())
+        );
+        when(usageStatisticsService.generate(7)).thenReturn(payload);
+
+        mockMvc.perform(get("/api/admin/usage-statistics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.periodDays").value(7))
+                .andExpect(jsonPath("$.kpis.newSignups").value(1));
+
+        verify(usageStatisticsService).generate(7);
+    }
+
+    @Test
+    @DisplayName("usage statistics forwards an explicit periodDays query parameter")
+    void usageStatisticsForwardsExplicitPeriod() throws Exception {
+        UsageStatisticsResponse payload = new UsageStatisticsResponse(
+                30,
+                "2026-08-16T10:00:00Z",
+                new UsageStatisticsResponse.Kpis(12, 22, 32, 42),
+                new UsageStatisticsResponse.Acquisition(List.of(), List.of()),
+                new UsageStatisticsResponse.Activity(22, 32, 42, 50, 40, 60),
+                new UsageStatisticsResponse.Retention(10, 20, 30, 40, 50, 60, 70),
+                new UsageStatisticsResponse.Engagement(42, 2.7, 3.4, List.of())
+        );
+        when(usageStatisticsService.generate(30)).thenReturn(payload);
+
+        mockMvc.perform(get("/api/admin/usage-statistics").param("periodDays", "30"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.periodDays").value(30))
+                .andExpect(jsonPath("$.kpis.dailyActiveUsers").value(22));
+
+        verify(usageStatisticsService).generate(30);
     }
 
     @Test

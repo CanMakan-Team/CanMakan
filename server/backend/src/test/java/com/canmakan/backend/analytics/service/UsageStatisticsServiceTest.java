@@ -144,4 +144,28 @@ class UsageStatisticsServiceTest {
         assertThat(response.retention().inactive30d()).isZero();
         assertThat(response.acquisition().dailyNewRegistrations()).hasSize(7);
     }
+
+    @Test
+    @DisplayName("caps oversized periods and computes resurrection and churn from prior-window activity")
+    void capsPeriodAndComputesResurrectionAndChurn() {
+        when(repository.findAppUsers()).thenReturn(List.of(
+                user(1, 500, 1),
+                user(2, 500, 1),
+                user(3, 15, 1)));
+        when(repository.findAppUserScans()).thenReturn(List.of(
+                // User 1: inactive for >30 days before the current window, then returns -> resurrected.
+                scan(1, 80),
+                scan(1, 2),
+                // User 2: active in the prior 30-day window only -> churned in current window.
+                scan(2, 40),
+                // User 3: new active user inside current period.
+                scan(3, 10)));
+
+        UsageStatisticsResponse oversized = service.generate(999);
+        UsageStatisticsResponse response = service.generate(30);
+
+        assertThat(oversized.periodDays()).isEqualTo(365);
+        assertThat(response.retention().resurrectedUsers()).isEqualTo(1);
+        assertThat(response.retention().churnPct()).isEqualTo(50);
+    }
 }
