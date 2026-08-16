@@ -24,6 +24,7 @@ import com.canmakan.backend.auth.dto.LoginRequest;
 import com.canmakan.backend.auth.dto.RegistrationRequest;
 import com.canmakan.backend.auth.dto.RegistrationResponse;
 import com.canmakan.backend.auth.exception.AuthExceptionHandler;
+import com.canmakan.backend.auth.exception.AccountSuspendedException;
 import com.canmakan.backend.auth.exception.AuthenticationFailedException;
 import com.canmakan.backend.auth.exception.DuplicateEmailException;
 import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
@@ -202,6 +203,25 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message")
                     .value("Invalid credentials or account unavailable."))
                 .andExpect(content().string(not(containsString("missing@example.com"))));
+        }
+
+        @Test
+        void suspendedAccountReturnsSafeForbiddenWithoutTokensOrCookie() throws Exception {
+            when(authService.login(any(LoginRequest.class)))
+                .thenThrow(new AccountSuspendedException());
+
+            mockMvc.perform(post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"email\":\"inactive@example.com\",\"password\":\"Password1!\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("This account is suspended."))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(content().string(not(containsString("Password1!"))))
+                .andExpect(content().string(not(containsString("inactive@example.com"))))
+                .andExpect(header().doesNotExist("Set-Cookie"));
+
+            verify(refreshCookieService, never()).createRefreshCookie(any());
         }
 
         @Test

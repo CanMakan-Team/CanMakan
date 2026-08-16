@@ -163,11 +163,11 @@ UC19 · Related: UC8, UC11, UC12
 
 **Owner:** Khai · **Package:** Core MVP · **Architecture:** Scanning & Verdicts / Mobile Client  
 **Tech:** Android; ML Kit Barcode; Spring Boot; Open Food Facts  
-**Current code state:** Partial — camera → validate → assess JWT path shipped; profile ownership / inactive checks on assess done
+**Current code state:** Partial — authenticated camera → validate → assess path shipped; profile ownership / inactive checks on assess done
 
 - **Mobile:** `ScannerScreen` + ML Kit `BarcodeAnalyzer` → `ScannerViewModel` calls validate then assess and navigates to the verdict screen. Loading / non-food / network failure states exist. No web scan UI (by design).
-- **Backend:** `ScanController` — live `POST /api/scan/validate` (still `permitAll` via `anyRequest`) and `POST /api/scan/assess` (JWT). `AssessmentOrchestrator` authorizes `profileId` via `FamilyAuthorizationService.assertProfileAuthorizedForScan`, loads OFF product data, runs `DietaryRuleEngine`, optionally LLM evidence, and records a scan.
-- **Identity:** Assess uses `@AuthenticationPrincipal` for `scans.user_id` (no `X-User-Id`). Profile ownership / inactive 409 enforced on assess. Validate still public; validate response is category/message (not rich product identity).
+- **Backend:** `ScanController` — live authenticated `POST /api/scan/validate` and `POST /api/scan/assess`. `AssessmentOrchestrator` authorizes `profileId` via `FamilyAuthorizationService.assertProfileAuthorizedForScan`, loads OFF product data, runs `DietaryRuleEngine`, optionally LLM evidence, and records a scan.
+- **Identity:** Both scan calls require an active authenticated account. Assess uses `@AuthenticationPrincipal` for `scans.user_id` (no `X-User-Id`), with profile ownership / inactive 409 enforced; validate returns category/message (not rich product identity).
 
 ### User story
 
@@ -212,7 +212,7 @@ Full table: [backlog §5 scan path](sprint2-jira-backlog.md#uc2--uc3--uc4--uc5--
 
 ### Dependencies
 
-UC19-S3 (remaining public routes, notably validate), UC11 · Related: UC1 (restriction quality), UC3, UC4, UC5
+UC19-S3, UC11 · Related: UC1 (restriction quality), UC3, UC4, UC5
 
 ---
 
@@ -1008,13 +1008,13 @@ UC19 (login after register) · Unblocks demo of UC8 empty-state create
 
 **Owner:** Maowei · **Package:** Enhanced (**Core critical path**) · **Architecture:** Authentication & Security  
 **Tech:** Mobile + Web + Spring Boot Auth; Security; JWT; RDS  
-**Current code state:** Mostly complete — JWT login/refresh/logout + clients shipped; residual endpoint protection gaps
+**Current code state:** Complete — JWT login/refresh/logout + clients shipped; suspended-login 403 and fail-closed business API protection complete
 
 - **Backend:** Spring Security + JWT filter (`SecurityConfig`). Single `AuthController` / `AuthService`: `POST /api/auth/login` (access JWT + refresh cookie), `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me`. Auth package layout: `dto/` / `model/` / `exception/` / `repository/`. Platform roles `USER` / `ADMIN` (not Family Admin).
-- **Protected today:** `/api/families/**`, `/api/invitations/**`, `POST /api/scan/assess`, `GET /api/scan/history/**`, `/api/profiles/**`, `GET /api/restrictions`, `GET /api/auth/me`, `/api/admin/**` (ADMIN). **Still transitional public (`anyRequest.permitAll`):** `POST /api/scan/validate` and other unmatched routes.
+- **Protected today:** all business `/api/**` routes require an active authenticated account unless explicitly public; this includes families, invitations, notifications, scan validate/assess/history, profiles, recommendations, restrictions, and user preferences. `/api/admin/**` remains ADMIN-only and self-profile setup/read/update remains USER-only. Non-API fallback routes are denied by default.
 - **Mobile:** `AuthSessionStore` (encrypted prefs); Bearer interceptor + authenticator; dedicated cookie refresh/logout client; `AppAuthViewModel` restore/login/logout; Login/Registration graphs. Unit tests cover login, session, refresh, logout, nav session gates.
 - **Web:** Access JWT remains memory-only; `Authorization: Bearer`; refresh-cookie restore/recovery; login/logout UX; client maps `USER`→`ROLE_APP_USER` and `ADMIN`→`ROLE_SYSTEM_ADMIN`. Vitest suite under `client/web/src/test/`.
-- **Gaps:** distinct HTTP 403 for suspended accounts (today often same safe 401); finish UC19-S3 for remaining public routes (notably validate).
+- **Login boundary:** unknown account and wrong password remain the same safe 401. Correct credentials for `users.is_active=0` return 403 without tokens or refresh cookie. Refresh failures remain uniform 401.
 
 ### User stories
 
@@ -1027,8 +1027,8 @@ UC19 (login after register) · Unblocks demo of UC8 empty-state create
 | --- | --- | --- |
 | [x] | 1 | Valid email/password login returns access (and refresh if designed) tokens via `POST /api/auth/login`. |
 | [x] | 2 | Invalid credentials return HTTP 401. |
-| [ ] | 3 | Suspended account (`users.is_active=0`) cannot obtain tokens (HTTP 403). *(inactive currently fails closed as generic 401)* |
-| [ ] | 4 | Protected business APIs require a valid JWT after UC19-S3 (unauthenticated → 401). *(families, invitations, assess, scan history, profiles/restrictions done; validate still public)* |
+| [x] | 3 | Suspended account (`users.is_active=0`) cannot obtain tokens (HTTP 403). |
+| [x] | 4 | Protected business APIs require a valid JWT after UC19-S3 (unauthenticated → 401). |
 | [x] | 5 | JWT carries agreed platform authorities (UC19-S2 role mapping). *(live: `USER` / `ADMIN`)* |
 | [x] | 6 | Family Admin capability is **not** granted solely by a platform FAMILY_ADMIN JWT claim (membership remains source of truth). |
 | [x] | 7 | Refresh token flow works as designed (`POST /api/auth/refresh`). *(backend + mobile; web auto-refresh still thin)* |
@@ -1042,9 +1042,9 @@ UC19 (login after register) · Unblocks demo of UC8 empty-state create
 
 | Story | Closes AC # | Notes |
 | --- | --- | --- |
-| **UC19-S1** | 1–3, 7 | **Mostly done** — login/refresh; AC3 distinct 403 polish |
+| **UC19-S1** | 1–3, 7 | **Done** — login/refresh; verified suspended login returns 403 |
 | **UC19-S2** | 5–6 | **Done** — platform `USER`/`ADMIN` + family membership separate |
-| **UC19-S3** | 4 | **Partial** — families, invitations, assess, history, profiles/restrictions protected; finish validate (+ any leftover public business routes) |
+| **UC19-S3** | 4 | **Done** — explicit public allow-list; all other business `/api/**` routes authenticated; fallback denied |
 | **UC19-S4** | 8–10 | **Done** — logout invalidate + clear local |
 | **UC19-S5** | 11–12 | **Done** — mobile + web auth UX |
 
@@ -1052,7 +1052,7 @@ Full table: [backlog §5 auth](sprint2-jira-backlog.md#uc19--uc18-authentication
 
 ### Dependencies
 
-None · **Unblocks** production use of protected Core APIs; residual S3 is mainly `POST /api/scan/validate`
+None · **Unblocks** production use of protected Core APIs
 
 ---
 
@@ -1239,8 +1239,8 @@ Full table: [backlog §5](sprint2-jira-backlog.md#enhanced--nice-to-have).
 
 Canonical with [backlog §5b](sprint2-jira-backlog.md#5b-recommended-delivery-sequence):
 
-1. **Shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT login/refresh/logout + clients); UC8-S1–S4; UC6-S1/S2; **UC9–UC12** (family lifecycle + switch + manage); **UC4-S1–S4** (personal + family history + wire verdicts); **UC13-S1…S3** (admin account Suspend/Reactivate); UC2 assess authz; UC3 wire UNSAFE display; UC1 JWT + D3 ownership on restrictions  
-2. **Finish auth hard-edges:** UC19-S3 (protect `POST /api/scan/validate` + leftovers) + UC19 AC3 (suspended → 403); UC1-S1 residual (unknown-code → 400)  
+1. **Shipped:** UC18-S1/S2; UC19-S1–S5 (JWT login/refresh/logout + clients, suspended-login 403, protected business APIs); UC8-S1–S4; UC6-S1/S2; **UC9–UC12** (family lifecycle + switch + manage); **UC4-S1–S4** (personal + family history + wire verdicts); **UC13-S1…S3** (admin account Suspend/Reactivate); UC2 assess authz; UC3 wire UNSAFE display; UC1 JWT + D3 ownership on restrictions
+2. **Finish remaining Core hard-edges:** UC1-S1 residual (unknown-code → 400)
 3. UC1-S2/S3 polish (severity picker) + UC1-S5 empty state; UC3 polish; UC6-S3 web parity  
 4. Remaining Core: UC5-S1/S2 → UC7-S1/S2  
 5. Enhanced: UC14-S1/S2, UC15–UC17  

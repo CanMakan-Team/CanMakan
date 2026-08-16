@@ -186,7 +186,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 | UC4 two surfaces | Personal history (mobile) + family-admin filterable list (web). Charts are **UC14**, not UC4. |
 | UC5 vs UC17 | UC5 = suggest alternatives at verdict time; UC17 = list **past** recommendations (Enhanced). |
 | UC7 vs UC14 vs UC22 | UC7 = anonymised platform trends (Core); UC14 = family verdict chart (Enhanced); UC22 = CSV export of UC7-style aggregates (Nice-to-Have). |
-| UC18 / UC19 | Enhanced package; **UC19 JWT mostly shipped** (login/refresh/logout + clients). Finish S3 for remaining public routes (notably `POST /api/scan/validate`). Family Admin stays membership-based. |
+| UC18 / UC19 | Enhanced package; **UC19 complete** (login/refresh/logout + clients, suspended-login 403, authenticated business APIs). Family Admin stays membership-based. |
 | Profile vs account active | `dietary_profiles.is_active` (UC12) ≠ `users.is_active` (UC13 / UC19 login gate). |
 | Family Admin | `family_members.PRIMARY_ADMIN` — not a platform JWT role. |
 
@@ -216,7 +216,7 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 
 **Nice-to-Have (UC20–UC24)** covers product reporting, AI admin logs, trend export, subscriptions, and OCR scan.
 
-**Current repo gaps (post-UC19 integration):** `POST /api/scan/validate` still transitional public; web mock still used when `VITE_USE_MOCK_API=true`; UC1 severity picker / unknown-code 400 polish; UC5/UC7/UC13 open. UC12 manage CRUD shipped (web + backend). UC4 history complete.
+**Current repo gaps (post-UC19 integration):** web mock still used when `VITE_USE_MOCK_API=true`; UC1 severity picker / unknown-code 400 polish; UC5/UC7/UC13 open. UC12 manage CRUD shipped (web + backend). UC4 history complete.
 
 ---
 
@@ -233,10 +233,10 @@ Unassigned (no owner yet): UC15, UC16, UC20–UC24.
 | POST | `/api/scan/assess` | JWT + profile ownership |
 | GET | `/api/restrictions` | JWT |
 | GET/PUT | `/api/profiles/{profileId}/restrictions` | JWT + D3 ownership |
-| POST | `/api/scan/validate` | Transitional public |
+| POST | `/api/scan/validate` | JWT; active account |
 | GET | `/api/scan/history/{profileId}` | JWT + profile ownership |
 
-Missing: recommendations API; admin list/PATCH APIs; JWT on validate (UC19-S3 residual).
+Missing: recommendations API; admin list/PATCH APIs.
 
 ### Required migrations
 
@@ -255,7 +255,7 @@ Missing: recommendations API; admin list/PATCH APIs; JWT on validate (UC19-S3 re
 | UC | Package | Status (detail) |
 | --- | --- | --- |
 | UC1 | Core | **Partial** — live `GET/PUT` restrictions + mobile sheet; JWT + D3 ownership shipped; severity fixed `STRICT_AVOID`; unknown-code 400 open |
-| UC2 | Core | **Partial** — ML Kit → validate/assess; assess JWT + profile ownership / inactive checks; validate still public |
+| UC2 | Core | **Partial** — authenticated ML Kit → validate/assess; assess profile ownership / inactive checks |
 | UC3 | Core | **Mostly complete** — rule engine + colour-coded verdict (`SAFE`/`WARNING`/`UNSAFE`); Alternatives empty (UC5) |
 | UC4 | Core | **Complete** — personal history JWT+authz; family `/me/scans` PRIMARY_ADMIN; wire `SAFE`/`WARNING`/`UNSAFE` |
 | UC5 | Core | **Not started** — Alternatives shell; no recommendations API |
@@ -271,7 +271,7 @@ Missing: recommendations API; admin list/PATCH APIs; JWT on validate (UC19-S3 re
 | UC15–UC16 | Enhanced | **Not started** |
 | UC17 | Enhanced | **Not started** |
 | UC18 | Enhanced | **Mostly complete** — register API + web/mobile UI; no auto-login |
-| UC19 | Enhanced | **Mostly complete** — JWT login/refresh/logout + mobile/web clients; S3 residual (`validate` still public); AC3 distinct 403 polish |
+| UC19 | Enhanced | **Complete** — JWT login/refresh/logout + mobile/web clients; suspended-login 403; explicit public allow-list and authenticated business APIs |
 | UC20 | Nice-to-Have | **Not started** / reporting README |
 | UC21 | Nice-to-Have | **Partial** — `AiExecutionLogService` write path (flag default off) + seeds; no admin dashboard |
 | UC22–UC24 | Nice-to-Have | **Not started** |
@@ -355,13 +355,13 @@ Missing: recommendations API; admin list/PATCH APIs; JWT on validate (UC19-S3 re
 
 | | |
 | --- | --- |
-| **Status** | **Mostly complete** — JWT login/refresh/logout + mobile/web clients; residual S3 (validate) + suspended-403 polish |
+| **Status** | **Complete** — JWT login/refresh/logout + mobile/web clients; suspended-login 403; fail-closed business API authorization |
 | **Stories** | UC19-S1…S5 |
 | **Dependencies** | None |
 | **In** | Spring Security + JWT; login/logout/refresh; protect business APIs; mobile/web token clients |
 | **Out** | OAuth; MFA; polished password-reset (unless added) |
-| **Shipped** | `AuthController`/`AuthService`; Bearer + refresh cookie; `AuthSessionStore` + web session; families, invitations, assess, history, profiles/restrictions protected |
-| **Open** | UC19-S3 remaining public routes (`POST /api/scan/validate`); distinct 403 for inactive accounts; web auto-refresh |
+| **Shipped** | `AuthController`/`AuthService`; Bearer + refresh cookie; `AuthSessionStore` + web session; explicit public allow-list; all other business `/api/**` routes authenticated; ADMIN and USER-only matchers preserved |
+| **Open** | None within UC19 acceptance criteria |
 
 ---
 
@@ -402,8 +402,8 @@ Missing: recommendations API; admin list/PATCH APIs; JWT on validate (UC19-S3 re
 | | |
 | --- | --- |
 | **Stories** | UC2-S1…S5 (authz, camera/validate, assess, failure states, no web scan) |
-| **Dependencies** | UC19-S3 (finish validate), UC11; UC1 for restriction quality |
-| **Note** | Assess JWT identity + `FamilyAuthorizationService` profile ownership / inactive 409 shipped; validate still public |
+| **Dependencies** | UC19-S3, UC11; UC1 for restriction quality |
+| **Note** | Validate and assess require an active authenticated account; assess JWT identity + `FamilyAuthorizationService` profile ownership / inactive 409 shipped |
 
 ---
 
@@ -682,9 +682,9 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 
 | Story | Summary | AC # (mvp) | Priority |
 | --- | --- | --- | --- |
-| **UC19-S1** | Spring Security + JWT login/refresh — **Mostly done** (AC3 distinct 403 polish) | UC19: 1–3, 7 | P0 |
+| **UC19-S1** | Spring Security + JWT login/refresh — **Done** (verified suspended login returns 403) | UC19: 1–3, 7 | P0 |
 | **UC19-S2** | Canonical platform roles + authority mapping — **Done** (`USER`/`ADMIN`) | UC19: 5–6 | P0 |
-| **UC19-S3** | Protect existing business endpoints — **Partial** (families, invitations, assess, history, profiles/restrictions; finish validate) | UC19: 4 | P0 |
+| **UC19-S3** | Protect existing business endpoints — **Done** (explicit public allow-list; remaining `/api/**` authenticated; fallback denied) | UC19: 4 | P0 |
 | **UC19-S4** | Logout — invalidate token; clear local credentials — **Done** | UC19: 8–10 | P1 |
 | **UC19-S5** | Mobile + web login/logout UX (loading/error) — **Done** | UC19: 11–12 | P1 |
 | **UC18-S1** | Register API — duplicates rejected; secure hash + validation — **Done** | UC18: 1–4, 6 | P2 |
@@ -793,29 +793,28 @@ Priority P0–P3 is a planning hint. Every story inherits §8 DoD.
 **Core MVP target:** UC1–UC13.  
 **Canonical sequence** (also used by mvp-epics build order).
 
-**Already shipped:** UC18-S1/S2; UC19-S1/S2/S4/S5 (JWT + clients); UC8–UC12 (family lifecycle + switch + manage); UC6-S1/S2; **UC4-S1–S4**; UC2 assess authz; UC3 wire UNSAFE; UC1 JWT + D3 ownership. Remaining auth: UC19-S3 close-out (`validate`) + AC3 polish.
+**Already shipped:** UC18-S1/S2; UC19-S1–S5 (JWT + clients, suspended-login 403, protected business APIs); UC8–UC12 (family lifecycle + switch + manage); UC6-S1/S2; **UC4-S1–S4**; UC2 assess authz; UC3 wire UNSAFE; UC1 JWT + D3 ownership.
 
 | Sprint | Focus | Stretch |
 | --- | --- | --- |
-| **Sprint 2** | UC19-S3 residual + UC1 polish; UC4/UC11/UC12/authz **done** | UC1-S2 severity |
+| **Sprint 2** | UC19 + UC1 polish; UC4/UC11/UC12/authz **done** | UC1-S2 severity |
 | **Sprint 3** | UC5-S1/S2; UC7-S1/S2 | UC6-S3 |
 
-**Remaining Core MVP (next):** UC5-S1/S2; UC7-S1/S2; UC1 severity/empty polish; UC19-S3 validate + AC3. UC13-S1…S3 are shipped.
+**Remaining Core MVP (next):** UC5-S1/S2; UC7-S1/S2; UC1 severity/empty polish. UC19 and UC13-S1…S3 are shipped.
 
 **Seeded-family exception:** Scan work may still use Tan/Lim/Wong seeds for demo
 data. New users may use standalone SELF profiles after UC18 registration + UC19
 login; UC8 create and UC11 family active-profile persistence begin only after an
 explicit Family Circle action.
 
-**Enhanced / Nice-to-Have:** UC14–UC24 after Core commitment. UC19 foundation is in place; finish S3 (`validate`) before treating all Core APIs as production-authz complete.
+**Enhanced / Nice-to-Have:** UC14–UC24 after Core commitment. UC19 authentication and business-API protection are complete.
 ---
 
 ## 6. Dependency map
 
 ```text
 UC18 (shipped) ──► UC8 empty-state demo (after UC19 login)
-UC19 (mostly shipped) ──► UC8 AC8 done; protects families + invitations + assess + history + profiles/restrictions
-UC19-S3 (residual) ──► protect validate (+ leftovers)
+UC19 (shipped) ──► UC8 AC8 done; protects all non-public business APIs including validate/assess/history
 UC8-S1…S4 (shipped) ──► UC9 (shipped) ──► UC10 (shipped; web inbox optional)
                        └──► UC9-S3 dependant (shipped; web roster manage → UC12)
 UC8-S3 (/me) ──► UC11 (shipped) ──► UC2 ──► UC3 ──► UC4 (shipped)
@@ -897,7 +896,7 @@ UC3 ──► UC20
 - `GET /api/scan/history/{profileId}` — **live** (JWT + ownership)
 - `GET /api/profiles/{profileId}/recommendations`
 - `GET /api/profiles/{profileId}/recommendation-history` — UC17
-- `POST /api/scan/validate` — **live** (still transitional public)
+- `POST /api/scan/validate` — **live** (JWT)
 - `POST /api/scan/assess` — **live** (JWT)
 - `POST /api/scan/assess-ocr` (or assess with ingredient text) — UC24
 

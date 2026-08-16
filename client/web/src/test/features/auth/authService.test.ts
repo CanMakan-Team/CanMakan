@@ -77,6 +77,23 @@ describe('authService', () => {
     expect(session.portal).toBe('SYSTEM')
   })
 
+  it('maps suspended-account login to 403 without creating a session payload', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse(403, { message: 'This account is suspended.' }),
+    )
+
+    await expect(
+      authService.loginWithCredentials({
+        email: 'inactive@example.com',
+        password: 'Password1!',
+        portal: 'FAMILY',
+      }),
+    ).rejects.toMatchObject({
+      status: 403,
+      message: 'This account is suspended.',
+    })
+  })
+
   it('posts registration body and returns safe account fields', async () => {
     vi.mocked(fetch).mockResolvedValue(
       jsonResponse(201, {
