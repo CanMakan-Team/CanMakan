@@ -10,7 +10,8 @@ data class VerdictDetail(
     val explanation: String? = null,
     val flags: List<ProductFlag> = emptyList(),
     val alternatives: List<AlternativeProduct> = emptyList(),
-    val alternativesError: String? = null
+    val alternativesError: String? = null,
+    val scanId: Long? = null // backing scans.id row; null if this verdict was never persisted
 ) {
     companion object {
         fun fromHistoryEntry(
@@ -30,7 +31,8 @@ data class VerdictDetail(
                 verdict = entry.verdict,
                 explanation = entry.aiExplanation,
                 flags = flags,
-                alternatives = alternatives
+                alternatives = alternatives,
+                scanId = entry.id
             )
         }
     }

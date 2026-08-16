@@ -789,6 +789,11 @@ input[readonly] {
   padding: 1.3rem 1.35rem 0.7rem;
 }
 
+.panel--table > .analytics-pagination {
+  margin-top: 0;
+  padding: 1rem 1.35rem;
+}
+
 .panel > p:not(.eyebrow) {
   color: var(--muted);
 }
@@ -1406,6 +1411,11 @@ input[readonly] {
   grid-template-columns: minmax(180px, 320px);
 }
 
+.filter-bar--feedback {
+  grid-template-columns: minmax(200px, 1.3fr) repeat(4, minmax(130px, 0.75fr)) auto;
+  align-items: end;
+}
+
 .trend-result-meta {
   margin: 0 0 1rem;
   color: var(--muted);
@@ -1426,7 +1436,8 @@ table {
   border-collapse: collapse;
 }
 
-caption {
+caption,
+.sr-only {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1474,6 +1485,24 @@ caption {
 .restriction-matrix tbody tr:last-child th,
 .restriction-matrix tbody tr:last-child td {
   border-bottom: 0;
+}
+
+.table-select {
+  width: auto;
+  min-height: 2.15rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.78rem;
+}
+
+.data-table th.feedback-type-column,
+.data-table td.feedback-type-column {
+  text-align: center;
+}
+
+.feedback-type-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .clickable-row {
@@ -2385,6 +2414,7 @@ caption {
   .future-grid,
   .filter-bar,
   .filter-bar--system,
+  .filter-bar--feedback,
   .form-grid--two {
     grid-template-columns: 1fr;
   }
