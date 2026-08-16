@@ -6,12 +6,15 @@ import { SessionContext, type SessionContextValue } from '../../../features/auth
 import { pendingRegistrationOnboardingStore } from '../../../features/auth/pendingRegistrationOnboardingStore'
 import { SelfProfileSetupPage } from '../../../features/family/pages/SelfProfileSetupPage'
 import { selfProfileApiService } from '../../../features/family/api/selfProfileApiService'
+import { ApiError } from '../../../shared/api/apiErrors'
 import { appUserSession } from '../../testUtils'
 
 vi.mock('../../../features/family/api/selfProfileApiService', () => ({
   selfProfileApiService: {
     getCatalog: vi.fn(),
     createSelfProfile: vi.fn(),
+    getSelfProfile: vi.fn(),
+    updateSelfProfile: vi.fn(),
   },
 }))
 
@@ -61,10 +64,17 @@ describe('SelfProfileSetupPage', () => {
     })
     vi.mocked(selfProfileApiService.getCatalog).mockReset()
     vi.mocked(selfProfileApiService.createSelfProfile).mockReset()
+    vi.mocked(selfProfileApiService.getSelfProfile).mockReset()
+    vi.mocked(selfProfileApiService.updateSelfProfile).mockReset()
     vi.mocked(selfProfileApiService.getCatalog).mockResolvedValue([
       { id: 1, code: 'HALAL', displayName: 'Halal', category: 'RELIGIOUS' },
       { id: 2, code: 'PEANUT', displayName: 'Peanut', category: 'ALLERGEN' },
     ])
+    // Default: no SELF profile exists yet, matching a brand-new account.
+    // Individual tests override this to simulate a returning user.
+    vi.mocked(selfProfileApiService.getSelfProfile).mockRejectedValue(
+      new ApiError('No SELF profile exists for this account yet.', 404),
+    )
   })
 
   it('shows the pending Profile Name and makes setup explicitly optional', async () => {
@@ -165,5 +175,129 @@ describe('SelfProfileSetupPage', () => {
 
     expect(screen.getByText('Invitation continuation')).toBeInTheDocument()
     expect(selfProfileApiService.createSelfProfile).not.toHaveBeenCalled()
+  })
+
+  it('pre-populates Profile Name and existing selections for a returning user', async () => {
+    vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
+      profileId: 55,
+      profileName: 'Existing Name',
+      relationship: 'SELF',
+      active: true,
+      restrictions: { 2: 'STRICT_AVOID' },
+    })
+    renderPageWithoutPending()
+
+    await screen.findByLabelText('Peanut')
+
+    expect(screen.getByLabelText('Profile Name')).toHaveValue('Existing Name')
+    expect(screen.getByLabelText('Peanut')).toBeChecked()
+    expect(screen.getByLabelText('Halal')).not.toBeChecked()
+  })
+
+  it('saves changes to an existing SELF profile through updateSelfProfile, not createSelfProfile', async () => {
+    const user = userEvent.setup()
+    vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
+      profileId: 55,
+      profileName: 'Existing Name',
+      relationship: 'SELF',
+      active: true,
+      restrictions: { 2: 'STRICT_AVOID' },
+    })
+    vi.mocked(selfProfileApiService.updateSelfProfile).mockResolvedValue({
+      profileId: 55,
+      profileName: 'Existing Name',
+      relationship: 'SELF',
+      active: true,
+      restrictions: { 1: 'STRICT_AVOID', 2: 'STRICT_AVOID' },
+    })
+    renderPageWithoutPending()
+
+    await screen.findByLabelText('Peanut')
+    expect(screen.getByLabelText('Peanut')).toBeChecked()
+
+    await user.click(screen.getByLabelText('Halal'))
+    await user.click(screen.getByRole('button', { name: 'Save Profile' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Your dietary profile has been saved successfully.',
+      ),
+    )
+    expect(selfProfileApiService.updateSelfProfile).toHaveBeenCalledWith(
+      'Existing Name',
+      { 1: 'STRICT_AVOID', 2: 'STRICT_AVOID' },
+    )
+    expect(selfProfileApiService.createSelfProfile).not.toHaveBeenCalled()
+    // Stays on the Dietary Profile page instead of redirecting to Personal Home.
+    expect(screen.queryByText('Personal destination')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Profile Name')).toBeInTheDocument()
+  })
+
+  it('normalizes a prefilled restriction saved with an unsupported severity to STRICT_AVOID', async () => {
+    // This page only offers an on/off toggle, so it can only submit STRICT_AVOID
+    // or INTOLERANCE. A restriction that was saved elsewhere (e.g. by a family
+    // admin) with PREFERENCE severity must still be resubmittable from here
+    // without the backend rejecting it for a severity this form can't represent.
+    const user = userEvent.setup()
+    vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
+      profileId: 55,
+      profileName: 'Existing Name',
+      relationship: 'SELF',
+      active: true,
+      restrictions: { 2: 'PREFERENCE' } as unknown as Record<
+        number,
+        'STRICT_AVOID' | 'INTOLERANCE'
+      >,
+    })
+    vi.mocked(selfProfileApiService.updateSelfProfile).mockResolvedValue({
+      profileId: 55,
+      profileName: 'Existing Name',
+      relationship: 'SELF',
+      active: true,
+      restrictions: { 2: 'STRICT_AVOID' },
+    })
+    renderPageWithoutPending()
+
+    await screen.findByLabelText('Peanut')
+    expect(screen.getByLabelText('Peanut')).toBeChecked()
+
+    await user.click(screen.getByRole('button', { name: 'Save Profile' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Your dietary profile has been saved successfully.',
+      ),
+    )
+    expect(selfProfileApiService.updateSelfProfile).toHaveBeenCalledWith(
+      'Existing Name',
+      { 2: 'STRICT_AVOID' },
+    )
+  })
+
+  it('clears the success message once the user starts editing again', async () => {
+    const user = userEvent.setup()
+    vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
+      profileId: 55,
+      profileName: 'Existing Name',
+      relationship: 'SELF',
+      active: true,
+      restrictions: { 2: 'STRICT_AVOID' },
+    })
+    vi.mocked(selfProfileApiService.updateSelfProfile).mockResolvedValue({
+      profileId: 55,
+      profileName: 'Existing Name',
+      relationship: 'SELF',
+      active: true,
+      restrictions: { 2: 'STRICT_AVOID' },
+    })
+    renderPageWithoutPending()
+
+    await screen.findByLabelText('Peanut')
+    await user.click(screen.getByRole('button', { name: 'Save Profile' }))
+    await waitFor(() => expect(screen.getByRole('status')).toBeInTheDocument())
+
+    await user.click(screen.getByLabelText('Halal'))
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })

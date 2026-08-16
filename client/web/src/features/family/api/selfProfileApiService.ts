@@ -21,6 +21,7 @@ export interface SelfProfileResponse {
 export const selfProfileEndpoints = {
   catalog: '/api/restrictions',
   create: '/api/profiles/me',
+  me: '/api/profiles/me',
 } as const
 
 export const selfProfileApiService = {
@@ -33,6 +34,22 @@ export const selfProfileApiService = {
   ) =>
     apiRequest<SelfProfileResponse>(selfProfileEndpoints.create, {
       method: 'POST',
+      body: JSON.stringify({ profileName, restrictions }),
+      retryAuthentication: false,
+    }),
+
+  // Fetches the caller's existing SELF profile so an edit form can be
+  // pre-populated. Callers should expect a 404 ApiError when no SELF
+  // profile has been created yet.
+  getSelfProfile: () =>
+    apiRequest<SelfProfileResponse>(selfProfileEndpoints.me),
+
+  updateSelfProfile: (
+    profileName: string,
+    restrictions: Record<number, ProfileRestrictionSeverity>,
+  ) =>
+    apiRequest<SelfProfileResponse>(selfProfileEndpoints.me, {
+      method: 'PUT',
       body: JSON.stringify({ profileName, restrictions }),
       retryAuthentication: false,
     }),

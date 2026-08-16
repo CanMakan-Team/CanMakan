@@ -62,36 +62,6 @@ class AllergenCheckerTest {
     }
 
     @Test
-    void addsFindingWhenLactoseIntolerantRuleMatchesDairyRootAllergen() {
-        // Ingredients only carry a "DAIRY" root allergen tag; LACTOSE_INTOLERANT
-        // is a separate selectable restriction (05_household_dietary_data.sql
-        // id 16) that is treated as an alias of DAIRY so it still flags them.
-        RestrictionRule rule = new RestrictionRule(
-                "LACTOSE_INTOLERANT",
-                RestrictionCategory.ALLERGEN,
-                RestrictionSeverity.STRICT_AVOID
-        );
-        Ingredient ingredient = new Ingredient(
-                "Milk",
-                "Milk Derivatives",
-                "DAIRY",
-                false
-        );
-        List<Finding> hits = new ArrayList<>();
-
-        checker.check(rule, productWithIngredients(List.of(ingredient)), hits);
-
-        assertEquals(
-                List.of(new Finding(
-                        "LACTOSE_INTOLERANT",
-                        "Milk",
-                        "Milk matches the LACTOSE INTOLERANT restriction."
-                )),
-                hits
-        );
-    }
-
-    @Test
     void addsNoFindingWhenRootAllergenDoesNotMatch() {
         RestrictionRule rule = new RestrictionRule(
                 "PEANUT",

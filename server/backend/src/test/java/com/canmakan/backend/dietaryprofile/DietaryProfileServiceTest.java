@@ -14,6 +14,7 @@ import com.canmakan.backend.dietaryprofile.dto.CreateSelfProfileRequest;
 import com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto;
 import com.canmakan.backend.dietaryprofile.dto.SelfProfileResponse;
 import com.canmakan.backend.dietaryprofile.exception.SelfProfileAlreadyExistsException;
+import com.canmakan.backend.dietaryprofile.exception.SelfProfileNotFoundException;
 import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
 import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
 import com.canmakan.backend.dietaryprofile.model.ProfileRestriction;
@@ -249,6 +250,97 @@ class DietaryProfileServiceTest {
         );
 
         verify(userAccountRepository, never()).findById(any());
+        verify(dietaryProfileRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("UC1 getSelfProfile returns the caller's existing profile and selections")
+    void getSelfProfileReturnsExistingProfileWithRestrictions() {
+        DietaryProfile profile = new DietaryProfile();
+        profile.setId(77L);
+        profile.setProfileName("Person Name");
+        profile.setRelationship("SELF");
+        profile.setActive(true);
+
+        ProfileRestriction restriction = new ProfileRestriction();
+        restriction.setId(new ProfileRestrictionId(77L, 2L));
+        restriction.setDietaryProfile(profile);
+        restriction.setDietaryRestriction(createRestriction(2L));
+        restriction.setSeverityLevel("STRICT_AVOID");
+        profile.setProfileRestrictions(new HashSet<>(Set.of(restriction)));
+
+        when(dietaryProfileRepository.findByLinkedUser_Id(14L)).thenReturn(Optional.of(profile));
+
+        SelfProfileResponse response = dietaryProfileService.getSelfProfile(14L);
+
+        assertEquals(77L, response.profileId());
+        assertEquals("Person Name", response.profileName());
+        assertEquals("SELF", response.relationship());
+        assertTrue(response.active());
+        assertEquals(Map.of(2L, "STRICT_AVOID"), response.restrictions());
+    }
+
+    @Test
+    @DisplayName("UC1 getSelfProfile throws when the caller has no linked SELF profile yet")
+    void getSelfProfileThrowsWhenNoneExists() {
+        when(dietaryProfileRepository.findByLinkedUser_Id(14L)).thenReturn(Optional.empty());
+
+        assertThrows(
+            SelfProfileNotFoundException.class,
+            () -> dietaryProfileService.getSelfProfile(14L)
+        );
+    }
+
+    @Test
+    @DisplayName("UC1 updateSelfProfile renames the profile and replaces its restrictions")
+    void updateSelfProfileUpdatesNameAndReplacesRestrictions() {
+        DietaryProfile profile = new DietaryProfile();
+        profile.setId(77L);
+        profile.setProfileName("Old Name");
+        profile.setRelationship("SELF");
+        profile.setActive(true);
+
+        ProfileRestriction existingRestriction = new ProfileRestriction();
+        existingRestriction.setId(new ProfileRestrictionId(77L, 3L));
+        existingRestriction.setDietaryProfile(profile);
+        existingRestriction.setDietaryRestriction(createRestriction(3L));
+        existingRestriction.setSeverityLevel("STRICT_AVOID");
+        profile.setProfileRestrictions(new HashSet<>(Set.of(existingRestriction)));
+
+        when(dietaryProfileRepository.findByLinkedUser_Id(14L)).thenReturn(Optional.of(profile));
+        when(dietaryRestrictionRepository.findById(2L)).thenReturn(Optional.of(createRestriction(2L)));
+        when(dietaryProfileRepository.saveAndFlush(profile)).thenReturn(profile);
+
+        SelfProfileResponse response = dietaryProfileService.updateSelfProfile(
+            14L,
+            new CreateSelfProfileRequest("New Name", Map.of(2L, "intolerance"))
+        );
+
+        assertEquals("New Name", profile.getProfileName());
+        assertEquals(1, profile.getProfileRestrictions().size());
+        assertEquals(
+            2L,
+            profile.getProfileRestrictions().iterator().next().getDietaryRestriction().getId()
+        );
+        assertEquals(77L, response.profileId());
+        assertEquals("New Name", response.profileName());
+        assertEquals(Map.of(2L, "INTOLERANCE"), response.restrictions());
+        verify(dietaryProfileRepository).saveAndFlush(profile);
+    }
+
+    @Test
+    @DisplayName("UC1 updateSelfProfile throws when the caller has no linked SELF profile yet")
+    void updateSelfProfileThrowsWhenNoneExists() {
+        when(dietaryProfileRepository.findByLinkedUser_Id(14L)).thenReturn(Optional.empty());
+
+        assertThrows(
+            SelfProfileNotFoundException.class,
+            () -> dietaryProfileService.updateSelfProfile(
+                14L,
+                new CreateSelfProfileRequest("New Name", Map.of())
+            )
+        );
+
         verify(dietaryProfileRepository, never()).saveAndFlush(any());
     }
 

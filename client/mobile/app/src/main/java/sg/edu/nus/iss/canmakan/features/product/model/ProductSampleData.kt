@@ -96,7 +96,7 @@ object ProductSampleData {
 //        DietaryOption("Dairy-Free"),
 //        DietaryOption("Egg Allergy"),
 //        DietaryOption("Gluten Allergy"),
-//        DietaryOption("Lactose Intolerant"),
+//        DietaryOption("Lactose Intolerance"),
 //        DietaryOption("Peanut Allergy"),
 //        DietaryOption("Sesame Allergy"),
 //        DietaryOption("Tree Nut Allergy")

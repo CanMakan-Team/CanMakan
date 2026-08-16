@@ -58,7 +58,7 @@ describe('FamilyRestrictionSummaryPage', () => {
           isActive: true,
           restrictions: [
             { code: 'PEANUT', displayName: 'Peanut', severity: 'STRICT_AVOID' },
-            { code: 'LACTOSE_INTOLERANT', displayName: 'Lactose Intolerant', severity: 'INTOLERANCE' }
+            { code: 'LACTOSE_INTOLERANT', displayName: 'Lactose Intolerance', severity: 'INTOLERANCE' }
           ]
         },
         {
