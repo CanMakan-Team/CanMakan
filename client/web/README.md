@@ -157,6 +157,8 @@ npm run build
 ```
 
 `npm run verify` runs typecheck, ESLint, and the Vitest suite. `npm run build`
+
+UC14 verdict-trend coverage lives in `src/test/features/analytics/VerdictTrendsPage.test.tsx` and `VerdictTrendChart.test.tsx`. CI uploads Vitest lcov to SonarCloud (`canmakan-web`); keep those tests in the same PR as page or chart changes so new-code coverage stays honest.
 also produces the Vite production bundle.
 
 ## Sprint 1 demo flow

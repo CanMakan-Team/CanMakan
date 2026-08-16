@@ -22,6 +22,7 @@
         <spring-ai.version>2.0.0</spring-ai.version>
         <jacoco.version>0.8.13</jacoco.version>
         <sonar.projectKey>canmakan-backend</sonar.projectKey>
+        <sonar.projectName>canmakan-backend</sonar.projectName>
         <sonar.organization>canmakan-team</sonar.organization>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
     </properties>
