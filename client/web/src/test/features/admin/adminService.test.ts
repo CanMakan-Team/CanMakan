@@ -157,3 +157,74 @@ describe('adminService UC13 live account calls', () => {
     )
   })
 })
+
+const scanFeedbackListResponse = {
+  summary: { totalFeedback: 2, negativePercentage: 50, feedbackPerDay: 0.07, negativeFeedbackPerDay: 0.03 },
+  items: [],
+  pageInfo: { page: 0, pageSize: 30, totalItems: 2, totalPages: 1 },
+}
+
+describe('adminService UC20 scan feedback calls', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+    configureApiAuthBridge({
+      getAccessToken: () => 'admin-access-token',
+      refreshAccessToken: async () => null,
+      invalidate: () => undefined,
+    })
+  })
+
+  it('GETs /api/admin/scan-feedback with no filters', async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, scanFeedbackListResponse))
+
+    await adminService.getScanFeedback()
+
+    expect(lastRequest().url).toBe(`${apiBaseUrl}${adminEndpoints.scanFeedback}`)
+  })
+
+  it('trims the keyword and combines every filter into the query string', async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, scanFeedbackListResponse))
+
+    await adminService.getScanFeedback({
+      keyword: '  biryani  ',
+      restrictionCode: 'HALAL',
+      periodDays: 14,
+      isPositive: false,
+      resolved: true,
+      page: 1,
+      pageSize: 30,
+    })
+
+    expect(lastRequest().url).toBe(
+      `${apiBaseUrl}${adminEndpoints.scanFeedback}?keyword=biryani&restrictionCode=HALAL&periodDays=14&isPositive=false&resolved=true&page=1&pageSize=30`,
+    )
+  })
+
+  it('omits a blank keyword instead of sending an empty parameter', async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, scanFeedbackListResponse))
+
+    await adminService.getScanFeedback({ keyword: '   ' })
+
+    expect(lastRequest().url).toBe(`${apiBaseUrl}${adminEndpoints.scanFeedback}`)
+  })
+
+  it('sends page=0 explicitly rather than treating it as absent', async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, scanFeedbackListResponse))
+
+    await adminService.getScanFeedback({ page: 0, pageSize: 30 })
+
+    expect(lastRequest().url).toBe(
+      `${apiBaseUrl}${adminEndpoints.scanFeedback}?page=0&pageSize=30`,
+    )
+  })
+
+  it('PATCHes the resolved endpoint with the new value', async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, { id: 5, resolved: true }))
+
+    await adminService.updateScanFeedbackResolved(5, true)
+
+    expect(lastRequest().url).toBe(`${apiBaseUrl}${adminEndpoints.scanFeedback}/5/resolved`)
+    expect(lastRequest().init?.method).toBe('PATCH')
+    expect(JSON.parse(String(lastRequest().init?.body))).toEqual({ resolved: true })
+  })
+})

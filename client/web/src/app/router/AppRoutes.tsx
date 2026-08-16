@@ -13,6 +13,7 @@ import { FamilyRestrictionSummaryPage } from '../../features/family/pages/Family
 import { FamilyScanHistoryPage } from '../../features/family/pages/FamilyScanHistoryPage'
 import { ConsumerTrendsPage } from '../../features/analytics/ConsumerTrendsPage'
 import { VerdictTrendsPage } from '../../features/analytics/VerdictTrendsPage'
+import { AdminScanFeedbackPage } from '../../features/admin/AdminScanFeedbackPage'
 import { FutureFeaturesPage } from '../../features/admin/FutureFeaturesPage'
 import { SystemDashboardPage } from '../../features/admin/SystemDashboardPage'
 import { UserAccessPage } from '../../features/admin/UserAccessPage'
@@ -58,6 +59,7 @@ export function AppRoutes() {
           <Route index element={<SystemDashboardPage />} />
           <Route path="trends" element={<ConsumerTrendsPage />} />
           <Route path="users" element={<UserAccessPage />} />
+          <Route path="feedback" element={<AdminScanFeedbackPage />} />
           <Route path="future" element={<FutureFeaturesPage />} />
         </Route>
       </Route>
