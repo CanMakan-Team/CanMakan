@@ -49,6 +49,23 @@ data class RecommendationResponse(
     val alternatives: List<AlternativeProductDto> = emptyList()
 )
 
+// UC20: thumbs up/down feedback on a scan verdict. isPositive is required;
+// userComments is optional free text and only ever sent alongside a thumbs
+// down, but the field stays nullable either way.
+data class ScanFeedbackRequest(
+    val isPositive: Boolean,
+    val userComments: String?
+)
+
+data class ScanFeedbackResponse(
+    val id: Long,
+    val scanId: Long,
+    val isPositive: Boolean,
+    val userComments: String?,
+    val resolved: Boolean,
+    val createdAt: String?
+)
+
 interface CanMakanApiService {
     @POST("/api/scan/validate")
     suspend fun validateBarcode(@Body request: ScanRequest): Response<ValidationResponse>
@@ -64,4 +81,10 @@ interface CanMakanApiService {
         @Query("sourceBarcode") sourceBarcode: String,
         @Query("scanId") scanId: Long? = null
     ): Response<RecommendationResponse>
+
+    @POST("/api/scan/{scanId}/feedback")
+    suspend fun submitScanFeedback(
+        @Path("scanId") scanId: Long,
+        @Body request: ScanFeedbackRequest
+    ): Response<ScanFeedbackResponse>
 }

@@ -52,12 +52,14 @@ class UserAccountAdminControllerTest {
     void setUp() {
         ConsumerTrendsService consumerTrendsService = mock(ConsumerTrendsService.class);
         userAccountManagementService = mock(UserAccountManagementService.class);
+        AdminScanFeedbackService adminScanFeedbackService = mock(AdminScanFeedbackService.class);
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders.standaloneSetup(new AdminController(
                         consumerTrendsService,
                         userAccountManagementService,
                         mock(UsageStatisticsService.class)
+                        adminScanFeedbackService
                 ))
                 .setControllerAdvice(new AdminExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())

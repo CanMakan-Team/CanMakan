@@ -23,6 +23,7 @@ DROP TABLE IF EXISTS recommendation_ai_logs;
 DROP TABLE IF EXISTS recommendation_logs;
 DROP TABLE IF EXISTS ai_execution_logs;
 DROP TABLE IF EXISTS ocr_scan_results;
+DROP TABLE IF EXISTS scans_feedback;
 DROP TABLE IF EXISTS scans;
 DROP TABLE IF EXISTS product_ingredients;
 DROP TABLE IF EXISTS products;
@@ -331,6 +332,21 @@ CREATE TABLE scans (
     CONSTRAINT fk_scans_product
         FOREIGN KEY (barcode) REFERENCES products(barcode)
         ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Thumbs up/down feedback on a scan verdict (UC20 report incorrect product
+-- info). is_positive distinguishes a thumbs up from a thumbs down; a thumbs
+-- up never has elaboration text, so user_comments stays nullable for both.
+CREATE TABLE scans_feedback (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    scan_id BIGINT NOT NULL,
+    is_positive BOOLEAN NOT NULL,
+    user_comments TEXT NULL,
+    resolved BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_scans_feedback_scan
+        FOREIGN KEY (scan_id) REFERENCES scans(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE ocr_scan_results (
