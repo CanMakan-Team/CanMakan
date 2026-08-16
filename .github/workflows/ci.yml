@@ -478,14 +478,46 @@ jobs:
           echo "Mobile Android Stack:   $MOBILE_RESULT"
           echo "=============================="
 
-          if [[ "$GITLEAKS_RESULT" == "failure" || "$GITLEAKS_RESULT" == "cancelled" || \
-                "$SAST_RESULT" == "failure" || "$SAST_RESULT" == "cancelled" || \
-                "$SCA_RESULT" == "failure" || "$SCA_RESULT" == "cancelled" || \
-                "$CONFIG_RESULT" == "failure" || "$CONFIG_RESULT" == "cancelled" || \
-                "$BACKEND_RESULT" == "failure" || "$BACKEND_RESULT" == "cancelled" || \
-                "$MACHINE_LEARNING_RESULT" == "failure" || "$MACHINE_LEARNING_RESULT" == "cancelled" || \
-                "$WEB_RESULT" == "failure" || "$WEB_RESULT" == "cancelled" || \
-                "$MOBILE_RESULT" == "failure" || "$MOBILE_RESULT" == "cancelled" ]]; then
+          FAILED=0
+
+          # Security scans always run and must pass.
+          require_success() {
+            local label="$1"
+            local result="$2"
+            if [[ "$result" != "success" ]]; then
+              echo "FAIL: $label (expected success, got $result)"
+              FAILED=1
+            fi
+          }
+
+          # Path-filtered stack jobs may be skipped when no files changed in that area.
+          require_success_or_skipped() {
+            local label="$1"
+            local result="$2"
+            case "$result" in
+              success)
+                echo "OK: $label passed"
+                ;;
+              skipped)
+                echo "OK: $label skipped (no matching path changes)"
+                ;;
+              *)
+                echo "FAIL: $label (expected success or skipped, got $result)"
+                FAILED=1
+                ;;
+            esac
+          }
+
+          require_success "Gitleaks Secret Scan" "$GITLEAKS_RESULT"
+          require_success "SAST Security Analysis" "$SAST_RESULT"
+          require_success "SCA Dependency Scan" "$SCA_RESULT"
+          require_success "Workflow Config Scan" "$CONFIG_RESULT"
+          require_success_or_skipped "Backend Monorepo Stack" "$BACKEND_RESULT"
+          require_success_or_skipped "Machine Learning Stack" "$MACHINE_LEARNING_RESULT"
+          require_success_or_skipped "Web Frontend Stack" "$WEB_RESULT"
+          require_success_or_skipped "Mobile Android Stack" "$MOBILE_RESULT"
+
+          if [[ "$FAILED" -ne 0 ]]; then
             echo "One or more required CI jobs failed or were cancelled."
             exit 1
           fi
