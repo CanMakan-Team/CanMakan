@@ -22,3 +22,40 @@ export interface UpdateAccountStatusInput {
 export interface UpdateAccountStatusResponse extends AdminUser {
   changed: boolean
 }
+
+// UC20 admin review: thumbs up/down feedback reported against a scan verdict.
+export interface AdminScanFeedbackItem {
+  id: number
+  scanId: number
+  userEmail: string | null
+  productName: string
+  isPositive: boolean
+  userComments: string | null
+  resolved: boolean
+  createdAt: string
+}
+
+export interface AdminScanFeedbackSummary {
+  totalFeedback: number
+  negativePercentage: number
+  feedbackPerDay: number
+  negativeFeedbackPerDay: number
+}
+
+export interface AdminScanFeedbackListResponse {
+  summary: AdminScanFeedbackSummary
+  items: AdminScanFeedbackItem[]
+}
+
+export interface AdminScanFeedbackFilters {
+  keyword?: string
+  restrictionCode?: string
+  periodDays?: number
+  isPositive?: boolean
+  resolved?: boolean
+}
+
+export interface UpdateScanFeedbackResolvedResponse {
+  id: number
+  resolved: boolean
+}
