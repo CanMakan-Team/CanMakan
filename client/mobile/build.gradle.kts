@@ -34,7 +34,8 @@ sonar {
         property(
             "sonar.coverage.exclusions",
             listOf(
-                "**/*Screen*.kt",
+                "**/*Screen.kt",
+                "**/*Screens.kt",
                 "**/*Sheet.kt",
                 "**/*NavGraph.kt",
                 "**/CanMakanApp.kt",
