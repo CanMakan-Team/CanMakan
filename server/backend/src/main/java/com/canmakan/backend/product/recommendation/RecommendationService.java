@@ -157,8 +157,12 @@ public class RecommendationService {
 
 	    if (mlRecommendationEnabled && pythonTfidfRankClient.isConfigured()) {
 	        try {
-	            return pythonTfidfRankClient.rank(
+	            List<AlternativeProductRanker.RankedAlternative> pythonRanked = pythonTfidfRankClient.rank(
 	                    source, acceptableCandidates, rules, priorSafe, substituteProfile);
+	            if (!pythonRanked.isEmpty()) {
+	                return pythonRanked;
+	            }
+	            log.warn("Python TF-IDF ranker returned no ranked candidates; falling back to Java ranker");
 	        } catch (PythonTfidfRankClientException exception) {
 	            log.warn("Python TF-IDF ranker unavailable; falling back to Java ranker: {}", exception.getMessage());
 	        }

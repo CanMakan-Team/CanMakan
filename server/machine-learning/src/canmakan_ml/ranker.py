@@ -14,7 +14,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from canmakan_ml.domain import ProfileHints, score_candidate
 from canmakan_ml.features import (
     apply_query_downweight,
-    field_text,
     product_matrix_inputs,
 )
 

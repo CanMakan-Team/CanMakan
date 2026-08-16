@@ -1,6 +1,5 @@
 package com.canmakan.backend.product.recommendation;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import java.math.BigDecimal;
@@ -16,6 +15,6 @@ record PythonTfidfRankResponse(List<PythonTfidfRankedProduct> ranked) {
     record PythonTfidfRankedProduct(
             String barcode,
             BigDecimal score,
-            @JsonProperty("match_reason") String matchReason) {
+            String matchReason) {
     }
 }
