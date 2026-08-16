@@ -596,9 +596,9 @@ class CanMakanNavGraphViewModel @Inject constructor(
 
     companion object {
         const val NO_FAMILY_MESSAGE =
-            "You're not in a family circle yet. Create one here, or use the web Family Portal."
+            "You're not in a family circle yet. Create one here."
 
         const val NO_SESSION_FAMILY_MESSAGE =
-            "Sign in to create a family circle (or set one up on the web Family Portal)."
+            "Sign in to create a family circle."
     }
 }

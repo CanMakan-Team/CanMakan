@@ -240,6 +240,11 @@ extensions.configure<ApplicationExtension> {
             it.useJUnitPlatform()
         }
     }
+
+    lint {
+        xmlReport = true
+        xmlOutput = file("build/reports/lint-results-debug.xml")
+    }
 }
 
 kotlin {
