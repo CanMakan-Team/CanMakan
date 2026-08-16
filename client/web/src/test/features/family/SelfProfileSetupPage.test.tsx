@@ -177,6 +177,44 @@ describe('SelfProfileSetupPage', () => {
     expect(selfProfileApiService.createSelfProfile).not.toHaveBeenCalled()
   })
 
+  it('resolves an auto-provisioned placeholder profile from joining a family: shows the typed name, saves via update, and finishes onboarding', async () => {
+    // Accepting a family invitation auto-provisions a placeholder SELF profile
+    // server-side (an email-derived name, no restrictions) before this page is
+    // ever reached. The pending onboarding record still carries the name the
+    // user actually typed at registration.
+    const user = userEvent.setup()
+    vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
+      profileId: 91,
+      profileName: 'person', // placeholder derived from the email local part
+      relationship: 'SELF',
+      active: true,
+      restrictions: {},
+    })
+    vi.mocked(selfProfileApiService.updateSelfProfile).mockResolvedValue({
+      profileId: 91,
+      profileName: 'Person Name',
+      relationship: 'SELF',
+      active: true,
+      restrictions: { 2: 'STRICT_AVOID' },
+    })
+    renderPage()
+    await screen.findByLabelText('Peanut')
+
+    // The typed onboarding name wins over the persisted placeholder.
+    expect(screen.getByLabelText('Profile Name')).toHaveValue('Person Name')
+
+    await user.click(screen.getByLabelText('Peanut'))
+    await user.click(screen.getByRole('button', { name: 'Save Profile' }))
+
+    await waitFor(() => expect(screen.getByText('Personal destination')).toBeInTheDocument())
+    expect(selfProfileApiService.updateSelfProfile).toHaveBeenCalledWith(
+      'Person Name',
+      { 2: 'STRICT_AVOID' },
+    )
+    expect(selfProfileApiService.createSelfProfile).not.toHaveBeenCalled()
+    expect(pendingRegistrationOnboardingStore.peekForEmail('person@example.com')).toBeNull()
+  })
+
   it('pre-populates Profile Name and existing selections for a returning user', async () => {
     vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
       profileId: 55,

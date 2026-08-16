@@ -43,18 +43,18 @@ export function SelfProfileSetupPage() {
     if (!sessionEmail) return
     let active = true
 
-    // A brand-new registrant (tracked via `pending`) cannot have a SELF profile
-    // yet, so skip the lookup in that case. Otherwise (e.g. arriving from the
-    // sidebar "Dietary Profile" link) fetch the existing profile, if any, to
-    // pre-populate the form; a 404 just means none has been created yet.
-    const fetchExistingProfile: Promise<SelfProfileResponse | null> = pending
-      ? Promise.resolve(null)
-      : selfProfileApiService.getSelfProfile().catch((caughtError: unknown) => {
-          if (caughtError instanceof ApiError && caughtError.status === 404) {
-            return null
-          }
-          throw caughtError
-        })
+    // Joining or creating a family auto-provisions a placeholder SELF profile
+    // row server-side (see FamilyService.applyInvitationClaim / createFamily),
+    // so even a brand-new registrant (tracked via `pending`) can already have
+    // one by the time they reach this page. Always look it up; a 404 just
+    // means none has been created yet.
+    const fetchExistingProfile: Promise<SelfProfileResponse | null> =
+      selfProfileApiService.getSelfProfile().catch((caughtError: unknown) => {
+        if (caughtError instanceof ApiError && caughtError.status === 404) {
+          return null
+        }
+        throw caughtError
+      })
 
     Promise.all([selfProfileApiService.getCatalog(), fetchExistingProfile])
       .then(([options, existingProfile]) => {
@@ -62,7 +62,11 @@ export function SelfProfileSetupPage() {
         setCatalog(options)
         if (existingProfile) {
           setExistingProfileId(existingProfile.profileId)
-          setProfileName(existingProfile.profileName)
+          // Prefer the name the user typed at registration over whatever is
+          // currently persisted: on a fresh invite/registration flow the
+          // persisted value is just an auto-generated placeholder (the
+          // email's local part) until this page's first save overwrites it.
+          setProfileName(pending?.profileName || existingProfile.profileName)
           setSelected(
             Object.entries(existingProfile.restrictions).reduce<
               Record<number, ProfileRestrictionSeverity>
@@ -159,20 +163,28 @@ export function SelfProfileSetupPage() {
     setSaving(true)
     setError('')
     setSuccessMessage('')
+    // This is the user's first-ever save whenever they're mid-onboarding
+    // (`pending` set) or no profile existed before this save — that covers a
+    // plain first-time setup as well as filling in an auto-provisioned
+    // placeholder from joining/creating a family (which already has an
+    // `existingProfileId`, but was never something the user actually saved).
+    // Only an established profile edited outside onboarding (e.g. from the
+    // sidebar) should keep the user on this page with an in-place confirmation.
+    const isFirstEverSave = Boolean(pending) || existingProfileId == null
     try {
       if (existingProfileId != null) {
-        // Editing an already-saved profile (e.g. from the sidebar): confirm
-        // success in place and let the user decide when to leave the page,
-        // rather than redirecting them away like the first-time setup flow does.
         await selfProfileApiService.updateSelfProfile(normalizedProfileName, selected)
-        setSuccessMessage('Your dietary profile has been saved successfully.')
       } else {
         await selfProfileApiService.createSelfProfile(normalizedProfileName, selected)
+      }
+      if (isFirstEverSave) {
         pendingRegistrationOnboardingStore.clear()
         navigate(finishPath(pending?.invitationToken), {
           replace: true,
           state: { profileSetup: 'created' },
         })
+      } else {
+        setSuccessMessage('Your dietary profile has been saved successfully.')
       }
     } catch (caughtError) {
       setError(getErrorMessage(caughtError))
