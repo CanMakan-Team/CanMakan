@@ -19,6 +19,7 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -50,21 +51,27 @@ public class SecurityConfig {
         provider.setPasswordEncoder(passwordEncoder);
         // Validate the secret before exposing the AC3 suspended-account distinction.
         provider.setPreAuthenticationChecks(user -> { });
-        provider.setPostAuthenticationChecks(user -> {
-            if (!user.isAccountNonLocked()) {
-                throw new LockedException("Account is unavailable");
-            }
-            if (!user.isEnabled()) {
-                throw new DisabledException("Account is unavailable");
-            }
-            if (!user.isAccountNonExpired()) {
-                throw new AccountExpiredException("Account is unavailable");
-            }
-            if (!user.isCredentialsNonExpired()) {
-                throw new CredentialsExpiredException("Account is unavailable");
-            }
-        });
+        provider.setPostAuthenticationChecks(SecurityConfig::rejectUnavailableAccount);
         return provider;
+    }
+
+    /**
+     * Runs after the password matches. Locked, disabled, expired-account and expired-credential
+     * users all fail here so a wrong password still looks like generic bad credentials.
+     */
+    static void rejectUnavailableAccount(UserDetails user) {
+        if (!user.isAccountNonLocked()) {
+            throw new LockedException("Account is unavailable");
+        }
+        if (!user.isEnabled()) {
+            throw new DisabledException("Account is unavailable");
+        }
+        if (!user.isAccountNonExpired()) {
+            throw new AccountExpiredException("Account is unavailable");
+        }
+        if (!user.isCredentialsNonExpired()) {
+            throw new CredentialsExpiredException("Account is unavailable");
+        }
     }
 
     @Bean

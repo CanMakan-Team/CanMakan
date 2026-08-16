@@ -6,13 +6,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.Collection;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.authentication.AccountExpiredException;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.CredentialsExpiredException;
 import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 class SecurityConfigTest {
@@ -57,6 +64,30 @@ class SecurityConfigTest {
     }
 
     @Test
+    void lockedAccountIsRejectedAfterCredentialVerification() {
+        assertThrows(
+            LockedException.class,
+            () -> SecurityConfig.rejectUnavailableAccount(stubUser("locked@example.com", false, true, true, true))
+        );
+    }
+
+    @Test
+    void expiredAccountIsRejectedAfterCredentialVerification() {
+        assertThrows(
+            AccountExpiredException.class,
+            () -> SecurityConfig.rejectUnavailableAccount(stubUser("expired@example.com", true, true, false, true))
+        );
+    }
+
+    @Test
+    void expiredCredentialsAreRejectedAfterCredentialVerification() {
+        assertThrows(
+            CredentialsExpiredException.class,
+            () -> SecurityConfig.rejectUnavailableAccount(stubUser("stale@example.com", true, true, true, false))
+        );
+    }
+
+    @Test
     void activeUserAndAdminCredentialsStillAuthenticate() {
         when(userDetailsService.loadUserByUsername("user@example.com"))
             .thenReturn(userDetails(12L, true, SystemRole.USER));
@@ -87,5 +118,54 @@ class SecurityConfigTest {
             new AuthenticatedPrincipal(userId, role.name().toLowerCase() + "@example.com", active, role),
             passwordEncoder.encode(PASSWORD)
         );
+    }
+
+    /**
+     * UserDetails that can fail each post-auth check independently. AuthUserDetails always
+     * reports non-locked, non-expired account and credentials, so those branches need a stub.
+     */
+    private UserDetails stubUser(
+            String email,
+            boolean accountNonLocked,
+            boolean enabled,
+            boolean accountNonExpired,
+            boolean credentialsNonExpired) {
+        String passwordHash = passwordEncoder.encode(PASSWORD);
+        return new UserDetails() {
+            @Override
+            public Collection<? extends GrantedAuthority> getAuthorities() {
+                return List.of();
+            }
+
+            @Override
+            public String getPassword() {
+                return passwordHash;
+            }
+
+            @Override
+            public String getUsername() {
+                return email;
+            }
+
+            @Override
+            public boolean isAccountNonExpired() {
+                return accountNonExpired;
+            }
+
+            @Override
+            public boolean isAccountNonLocked() {
+                return accountNonLocked;
+            }
+
+            @Override
+            public boolean isCredentialsNonExpired() {
+                return credentialsNonExpired;
+            }
+
+            @Override
+            public boolean isEnabled() {
+                return enabled;
+            }
+        };
     }
 }
