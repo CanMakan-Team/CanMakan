@@ -256,6 +256,7 @@ class ScannerViewModel @Inject constructor(
             flags = flags,
             alternatives = alternatives,
             alternativesError = alternativesError,
+            scanId = response.scanId,
         )
     }
 

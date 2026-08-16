@@ -70,7 +70,7 @@ export function SystemDashboardPage() {
         </article>
         <article className="summary-card">
           <span className="summary-card__icon" aria-hidden="true">◫</span>
-          <div><span>Available areas</span><strong>2</strong></div>
+          <div><span>Available areas</span><strong>3</strong></div>
         </article>
       </section>
 

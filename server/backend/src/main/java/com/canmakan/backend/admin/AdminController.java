@@ -1,8 +1,11 @@
 package com.canmakan.backend.admin;
 
+import com.canmakan.backend.admin.dto.AdminScanFeedbackListResponse;
 import com.canmakan.backend.admin.dto.AdminUserSummaryResponse;
 import com.canmakan.backend.admin.dto.UpdateAccountStatusRequest;
 import com.canmakan.backend.admin.dto.UpdateAccountStatusResponse;
+import com.canmakan.backend.admin.dto.UpdateScanFeedbackResolvedRequest;
+import com.canmakan.backend.admin.dto.UpdateScanFeedbackResolvedResponse;
 import com.canmakan.backend.analytics.dto.ConsumerTrendsResponse;
 import com.canmakan.backend.analytics.service.ConsumerTrendsService;
 import com.canmakan.backend.shared.security.AuthUserDetails;
@@ -28,6 +31,7 @@ public class AdminController {
 
     private final ConsumerTrendsService consumerTrendsService;
     private final UserAccountManagementService userAccountManagementService;
+    private final AdminScanFeedbackService adminScanFeedbackService;
 
     @GetMapping("/consumer-trends")
     public ConsumerTrendsResponse getConsumerTrends(
@@ -61,5 +65,33 @@ public class AdminController {
                 userId,
                 request
         );
+    }
+
+    /**
+     * One page of filtered scan-verdict feedback plus summary cards for the
+     * full filtered set (UC20 admin review). Every parameter is optional;
+     * {@code periodDays} defaults to 30 ("Past month"), {@code page} to 0 and
+     * {@code pageSize} to 30 when omitted.
+     */
+    @GetMapping("/scan-feedback")
+    public AdminScanFeedbackListResponse listScanFeedback(
+            @RequestParam(name = "keyword", required = false) String keyword,
+            @RequestParam(name = "restrictionCode", required = false) String restrictionCode,
+            @RequestParam(name = "periodDays", required = false) Integer periodDays,
+            @RequestParam(name = "isPositive", required = false) Boolean isPositive,
+            @RequestParam(name = "resolved", required = false) Boolean resolved,
+            @RequestParam(name = "page", required = false) Integer page,
+            @RequestParam(name = "pageSize", required = false) Integer pageSize
+    ) {
+        return adminScanFeedbackService.listFeedback(
+                keyword, restrictionCode, periodDays, isPositive, resolved, page, pageSize);
+    }
+
+    @PatchMapping("/scan-feedback/{feedbackId}/resolved")
+    public UpdateScanFeedbackResolvedResponse updateScanFeedbackResolved(
+            @PathVariable Long feedbackId,
+            @Valid @RequestBody UpdateScanFeedbackResolvedRequest request
+    ) {
+        return adminScanFeedbackService.updateResolved(feedbackId, request.resolved());
     }
 }

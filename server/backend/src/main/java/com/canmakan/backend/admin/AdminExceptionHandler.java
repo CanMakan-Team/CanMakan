@@ -1,5 +1,6 @@
 package com.canmakan.backend.admin;
 
+import com.canmakan.backend.admin.exception.AdminScanFeedbackNotFoundException;
 import com.canmakan.backend.admin.exception.AdminUserNotFoundException;
 import com.canmakan.backend.admin.exception.InvalidAccountStatusRequestException;
 import com.canmakan.backend.admin.exception.ProtectedAccountOperationException;
@@ -27,6 +28,14 @@ public class AdminExceptionHandler {
     @ExceptionHandler(AdminUserNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Map<String, String> handleAdminUserNotFound(AdminUserNotFoundException exception) {
+        return Map.of("message", exception.getMessage());
+    }
+
+    @ExceptionHandler(AdminScanFeedbackNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map<String, String> handleAdminScanFeedbackNotFound(
+            AdminScanFeedbackNotFoundException exception
+    ) {
         return Map.of("message", exception.getMessage());
     }
 

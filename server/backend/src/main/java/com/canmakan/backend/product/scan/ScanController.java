@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,6 +41,7 @@ public class ScanController {
     private final AssessmentOrchestrator orchestrator;
     private final ScanHistoryService scanHistoryService;
     private final FamilyAuthorizationService familyAuthorization;
+    private final ScanFeedbackService scanFeedbackService;
 
     /**
      * Assess a barcode against a dietary profile, persist, and return the verdict.
@@ -87,5 +89,27 @@ public class ScanController {
         List<ScanHistoryResponse> response = scanHistoryService.getScanHistoryForProfile(profileId);
         log.info("GET /scan/history/{} → 200 count={}", profileId, response.size());
         return response;
+    }
+
+    /**
+     * Records a thumbs up/down on a scan verdict (UC20 report incorrect
+     * product info). {@code isPositive} is required; the elaboration comment
+     * is optional and only expected alongside a thumbs down — a bare thumbs
+     * down (or a thumbs up) still saves a row with a null comment.
+     * Requires JWT and profile ownership / family membership over the scan.
+     */
+    @PostMapping("/{scanId}/feedback")
+    public ResponseEntity<?> submitScanFeedback(
+            @AuthenticationPrincipal AuthUserDetails userDetails,
+            @PathVariable Long scanId,
+            @RequestBody(required = false) ScanFeedbackRequest request) {
+        if (request == null || request.isPositive() == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "isPositive is required"));
+        }
+        long userId = AuthUserChecker.requireUserId(userDetails);
+        ScanFeedbackResponse response = scanFeedbackService.submitFeedback(
+                userId, scanId, request.isPositive(), request.userComments());
+        log.info("POST /scan/{}/feedback → 201 isPositive={}", scanId, request.isPositive());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

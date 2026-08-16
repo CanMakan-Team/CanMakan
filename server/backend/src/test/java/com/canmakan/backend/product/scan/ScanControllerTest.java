@@ -1,6 +1,8 @@
 package com.canmakan.backend.product.scan;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -47,6 +49,7 @@ class ScanControllerTest {
     private AssessmentOrchestrator orchestrator;
     private ScanHistoryService scanHistoryService;
     private FamilyAuthorizationService familyAuthorization;
+    private ScanFeedbackService scanFeedbackService;
 
     @BeforeEach
     void setUp() {
@@ -54,10 +57,12 @@ class ScanControllerTest {
         orchestrator = mock(AssessmentOrchestrator.class);
         scanHistoryService = mock(ScanHistoryService.class);
         familyAuthorization = mock(FamilyAuthorizationService.class);
+        scanFeedbackService = mock(ScanFeedbackService.class);
         mockMvc = MockMvcBuilders.standaloneSetup(
                 new ScanController(
-                    validationClient, orchestrator, scanHistoryService, familyAuthorization))
-            .setControllerAdvice(new GlobalExceptionHandler())
+                    validationClient, orchestrator, scanHistoryService, familyAuthorization,
+                    scanFeedbackService))
+            .setControllerAdvice(new GlobalExceptionHandler(), new ScanExceptionHandler())
             .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
             .build();
     }
@@ -194,6 +199,113 @@ class ScanControllerTest {
                 .value("Profile does not belong to your family circle."));
 
         verify(scanHistoryService, never()).getScanHistoryForProfile(any());
+    }
+
+    @Test
+    @DisplayName("UC20 BE1: POST /api/scan/{id}/feedback saves a thumbs down with a comment")
+    void feedbackSavesCommentedReport() throws Exception {
+        authenticateAs(7L);
+        when(scanFeedbackService.submitFeedback(7L, 19L, false, "Wrong allergen listed"))
+            .thenReturn(new ScanFeedbackResponse(3L, 19L, false, "Wrong allergen listed", false,
+                "2026-08-16T15:04:00"));
+
+        mockMvc.perform(post("/api/scan/19/feedback")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"isPositive\":false,\"userComments\":\"Wrong allergen listed\"}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.id").value(3))
+            .andExpect(jsonPath("$.scanId").value(19))
+            .andExpect(jsonPath("$.isPositive").value(false))
+            .andExpect(jsonPath("$.userComments").value("Wrong allergen listed"))
+            .andExpect(jsonPath("$.resolved").value(false));
+
+        verify(scanFeedbackService).submitFeedback(7L, 19L, false, "Wrong allergen listed");
+    }
+
+    @Test
+    @DisplayName("UC20 BE2: POST /api/scan/{id}/feedback saves a bare thumbs down (no comment)")
+    void feedbackSavesReportWithoutComment() throws Exception {
+        authenticateAs(7L);
+        when(scanFeedbackService.submitFeedback(7L, 19L, false, null))
+            .thenReturn(new ScanFeedbackResponse(4L, 19L, false, null, false, "2026-08-16T15:05:00"));
+
+        mockMvc.perform(post("/api/scan/19/feedback")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"isPositive\":false}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.userComments").doesNotExist());
+
+        verify(scanFeedbackService).submitFeedback(7L, 19L, false, null);
+    }
+
+    @Test
+    @DisplayName("UC20 BE3: POST /api/scan/{id}/feedback saves a thumbs up")
+    void feedbackSavesPositiveReport() throws Exception {
+        authenticateAs(7L);
+        when(scanFeedbackService.submitFeedback(7L, 19L, true, null))
+            .thenReturn(new ScanFeedbackResponse(5L, 19L, true, null, false, "2026-08-16T15:06:00"));
+
+        mockMvc.perform(post("/api/scan/19/feedback")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"isPositive\":true}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.isPositive").value(true))
+            .andExpect(jsonPath("$.userComments").doesNotExist());
+
+        verify(scanFeedbackService).submitFeedback(7L, 19L, true, null);
+    }
+
+    @Test
+    @DisplayName("UC20 BE4: POST /api/scan/{id}/feedback returns 400 when isPositive is missing")
+    void feedbackRequiresIsPositive() throws Exception {
+        authenticateAs(7L);
+
+        mockMvc.perform(post("/api/scan/19/feedback")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("isPositive is required"));
+
+        verify(scanFeedbackService, never()).submitFeedback(anyLong(), anyLong(), anyBoolean(), any());
+    }
+
+    @Test
+    @DisplayName("UC20 BE5: POST /api/scan/{id}/feedback without principal returns 401")
+    void feedbackRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/scan/19/feedback")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"isPositive\":false}"))
+            .andExpect(status().isUnauthorized());
+
+        verify(scanFeedbackService, never()).submitFeedback(anyLong(), anyLong(), anyBoolean(), any());
+    }
+
+    @Test
+    @DisplayName("UC20 BE6: POST /api/scan/{id}/feedback returns 404 for an unknown scan")
+    void feedbackRejectsUnknownScan() throws Exception {
+        authenticateAs(7L);
+        when(scanFeedbackService.submitFeedback(7L, 999L, false, null))
+            .thenThrow(new ScanNotFoundException("Scan was not found."));
+
+        mockMvc.perform(post("/api/scan/999/feedback")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"isPositive\":false}"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("Scan was not found."));
+    }
+
+    @Test
+    @DisplayName("UC20 BE7: POST /api/scan/{id}/feedback returns 403 for a scan outside the caller's family")
+    void feedbackRejectsUnauthorizedScan() throws Exception {
+        authenticateAs(7L);
+        when(scanFeedbackService.submitFeedback(7L, 19L, false, null))
+            .thenThrow(new FamilyForbiddenException("Profile does not belong to your family circle."));
+
+        mockMvc.perform(post("/api/scan/19/feedback")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"isPositive\":false}"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.message").value("Profile does not belong to your family circle."));
     }
 
     private static void authenticateAs(long userId) {
