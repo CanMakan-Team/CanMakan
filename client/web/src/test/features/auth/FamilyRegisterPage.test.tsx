@@ -25,6 +25,7 @@ vi.mock('../../../features/auth/authService', () => ({
 vi.mock('../../../features/family/api/familyApiService', () => ({
   familyApiService: {
     previewInvitation: vi.fn(),
+    claimInvitation: vi.fn(),
   },
 }))
 
@@ -69,6 +70,7 @@ describe('FamilyRegisterPage', () => {
     vi.mocked(familyApiService.previewInvitation).mockRejectedValue(
       new ApiError('Invitation was not found.', 404),
     )
+    vi.mocked(familyApiService.claimInvitation).mockReset()
   })
 
   it('collects Profile Name and requires matching passwords', async () => {
@@ -166,7 +168,7 @@ describe('FamilyRegisterPage', () => {
     expect(pendingRegistrationOnboardingStore.peekForEmail('person@example.com')).toBeNull()
   })
 
-  it('locks registration to the invited email and sends the invitation token', async () => {
+  it('locks registration to the invited email, sends the invitation token and claims it immediately', async () => {
     const user = userEvent.setup()
     vi.mocked(familyApiService.previewInvitation).mockResolvedValue({
       invitedEmail: 'person@example.com',
@@ -179,6 +181,13 @@ describe('FamilyRegisterPage', () => {
       active: true,
     })
     vi.mocked(authService.loginWithCredentials).mockResolvedValue(appUserSession())
+    vi.mocked(familyApiService.claimInvitation).mockResolvedValue({
+      familyId: 7,
+      familyName: 'Wong Family',
+      memberRole: 'MEMBER',
+      selfProfileId: null,
+      createdByUserId: 1,
+    })
     renderRegisterPage('/family-register?invitationToken=invite-token')
 
     await waitFor(() =>
@@ -197,6 +206,46 @@ describe('FamilyRegisterPage', () => {
       password: 'Password1!',
       invitationToken: 'invite-token',
     })
+    // The invitation must be claimed right after login succeeds, not deferred to
+    // whatever the user does next on the dietary-profile setup screen. The typed
+    // Profile Name goes along so the auto-provisioned SELF profile is created
+    // with it instead of an email-derived placeholder.
+    expect(familyApiService.claimInvitation).toHaveBeenCalledWith('invite-token', 'Person Name')
+    expect(
+      pendingRegistrationOnboardingStore.peekForEmail('person@example.com')?.invitationToken,
+    ).toBeUndefined()
+  })
+
+  it('keeps the invitation token pending for a later retry when the immediate claim fails', async () => {
+    const user = userEvent.setup()
+    vi.mocked(familyApiService.previewInvitation).mockResolvedValue({
+      invitedEmail: 'person@example.com',
+      familyName: 'Wong Family',
+      expired: false,
+    })
+    vi.mocked(authService.register).mockResolvedValue({
+      userId: 14,
+      email: 'person@example.com',
+      active: true,
+    })
+    vi.mocked(authService.loginWithCredentials).mockResolvedValue(appUserSession())
+    vi.mocked(familyApiService.claimInvitation).mockRejectedValue(
+      new ApiError('Invitation was not found.', 404),
+    )
+    renderRegisterPage('/family-register?invitationToken=invite-token')
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Email')).toHaveValue('person@example.com'),
+    )
+
+    await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
+    await user.type(screen.getByLabelText('Password'), 'Password1!')
+    await user.type(screen.getByLabelText('Confirm password'), 'Password1!')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    await waitFor(() => expect(screen.getByText('Dietary setup')).toBeInTheDocument())
+    expect(familyApiService.claimInvitation).toHaveBeenCalledWith('invite-token', 'Person Name')
+    // Setup-profile's own finishPath() fallback still has a token to retry with.
     expect(
       pendingRegistrationOnboardingStore.peekForEmail('person@example.com')?.invitationToken,
     ).toBe('invite-token')

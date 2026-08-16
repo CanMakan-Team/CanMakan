@@ -177,6 +177,44 @@ describe('SelfProfileSetupPage', () => {
     expect(selfProfileApiService.createSelfProfile).not.toHaveBeenCalled()
   })
 
+  it('resolves an auto-provisioned placeholder profile from joining a family: shows the typed name, saves via update, and finishes onboarding', async () => {
+    // Accepting a family invitation auto-provisions a placeholder SELF profile
+    // server-side (an email-derived name, no restrictions) before this page is
+    // ever reached. The pending onboarding record still carries the name the
+    // user actually typed at registration.
+    const user = userEvent.setup()
+    vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
+      profileId: 91,
+      profileName: 'person', // placeholder derived from the email local part
+      relationship: 'SELF',
+      active: true,
+      restrictions: {},
+    })
+    vi.mocked(selfProfileApiService.updateSelfProfile).mockResolvedValue({
+      profileId: 91,
+      profileName: 'Person Name',
+      relationship: 'SELF',
+      active: true,
+      restrictions: { 2: 'STRICT_AVOID' },
+    })
+    renderPage()
+    await screen.findByLabelText('Peanut')
+
+    // The typed onboarding name wins over the persisted placeholder.
+    expect(screen.getByLabelText('Profile Name')).toHaveValue('Person Name')
+
+    await user.click(screen.getByLabelText('Peanut'))
+    await user.click(screen.getByRole('button', { name: 'Save Profile' }))
+
+    await waitFor(() => expect(screen.getByText('Personal destination')).toBeInTheDocument())
+    expect(selfProfileApiService.updateSelfProfile).toHaveBeenCalledWith(
+      'Person Name',
+      { 2: 'STRICT_AVOID' },
+    )
+    expect(selfProfileApiService.createSelfProfile).not.toHaveBeenCalled()
+    expect(pendingRegistrationOnboardingStore.peekForEmail('person@example.com')).toBeNull()
+  })
+
   it('pre-populates Profile Name and existing selections for a returning user', async () => {
     vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
       profileId: 55,
@@ -233,11 +271,54 @@ describe('SelfProfileSetupPage', () => {
     expect(screen.getByLabelText('Profile Name')).toBeInTheDocument()
   })
 
-  it('normalizes a prefilled restriction saved with an unsupported severity to STRICT_AVOID', async () => {
-    // This page only offers an on/off toggle, so it can only submit STRICT_AVOID
-    // or INTOLERANCE. A restriction that was saved elsewhere (e.g. by a family
-    // admin) with PREFERENCE severity must still be resubmittable from here
-    // without the backend rejecting it for a severity this form can't represent.
+  it('preserves an untouched restriction saved with an unsupported severity instead of rewriting it to STRICT_AVOID', async () => {
+    // This page only offers an on/off toggle, so a restriction saved elsewhere
+    // (e.g. by a family admin) with PREFERENCE severity displays here as
+    // checked/STRICT_AVOID. Saving without touching that checkbox must resend
+    // its original PREFERENCE severity rather than silently overwriting it.
+    const user = userEvent.setup()
+    vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
+      profileId: 55,
+      profileName: 'Existing Name',
+      relationship: 'SELF',
+      active: true,
+      restrictions: { 2: 'PREFERENCE' } as unknown as Record<
+        number,
+        'STRICT_AVOID' | 'INTOLERANCE'
+      >,
+    })
+    vi.mocked(selfProfileApiService.updateSelfProfile).mockResolvedValue({
+      profileId: 55,
+      profileName: 'Existing Name',
+      relationship: 'SELF',
+      active: true,
+      restrictions: { 2: 'PREFERENCE' } as unknown as Record<
+        number,
+        'STRICT_AVOID' | 'INTOLERANCE'
+      >,
+    })
+    renderPageWithoutPending()
+
+    await screen.findByLabelText('Peanut')
+    expect(screen.getByLabelText('Peanut')).toBeChecked()
+
+    await user.click(screen.getByRole('button', { name: 'Save Profile' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Your dietary profile has been saved successfully.',
+      ),
+    )
+    expect(selfProfileApiService.updateSelfProfile).toHaveBeenCalledWith(
+      'Existing Name',
+      { 2: 'PREFERENCE' },
+    )
+  })
+
+  it('rewrites a restriction with an unsupported severity to STRICT_AVOID only once the user actually toggles it', async () => {
+    // Unchecking then rechecking a restriction is an explicit user action, so
+    // unlike an untouched save, it is expected to replace the original
+    // PREFERENCE severity with the on/off value this form represents.
     const user = userEvent.setup()
     vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
       profileId: 55,
@@ -261,6 +342,8 @@ describe('SelfProfileSetupPage', () => {
     await screen.findByLabelText('Peanut')
     expect(screen.getByLabelText('Peanut')).toBeChecked()
 
+    await user.click(screen.getByLabelText('Peanut'))
+    await user.click(screen.getByLabelText('Peanut'))
     await user.click(screen.getByRole('button', { name: 'Save Profile' }))
 
     await waitFor(() =>

@@ -97,7 +97,7 @@ export const mockFamilyRepository = {
   },
 
   // Claim an invitation
-  async claimInvitation(_invitationToken: string): Promise<FamilyMe> {
+  async claimInvitation(_invitationToken: string, _profileName?: string): Promise<FamilyMe> {
     await delay(400)
     return {
       familyId: 1,

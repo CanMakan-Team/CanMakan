@@ -124,8 +124,9 @@ export function InviteLandingPage() {
         <p className="eyebrow">Family invitation</p>
         <h1>You are invited to join a CanMakan family.</h1>
         <p>
-          Create an account with the invited email, or sign in if you already have
-          one. The invitation is claimed automatically after authentication.
+          Create an account with the email address the invitation was sent to, or
+          sign in if you already have an account. The invitation is claimed
+          automatically after authentication.
         </p>
         <div className="page-header__actions">
           <Link className="button button--primary" to={registerPath}>
