@@ -399,10 +399,22 @@ private fun ScanFeedbackRow(
                     contentDescription = "Verdict was helpful",
                     tint = PrimaryGreen,
                     isSelected = feedback == ScanFeedback.THUMBS_UP,
+                    // Matches the thumbs-down Submit button: nothing can be
+                    // persisted for a verdict that was never saved, so the
+                    // control is disabled rather than pretending to succeed.
+                    enabled = scanId != null,
                 ) {
-                    feedback = ScanFeedback.THUMBS_UP
-                    confettiBurstId += 1
-                    scanId?.let(onSubmitPositive)
+                    if (feedback != ScanFeedback.THUMBS_UP) {
+                        // First tap: record the selection and actually submit.
+                        feedback = ScanFeedback.THUMBS_UP
+                        confettiBurstId += 1
+                        scanId?.let(onSubmitPositive)
+                    } else {
+                        // Already selected — replay the confetti without
+                        // re-submitting, so repeat taps can't create duplicate
+                        // scans_feedback rows and skew the admin stats.
+                        confettiBurstId += 1
+                    }
                 }
                 if (confettiBurstId != 0) {
                     key(confettiBurstId) {
@@ -509,16 +521,18 @@ private fun FeedbackIconButton(
     contentDescription: String,
     tint: Color,
     isSelected: Boolean,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     IconButton(
         onClick = onClick,
+        enabled = enabled,
         modifier = Modifier.size(32.dp)
     ) {
         Icon(
             imageVector = if (isSelected) filledIcon else outlinedIcon,
             contentDescription = contentDescription,
-            tint = tint,
+            tint = if (enabled) tint else tint.copy(alpha = 0.4f),
             modifier = Modifier.size(18.dp)
         )
     }

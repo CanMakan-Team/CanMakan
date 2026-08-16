@@ -68,9 +68,10 @@ public class AdminController {
     }
 
     /**
-     * Filtered scan-verdict feedback plus summary cards for the same filtered
-     * set (UC20 admin review). Every parameter is optional; {@code periodDays}
-     * defaults to 30 ("Past month") when omitted.
+     * One page of filtered scan-verdict feedback plus summary cards for the
+     * full filtered set (UC20 admin review). Every parameter is optional;
+     * {@code periodDays} defaults to 30 ("Past month"), {@code page} to 0 and
+     * {@code pageSize} to 30 when omitted.
      */
     @GetMapping("/scan-feedback")
     public AdminScanFeedbackListResponse listScanFeedback(
@@ -78,10 +79,12 @@ public class AdminController {
             @RequestParam(name = "restrictionCode", required = false) String restrictionCode,
             @RequestParam(name = "periodDays", required = false) Integer periodDays,
             @RequestParam(name = "isPositive", required = false) Boolean isPositive,
-            @RequestParam(name = "resolved", required = false) Boolean resolved
+            @RequestParam(name = "resolved", required = false) Boolean resolved,
+            @RequestParam(name = "page", required = false) Integer page,
+            @RequestParam(name = "pageSize", required = false) Integer pageSize
     ) {
         return adminScanFeedbackService.listFeedback(
-                keyword, restrictionCode, periodDays, isPositive, resolved);
+                keyword, restrictionCode, periodDays, isPositive, resolved, page, pageSize);
     }
 
     @PatchMapping("/scan-feedback/{feedbackId}/resolved")

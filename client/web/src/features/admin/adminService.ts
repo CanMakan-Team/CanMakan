@@ -45,6 +45,10 @@ function buildScanFeedbackPath(filters: AdminScanFeedbackFilters): string {
   if (filters.resolved !== undefined) {
     parameters.set('resolved', String(filters.resolved))
   }
+  if (filters.page !== undefined) parameters.set('page', String(filters.page))
+  if (filters.pageSize !== undefined) {
+    parameters.set('pageSize', String(filters.pageSize))
+  }
 
   const queryString = parameters.toString()
   return queryString

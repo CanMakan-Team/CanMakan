@@ -11,8 +11,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -44,19 +49,22 @@ class AdminScanFeedbackServiceTest {
     }
 
     @Test
-    @DisplayName("summarizes totals, negative percentage and per-day rates over the filtered set")
+    @DisplayName("summarizes totals, negative percentage and per-day rates over the full filtered set, "
+            + "not just the returned page")
     void summarizesFilteredResults() {
-        when(scanFeedbackRepository.findForAdmin(any(), isNull(), isNull(), isNull(), isNull()))
-                .thenReturn(List.of(
-                        view(1L, true, null),
-                        view(2L, false, "Wrong allergen"),
-                        view(3L, false, null),
-                        view(4L, false, "Outdated ingredient list")
-                ));
+        // Page size 2 of a 4-row filtered set (3 negative) — the summary must
+        // reflect the full 4/3 count, not just this page's 2 rows.
+        when(scanFeedbackRepository.findForAdmin(any(), isNull(), isNull(), isNull(), isNull(), any()))
+                .thenReturn(new PageImpl<>(
+                        List.of(view(1L, true, null), view(2L, false, "Wrong allergen")),
+                        PageRequest.of(0, 2),
+                        4));
+        when(scanFeedbackRepository.countNegativeForAdmin(any(), isNull(), isNull(), isNull(), isNull()))
+                .thenReturn(3L);
 
-        AdminScanFeedbackListResponse response = service.listFeedback(null, null, 10, null, null);
+        AdminScanFeedbackListResponse response = service.listFeedback(null, null, 10, null, null, 0, 2);
 
-        assertThat(response.items()).hasSize(4);
+        assertThat(response.items()).hasSize(2);
         assertThat(response.summary().totalFeedback()).isEqualTo(4);
         assertThat(response.summary().negativePercentage()).isEqualTo(75.0);
         assertThat(response.summary().feedbackPerDay()).isEqualTo(0.4);
@@ -66,10 +74,12 @@ class AdminScanFeedbackServiceTest {
     @Test
     @DisplayName("defaults the period to 30 days when none is supplied")
     void defaultsPeriodTo30Days() {
-        when(scanFeedbackRepository.findForAdmin(any(), isNull(), isNull(), isNull(), isNull()))
-                .thenReturn(List.of(view(1L, true, null)));
+        when(scanFeedbackRepository.findForAdmin(any(), isNull(), isNull(), isNull(), isNull(), any()))
+                .thenReturn(new PageImpl<>(List.of(view(1L, true, null)), PageRequest.of(0, 30), 1));
+        when(scanFeedbackRepository.countNegativeForAdmin(any(), isNull(), isNull(), isNull(), isNull()))
+                .thenReturn(0L);
 
-        AdminScanFeedbackListResponse response = service.listFeedback(null, null, null, null, null);
+        AdminScanFeedbackListResponse response = service.listFeedback(null, null, null, null, null, null, null);
 
         // 1 item / 30-day default period, rounded to 2dp by the service.
         assertThat(response.summary().feedbackPerDay()).isEqualTo(0.03);
@@ -78,26 +88,86 @@ class AdminScanFeedbackServiceTest {
     @Test
     @DisplayName("blank keyword and restriction code are normalized to null before querying")
     void blankFiltersAreNormalizedToNull() {
-        when(scanFeedbackRepository.findForAdmin(any(), isNull(), isNull(), any(), any()))
-                .thenReturn(List.of());
+        when(scanFeedbackRepository.findForAdmin(any(), isNull(), isNull(), any(), any(), any()))
+                .thenReturn(Page.empty());
+        when(scanFeedbackRepository.countNegativeForAdmin(any(), isNull(), isNull(), any(), any()))
+                .thenReturn(0L);
 
-        service.listFeedback("   ", "  ", 7, true, false);
+        service.listFeedback("   ", "  ", 7, true, false, null, null);
 
-        verify(scanFeedbackRepository).findForAdmin(any(), isNull(), isNull(), eq(true), eq(false));
+        verify(scanFeedbackRepository).findForAdmin(any(), isNull(), isNull(), eq(true), eq(false), any());
     }
 
     @Test
     @DisplayName("returns zero-valued summary stats when nothing matches the filters")
     void handlesEmptyResultSet() {
-        when(scanFeedbackRepository.findForAdmin(any(), any(), any(), any(), any()))
-                .thenReturn(List.of());
+        when(scanFeedbackRepository.findForAdmin(any(), any(), any(), any(), any(), any()))
+                .thenReturn(Page.empty());
+        when(scanFeedbackRepository.countNegativeForAdmin(any(), any(), any(), any(), any()))
+                .thenReturn(0L);
 
-        AdminScanFeedbackListResponse response = service.listFeedback("nomatch", null, 7, null, null);
+        AdminScanFeedbackListResponse response = service.listFeedback("nomatch", null, 7, null, null, null, null);
 
         assertThat(response.summary().totalFeedback()).isZero();
         assertThat(response.summary().negativePercentage()).isZero();
         assertThat(response.summary().feedbackPerDay()).isZero();
         assertThat(response.summary().negativeFeedbackPerDay()).isZero();
+    }
+
+    @Test
+    @DisplayName("defaults to page 0 with 30 rows per page when neither is supplied")
+    void defaultsPagination() {
+        when(scanFeedbackRepository.findForAdmin(any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(view(1L, true, null)), PageRequest.of(0, 30), 1));
+        when(scanFeedbackRepository.countNegativeForAdmin(any(), any(), any(), any(), any()))
+                .thenReturn(0L);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        AdminScanFeedbackListResponse response = service.listFeedback(null, null, null, null, null, null, null);
+
+        verify(scanFeedbackRepository).findForAdmin(any(), any(), any(), any(), any(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(30);
+        assertThat(response.pageInfo().page()).isZero();
+        assertThat(response.pageInfo().pageSize()).isEqualTo(30);
+        assertThat(response.pageInfo().totalItems()).isEqualTo(1);
+        assertThat(response.pageInfo().totalPages()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("uses the explicit page and pageSize when supplied")
+    void usesExplicitPagination() {
+        when(scanFeedbackRepository.findForAdmin(any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(2, 10), 25));
+        when(scanFeedbackRepository.countNegativeForAdmin(any(), any(), any(), any(), any()))
+                .thenReturn(0L);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        AdminScanFeedbackListResponse response = service.listFeedback(null, null, null, null, null, 2, 10);
+
+        verify(scanFeedbackRepository).findForAdmin(any(), any(), any(), any(), any(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(2);
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
+        assertThat(response.pageInfo().page()).isEqualTo(2);
+        assertThat(response.pageInfo().pageSize()).isEqualTo(10);
+        assertThat(response.pageInfo().totalItems()).isEqualTo(25);
+        assertThat(response.pageInfo().totalPages()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("clamps a negative page and a non-positive pageSize back to the defaults")
+    void clampsInvalidPagination() {
+        when(scanFeedbackRepository.findForAdmin(any(), any(), any(), any(), any(), any()))
+                .thenReturn(Page.empty());
+        when(scanFeedbackRepository.countNegativeForAdmin(any(), any(), any(), any(), any()))
+                .thenReturn(0L);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        service.listFeedback(null, null, null, null, null, -1, 0);
+
+        verify(scanFeedbackRepository).findForAdmin(any(), any(), any(), any(), any(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(30);
     }
 
     @Test

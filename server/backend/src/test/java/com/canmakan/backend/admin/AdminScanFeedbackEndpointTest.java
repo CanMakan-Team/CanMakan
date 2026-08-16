@@ -1,6 +1,7 @@
 package com.canmakan.backend.admin;
 
 import com.canmakan.backend.admin.dto.AdminScanFeedbackListResponse;
+import com.canmakan.backend.admin.dto.AdminScanFeedbackPageInfo;
 import com.canmakan.backend.admin.dto.AdminScanFeedbackResponse;
 import com.canmakan.backend.admin.dto.AdminScanFeedbackSummaryResponse;
 import com.canmakan.backend.admin.dto.UpdateScanFeedbackResolvedResponse;
@@ -55,9 +56,9 @@ class AdminScanFeedbackEndpointTest {
     }
 
     @Test
-    @DisplayName("returns summary and items for the default (no-filter) request")
+    @DisplayName("returns summary, one page of items and pageInfo for the default (no-filter) request")
     void defaultRequestDelegatesNullFilters() throws Exception {
-        when(adminScanFeedbackService.listFeedback(null, null, null, null, null))
+        when(adminScanFeedbackService.listFeedback(null, null, null, null, null, null, null))
                 .thenReturn(sampleResponse());
 
         mockMvc.perform(get(LIST_ENDPOINT))
@@ -70,16 +71,20 @@ class AdminScanFeedbackEndpointTest {
                 .andExpect(jsonPath("$.items[0].productName").value("Oat Milk"))
                 .andExpect(jsonPath("$.items[0].isPositive").value(true))
                 .andExpect(jsonPath("$.items[1].isPositive").value(false))
-                .andExpect(jsonPath("$.items[1].userComments").value("Wrong allergen listed"));
+                .andExpect(jsonPath("$.items[1].userComments").value("Wrong allergen listed"))
+                .andExpect(jsonPath("$.pageInfo.page").value(0))
+                .andExpect(jsonPath("$.pageInfo.pageSize").value(30))
+                .andExpect(jsonPath("$.pageInfo.totalItems").value(2))
+                .andExpect(jsonPath("$.pageInfo.totalPages").value(1));
 
-        verify(adminScanFeedbackService).listFeedback(null, null, null, null, null);
+        verify(adminScanFeedbackService).listFeedback(null, null, null, null, null, null, null);
     }
 
     @Test
-    @DisplayName("binds keyword, restrictionCode, periodDays, isPositive and resolved query params")
+    @DisplayName("binds keyword, restrictionCode, periodDays, isPositive, resolved, page and pageSize query params")
     void explicitFiltersBindAndDelegate() throws Exception {
         when(adminScanFeedbackService.listFeedback(
-                "biryani", "HALAL", 14, false, true))
+                "biryani", "HALAL", 14, false, true, 2, 10))
                 .thenReturn(sampleResponse());
 
         mockMvc.perform(get(LIST_ENDPOINT)
@@ -87,10 +92,12 @@ class AdminScanFeedbackEndpointTest {
                         .param("restrictionCode", "HALAL")
                         .param("periodDays", "14")
                         .param("isPositive", "false")
-                        .param("resolved", "true"))
+                        .param("resolved", "true")
+                        .param("page", "2")
+                        .param("pageSize", "10"))
                 .andExpect(status().isOk());
 
-        verify(adminScanFeedbackService).listFeedback("biryani", "HALAL", 14, false, true);
+        verify(adminScanFeedbackService).listFeedback("biryani", "HALAL", 14, false, true, 2, 10);
     }
 
     @Test
@@ -143,7 +150,8 @@ class AdminScanFeedbackEndpointTest {
                                 2L, 19L, "david@example.test", "Butter Chicken Biryani", false,
                                 "Wrong allergen listed", true,
                                 LocalDateTime.of(2026, 8, 13, 15, 4))
-                )
+                ),
+                new AdminScanFeedbackPageInfo(0, 30, 2, 1)
         );
     }
 }

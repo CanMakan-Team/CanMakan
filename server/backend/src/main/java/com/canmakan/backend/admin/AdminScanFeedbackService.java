@@ -1,6 +1,7 @@
 package com.canmakan.backend.admin;
 
 import com.canmakan.backend.admin.dto.AdminScanFeedbackListResponse;
+import com.canmakan.backend.admin.dto.AdminScanFeedbackPageInfo;
 import com.canmakan.backend.admin.dto.AdminScanFeedbackResponse;
 import com.canmakan.backend.admin.dto.AdminScanFeedbackSummaryResponse;
 import com.canmakan.backend.admin.dto.UpdateScanFeedbackResolvedResponse;
@@ -10,6 +11,9 @@ import com.canmakan.backend.product.scan.ScanFeedback;
 import com.canmakan.backend.product.scan.ScanFeedbackRepository;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,12 +33,17 @@ public class AdminScanFeedbackService {
     /** Default date-period filter when the caller does not specify one ("Past month"). */
     static final int DEFAULT_PERIOD_DAYS = 30;
 
+    /** Default/maximum rows per page, matching the admin table's page size. */
+    static final int DEFAULT_PAGE_SIZE = 30;
+
     private final ScanFeedbackRepository scanFeedbackRepository;
 
     /**
-     * Lists feedback rows matching every supplied filter, plus summary stats
-     * computed over that same filtered set. All filter parameters are
-     * optional (null skips that filter); {@code periodDays} defaults to 30.
+     * Lists one page of feedback rows matching every supplied filter, plus
+     * summary stats computed over the full filtered set (not just the
+     * returned page). All filter parameters are optional (null skips that
+     * filter); {@code periodDays} defaults to 30, {@code page} to 0 and
+     * {@code pageSize} to 30.
      */
     @Transactional(readOnly = true)
     public AdminScanFeedbackListResponse listFeedback(
@@ -42,24 +51,35 @@ public class AdminScanFeedbackService {
             String restrictionCode,
             Integer periodDays,
             Boolean isPositive,
-            Boolean resolved
+            Boolean resolved,
+            Integer page,
+            Integer pageSize
     ) {
         int resolvedPeriodDays = periodDays == null || periodDays <= 0
                 ? DEFAULT_PERIOD_DAYS
                 : periodDays;
         LocalDateTime since = LocalDateTime.now().minusDays(resolvedPeriodDays);
+        String normalizedKeyword = blankToNull(keyword);
+        String normalizedRestrictionCode = blankToNull(restrictionCode);
 
-        List<AdminScanFeedbackResponse> items = scanFeedbackRepository.findForAdmin(
-                since,
-                blankToNull(keyword),
-                blankToNull(restrictionCode),
-                isPositive,
-                resolved
-        ).stream().map(AdminScanFeedbackService::toResponse).toList();
+        int resolvedPage = page == null || page < 0 ? 0 : page;
+        int resolvedPageSize = pageSize == null || pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
+        Pageable pageable = PageRequest.of(resolvedPage, resolvedPageSize);
+
+        Page<AdminScanFeedbackView> resultPage = scanFeedbackRepository.findForAdmin(
+                since, normalizedKeyword, normalizedRestrictionCode, isPositive, resolved, pageable);
+        long negativeCount = scanFeedbackRepository.countNegativeForAdmin(
+                since, normalizedKeyword, normalizedRestrictionCode, isPositive, resolved);
+
+        List<AdminScanFeedbackResponse> items = resultPage.getContent().stream()
+                .map(AdminScanFeedbackService::toResponse)
+                .toList();
 
         return new AdminScanFeedbackListResponse(
-                summarize(items, resolvedPeriodDays),
-                items
+                summarize(resultPage.getTotalElements(), negativeCount, resolvedPeriodDays),
+                items,
+                new AdminScanFeedbackPageInfo(
+                        resolvedPage, resolvedPageSize, resultPage.getTotalElements(), resultPage.getTotalPages())
         );
     }
 
@@ -74,9 +94,7 @@ public class AdminScanFeedbackService {
     }
 
     private static AdminScanFeedbackSummaryResponse summarize(
-            List<AdminScanFeedbackResponse> items, int periodDays) {
-        long total = items.size();
-        long negative = items.stream().filter(item -> !item.isPositive()).count();
+            long total, long negative, int periodDays) {
         double negativePercentage = total == 0 ? 0.0 : (negative * 100.0) / total;
         double feedbackPerDay = (double) total / periodDays;
         double negativeFeedbackPerDay = (double) negative / periodDays;

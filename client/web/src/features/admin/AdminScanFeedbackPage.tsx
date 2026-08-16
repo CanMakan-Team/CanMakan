@@ -78,9 +78,21 @@ export function AdminScanFeedbackPage() {
     setError('')
     try {
       const [feedbackResponse, restrictionCatalog] = await Promise.all([
-        adminService.getScanFeedback(filters),
+        adminService.getScanFeedback({ ...filters, page, pageSize: PAGE_SIZE }),
         selfProfileApiService.getCatalog(),
       ])
+
+      // The current page can fall out of range without the filters changing
+      // (e.g. toggling a row's resolved status while filtered to just that
+      // status shrinks the total). Snap back to the last valid page instead
+      // of showing a stale empty page; the resulting refetch replaces this
+      // response.
+      const lastValidPage = Math.max(0, feedbackResponse.pageInfo.totalPages - 1)
+      if (page > lastValidPage) {
+        setPage(lastValidPage)
+        return
+      }
+
       setData(feedbackResponse)
       setRestrictions(restrictionCatalog)
     } catch (caughtError) {
@@ -88,7 +100,7 @@ export function AdminScanFeedbackPage() {
     } finally {
       setLoading(false)
     }
-  }, [filters])
+  }, [filters, page])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void load(), 0)
@@ -119,9 +131,7 @@ export function AdminScanFeedbackPage() {
   }
 
   const summary = data?.summary
-  const totalPages = Math.max(1, Math.ceil((data?.items.length ?? 0) / PAGE_SIZE))
-  const safePage = Math.min(page, totalPages - 1)
-  const visibleItems = data?.items.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE) ?? []
+  const pageInfo = data?.pageInfo
 
   return (
     <>
@@ -278,7 +288,7 @@ export function AdminScanFeedbackPage() {
                 </tr>
               </thead>
               <tbody>
-                {visibleItems.map((item) => (
+                {data.items.map((item) => (
                   <tr key={item.id}>
                     <th scope="row">{item.userEmail ?? '—'}</th>
                     <td>{item.productName}</td>
@@ -325,22 +335,22 @@ export function AdminScanFeedbackPage() {
             </table>
           </div>
 
-          {totalPages > 1 && (
+          {pageInfo && pageInfo.totalPages > 1 && (
             <nav className="analytics-pagination" aria-label="Feedback pages">
               <button
                 type="button"
                 className="button button--secondary"
-                disabled={safePage === 0}
-                onClick={() => setPage(safePage - 1)}
+                disabled={pageInfo.page === 0}
+                onClick={() => setPage(pageInfo.page - 1)}
               >
                 Previous
               </button>
-              <span>Page {safePage + 1} of {totalPages}</span>
+              <span>Page {pageInfo.page + 1} of {pageInfo.totalPages}</span>
               <button
                 type="button"
                 className="button button--secondary"
-                disabled={safePage >= totalPages - 1}
-                onClick={() => setPage(safePage + 1)}
+                disabled={pageInfo.page >= pageInfo.totalPages - 1}
+                onClick={() => setPage(pageInfo.page + 1)}
               >
                 Next
               </button>

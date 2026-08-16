@@ -42,9 +42,17 @@ export interface AdminScanFeedbackSummary {
   negativeFeedbackPerDay: number
 }
 
+export interface AdminScanFeedbackPageInfo {
+  page: number
+  pageSize: number
+  totalItems: number
+  totalPages: number
+}
+
 export interface AdminScanFeedbackListResponse {
   summary: AdminScanFeedbackSummary
   items: AdminScanFeedbackItem[]
+  pageInfo: AdminScanFeedbackPageInfo
 }
 
 export interface AdminScanFeedbackFilters {
@@ -53,6 +61,8 @@ export interface AdminScanFeedbackFilters {
   periodDays?: number
   isPositive?: boolean
   resolved?: boolean
+  page?: number
+  pageSize?: number
 }
 
 export interface UpdateScanFeedbackResolvedResponse {

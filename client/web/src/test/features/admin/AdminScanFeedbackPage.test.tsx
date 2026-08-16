@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminScanFeedbackPage } from '../../../features/admin/AdminScanFeedbackPage'
 import { adminService } from '../../../features/admin/adminService'
-import type { AdminScanFeedbackListResponse } from '../../../features/admin/models'
+import type { AdminScanFeedbackItem, AdminScanFeedbackListResponse } from '../../../features/admin/models'
 import { selfProfileApiService } from '../../../features/family/api/selfProfileApiService'
 import { ApiError } from '../../../shared/api/apiErrors'
 
@@ -48,7 +48,7 @@ const negativeItem = {
   createdAt: '2026-08-13T15:04:00',
 }
 
-function buildItems(count: number) {
+function buildItems(count: number): AdminScanFeedbackItem[] {
   return Array.from({ length: count }, (_, index) => ({
     id: index + 1,
     scanId: index + 1,
@@ -70,6 +70,26 @@ function sampleResponse(items = [positiveItem, negativeItem]): AdminScanFeedback
       negativeFeedbackPerDay: 0.03,
     },
     items,
+    pageInfo: { page: 0, pageSize: 30, totalItems: items.length, totalPages: 1 },
+  }
+}
+
+// Mirrors what the real backend returns for one page of a larger filtered
+// set: only that page's slice of rows, with pageInfo describing the whole.
+function buildPageResponse(totalCount: number, page: number, pageSize = 30): AdminScanFeedbackListResponse {
+  const allItems = buildItems(totalCount)
+  const start = page * pageSize
+  const items = allItems.slice(start, start + pageSize)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  return {
+    summary: {
+      totalFeedback: totalCount,
+      negativePercentage: 0,
+      feedbackPerDay: 0,
+      negativeFeedbackPerDay: 0,
+    },
+    items,
+    pageInfo: { page, pageSize, totalItems: totalCount, totalPages },
   }
 }
 
@@ -214,7 +234,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
     ).toBeInTheDocument()
   })
 
-  it('applies the keyword, restriction, period, type and resolved filters together', async () => {
+  it('applies the keyword, restriction, period, type and resolved filters together, with the page reset to 0', async () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse())
     const user = userEvent.setup()
 
@@ -235,22 +255,28 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
         periodDays: 7,
         isPositive: false,
         resolved: true,
+        page: 0,
+        pageSize: 30,
       })
     })
   })
 
-  it('defaults to a 30-day period on first load', async () => {
+  it('defaults to a 30-day period, page 0 and a 30-row page size on first load', async () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse())
 
     render(<AdminScanFeedbackPage />)
 
     await waitFor(() => {
-      expect(adminService.getScanFeedback).toHaveBeenCalledWith({ periodDays: 30 })
+      expect(adminService.getScanFeedback).toHaveBeenCalledWith({
+        periodDays: 30,
+        page: 0,
+        pageSize: 30,
+      })
     })
   })
 
-  it('does not show pagination controls for 30 or fewer rows', async () => {
-    vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse(buildItems(30)))
+  it('does not show pagination controls when the backend reports a single page', async () => {
+    vi.mocked(adminService.getScanFeedback).mockResolvedValue(buildPageResponse(30, 0))
 
     render(<AdminScanFeedbackPage />)
 
@@ -258,8 +284,8 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
     expect(screen.queryByRole('navigation', { name: 'Feedback pages' })).not.toBeInTheDocument()
   })
 
-  it('paginates at 30 rows per page, hiding rows beyond the first page', async () => {
-    vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse(buildItems(34)))
+  it('shows pagination controls and only this page\'s rows when the backend reports more than one page', async () => {
+    vi.mocked(adminService.getScanFeedback).mockResolvedValue(buildPageResponse(34, 0))
 
     render(<AdminScanFeedbackPage />)
 
@@ -271,8 +297,10 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
     expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled()
   })
 
-  it('advances to the next page and shows the remaining rows', async () => {
-    vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse(buildItems(34)))
+  it('requests the next page from the backend and renders its rows', async () => {
+    vi.mocked(adminService.getScanFeedback)
+      .mockResolvedValueOnce(buildPageResponse(34, 0))
+      .mockResolvedValueOnce(buildPageResponse(34, 1))
     const user = userEvent.setup()
 
     render(<AdminScanFeedbackPage />)
@@ -280,24 +308,67 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
     await screen.findByText('user1@example.test')
     await user.click(screen.getByRole('button', { name: 'Next' }))
 
+    expect(await screen.findByText('user34@example.test')).toBeInTheDocument()
     expect(screen.getByText('Page 2 of 2')).toBeInTheDocument()
-    expect(screen.getByText('user34@example.test')).toBeInTheDocument()
     expect(screen.queryByText('user1@example.test')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Previous' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+    expect(adminService.getScanFeedback).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, pageSize: 30 }),
+    )
   })
 
-  it('resets to page 1 when filters are re-applied', async () => {
-    vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse(buildItems(34)))
+  it('resets to page 0 when filters are re-applied after paging forward', async () => {
+    vi.mocked(adminService.getScanFeedback)
+      .mockResolvedValueOnce(buildPageResponse(34, 0))
+      .mockResolvedValueOnce(buildPageResponse(34, 1))
+      .mockResolvedValueOnce(buildPageResponse(34, 0))
     const user = userEvent.setup()
 
     render(<AdminScanFeedbackPage />)
     await screen.findByText('user1@example.test')
     await user.click(screen.getByRole('button', { name: 'Next' }))
-    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument()
+    expect(await screen.findByText('Page 2 of 2')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Apply filters' }))
 
     expect(await screen.findByText('user1@example.test')).toBeInTheDocument()
+    expect(adminService.getScanFeedback).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 0, pageSize: 30 }),
+    )
+  })
+
+  it('snaps back to the last valid page if a mutation shrinks the total while on a later page', async () => {
+    // Changing a row's resolved status refetches with the *same* page (unlike
+    // Apply filters, which already resets to page 0) — simulating a row
+    // dropping out of the filtered set (e.g. it stopped matching a resolved
+    // filter) and page 2 no longer existing.
+    vi.mocked(adminService.getScanFeedback)
+      .mockResolvedValueOnce(buildPageResponse(34, 0))
+      .mockResolvedValueOnce(buildPageResponse(34, 1))
+      .mockResolvedValueOnce({
+        summary: { totalFeedback: 30, negativePercentage: 0, feedbackPerDay: 0, negativeFeedbackPerDay: 0 },
+        items: [],
+        pageInfo: { page: 1, pageSize: 30, totalItems: 30, totalPages: 1 },
+      })
+      .mockResolvedValueOnce(buildPageResponse(30, 0))
+    vi.mocked(adminService.updateScanFeedbackResolved).mockResolvedValue({ id: 31, resolved: true })
+    const user = userEvent.setup()
+
+    render(<AdminScanFeedbackPage />)
+    await screen.findByText('user1@example.test')
+    await user.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('user31@example.test')
+
+    await user.selectOptions(
+      screen.getByLabelText('Resolved status for user31@example.test feedback'),
+      'RESOLVED',
+    )
+
+    expect(await screen.findByText('user1@example.test')).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Feedback pages' })).not.toBeInTheDocument()
+    expect(adminService.getScanFeedback).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 0 }),
+    )
   })
 })
