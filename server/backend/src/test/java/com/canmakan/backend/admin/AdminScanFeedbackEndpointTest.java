@@ -7,6 +7,7 @@ import com.canmakan.backend.admin.dto.AdminScanFeedbackSummaryResponse;
 import com.canmakan.backend.admin.dto.UpdateScanFeedbackResolvedResponse;
 import com.canmakan.backend.admin.exception.AdminScanFeedbackNotFoundException;
 import com.canmakan.backend.analytics.service.ConsumerTrendsService;
+import com.canmakan.backend.analytics.service.UsageStatisticsService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -48,6 +49,7 @@ class AdminScanFeedbackEndpointTest {
         mockMvc = MockMvcBuilders.standaloneSetup(new AdminController(
                         consumerTrendsService,
                         userAccountManagementService,
+                        mock(UsageStatisticsService.class),
                         adminScanFeedbackService
                 ))
                 .setControllerAdvice(new AdminExceptionHandler())
