@@ -7,6 +7,7 @@ import com.canmakan.backend.auth.dto.LoginRequest;
 import com.canmakan.backend.auth.dto.RegistrationRequest;
 import com.canmakan.backend.auth.dto.RegistrationResponse;
 import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
+import com.canmakan.backend.shared.security.AuthUserChecker;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -16,6 +17,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -72,6 +74,21 @@ public class AuthController {
         );
         authService.logout(
             refreshCookieService.readRefreshToken(request).orElse(null)
+        );
+        return ResponseEntity.noContent().build();
+    }
+
+    // Soft-deactivate the authenticated caller's own account.
+    @DeleteMapping("/account")
+    public ResponseEntity<Void> deleteOwnAccount(
+            @AuthenticationPrincipal AuthUserDetails userDetails,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        sessionRequestGuard.requireTrustedSessionMutation(request);
+        authService.deleteOwnAccount(AuthUserChecker.requireUserId(userDetails));
+        response.addHeader(
+            HttpHeaders.SET_COOKIE,
+            refreshCookieService.clearRefreshCookie().toString()
         );
         return ResponseEntity.noContent().build();
     }

@@ -7,7 +7,7 @@ Handles live login/register, session context, and route protection against UC19 
 
 ## Contains
 - Session context / provider (`loginWithCredentials`, `registerAndLogin`, restore, logout)
-- `authService` — live register/login/refresh/logout and `/api/auth/me`
+- `authService` — live register/login/refresh/logout, `/api/auth/me`, and self-service `DELETE /api/auth/account`
 - `useSession` hook
 - Protected route helpers
 - Access denied UI

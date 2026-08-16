@@ -40,7 +40,6 @@ export type RestrictionCode =
   | 'PEANUT'
   | 'TREE_NUT'
   | 'DAIRY'
-  | 'LACTOSE_INTOLERANT'
   | 'EGG'
   | 'GLUTEN'
   | 'SHELLFISH'

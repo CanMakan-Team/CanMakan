@@ -134,6 +134,29 @@ class ServerAuthRepositoryTest {
         assertFailure(ServerAuthRepository(networkApi).getCurrentUser(), AuthFailureType.NETWORK)
     }
 
+    @Test
+    fun deleteOwnAccountMapsSuccessConflictAndNetwork() = runTest {
+        successValue(ServerAuthRepository(FakeAuthApiService()).deleteOwnAccount())
+
+        val conflictApi = FakeAuthApiService(deleteOwnAccountResponse = errorResponse(409))
+        assertFailure(
+            ServerAuthRepository(conflictApi).deleteOwnAccount(),
+            AuthFailureType.CONFLICT,
+        )
+
+        val unauthorizedApi = FakeAuthApiService(deleteOwnAccountResponse = errorResponse(401))
+        assertFailure(
+            ServerAuthRepository(unauthorizedApi).deleteOwnAccount(),
+            AuthFailureType.UNAUTHENTICATED,
+        )
+
+        val networkApi = FakeAuthApiService(exception = IOException("offline"))
+        assertFailure(
+            ServerAuthRepository(networkApi).deleteOwnAccount(),
+            AuthFailureType.NETWORK,
+        )
+    }
+
     private suspend fun loginForStatus(status: Int): AuthResult<AuthenticatedSession> {
         val api = FakeAuthApiService(loginResponse = errorResponse(status))
         return ServerAuthRepository(api).login("person@example.com", "Password1!")
@@ -155,6 +178,7 @@ class ServerAuthRepositoryTest {
         private val currentUserResponse: Response<AuthenticatedUserResponse> = Response.success(
             AuthenticatedUserResponse(12L, "person@example.com", AuthRole.USER)
         ),
+        private val deleteOwnAccountResponse: Response<Unit> = Response.success(Unit),
         private val exception: Exception? = null,
     ) : AuthApiService {
         var lastLoginRequest: LoginRequest? = null
@@ -168,6 +192,11 @@ class ServerAuthRepositoryTest {
         override suspend fun getCurrentUser(): Response<AuthenticatedUserResponse> {
             exception?.let { throw it }
             return currentUserResponse
+        }
+
+        override suspend fun deleteOwnAccount(): Response<Unit> {
+            exception?.let { throw it }
+            return deleteOwnAccountResponse
         }
     }
 

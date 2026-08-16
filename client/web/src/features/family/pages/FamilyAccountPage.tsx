@@ -26,10 +26,12 @@ function readableValue(value: string | null | undefined) {
 
 /** Server-authoritative identity, account, family and profile details. */
 export function FamilyAccountPage() {
-  const { session } = useSession()
+  const { session, logout } = useSession()
   const [details, setDetails] = useState<AccountDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const [deleteAccountError, setDeleteAccountError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -58,6 +60,22 @@ export function FamilyAccountPage() {
     const timeoutId = window.setTimeout(() => void load(), 0)
     return () => window.clearTimeout(timeoutId)
   }, [load])
+
+  const deleteOwnAccount = async () => {
+    const confirmed = window.confirm(
+      'Delete your account? This cannot be undone. You will no longer be able to sign in. Scan history and saved profiles stay on the server as inactive account data.',
+    )
+    if (!confirmed) return
+    setDeletingAccount(true)
+    setDeleteAccountError('')
+    try {
+      await authService.deleteOwnAccount()
+      await logout()
+    } catch (caughtError) {
+      setDeleteAccountError(getErrorMessage(caughtError))
+      setDeletingAccount(false)
+    }
+  }
 
   if (loading) return <LoadingState label="Loading account settings…" />
   if (error) return <ErrorState message={error} onRetry={load} />
@@ -122,6 +140,27 @@ export function FamilyAccountPage() {
             </dd>
           </div>
         </dl>
+      </section>
+
+      <section className="panel account-danger">
+        <h2>Delete your account</h2>
+        <p>
+          This deactivates the signed-in account ({account.email}). It does not
+          delete another family member or the profile currently used for scanning.
+        </p>
+        {deleteAccountError ? (
+          <p className="form-message form-message--error" role="alert">
+            {deleteAccountError}
+          </p>
+        ) : null}
+        <button
+          className="button button--danger"
+          type="button"
+          disabled={deletingAccount}
+          onClick={() => void deleteOwnAccount()}
+        >
+          {deletingAccount ? 'Deleting…' : 'Delete My Account'}
+        </button>
       </section>
     </>
   )

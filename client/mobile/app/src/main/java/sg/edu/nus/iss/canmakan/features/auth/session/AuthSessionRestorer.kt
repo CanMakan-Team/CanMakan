@@ -108,6 +108,7 @@ class AuthSessionRestorer(
             AuthFailureType.INVALID_RESPONSE,
             AuthFailureType.MALFORMED_REQUEST,
             AuthFailureType.INVALID_CREDENTIALS,
+            AuthFailureType.CONFLICT,
             -> AuthRestorationResult.TemporarilyUnavailable
         }
     }

@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.navigation
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -55,6 +57,7 @@ import sg.edu.nus.iss.canmakan.features.family.ui.InviteFamilyMemberScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.ManageFamilyScreen
 import sg.edu.nus.iss.canmakan.features.notifications.NotificationsInboxScreen
 import sg.edu.nus.iss.canmakan.features.settings.SettingsScreen
+import sg.edu.nus.iss.canmakan.features.settings.SettingsViewModel
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
@@ -81,6 +84,7 @@ fun CanMakanNavGraph(
     onRequestSelfProfileSetup: () -> Unit = {},
 ) {
     val navController = rememberNavController()
+    val context = LocalContext.current
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val editDietarySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -90,6 +94,7 @@ fun CanMakanNavGraph(
     val activeRestrictions by navGraphViewModel.activeRestrictions.collectAsStateWithLifecycle()
     val profiles by navGraphViewModel.profiles.collectAsStateWithLifecycle()
     val hasFamily by navGraphViewModel.hasFamily.collectAsStateWithLifecycle()
+    val familyName by navGraphViewModel.familyName.collectAsStateWithLifecycle()
     val showManageFamilyActions by navGraphViewModel.showManageFamilyActions.collectAsStateWithLifecycle()
     val selfProfileId by navGraphViewModel.selfProfileId.collectAsStateWithLifecycle()
     val memberRole by navGraphViewModel.memberRole.collectAsStateWithLifecycle()
@@ -159,10 +164,12 @@ fun CanMakanNavGraph(
         showEditDietarySheet = false
         if (refresh) {
             navGraphViewModel.refreshRestrictions()
-        }
-        // Only leave overlays (e.g. Notifications); stay put on Scanner to avoid camera restart.
-        if (currentRoute != ROUTE_SCANNER) {
-            navigateToScannerHome()
+            // Product detail still shows a verdict computed against the old restrictions.
+            if (currentRoute == ROUTE_PRODUCT_DETAIL) {
+                if (!navController.popBackStack()) {
+                    navigateToScannerHome()
+                }
+            }
         }
     }
 
@@ -394,7 +401,9 @@ fun CanMakanNavGraph(
             composable(ROUTE_CREATE_FAMILY) {
                 if (hasFamily) {
                     LaunchedEffect(Unit) {
-                        navController.popBackStack()
+                        navController.navigate(ROUTE_MANAGE_FAMILY) {
+                            popUpTo(ROUTE_CREATE_FAMILY) { inclusive = true }
+                        }
                     }
                 } else {
                     CreateFamilyCircleScreen(
@@ -408,7 +417,14 @@ fun CanMakanNavGraph(
                         onBackClick = { navController.popBackStack() },
                         onCreateClick = { name ->
                             navGraphViewModel.createFamilyCircle(name) {
-                                navController.popBackStack()
+                                Toast.makeText(
+                                    context,
+                                    "Success! You can now add someone to your family circle",
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                                navController.navigate(ROUTE_MANAGE_FAMILY) {
+                                    popUpTo(ROUTE_CREATE_FAMILY) { inclusive = true }
+                                }
                             }
                         },
                     )
@@ -416,6 +432,7 @@ fun CanMakanNavGraph(
             }
             composable(ROUTE_MANAGE_FAMILY) {
                 ManageFamilyScreen(
+                    familyName = familyName,
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
                     hasUnreadNotifications = hasUnreadNotifications,
@@ -436,9 +453,7 @@ fun CanMakanNavGraph(
                     onBackClick = { navController.popBackStack() },
                     onCancelClick = { navController.popBackStack() },
                     onCreated = {
-                        navController.navigate(ROUTE_SCANNER) {
-                            popUpTo(ROUTE_SCANNER) { inclusive = true }
-                        }
+                        navController.popBackStack()
                         navGraphViewModel.refreshRestrictions()
                     },
                 )
@@ -479,6 +494,9 @@ fun CanMakanNavGraph(
                 )
             }
             composable(ROUTE_SETTINGS) {
+                val settingsViewModel: SettingsViewModel = hiltViewModel()
+                val isDeletingAccount by settingsViewModel.isDeletingAccount.collectAsStateWithLifecycle()
+                val deleteAccountError by settingsViewModel.deleteAccountError.collectAsStateWithLifecycle()
                 SettingsScreen(
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
@@ -489,11 +507,10 @@ fun CanMakanNavGraph(
                     notificationsEnabled = notificationsEnabled,
                     onNotificationsEnabledChanged = navGraphViewModel::setNotificationsEnabled,
                     notificationsEnabledError = notificationsEnabledError,
+                    isDeletingAccount = isDeletingAccount,
+                    deleteAccountError = deleteAccountError,
                     onConfirmDeleteAccount = {
-                        // TODO: no backend endpoint exists yet to actually delete the
-                        // account. Returning to the scanner rather than signing the
-                        // user out, since doing so would imply deletion succeeded.
-                        navigateToScannerHome()
+                        settingsViewModel.deleteOwnAccount(onSuccess = onSignOut)
                     },
                 )
             }

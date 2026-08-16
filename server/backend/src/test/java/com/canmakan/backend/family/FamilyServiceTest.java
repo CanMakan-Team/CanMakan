@@ -24,6 +24,7 @@ import com.canmakan.backend.product.model.ScanProduct;
 import com.canmakan.backend.product.scan.Scan;
 import com.canmakan.backend.product.scan.ScanRepository;
 import com.canmakan.backend.family.dto.ActiveProfileResponse;
+import com.canmakan.backend.family.dto.ClaimInvitationRequest;
 import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
 import com.canmakan.backend.family.dto.CreateInvitationRequest;
@@ -675,6 +676,80 @@ class FamilyServiceTest {
         assertFalse(savedProfile.isPrimary());
         assertEquals("SPOUSE", savedProfile.getRelationship());
         assertEquals(InvitationStatus.ACCEPTED, invitation.getStatus());
+    }
+
+    @Test
+    @DisplayName("UC9 claim with a typed profile name uses it instead of the email-derived placeholder")
+    void claimInvitationWithProfileNameUsesTypedName() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyMemberRepository.existsByIdUserId(30L)).thenReturn(false);
+
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        family.setCreatedByUserId(10L);
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(familyMemberRepository.saveAndFlush(any(FamilyMember.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(dietaryProfileRepository.findByLinkedUser_Id(30L)).thenReturn(Optional.empty());
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        FamilyMeResponse response = familyService.claimInvitation(
+            30L, new ClaimInvitationRequest("tok", "Person Name"));
+
+        ArgumentCaptor<DietaryProfile> profileCaptor = ArgumentCaptor.forClass(DietaryProfile.class);
+        verify(dietaryProfileRepository).saveAndFlush(profileCaptor.capture());
+        assertEquals("Person Name", profileCaptor.getValue().getProfileName());
+        assertEquals(1L, response.familyId());
+    }
+
+    @Test
+    @DisplayName("UC9 claim with a typed profile name overrides an auto-provisioned placeholder")
+    void claimInvitationWithProfileNameOverridesExistingPlaceholder() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyMemberRepository.existsByIdUserId(30L)).thenReturn(false);
+
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        family.setCreatedByUserId(10L);
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(familyMemberRepository.saveAndFlush(any(FamilyMember.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Simulates a placeholder already inserted from an earlier attempt that
+        // was not given the typed name (e.g. a plain login-triggered claim).
+        DietaryProfile placeholder = new DietaryProfile();
+        placeholder.setId(88L);
+        placeholder.setLinkedUser(user);
+        placeholder.setProfileName("invitee");
+        when(dietaryProfileRepository.findByLinkedUser_Id(30L))
+            .thenReturn(Optional.of(placeholder));
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        familyService.claimInvitation(30L, new ClaimInvitationRequest("tok", "Person Name"));
+
+        ArgumentCaptor<DietaryProfile> profileCaptor = ArgumentCaptor.forClass(DietaryProfile.class);
+        verify(dietaryProfileRepository).saveAndFlush(profileCaptor.capture());
+        assertEquals("Person Name", profileCaptor.getValue().getProfileName());
     }
 
     @Test

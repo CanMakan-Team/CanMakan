@@ -1,6 +1,7 @@
 package com.canmakan.backend.dietaryprofile;
 
 import com.canmakan.backend.dietaryprofile.exception.SelfProfileAlreadyExistsException;
+import com.canmakan.backend.dietaryprofile.exception.SelfProfileNotFoundException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -38,6 +39,13 @@ public class DietaryProfileExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public Map<String, String> handleSelfProfileConflict(
             SelfProfileAlreadyExistsException exception) {
+        return Map.of("message", exception.getMessage());
+    }
+
+    @ExceptionHandler(SelfProfileNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map<String, String> handleSelfProfileNotFound(
+            SelfProfileNotFoundException exception) {
         return Map.of("message", exception.getMessage());
     }
 }

@@ -465,6 +465,8 @@ input[readonly] {
   bottom: 0;
   left: 0;
   display: flex;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   width: 260px;
   flex-direction: column;
   padding: 1.4rem 1rem;
@@ -517,6 +519,30 @@ input[readonly] {
 .sidebar__nav {
   display: grid;
   gap: 0.25rem;
+}
+
+.sidebar__section {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.sidebar__section-label {
+  margin: 0.9rem 0.75rem 0.15rem;
+  color: var(--color-web-bcd0c9);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sidebar__section:first-child .sidebar__section-label {
+  margin-top: 0.15rem;
+}
+
+.sidebar__divider {
+  margin: 0.75rem 0.75rem 0.55rem;
+  border: none;
+  border-top: 1px solid color-mix(in srgb, var(--color-web-bcd0c9) 55%, black);
 }
 
 .sidebar__link {
@@ -1312,9 +1338,9 @@ input[readonly] {
 }
 
 .form-message--success {
+  color: var(--safe);
+  background: var(--safe-bg);
   border: 1px solid var(--color-web-cce5d4);
-  color: var(--color-web-285b42);
-  background: var(--color-web-f2faf5);
   font-weight: 600;
 }
 
@@ -1607,6 +1633,22 @@ caption {
 
 .account-panel .detail-grid {
   width: 100%;
+}
+
+.account-danger {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.2rem;
+}
+
+.account-danger h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.account-danger p {
+  margin: 0;
+  color: var(--color-web-526961);
 }
 
 .donut-layout {

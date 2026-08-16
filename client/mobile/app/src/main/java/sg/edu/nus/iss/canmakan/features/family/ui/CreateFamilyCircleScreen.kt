@@ -18,19 +18,25 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import sg.edu.nus.iss.canmakan.navigation.InviteWebDeepLinks
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
 import sg.edu.nus.iss.canmakan.shared.ui.BottomTab
@@ -54,6 +60,9 @@ fun CreateFamilyCircleScreen(
 ) {
     var familyName by remember { mutableStateOf("") }
     var validationError by remember { mutableStateOf<String?>(null) }
+    var portalLinkCopied by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+    val familyPortalUrl = remember { InviteWebDeepLinks.familyPortalMembersUrl() }
 
     Scaffold(
         topBar = {
@@ -96,7 +105,7 @@ fun CreateFamilyCircleScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Choose a name to become the Family Admin. You can invite others later on the web.",
+                text = "Manage your family's dietary profiles from this account.",
                 color = TextSecondary,
             )
 
@@ -148,7 +157,37 @@ fun CreateFamilyCircleScreen(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Text("Create family circle")
+                    Text("Create")
+                }
+            }
+
+            if (familyPortalUrl != null) {
+                Spacer(modifier = Modifier.height(32.dp))
+                Text(
+                    text = "Family Portal website",
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = familyPortalUrl,
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(familyPortalUrl))
+                        portalLinkCopied = true
+                    },
+                ) {
+                    Text(if (portalLinkCopied) "Copied" else "Copy URL")
+                }
+                LaunchedEffect(portalLinkCopied) {
+                    if (portalLinkCopied) {
+                        delay(2000)
+                        portalLinkCopied = false
+                    }
                 }
             }
         }

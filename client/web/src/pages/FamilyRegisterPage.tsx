@@ -111,6 +111,26 @@ export function FamilyRegisterPage() {
       setPassword('')
       setConfirmPassword('')
       if (result.status === 'authenticated') {
+        if (invitationToken) {
+          // Claim the invitation immediately while we still have the token and an
+          // authenticated session, rather than deferring it to the dietary-profile
+          // setup screen's exit actions. That screen renders inside the full portal
+          // sidebar, so a new invitee could navigate away (e.g. straight to "Family
+          // Circle") before ever triggering the claim, leaving them unlinked from
+          // the family they were invited to.
+          try {
+            await familyApiService.claimInvitation(invitationToken, trimmedProfileName)
+            pendingRegistrationOnboardingStore.request({
+              email: trimmedEmail,
+              profileName: trimmedProfileName,
+              invitationToken: undefined,
+            })
+          } catch {
+            // Leave the invitation token in the pending onboarding record so the
+            // dietary-profile setup screen retries the claim (via finishPath) when
+            // the user finishes or defers that step.
+          }
+        }
         navigate('/family/setup-profile', { replace: true })
       } else {
         setSubmitError(

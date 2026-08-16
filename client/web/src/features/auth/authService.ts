@@ -15,6 +15,7 @@ export const authEndpoints = {
   refresh: '/api/auth/refresh',
   logout: '/api/auth/logout',
   me: '/api/auth/me',
+  account: '/api/auth/account',
 } as const
 
 export type RegisterInput = {
@@ -143,6 +144,14 @@ export const authService = {
     return apiRequest<void>(authEndpoints.logout, {
       method: 'POST',
       authentication: 'none',
+      retryAuthentication: false,
+      sessionMutation: true,
+    })
+  },
+
+  deleteOwnAccount(): Promise<void> {
+    return apiRequest<void>(authEndpoints.account, {
+      method: 'DELETE',
       retryAuthentication: false,
       sessionMutation: true,
     })

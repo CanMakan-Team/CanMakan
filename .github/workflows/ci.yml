@@ -282,6 +282,7 @@ jobs:
         run: |
           mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.2.0.4988:sonar \
             -Dsonar.projectKey=canmakan-backend \
+            -Dsonar.projectName=canmakan-backend \
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.qualitygate.wait=true
 
@@ -397,7 +398,7 @@ jobs:
         working-directory: client/mobile
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug testDebugUnitTest createDebugUnitTestCoverageReport
+          ./gradlew assembleDebug testDebugUnitTest createDebugUnitTestCoverageReport lintDebug
 
       # AGP 9 writes coverage XML under app/build; copy to the path Sonar is configured to read.
       - name: Stage JaCoCo XML for SonarCloud

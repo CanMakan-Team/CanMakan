@@ -160,6 +160,8 @@ npm run build
 `npm run verify` runs typecheck, ESLint, and the Vitest suite. `npm run build`
 also produces the Vite production bundle.
 
+UC14 verdict-trend coverage lives in `src/test/features/analytics/VerdictTrendsPage.test.tsx` and `VerdictTrendChart.test.tsx`. CI uploads Vitest lcov to SonarCloud (`canmakan-web`); keep those tests in the same PR as page or chart changes so new-code coverage stays honest. Generated `src/styles/tokens.css` is omitted from Sonar analysis; `src/mocks` is omitted from coverage (pages and services stay in the gate).
+
 ## Sprint 1 demo flow
 
 Family Portal:
@@ -193,6 +195,7 @@ Auth (live DB, UC19 JWT):
 - `POST /api/profiles/me` — authenticated optional SELF profile + restrictions
 - `POST /api/auth/refresh` — rotates the HttpOnly refresh session and returns a new access response
 - `POST /api/auth/logout` — clears refresh cookie / session server-side
+- `DELETE /api/auth/account` — soft-deactivates the signed-in account only
 - `GET /api/auth/me` — authoritative account id, email, platform role and active status
 
 Registration and authentication remain separate backend operations. After

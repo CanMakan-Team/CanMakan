@@ -13,6 +13,7 @@ Public account registration plus login, refresh, logout, and `/me` against Sprin
 | `POST` | `/api/auth/login` | `email`, `password` → `AuthResponse` (access JWT + user) + refresh cookie |
 | `POST` | `/api/auth/refresh` | Rotate refresh cookie → new access JWT |
 | `POST` | `/api/auth/logout` | Revoke refresh session + clear cookie |
+| `DELETE` | `/api/auth/account` | Authenticated self-service soft-deactivate (`users.is_active=0`); JWT principal only — no user/profile id in path or body. Revokes all refresh sessions, clears the refresh cookie, returns 204. Last family `PRIMARY_ADMIN` and last platform `ADMIN` return 409. Email stays unique; an admin can reactivate via `PATCH /api/admin/users/{id}/status`. |
 | `GET` | `/api/auth/me` | Requires Bearer JWT; returns `userId`, `email`, `role`, and `active` |
 
 Login and register are owned by `AuthController` / `AuthService` (single mapping for each path).
@@ -61,9 +62,10 @@ Controller and service classes stay in `auth` (this package root).
 The refresh cookie is HttpOnly and path-scoped to `/api/auth`. Its Secure and
 SameSite attributes are deployment configuration; `SameSite=None` is accepted
 only with `Secure=true`, credentialed CORS, exact HTTPS origins, and no origin
-patterns. `Lax` is the default. Login, refresh, and logout require a non-secret
-session-intent request header. Browser requests additionally require an exact
-configured Origin; native requests may omit Origin but must retain the header.
+patterns. `Lax` is the default. Login, refresh, logout, and self-service account
+deletion require a non-secret session-intent request header. Browser requests
+additionally require an exact configured Origin; native requests may omit Origin
+but must retain the header.
 Confirmed refresh-authentication failures retain the uniform 401 response and
 expire the presented cookie with the same configured attributes. Unexpected
 server failures remain 5xx responses and preserve a potentially valid cookie.

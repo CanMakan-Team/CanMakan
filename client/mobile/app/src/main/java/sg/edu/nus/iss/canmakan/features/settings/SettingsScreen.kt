@@ -63,6 +63,8 @@ fun SettingsScreen(
     notificationsEnabled: Boolean,
     onNotificationsEnabledChanged: (Boolean) -> Unit,
     notificationsEnabledError: String? = null,
+    isDeletingAccount: Boolean = false,
+    deleteAccountError: String? = null,
     onConfirmDeleteAccount: () -> Unit
 ) {
     // Controls whether the delete confirmation dialog is visible.
@@ -165,13 +167,22 @@ fun SettingsScreen(
             // leaving empty space above it to match the prototype layout.
             Spacer(modifier = Modifier.weight(1f))
 
+            if (deleteAccountError != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = deleteAccountError,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
             Button(
                 onClick = { showDeleteDialog = true },
+                enabled = !isDeletingAccount,
                 colors = ButtonDefaults.buttonColors(containerColor = AvoidRed),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Delete My Account",
+                    text = if (isDeletingAccount) "Deleting…" else "Delete My Account",
                     color = CardWhite,
                     fontWeight = FontWeight.Bold
                 )
@@ -185,14 +196,17 @@ fun SettingsScreen(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Delete account?") },
             text = {
-                Text("This action cannot be undone. All scan history and saved profiles will be permanently removed.")
+                Text(
+                    "This action cannot be undone. You will no longer be able to sign in. ",
+                )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         showDeleteDialog = false
                         onConfirmDeleteAccount()
-                    }
+                    },
+                    enabled = !isDeletingAccount,
                 ) {
                     Text("Delete", color = AvoidRed)
                 }
