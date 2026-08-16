@@ -11,6 +11,7 @@ const androidXxxhdpiLauncher = path.resolve(
   clientRoot,
   'mobile/app/src/main/res/mipmap-xxxhdpi',
 )
+const androidLauncherIcon = path.join(androidXxxhdpiLauncher, 'ic_launcher.webp')
 const emailFallbackMascot = path.join(mascotDrawable, 'canmakan_mascot_wave.png')
 
 function readFileOrThrow(filePath) {
@@ -18,6 +19,45 @@ function readFileOrThrow(filePath) {
     throw new Error(`Missing shared client asset: ${filePath}`)
   }
   return fs.readFileSync(filePath)
+}
+
+/**
+ * Favicon is the Android launcher. Serve a stable URL so `main.tsx` does not
+ * import the file as a module (Playwright CI sparse-checkout used to omit
+ * `client/mobile`, which made Vite fail before React mounted).
+ */
+function launcherFaviconPlugin() {
+  const publicPath = '/favicon.webp'
+
+  return {
+    name: 'launcher-favicon',
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const urlPath = request.url?.split('?')[0]
+        if (urlPath !== publicPath) {
+          next()
+          return
+        }
+        if (!fs.existsSync(androidLauncherIcon)) {
+          response.statusCode = 404
+          response.end()
+          return
+        }
+        response.setHeader('Content-Type', 'image/webp')
+        response.end(fs.readFileSync(androidLauncherIcon))
+      })
+    },
+    generateBundle() {
+      if (!fs.existsSync(androidLauncherIcon)) {
+        return
+      }
+      this.emitFile({
+        type: 'asset',
+        fileName: publicPath.slice(1),
+        source: fs.readFileSync(androidLauncherIcon),
+      })
+    },
+  }
 }
 
 /**
@@ -51,7 +91,7 @@ function emailMascotFallbackPlugin() {
 }
 
 export default defineConfig({
-  plugins: [react(), emailMascotFallbackPlugin()],
+  plugins: [react(), emailMascotFallbackPlugin(), launcherFaviconPlugin()],
   resolve: {
     alias: {
       '@mascot': mascotDrawable,

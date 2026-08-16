@@ -1,4 +1,4 @@
-import launcherIcon from '@launcher/ic_launcher.webp'
+const LAUNCHER_FAVICON_HREF = '/favicon.webp'
 
 function setHeadIcon(rel: string, href: string, type?: string) {
   let link = document.querySelector(`link[rel="${rel}"]`)
@@ -13,5 +13,5 @@ function setHeadIcon(rel: string, href: string, type?: string) {
   link.setAttribute('href', href)
 }
 
-setHeadIcon('icon', launcherIcon, 'image/webp')
-setHeadIcon('apple-touch-icon', launcherIcon)
+setHeadIcon('icon', LAUNCHER_FAVICON_HREF, 'image/webp')
+setHeadIcon('apple-touch-icon', LAUNCHER_FAVICON_HREF)

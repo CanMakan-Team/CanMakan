@@ -18,10 +18,22 @@ export interface SelfProfileResponse {
   restrictions: Record<string, ProfileRestrictionSeverity>
 }
 
+export interface PersonalScanHistoryItem {
+  id: number
+  scannedAt: string
+  verdict: string
+  product: {
+    productName: string | null
+    brand: string | null
+    barcode: string | null
+  } | null
+}
+
 export const selfProfileEndpoints = {
   catalog: '/api/restrictions',
   create: '/api/profiles/me',
   me: '/api/profiles/me',
+  scanHistory: (profileId: number) => `/api/scan/history/${profileId}`,
 } as const
 
 export const selfProfileApiService = {
@@ -50,4 +62,9 @@ export const selfProfileApiService = {
       body: JSON.stringify({ profileName, restrictions }),
       retryAuthentication: false,
     }),
+
+  getScanHistoryForProfile: (profileId: number) =>
+    apiRequest<PersonalScanHistoryItem[]>(
+      selfProfileEndpoints.scanHistory(profileId),
+    ),
 }

@@ -18,9 +18,10 @@ Invitation emails still use the stable hosted path
 mascots into `public/`.
 
 The browser favicon is the Android launcher at
-`client/mobile/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp`, imported via
-the `@launcher` alias in `src/app/documentIcons.ts`. Do not copy a separate
-icon into `public/`.
+`client/mobile/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp`, served as
+`/favicon.webp` (Vite plugin in `vite.config.js`). Do not copy a separate
+icon into `public/`. Playwright jobs sparse-checkout that mipmap folder so
+the icon is present in CI.
 
 ## Selected Web features
 
@@ -141,6 +142,9 @@ Copy `.env.example` to `.env` or `.env.local` if machine-specific settings are n
 ```text
 VITE_API_BASE_URL=http://localhost:8080
 VITE_USE_MOCK_API=false
+# Optional. Defaults to https://appdistribution.firebase.google.com/
+# Hosted builds use GitHub secret FIREBASE_APP_DISTRIBUTION_URL.
+VITE_FIREBASE_APP_DISTRIBUTION_URL=https://appdistribution.firebase.google.com/
 ```
 
 A checked-in `.env` defaults to the live backend. The browser calls Spring on
@@ -149,7 +153,12 @@ port 8080 from Vite (`5173`); backend CORS must allow that origin (defaults unde
 Network failures show “service is currently unreachable” in `apiClient` — that
 includes CORS blocks, not only a down server.
 
-Never put credentials or secrets in Vite environment variables.
+The `/me` banner QR is drawn in the browser with `qrcode.react` from
+`VITE_FIREBASE_APP_DISTRIBUTION_URL`. The App
+Distribution URL is a public tester link; GitHub stores it as secret
+`FIREBASE_APP_DISTRIBUTION_URL` so hosted builds can change it without a code
+change. Vite still inlines it into the client as
+`VITE_FIREBASE_APP_DISTRIBUTION_URL`.
 
 ## Install and run
 

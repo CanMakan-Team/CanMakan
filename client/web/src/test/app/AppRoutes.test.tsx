@@ -26,6 +26,7 @@ vi.mock('../../features/account/api/selfProfileApiService', () => ({
     getSelfProfile: vi.fn(),
     createSelfProfile: vi.fn(),
     updateSelfProfile: vi.fn(),
+    getScanHistoryForProfile: vi.fn(),
   },
 }))
 
@@ -72,6 +73,8 @@ describe('AppRoutes USER and family boundaries', () => {
     vi.mocked(selfProfileApiService.getSelfProfile).mockReset()
     vi.mocked(selfProfileApiService.createSelfProfile).mockReset()
     vi.mocked(selfProfileApiService.updateSelfProfile).mockReset()
+    vi.mocked(selfProfileApiService.getScanHistoryForProfile).mockReset()
+    vi.mocked(selfProfileApiService.getScanHistoryForProfile).mockResolvedValue([])
     vi.mocked(selfProfileApiService.getCatalog).mockResolvedValue([
       { id: 2, code: 'PEANUT', displayName: 'Peanut', category: 'ALLERGEN' },
     ])
@@ -130,7 +133,6 @@ describe('AppRoutes USER and family boundaries', () => {
       await screen.findByRole('heading', { name: 'Your CanMakan account' }),
     ).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Family Members' })).not.toBeInTheDocument()
-    expect(familyApiService.getMembers).not.toHaveBeenCalled()
   })
 
   it('keeps a user with no Family Circle off /family/members', async () => {

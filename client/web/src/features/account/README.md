@@ -7,7 +7,10 @@ mobile app.
 
 ## Routes
 
-- `/me` — personal home
+- `/me` — personal home (status cards, setup progress, mobile app banner). The
+  banner QR encodes `VITE_FIREBASE_APP_DISTRIBUTION_URL` (GitHub secret
+  `FIREBASE_APP_DISTRIBUTION_URL` at deploy), falling back to
+  `https://appdistribution.firebase.google.com/`.
 - `/me/setup-profile` — optional SELF dietary profile
 - `/me/account` — account settings and delete account
 

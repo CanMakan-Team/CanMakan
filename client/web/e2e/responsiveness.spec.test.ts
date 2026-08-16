@@ -62,7 +62,8 @@ test('Verify Responsiveness of CanMakan Web Navigation Elements', async ({ page,
           commonRequirements: [],
           restrictions: [],
           source: 'REGISTERED_USER',
-          profileActive: true
+          profileActive: true,
+          memberRole: 'PRIMARY_ADMIN'
         }
       ])
     });
@@ -84,12 +85,13 @@ test('Verify Responsiveness of CanMakan Web Navigation Elements', async ({ page,
   await page.goto('/login');
 
   // 2. Fill in credentials and submit
-  await page.fill('input[type="email"]', 'david@example.com');
+  await page.locator('#family-email').waitFor({ state: 'visible', timeout: 15000 });
+  await page.fill('#family-email', 'david@example.com');
   await page.fill('input[type="password"]', 'Password@123');
   await page.click('button[type="submit"]');
 
   // 3. Wait until navigated into the protected portal
-  await page.waitForURL('**/family');
+  await page.waitForURL(/\/family(\/dashboard)?$/, { timeout: 15000 });
 
   // 4. Assert layout based on viewport size
   if (isMobile) {

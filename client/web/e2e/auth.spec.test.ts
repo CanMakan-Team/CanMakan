@@ -58,7 +58,8 @@ test.describe('Authentication and Route Guarding', () => {
             commonRequirements: [],
             restrictions: [],
             source: 'REGISTERED_USER',
-            profileActive: true
+            profileActive: true,
+            memberRole: 'PRIMARY_ADMIN'
           }
         ])
       });
@@ -131,7 +132,7 @@ test.describe('Authentication and Route Guarding', () => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([{ memberId: 1, profileId: 1, profileName: 'David Lim', relationship: 'SELF', ageGroup: 'ADULT', commonRequirements: [], restrictions: [], source: 'REGISTERED_USER', profileActive: true }])
+        body: JSON.stringify([{ memberId: 1, profileId: 1, profileName: 'David Lim', relationship: 'SELF', ageGroup: 'ADULT', commonRequirements: [], restrictions: [], source: 'REGISTERED_USER', profileActive: true, memberRole: 'PRIMARY_ADMIN' }])
       });
     });
 

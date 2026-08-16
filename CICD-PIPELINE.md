@@ -81,6 +81,7 @@ These are not in YAML; they are required for CD to match this design.
 | Visibility | **Public** repository |
 | SARIF upload | Trivy jobs always upload SARIF. On a **public** repo, GitHub Code Scanning can show those results in the Security tab without GitHub Advanced Security. Failure is still the **table** scan (`exit-code: 1`) |
 | SonarCloud | Org **`canmakan-team`**. Projects **`canmakan-backend`**, **`canmakan-web`**, **`canmakan-mobile`**. Repo secret **`SONAR_TOKEN`**. Analysis is in `ci.yml` (not a separate `build.yml`). Scans skip until the token is set |
+| App Distribution URL | Repo (or Environment) secret **`FIREBASE_APP_DISTRIBUTION_URL`**. Vite inlines it as `VITE_FIREBASE_APP_DISTRIBUTION_URL` on web CI build and `deploy-web`. Optional; the client falls back to `https://appdistribution.firebase.google.com/` |
 | Gitar | GitHub App **Gitar** (`gitar-bot`) enabled on this repository. PR review only; no Actions secret required for the default App install |
 
 ## 5. Continuous integration (`ci.yml`)
@@ -109,7 +110,7 @@ There is no repo-root `.github/workflows/build.yml` or root `sonar-project.prope
 
 ## 6. End-to-end (`e2e.yml`)
 
-Concurrency: `e2e-${{ github.ref }}`. Path job `detect-frontend-changes`; Playwright job runs only if `client/web/**` changed. Report artefact `playwright-report`, 30 days.
+Concurrency: `e2e-${{ github.ref }}`. Path job `detect-frontend-changes`; Playwright job runs only if `client/web/**` changed. Report artefact `playwright-report`, 30 days. Sparse-checkout includes `client/web`, `client/shared`, and `client/mobile/app/src/main/res/mipmap-xxxhdpi` (web favicon).
 
 Pushes to **`main` do not** run this workflow. Web production deploy runs Playwright in `deploy-frontends.yml` instead.
 
@@ -132,7 +133,7 @@ Docs-only (or non-backend) CI on `main` succeeds with no JAR → `has_jar=false`
 
 `push` to `main` with `client/web/**`, `client/mobile/**`, or this workflow file. Job `detect-frontend-changes` filters web vs mobile on the **push SHA** (not `workflow_run`). Frontend CD is **not** coupled to `e2e.yml`, so a mobile-only change is not blocked by Playwright.
 
-- **Web** (`deploy-web`): needs Playwright job `e2e`, then Vite build (`VITE_USE_MOCK_API: 'false'`) and Firebase Hosting `channelId: live`. Concurrency `deploy-web-${{ github.ref }}`.
+- **Web** (`deploy-web`): needs Playwright job `e2e`, then Vite build (`VITE_USE_MOCK_API: 'false'`, `VITE_FIREBASE_APP_DISTRIBUTION_URL` from secret `FIREBASE_APP_DISTRIBUTION_URL`) and Firebase Hosting `channelId: live`. Concurrency `deploy-web-${{ github.ref }}`.
 - **Mobile** (`deploy-mobile`): `needs` path detection only. Signed `assembleRelease`, shred keystore, App Distribution group `qa-team`. Concurrency `deploy-mobile-${{ github.ref }}`.
 
 Both deploy jobs use `environment: ${{ vars.DEPLOY_ENVIRONMENT }}`.
