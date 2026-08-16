@@ -8,6 +8,7 @@ import { pendingRegistrationOnboardingStore } from '../../features/auth/pendingR
 import { appUserSession, systemAdminSession } from '../testUtils'
 import { familyApiService } from '../../features/family/api/familyApiService'
 import { selfProfileApiService } from '../../features/family/api/selfProfileApiService'
+import { ApiError } from '../../shared/api/apiErrors'
 
 vi.mock('../../features/family/api/familyApiService', () => ({
   familyApiService: {
@@ -22,6 +23,8 @@ vi.mock('../../features/family/api/selfProfileApiService', () => ({
   selfProfileApiService: {
     getCatalog: vi.fn(),
     createSelfProfile: vi.fn(),
+    getSelfProfile: vi.fn(),
+    updateSelfProfile: vi.fn(),
   },
 }))
 
@@ -63,9 +66,15 @@ describe('AppRoutes USER and family boundaries', () => {
     vi.mocked(familyApiService.createFamily).mockReset()
     vi.mocked(selfProfileApiService.getCatalog).mockReset()
     vi.mocked(selfProfileApiService.createSelfProfile).mockReset()
+    vi.mocked(selfProfileApiService.getSelfProfile).mockReset()
+    vi.mocked(selfProfileApiService.updateSelfProfile).mockReset()
     vi.mocked(selfProfileApiService.getCatalog).mockResolvedValue([
       { id: 2, code: 'PEANUT', displayName: 'Peanut', category: 'ALLERGEN' },
     ])
+    // Default: no SELF profile exists yet, matching a brand-new account.
+    vi.mocked(selfProfileApiService.getSelfProfile).mockRejectedValue(
+      new ApiError('No SELF profile exists for this account yet.', 404),
+    )
   })
 
   it('lets a newly authenticated no-family USER open setup and skip to personal home', async () => {

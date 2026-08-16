@@ -33,6 +33,16 @@ export function SelfProfileSetupPage() {
   const [profileName, setProfileName] = useState(pending?.profileName ?? '')
   const [catalog, setCatalog] = useState<DietaryRestrictionOption[]>([])
   const [selected, setSelected] = useState<Record<number, ProfileRestrictionSeverity>>({})
+  // Severity actually persisted for each restriction, as loaded from the
+  // server, keyed by restriction id. Used to resend a restriction's original
+  // severity (e.g. PREFERENCE, set via the family admin flow) when the user
+  // never touched its checkbox, instead of the STRICT_AVOID/INTOLERANCE
+  // approximation this page displays it as.
+  const [persistedSeverities, setPersistedSeverities] = useState<Record<number, string>>({})
+  // Restriction ids the user has explicitly toggled during this session. Only
+  // these should be sent using the on/off severity this form can represent;
+  // untouched rows keep resending their original persisted severity.
+  const [touchedIds, setTouchedIds] = useState<Set<number>>(new Set())
   const [existingProfileId, setExistingProfileId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -67,6 +77,16 @@ export function SelfProfileSetupPage() {
           // persisted value is just an auto-generated placeholder (the
           // email's local part) until this page's first save overwrites it.
           setProfileName(pending?.profileName || existingProfile.profileName)
+          setPersistedSeverities(
+            Object.entries(existingProfile.restrictions).reduce<Record<number, string>>(
+              (accumulator, [restrictionId, severity]) => {
+                accumulator[Number(restrictionId)] = severity
+                return accumulator
+              },
+              {},
+            ),
+          )
+          setTouchedIds(new Set())
           setSelected(
             Object.entries(existingProfile.restrictions).reduce<
               Record<number, ProfileRestrictionSeverity>
@@ -77,7 +97,9 @@ export function SelfProfileSetupPage() {
               // elsewhere with a different severity (e.g. PREFERENCE, set via the
               // family admin flow) still shows as checked here, defaulting to
               // STRICT_AVOID rather than resending a severity this form can't
-              // represent and getting rejected on save.
+              // represent and getting rejected on save. The original severity is
+              // preserved separately in `persistedSeverities` and resent as-is on
+              // save unless the user actually toggles this restriction.
               accumulator[Number(restrictionId)] =
                 severity === 'INTOLERANCE' ? 'INTOLERANCE' : 'STRICT_AVOID'
               return accumulator
@@ -134,6 +156,10 @@ export function SelfProfileSetupPage() {
       }
       return next
     })
+    // Track that the user explicitly changed this restriction's checkbox, so
+    // save() knows to send the new on/off severity for it rather than
+    // resending whatever severity was originally persisted.
+    setTouchedIds((current) => new Set(current).add(option.id))
     setError('')
     setSuccessMessage('')
   }
@@ -171,11 +197,26 @@ export function SelfProfileSetupPage() {
     // Only an established profile edited outside onboarding (e.g. from the
     // sidebar) should keep the user on this page with an in-place confirmation.
     const isFirstEverSave = Boolean(pending) || existingProfileId == null
+    // Resend the originally persisted severity for any restriction the user
+    // never touched (e.g. PREFERENCE, set via the family admin flow), instead
+    // of the STRICT_AVOID/INTOLERANCE approximation `selected` displays it
+    // as. Restrictions the user actually toggled use the new on/off value.
+    const restrictionsToSave = Object.entries(selected).reduce<
+      Record<number, ProfileRestrictionSeverity>
+    >((accumulator, [restrictionId, severity]) => {
+      const id = Number(restrictionId)
+      const persistedSeverity = persistedSeverities[id]
+      accumulator[id] =
+        !touchedIds.has(id) && persistedSeverity
+          ? (persistedSeverity as ProfileRestrictionSeverity)
+          : severity
+      return accumulator
+    }, {})
     try {
       if (existingProfileId != null) {
-        await selfProfileApiService.updateSelfProfile(normalizedProfileName, selected)
+        await selfProfileApiService.updateSelfProfile(normalizedProfileName, restrictionsToSave)
       } else {
-        await selfProfileApiService.createSelfProfile(normalizedProfileName, selected)
+        await selfProfileApiService.createSelfProfile(normalizedProfileName, restrictionsToSave)
       }
       if (isFirstEverSave) {
         pendingRegistrationOnboardingStore.clear()
