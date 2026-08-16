@@ -3,6 +3,7 @@ package com.canmakan.backend.shared.security;
 import com.canmakan.backend.auth.RefreshTokenProperties;
 import com.canmakan.backend.family.InviteProperties;
 import com.canmakan.backend.family.ResendProperties;
+import jakarta.servlet.DispatcherType;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -115,6 +116,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/restrictions").authenticated()
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                 .requestMatchers("/api/**").authenticated()
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .anyRequest().denyAll())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
