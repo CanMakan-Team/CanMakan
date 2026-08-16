@@ -6,9 +6,9 @@ import { apiRequest, useMockApi } from '../../shared/api/apiClient'
  * Data contract for the four reported groups: acquisition and conversion, activity and stickiness,
  * retention and churn, and engagement and sessions.
  *
- * The backend endpoint (`/api/admin/usage-statistics`) is not built yet, so this service currently
- * returns a deterministic mock so the page renders. When the endpoint lands, replace the mock branch
- * with the real request - the shapes below are the intended contract.
+ * The backend endpoint (`/api/admin/usage-statistics`) is now available. This service falls back to a
+ * deterministic mock only when mock mode is enabled, so the page can still render without a backend -
+ * the shapes below are the real contract.
  */
 
 export type UsagePeriodDays = 7 | 30 | 90

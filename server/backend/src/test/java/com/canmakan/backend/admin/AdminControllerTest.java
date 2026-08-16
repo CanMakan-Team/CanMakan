@@ -64,7 +64,7 @@ class AdminControllerTest {
                 .standaloneSetup(new AdminController(
                         consumerTrendsService,
                         userAccountManagementService,
-                        usageStatisticsService
+                        usageStatisticsService,
                         adminScanFeedbackService
                 ))
                 .setControllerAdvice(new AdminExceptionHandler())

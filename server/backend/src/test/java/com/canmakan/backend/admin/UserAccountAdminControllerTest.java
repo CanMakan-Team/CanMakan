@@ -58,7 +58,7 @@ class UserAccountAdminControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(new AdminController(
                         consumerTrendsService,
                         userAccountManagementService,
-                        mock(UsageStatisticsService.class)
+                        mock(UsageStatisticsService.class),
                         adminScanFeedbackService
                 ))
                 .setControllerAdvice(new AdminExceptionHandler())

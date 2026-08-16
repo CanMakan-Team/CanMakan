@@ -18,10 +18,12 @@ public interface UsageStatisticsRepository extends Repository<Scan, Long> {
     @Query(value = """
             SELECT u.id AS userId,
                    UNIX_TIMESTAMP(u.created_at) * 1000 AS createdAtEpochMs,
-                   (SELECT COUNT(*) FROM dietary_profiles dp WHERE dp.linked_user_id = u.id) AS profileCount
+                   COUNT(dp.id) AS profileCount
             FROM users u
             JOIN roles r ON r.id = u.role_id
+            LEFT JOIN dietary_profiles dp ON dp.linked_user_id = u.id
             WHERE r.name = 'USER'
+            GROUP BY u.id, u.created_at
             """, nativeQuery = true)
     List<AppUserProjection> findAppUsers();
 

@@ -225,6 +225,7 @@ public class UsageStatisticsService {
             Instant periodStart) {
 
         long totalSessions = 0;
+        long timedSessions = 0;
         long totalSessionSeconds = 0;
         long activeUserCount = 0;
         long totalActiveDays = 0;
@@ -243,14 +244,20 @@ public class UsageStatisticsService {
             Set<LocalDate> activeDays = new HashSet<>();
             Instant sessionStart = periodScans.get(0);
             Instant previous = periodScans.get(0);
+            int sessionScanCount = 1;
             for (int index = 0; index < periodScans.size(); index++) {
                 Instant current = periodScans.get(index);
                 if (index > 0 && current.getEpochSecond() - previous.getEpochSecond() > SESSION_GAP_SECONDS) {
                     totalSessions++;
-                    totalSessionSeconds += previous.getEpochSecond() - sessionStart.getEpochSecond();
+                    if (sessionScanCount > 1) {
+                        timedSessions++;
+                        totalSessionSeconds += previous.getEpochSecond() - sessionStart.getEpochSecond();
+                    }
                     sessionStart = current;
+                    sessionScanCount = 0;
                 }
                 previous = current;
+                sessionScanCount++;
 
                 LocalDateTime local = LocalDateTime.ofInstant(current, BUSINESS_ZONE);
                 activeDays.add(local.toLocalDate());
@@ -260,11 +267,14 @@ public class UsageStatisticsService {
                 maxCell = Math.max(maxCell, heatmapCounts[row][bucket]);
             }
             totalSessions++;
-            totalSessionSeconds += previous.getEpochSecond() - sessionStart.getEpochSecond();
+            if (sessionScanCount > 1) {
+                timedSessions++;
+                totalSessionSeconds += previous.getEpochSecond() - sessionStart.getEpochSecond();
+            }
             totalActiveDays += activeDays.size();
         }
 
-        long averageSessionSeconds = totalSessions == 0 ? 0 : Math.round((double) totalSessionSeconds / totalSessions);
+        long averageSessionSeconds = timedSessions == 0 ? 0 : Math.round((double) totalSessionSeconds / timedSessions);
         double sessionsPerUser = activeUserCount == 0 ? 0 : round1((double) totalSessions / activeUserCount);
         long periodDays = Math.max(1, ChronoUnit.DAYS.between(periodStart, now));
         double activeDaysPerWeek = activeUserCount == 0
