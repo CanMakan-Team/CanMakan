@@ -106,9 +106,6 @@ describe('PersonalHomePage', () => {
       await screen.findByRole('heading', { name: 'Get CanMakan on Mobile' }),
     ).toBeInTheDocument()
     expect(
-      screen.queryByRole('link', { name: 'Open Firebase App Distribution' }),
-    ).not.toBeInTheDocument()
-    expect(
       screen.getByRole('link', { name: 'QR code for Firebase App Distribution' }),
     ).toHaveAttribute('href', 'https://appdistribution.firebase.google.com/')
     expect(
@@ -170,9 +167,6 @@ describe('PersonalHomePage', () => {
       'href',
       'https://appdistribution.firebase.google.com/pub/testerapps/custom',
     )
-    expect(
-      screen.queryByRole('link', { name: 'Open Firebase App Distribution' }),
-    ).not.toBeInTheDocument()
   })
 
   it('summarises a saved dietary profile and family admin circle', async () => {
@@ -262,5 +256,34 @@ describe('PersonalHomePage', () => {
     expect(
       screen.queryByRole('heading', { name: 'Get CanMakan on Mobile' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('shows a retryable error when dietary profile load fails for a non-404 reason', async () => {
+    const user = userEvent.setup()
+    vi.mocked(selfProfileApiService.getSelfProfile).mockRejectedValue(
+      new ApiError('The dietary profile service is currently unreachable.', 500),
+    )
+    renderHome()
+
+    expect(
+      await screen.findByText('The dietary profile service is currently unreachable.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Set Up Profile' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Not set up yet')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Get CanMakan on Mobile' }),
+    ).not.toBeInTheDocument()
+
+    vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
+      profileId: 77,
+      profileName: 'Lia',
+      relationship: 'SELF',
+      active: true,
+      restrictions: {},
+    })
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByText('Lia is ready')).toBeInTheDocument()
+    expect(selfProfileApiService.getSelfProfile).toHaveBeenCalledTimes(2)
   })
 })

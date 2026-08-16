@@ -14,9 +14,4 @@ declare module '@mascot/*.png' {
   export default src
 }
 
-declare module '@launcher/*.webp' {
-  const src: string
-  export default src
-}
-
 

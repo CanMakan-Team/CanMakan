@@ -6,7 +6,7 @@ import {
   ME_ACCOUNT_PATH,
   ME_SETUP_PROFILE_PATH,
 } from '../../../app/userPortalPaths'
-import { ApiError } from '../../../shared/api/apiErrors'
+import { ApiError, getErrorMessage } from '../../../shared/api/apiErrors'
 import { formatCode } from '../../family/lib/profileOptions'
 import { familyApiService } from '../../family/api/familyApiService'
 import { useFamilyMe } from '../../family/useFamilyMe'
@@ -19,6 +19,7 @@ import {
 } from '../api/selfProfileApiService'
 import { getFirebaseAppDistributionUrl } from '../lib/firebaseAppDistribution'
 import { QRCodeSVG } from 'qrcode.react'
+import { ErrorState } from '../../../shared/ui/PageState'
 import { CanMakanMascot } from '../../../shared/ui/CanMakanMascot'
 import { PortalIcon } from '../../../shared/ui/PortalIcon'
 
@@ -41,6 +42,8 @@ export function PersonalHomePage() {
   const [profile, setProfile] = useState<SelfProfileResponse | null>(null)
   const [catalog, setCatalog] = useState<DietaryRestrictionOption[]>([])
   const [profileLoading, setProfileLoading] = useState(true)
+  const [profileError, setProfileError] = useState('')
+  const [profileLoadAttempt, setProfileLoadAttempt] = useState(0)
   const [memberCount, setMemberCount] = useState<number | null>(null)
   const [fetchedScans, setFetchedScans] = useState<PersonalScanHistoryItem[]>([])
   const [loadedScanProfileId, setLoadedScanProfileId] = useState<number | null>(null)
@@ -59,20 +62,32 @@ export function PersonalHomePage() {
     let active = true
     Promise.all([
       selfProfileApiService.getCatalog().catch(() => [] as DietaryRestrictionOption[]),
-      selfProfileApiService.getSelfProfile().catch((caught: unknown) => {
-        if (caught instanceof ApiError && caught.status === 404) return null
-        return null
-      }),
-    ]).then(([options, existing]) => {
-      if (!active) return
-      setCatalog(options)
-      setProfile(existing)
-      setProfileLoading(false)
-    })
+      selfProfileApiService.getSelfProfile().then(
+        (existing) => existing,
+        (caught: unknown) => {
+          if (caught instanceof ApiError && caught.status === 404) return null
+          throw caught
+        },
+      ),
+    ]).then(
+      ([options, existing]) => {
+        if (!active) return
+        setCatalog(options)
+        setProfile(existing)
+        setProfileError('')
+        setProfileLoading(false)
+      },
+      (caught: unknown) => {
+        if (!active) return
+        setProfile(null)
+        setProfileError(getErrorMessage(caught))
+        setProfileLoading(false)
+      },
+    )
     return () => {
       active = false
     }
-  }, [])
+  }, [profileLoadAttempt])
 
   useEffect(() => {
     if (familyLoading || !hasFamily) {
@@ -116,7 +131,9 @@ export function PersonalHomePage() {
   const recentScans =
     profileId == null || loadedScanProfileId !== profileId ? [] : fetchedScans
   const scanHistoryReady =
-    !profileLoading && (profileId == null || loadedScanProfileId === profileId)
+    !profileLoading &&
+    !profileError &&
+    (profileId == null || loadedScanProfileId === profileId)
 
   const restrictionNames = useMemo(
     () => (profile ? labelsForRestrictions(profile.restrictions, catalog) : []),
@@ -226,7 +243,7 @@ export function PersonalHomePage() {
           </div>
         </article>
 
-        <article className={`summary-card home-card${profile ? '' : ' home-card--action'}`}>
+        <article className={`summary-card home-card${profile || profileError ? '' : ' home-card--action'}`}>
           <span className="summary-card__icon" aria-hidden="true">
             <PortalIcon name="person" />
           </span>
@@ -234,6 +251,15 @@ export function PersonalHomePage() {
             <span>Dietary Profile</span>
             {profileLoading ? (
               <strong>Checking…</strong>
+            ) : profileError ? (
+              <ErrorState
+                message={profileError}
+                onRetry={() => {
+                  setProfileLoading(true)
+                  setProfileError('')
+                  setProfileLoadAttempt((current) => current + 1)
+                }}
+              />
             ) : profile ? (
               <>
                 <strong>
@@ -330,6 +356,8 @@ export function PersonalHomePage() {
             <span aria-hidden="true">{profile ? '✓' : '○'}</span>
             {profile ? (
               'Dietary Profile'
+            ) : profileError ? (
+              'Dietary Profile'
             ) : (
               <Link to={ME_SETUP_PROFILE_PATH}>Dietary Profile</Link>
             )}
@@ -357,6 +385,7 @@ export function PersonalHomePage() {
               const productName = scan.product?.productName || 'Scanned product'
               const brand = scan.product?.brand?.trim() || ''
               const summary = scan.aiExplanation?.trim() || ''
+              const verdictKey = scan.verdict?.trim().toLowerCase() || 'unknown'
               return (
                 <article
                   key={scan.id}
@@ -374,8 +403,8 @@ export function PersonalHomePage() {
                       {formatScanTime(scan.scannedAt)}
                     </span>
                   </div>
-                  <span className={`status-badge status-badge--${scan.verdict.toLowerCase()}`}>
-                    {formatCode(scan.verdict)}
+                  <span className={`status-badge status-badge--${verdictKey}`}>
+                    {formatCode(scan.verdict || 'UNKNOWN')}
                   </span>
                   {summary ? (
                     <p className="home-scan-row__tip" role="tooltip">

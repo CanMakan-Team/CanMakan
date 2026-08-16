@@ -99,7 +99,15 @@ test.describe('Authentication and Route Guarding', () => {
       route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Unauthorized' }) });
     });
     await page.goto('/me');
-    await expect(page).toHaveURL(/.*\/login/);
+    await expect(page).toHaveURL(/\/login(?:\?|$)/);
+  });
+
+  test('Legacy family-login redirects to login', async ({ page }) => {
+    await page.route('**/api/auth/refresh', route => {
+      route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Unauthorized' }) });
+    });
+    await page.goto('/family-login');
+    await expect(page).toHaveURL(/\/login(?:\?|$)/);
   });
 
   test('Valid Credentials Grant Access to the Portal', async ({ page }) => {
@@ -207,7 +215,7 @@ test.describe('Authentication and Route Guarding', () => {
     await signOutButton.scrollIntoViewIfNeeded();
 
     await Promise.all([
-      page.waitForURL(/.*\/login/, { timeout: 15000 }),
+      page.waitForURL(/\/login(?:\?|$)/, { timeout: 15000 }),
       signOutButton.click({ force: true })
     ]);
   });

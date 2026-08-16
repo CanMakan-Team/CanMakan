@@ -13,6 +13,9 @@ const androidXxxhdpiLauncher = path.resolve(
 )
 const androidLauncherIcon = path.join(androidXxxhdpiLauncher, 'ic_launcher.webp')
 const emailFallbackMascot = path.join(mascotDrawable, 'canmakan_mascot_wave.png')
+const faviconSource = fs.existsSync(androidLauncherIcon)
+  ? { filePath: androidLauncherIcon, contentType: 'image/webp' }
+  : { filePath: emailFallbackMascot, contentType: 'image/png' }
 
 function readFileOrThrow(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -38,23 +41,15 @@ function launcherFaviconPlugin() {
           next()
           return
         }
-        if (!fs.existsSync(androidLauncherIcon)) {
-          response.statusCode = 404
-          response.end()
-          return
-        }
-        response.setHeader('Content-Type', 'image/webp')
-        response.end(fs.readFileSync(androidLauncherIcon))
+        response.setHeader('Content-Type', faviconSource.contentType)
+        response.end(readFileOrThrow(faviconSource.filePath))
       })
     },
     generateBundle() {
-      if (!fs.existsSync(androidLauncherIcon)) {
-        return
-      }
       this.emitFile({
         type: 'asset',
         fileName: publicPath.slice(1),
-        source: fs.readFileSync(androidLauncherIcon),
+        source: readFileOrThrow(faviconSource.filePath),
       })
     },
   }
@@ -95,7 +90,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@mascot': mascotDrawable,
-      '@launcher': androidXxxhdpiLauncher,
     },
   },
   server: {
