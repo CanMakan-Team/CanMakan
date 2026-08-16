@@ -1,0 +1,104 @@
+[
+  {
+    "barcode": "9555064500016",
+    "product_name": "Superfine Wheat Flour",
+    "brand": "Baker Choice",
+    "main_category_en": "Wheat flours",
+    "category_tags": "en:wheat-flours",
+    "labels_tags": "en:palm-oil-free",
+    "ingredients_text": "Wheat Flour, Iron, Niacin, Vitamin B2, Vitamin B1, Folic Acid",
+    "allergens": "en:gluten"
+  },
+  {
+    "barcode": "8887501030642",
+    "product_name": "Organic Brown Rice Flour",
+    "brand": "Origins",
+    "main_category_en": "Brown Rice Flour",
+    "category_tags": "en:brown-rice-flour",
+    "labels_tags": "en:no-gluten,en:gluten-free,en:gluten-free-flour",
+    "ingredients_text": "Organic Brown Rice"
+  },
+  {
+    "barcode": "8906055442630",
+    "product_name": "Organic Amaranath Flour",
+    "brand": "Organic Tattva",
+    "main_category_en": "Amaranth flour",
+    "category_tags": "en:amaranth-flour",
+    "labels_tags": "en:no-gluten,en:gluten-free,en:gluten-free-flour",
+    "ingredients_text": "Organic Amaranth (Rajgira) Seeds"
+  },
+  {
+    "barcode": "8887501030697",
+    "product_name": "Organic Buckwheat Flour",
+    "brand": "Origins",
+    "main_category_en": "Buckwheat Flour",
+    "category_tags": "en:buckwheat-flour",
+    "labels_tags": "en:no-gluten,en:gluten-free,en:gluten-free-flour",
+    "ingredients_text": "Buckwheat Flour"
+  },
+  {
+    "barcode": "8888030023662",
+    "product_name": "Corn Flour",
+    "brand": "FairPrice",
+    "main_category_en": "Corn starch",
+    "category_tags": "en:corn-starch",
+    "labels_tags": "en:no-gluten,en:gluten-free,en:gluten-free-flour",
+    "ingredients_text": "Corn flour"
+  },
+  {
+    "barcode": "8888200602857",
+    "product_name": "Farmhouse Fresh Milk",
+    "brand": "Farmhouse",
+    "main_category_en": "Fresh milks",
+    "category_tags": "en:fresh-milks,en:milks",
+    "labels_tags": "",
+    "ingredients_text": "Fresh milks",
+    "quantity": "1 L"
+  },
+  {
+    "barcode": "8850025000521",
+    "product_name": "Soya Milk Unsweetened",
+    "brand": "Home",
+    "main_category_en": "Unsweetened plain soy-based drinks",
+    "category_tags": "en:milk-substitutes,en:unsweetened-plain-soy-based-drinks",
+    "labels_tags": "en:no-gluten,en:vegan",
+    "ingredients_text": "Soy milk 99.6%, Calcium Carbonate",
+    "quantity": "1 L"
+  },
+  {
+    "barcode": "8888260007616",
+    "product_name": "Peanut Butter Crunchy",
+    "brand": "Skippy",
+    "main_category_en": "Peanut butters",
+    "category_tags": "en:peanut-butters",
+    "labels_tags": "",
+    "ingredients_text": "Roasted Peanuts, Sugar, Salt"
+  },
+  {
+    "barcode": "95539553",
+    "product_name": "Organic Cashew Butter",
+    "brand": "Nature's",
+    "main_category_en": "Mixed nut butters",
+    "category_tags": "en:nut-butters",
+    "labels_tags": "",
+    "ingredients_text": "Cashews"
+  },
+  {
+    "barcode": "8888536703136",
+    "product_name": "Organic Tahini",
+    "brand": "Origins",
+    "main_category_en": "Tahini",
+    "category_tags": "en:tahini,en:cereal-butters",
+    "labels_tags": "",
+    "ingredients_text": "Sesame seeds"
+  },
+  {
+    "barcode": "0044936350150",
+    "product_name": "Strawberry Jam",
+    "brand": "Smuckers",
+    "main_category_en": "Jams",
+    "category_tags": "en:jams",
+    "labels_tags": "",
+    "ingredients_text": "Strawberries, sugar"
+  }
+]
