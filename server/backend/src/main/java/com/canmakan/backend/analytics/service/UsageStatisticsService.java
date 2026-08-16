@@ -48,7 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UsageStatisticsService {
 
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Singapore");
-    private static final long SESSION_GAP_SECONDS = 30 * 60;
+    private static final long SESSION_GAP_SECONDS = 30L * 60;
     private static final int REACTIVATION_GAP_DAYS = 30;
     private static final int MAX_PERIOD_DAYS = 365;
     private static final int HEATMAP_HOUR_BUCKETS = 12;
