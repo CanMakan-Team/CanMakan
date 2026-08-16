@@ -80,12 +80,15 @@ describe('FamilyRestrictionSummaryPage', () => {
       expect(screen.getByRole('table')).toBeInTheDocument()
     })
 
-    // Dairy / lactose family codes collapse into one Lactose Intolerance column
+    // Dairy / lactose family codes collapse into one Lactose Intolerance
+    // column. Both Peanut and Lactose Intolerance are in the Allergies and
+    // intolerances group, so they sort alphabetically ahead of Vegan, which
+    // is in the Specific diets and health preferences group.
     const headers = screen.getAllByRole('columnheader').map(h => h.textContent)
     expect(headers).toEqual([
       'Family member',
-      'Peanut',
       'Lactose Intolerance',
+      'Peanut',
       'Vegan',
     ])
 

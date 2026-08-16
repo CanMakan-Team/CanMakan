@@ -13,24 +13,47 @@ interface NavigationItem {
   icon: string
 }
 
-const familyNavigation: NavigationItem[] = [
-  { label: 'Home', to: '/family', icon: '⌂' },
-  { label: 'Personal Home', to: '/family/personal', icon: '◇' },
-  { label: 'Dietary Profile', to: '/family/setup-profile', icon: '◇' },
-  { label: 'Family Circle', to: '/family/circle', icon: '♙' },
-  { label: 'Family Dashboard', to: '/family/dashboard', icon: '⌂' },
-  { label: 'Family Members', to: '/family/members', icon: '♙' },
-  { label: 'Restriction Summary', to: '/family/restrictions', icon: '▦' },
-  { label: 'Family Scan History', to: '/family/history', icon: '◷' },
-  { label: 'Verdict Trends', to: '/family/verdict-trends', icon: '↗' },
-  { label: 'Account Settings', to: '/family/account', icon: '⚙' },
+/** A labelled group of navigation items, rendered with a heading in the sidebar. */
+interface NavigationSection {
+  label: string
+  items: NavigationItem[]
+}
+
+// The "Home" entry (/family) still exists as a route so login can resolve a
+// family admin straight to Family Overview, but it is not shown as its own
+// sidebar link.
+const familySections: NavigationSection[] = [
+  {
+    label: 'Family',
+    items: [
+      { label: 'Family Overview', to: '/family/dashboard', icon: '⌂' },
+      { label: 'Family Circle', to: '/family/circle', icon: '♙' },
+      { label: 'Family Members', to: '/family/members', icon: '♙' },
+      { label: 'Restriction Summary', to: '/family/restrictions', icon: '▦' },
+      { label: 'Family Scan History', to: '/family/history', icon: '◷' },
+      { label: 'Verdict Trends', to: '/family/verdict-trends', icon: '↗' },
+    ],
+  },
+  {
+    label: 'Personal',
+    items: [
+      { label: 'Personal Home', to: '/family/personal', icon: '◇' },
+      { label: 'Dietary Profile', to: '/family/setup-profile', icon: '◇' },
+      { label: 'Account Settings', to: '/family/account', icon: '⚙' },
+    ],
+  },
 ]
 
-const systemNavigation: NavigationItem[] = [
-  { label: 'Dashboard', to: '/system', icon: '⌂' },
-  { label: 'Consumer Trends', to: '/system/trends', icon: '↗' },
-  { label: 'User Accounts & Access', to: '/system/users', icon: '♙' },
-  { label: 'Future Features', to: '/system/future', icon: '◇' },
+const systemSections: NavigationSection[] = [
+  {
+    label: '',
+    items: [
+      { label: 'Dashboard', to: '/system', icon: '⌂' },
+      { label: 'Consumer Trends', to: '/system/trends', icon: '↗' },
+      { label: 'User Accounts & Access', to: '/system/users', icon: '♙' },
+      { label: 'Future Features', to: '/system/future', icon: '◇' },
+    ],
+  },
 ]
 
 export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
@@ -42,7 +65,8 @@ export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
   // CMK-55 Read the Web Version, Falling Back for Local Development
   const appVersion = import.meta.env.VITE_APP_VERSION || 'Local Development'
 
-  const navigation = portal === 'family' ? familyNavigation : systemNavigation
+  const sections = portal === 'family' ? familySections : systemSections
+  const navigation = sections.flatMap((section) => section.items)
   const portalName =
     portal === 'family' ? 'CanMakan User Portal' : 'System Administration'
 
@@ -67,19 +91,27 @@ export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
           </div>
         </div>
         <nav className="sidebar__nav" aria-label={`${portalName} navigation`}>
-          {navigation.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === `/${portal}`}
-              onClick={() => setMenuOpen(false)}
-              className={({ isActive }) =>
-                isActive ? 'sidebar__link sidebar__link--active' : 'sidebar__link'
-              }
-            >
-              <span aria-hidden="true">{item.icon}</span>
-              {item.label}
-            </NavLink>
+          {sections.map((section, sectionIndex) => (
+            <div className="sidebar__section" key={section.label || sectionIndex}>
+              {sectionIndex > 0 && <hr className="sidebar__divider" />}
+              {section.label && (
+                <div className="sidebar__section-label">{section.label}</div>
+              )}
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === `/${portal}`}
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    isActive ? 'sidebar__link sidebar__link--active' : 'sidebar__link'
+                  }
+                >
+                  <span aria-hidden="true">{item.icon}</span>
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="sidebar__footer">

@@ -519,6 +519,30 @@ input[readonly] {
   gap: 0.25rem;
 }
 
+.sidebar__section {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.sidebar__section-label {
+  margin: 0.9rem 0.75rem 0.15rem;
+  color: var(--color-web-bcd0c9);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sidebar__section:first-child .sidebar__section-label {
+  margin-top: 0.15rem;
+}
+
+.sidebar__divider {
+  margin: 0.75rem 0.75rem 0.55rem;
+  border: none;
+  border-top: 1px solid color-mix(in srgb, var(--color-web-bcd0c9) 55%, black);
+}
+
 .sidebar__link {
   display: flex;
   min-height: 2.75rem;
