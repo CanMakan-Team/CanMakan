@@ -1018,6 +1018,7 @@ input[readonly] {
 
 .personal-home {
   width: min(1080px, 100%);
+  margin-inline: auto;
 }
 
 .summary-grid--home {
