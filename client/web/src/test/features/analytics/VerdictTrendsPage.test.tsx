@@ -133,7 +133,7 @@ describe('VerdictTrendsPage', () => {
   it('exports the visible daily series as CSV', async () => {
     const user = userEvent.setup()
     const click = vi.fn()
-    const createObjectURL = vi.fn(() => 'blob:verdict-trend')
+    const createObjectURL = vi.fn((_blob: Blob) => 'blob:verdict-trend')
     const revokeObjectURL = vi.fn()
     vi.stubGlobal('URL', {
       createObjectURL,
@@ -154,7 +154,7 @@ describe('VerdictTrendsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Export CSV' }))
 
     expect(createObjectURL).toHaveBeenCalledTimes(1)
-    const blob = createObjectURL.mock.calls[0][0] as Blob
+    const blob = createObjectURL.mock.calls[0][0]
     expect(blob.type).toBe('text/csv;charset=utf-8')
     expect(click).toHaveBeenCalledTimes(1)
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:verdict-trend')
