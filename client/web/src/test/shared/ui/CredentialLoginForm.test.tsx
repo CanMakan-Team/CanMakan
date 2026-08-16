@@ -357,4 +357,27 @@ describe('CredentialLoginForm', () => {
       )
     })
   })
+
+  it('keeps suspended accounts signed out and shows the safe 403 message', async () => {
+    const user = userEvent.setup()
+    vi.mocked(authService.loginWithCredentials).mockRejectedValue(
+      new ApiError('This account is suspended.', 403),
+    )
+    renderFamilyLogin()
+
+    await user.type(screen.getByLabelText('Email'), 'inactive@example.com')
+    await user.type(screen.getByLabelText('Password'), 'Password1!')
+    await user.click(
+      screen.getByRole('button', { name: 'Sign in to Family Portal' }),
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'This account is suspended.',
+      )
+    })
+    expect(authSessionStore.getSession()).toBeNull()
+    expect(authSessionStore.getAccessToken()).toBeNull()
+    expect(screen.queryByText('Family destination')).not.toBeInTheDocument()
+  })
 })

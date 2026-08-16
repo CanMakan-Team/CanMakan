@@ -150,7 +150,7 @@ class AuthenticationHttpIntegrationTest {
     }
 
     @Test
-    void missingEmailWrongPasswordAndInactiveAccountShareOneFailureResponse() throws Exception {
+    void missingEmailAndWrongPasswordShare401WhileVerifiedInactiveAccountReturns403() throws Exception {
         when(userAccountRepository.findAuthenticationAccountByEmail("missing@example.com"))
             .thenReturn(Optional.empty());
         when(userAccountRepository.findAuthenticationAccountByEmail("user@example.com"))
@@ -164,13 +164,19 @@ class AuthenticationHttpIntegrationTest {
         String wrongPasswordBody = login("user@example.com", "Wrong Password1!")
             .andExpect(status().isUnauthorized())
             .andReturn().getResponse().getContentAsString();
-        String inactiveBody = login("inactive@example.com", EXACT_PASSWORD)
+        login("inactive@example.com", "Wrong Password1!")
             .andExpect(status().isUnauthorized())
-            .andReturn().getResponse().getContentAsString();
+            .andExpect(content().string(missingBody));
+        MvcResult inactiveResult = login("inactive@example.com", EXACT_PASSWORD)
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.message").value("This account is suspended."))
+            .andExpect(jsonPath("$.accessToken").doesNotExist())
+            .andExpect(jsonPath("$.refreshToken").doesNotExist())
+            .andReturn();
 
         assertEquals(missingBody, wrongPasswordBody);
-        assertEquals(missingBody, inactiveBody);
         assertEquals("{\"message\":\"Invalid credentials or account unavailable.\"}", missingBody);
+        assertFalse(inactiveResult.getResponse().containsHeader(HttpHeaders.SET_COOKIE));
     }
 
     @Test

@@ -170,8 +170,12 @@ Success: `200 OK` with refresh cookie and body:
 }
 ```
 
-Invalid or inactive accounts return `401` with
-`{"message":"Invalid credentials or account unavailable."}`.
+Unknown accounts and invalid passwords return `401` with
+`{"message":"Invalid credentials or account unavailable."}`. A suspended account
+with otherwise valid credentials returns `403` with
+`{"message":"This account is suspended."}` and receives no access token or refresh
+cookie. A wrong password remains the same generic `401` even when the matching
+account is suspended.
 
 ### Role distinction
 

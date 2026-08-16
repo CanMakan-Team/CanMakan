@@ -21,6 +21,7 @@ import com.canmakan.backend.auth.dto.LoginRequest;
 import com.canmakan.backend.auth.dto.RegistrationRequest;
 import com.canmakan.backend.auth.dto.RegistrationResponse;
 import com.canmakan.backend.auth.exception.AuthenticationFailedException;
+import com.canmakan.backend.auth.exception.AccountSuspendedException;
 import com.canmakan.backend.auth.exception.DuplicateEmailException;
 import com.canmakan.backend.auth.exception.RegistrationFailedException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
@@ -163,16 +164,23 @@ class AuthServiceTest {
         }
 
         @Test
-        void convertsCredentialAndDisabledFailuresToTheSameInternalSignal() {
+        void convertsCredentialFailuresToTheGenericInternalSignal() {
             LoginRequest request = new LoginRequest("user@example.com", "Password1!");
 
             when(authenticationManager.authenticate(any(Authentication.class)))
                 .thenThrow(new BadCredentialsException("wrong password"));
             assertThrows(AuthenticationFailedException.class, () -> authService.login(request));
+            verifyNoInteractions(jwtService, refreshTokenService);
+        }
+
+        @Test
+        void convertsVerifiedSuspendedAccountToTheDistinctInternalSignal() {
+            LoginRequest request = new LoginRequest("inactive@example.com", "Password1!");
 
             when(authenticationManager.authenticate(any(Authentication.class)))
                 .thenThrow(new DisabledException("inactive account"));
-            assertThrows(AuthenticationFailedException.class, () -> authService.login(request));
+            assertThrows(AccountSuspendedException.class, () -> authService.login(request));
+            verifyNoInteractions(jwtService, refreshTokenService);
         }
 
         @Test
