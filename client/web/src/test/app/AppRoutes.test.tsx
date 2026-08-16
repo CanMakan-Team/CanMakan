@@ -82,11 +82,10 @@ describe('AppRoutes USER and family boundaries', () => {
     const user = userEvent.setup()
     pendingRegistrationOnboardingStore.request({
       email: 'person@example.com',
-      profileName: 'Person Name',
     })
     renderRoutes('/me/setup-profile', appUserSession())
 
-    expect(await screen.findByLabelText('Profile Name')).toHaveValue('Person Name')
+    expect(await screen.findByLabelText('Profile Name')).toHaveValue('')
     await user.click(screen.getByRole('button', { name: 'Set Up Later' }))
 
     expect(await screen.findByRole('heading', { name: 'Your CanMakan account' }))

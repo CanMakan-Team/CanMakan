@@ -103,9 +103,8 @@ export const familyApiService = {
         }),
 
   /**
-   * Claim an invitation. `profileName`, when supplied, is the name the caller
-   * typed at registration; the backend uses it for the SELF profile that
-   * claiming auto-provisions instead of a placeholder derived from the email.
+   * Claim an invitation. The auto-provisioned SELF profile uses a placeholder
+   * name until the caller sets Profile Name on dietary setup.
    */
   claimInvitation: (invitationToken: string, profileName?: string) =>
     useMockApi

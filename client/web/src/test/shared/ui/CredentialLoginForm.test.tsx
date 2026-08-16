@@ -99,7 +99,6 @@ describe('CredentialLoginForm', () => {
     const user = userEvent.setup()
     pendingRegistrationOnboardingStore.request({
       email: 'person@example.com',
-      profileName: 'Person Name',
     })
     vi.mocked(authService.loginWithCredentials).mockResolvedValue({
       accessToken: 'jwt',

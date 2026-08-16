@@ -211,8 +211,8 @@ Auth (live DB, UC19 JWT):
 Registration and authentication remain separate backend operations. After
 successful account-only registration, the browser calls the normal login path,
 keeps the access credential in memory and opens optional dietary setup. Profile
-Name remains credential-free pending data until authenticated
-`POST /api/profiles/me`; **Set Up Later** makes no profile request. If automatic
+Name is entered on `/me/setup-profile` when the user creates a SELF profile;
+**Set Up Later** makes no profile request. If automatic
 login fails, the account remains and normal login is offered with email prefilled.
 The family navigation keeps `/me/setup-profile` available so an authenticated
 user can complete skipped setup later.

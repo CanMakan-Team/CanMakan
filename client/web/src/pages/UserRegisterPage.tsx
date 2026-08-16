@@ -8,14 +8,12 @@ import { CanMakanMascot, LoginBrand } from '../shared/ui/CanMakanMascot'
 import { PasswordField } from '../shared/ui/PasswordField'
 import { getRegistrationPasswordError } from '../shared/validation/authFields'
 import { getEmailValidationError } from '../shared/validation/email'
-import { getProfileNameError } from '../shared/validation/profileFields'
 import { FAMILY_ROOT_PATH, ME_SETUP_PROFILE_PATH, USER_LOGIN_PATH } from '../app/userPortalPaths'
 
 /** UC18 account registration followed by the authoritative UC19 login flow. */
 export function UserRegisterPage() {
   const [searchParams] = useSearchParams()
   const invitationToken = searchParams.get('invitationToken')?.trim() || undefined
-  const [profileName, setProfileName] = useState('')
   const [email, setEmail] = useState('')
   const [emailLocked, setEmailLocked] = useState(false)
   const [password, setPassword] = useState('')
@@ -74,13 +72,7 @@ export function UserRegisterPage() {
     setSubmitError('')
     setShowLoginAction(false)
 
-    const trimmedProfileName = profileName.trim()
     const trimmedEmail = email.trim()
-    const profileNameError = getProfileNameError(trimmedProfileName)
-    if (profileNameError) {
-      setValidationError(profileNameError)
-      return
-    }
     const emailError = getEmailValidationError(trimmedEmail)
     if (emailError) {
       setValidationError(emailError)
@@ -100,7 +92,6 @@ export function UserRegisterPage() {
     // Store only non-secret onboarding data before login installs the session.
     pendingRegistrationOnboardingStore.request({
       email: trimmedEmail,
-      profileName: trimmedProfileName,
       invitationToken,
     })
     try {
@@ -121,10 +112,9 @@ export function UserRegisterPage() {
           // Circle") before ever triggering the claim, leaving them unlinked from
           // the family they were invited to.
           try {
-            await familyApiService.claimInvitation(invitationToken, trimmedProfileName)
+            await familyApiService.claimInvitation(invitationToken)
             pendingRegistrationOnboardingStore.request({
               email: trimmedEmail,
-              profileName: trimmedProfileName,
               invitationToken: undefined,
             })
           } catch {
@@ -156,11 +146,11 @@ export function UserRegisterPage() {
         >
           <LoginBrand />
           <CanMakanMascot pose="wave" size="hero" className="login-greeting-mascot" />
-          <p className="eyebrow">User Portal</p>
-          <h1 id="family-register-intro-title">Create your CanMakan account.</h1>
+          <p className="eyebrow">Welcome</p>
+          <h1 id="family-register-intro-title">Glad you're here. Let's get you an account.</h1>
           <p>
-            Create your account, then optionally set up one personal dietary profile.
-            You can complete dietary setup later.
+            Set up your dietary profile later, at your own pace. Family Circle is
+            optional when you need household tools.
           </p>
         </section>
 
@@ -170,20 +160,6 @@ export function UserRegisterPage() {
           <p>Use an email that is not already registered.</p>
 
           <form onSubmit={(event) => void handleSubmit(event)} noValidate>
-            <label htmlFor="register-profile-name">Profile Name</label>
-            <input
-              id="register-profile-name"
-              autoComplete="name"
-              value={profileName}
-              maxLength={100}
-              onChange={(event) => {
-                setProfileName(event.target.value)
-                clearValidationError()
-              }}
-              disabled={loading || accountCreated}
-            />
-            <p>This name is used only if you choose to create your personal dietary profile.</p>
-
             <label htmlFor="register-email">Email</label>
             <input
               id="register-email"

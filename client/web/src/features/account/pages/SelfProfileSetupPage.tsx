@@ -31,7 +31,7 @@ export function SelfProfileSetupPage() {
   const pending = session
     ? pendingRegistrationOnboardingStore.peekForEmail(session.email)
     : null
-  const [profileName, setProfileName] = useState(pending?.profileName ?? '')
+  const [profileName, setProfileName] = useState('')
   const [catalog, setCatalog] = useState<DietaryRestrictionOption[]>([])
   const [selected, setSelected] = useState<Record<number, ProfileRestrictionSeverity>>({})
   // Severity actually persisted for each restriction, as loaded from the
@@ -73,11 +73,9 @@ export function SelfProfileSetupPage() {
         setCatalog(options)
         if (existingProfile) {
           setExistingProfileId(existingProfile.profileId)
-          // Prefer the name the user typed at registration over whatever is
-          // currently persisted: on a fresh invite/registration flow the
-          // persisted value is just an auto-generated placeholder (the
-          // email's local part) until this page's first save overwrites it.
-          setProfileName(pending?.profileName || existingProfile.profileName)
+          // Claiming a family invitation auto-provisions a placeholder SELF
+          // name (email local part). The user chooses the real Profile Name here.
+          setProfileName(existingProfile.profileName)
           setPersistedSeverities(
             Object.entries(existingProfile.restrictions).reduce<Record<number, string>>(
               (accumulator, [restrictionId, severity]) => {
@@ -248,7 +246,6 @@ export function SelfProfileSetupPage() {
             id="setup-profile-name"
             value={profileName}
             maxLength={100}
-            readOnly={Boolean(pending)}
             onChange={(event) => {
               setProfileName(event.target.value)
               setError('')

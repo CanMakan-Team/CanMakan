@@ -60,7 +60,6 @@ describe('SelfProfileSetupPage', () => {
     pendingRegistrationOnboardingStore.clear()
     pendingRegistrationOnboardingStore.request({
       email: 'person@example.com',
-      profileName: 'Person Name',
     })
     vi.mocked(selfProfileApiService.getCatalog).mockReset()
     vi.mocked(selfProfileApiService.createSelfProfile).mockReset()
@@ -77,11 +76,11 @@ describe('SelfProfileSetupPage', () => {
     )
   })
 
-  it('shows the pending Profile Name and makes setup explicitly optional', async () => {
+  it('asks for Profile Name on dietary setup and makes setup explicitly optional', async () => {
     renderPage()
 
     expect(await screen.findByLabelText('Peanut')).toBeInTheDocument()
-    expect(screen.getByLabelText('Profile Name')).toHaveValue('Person Name')
+    expect(screen.getByLabelText('Profile Name')).toHaveValue('')
     expect(screen.getByText(/You can complete this later/)).toBeInTheDocument()
   })
 
@@ -97,7 +96,7 @@ describe('SelfProfileSetupPage', () => {
     expect(pendingRegistrationOnboardingStore.peekForEmail('person@example.com')).toBeNull()
   })
 
-  it('creates the SELF profile through the authenticated API with pending name', async () => {
+  it('creates the SELF profile through the authenticated API with the name entered here', async () => {
     const user = userEvent.setup()
     vi.mocked(selfProfileApiService.createSelfProfile).mockResolvedValue({
       profileId: 77,
@@ -109,6 +108,7 @@ describe('SelfProfileSetupPage', () => {
     renderPage()
     await screen.findByLabelText('Peanut')
 
+    await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
     await user.click(screen.getByLabelText('Peanut'))
     await user.click(screen.getByRole('button', { name: 'Save Profile' }))
 
@@ -127,6 +127,7 @@ describe('SelfProfileSetupPage', () => {
     renderPage()
     await screen.findByLabelText('Peanut')
 
+    await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
     await user.click(screen.getByLabelText('Peanut'))
     await user.click(screen.getByRole('button', { name: 'Save Profile' }))
 
@@ -165,7 +166,6 @@ describe('SelfProfileSetupPage', () => {
     const user = userEvent.setup()
     pendingRegistrationOnboardingStore.request({
       email: 'person@example.com',
-      profileName: 'Person Name',
       invitationToken: 'invite-token',
     })
     renderPage()
@@ -177,11 +177,10 @@ describe('SelfProfileSetupPage', () => {
     expect(selfProfileApiService.createSelfProfile).not.toHaveBeenCalled()
   })
 
-  it('resolves an auto-provisioned placeholder profile from joining a family: shows the typed name, saves via update, and finishes onboarding', async () => {
+  it('resolves an auto-provisioned placeholder profile from joining a family: shows the placeholder, saves via update, and finishes onboarding', async () => {
     // Accepting a family invitation auto-provisions a placeholder SELF profile
     // server-side (an email-derived name, no restrictions) before this page is
-    // ever reached. The pending onboarding record still carries the name the
-    // user actually typed at registration.
+    // ever reached. Profile Name is chosen on this page, not at registration.
     const user = userEvent.setup()
     vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
       profileId: 91,
@@ -200,8 +199,9 @@ describe('SelfProfileSetupPage', () => {
     renderPage()
     await screen.findByLabelText('Peanut')
 
-    // The typed onboarding name wins over the persisted placeholder.
-    expect(screen.getByLabelText('Profile Name')).toHaveValue('Person Name')
+    expect(screen.getByLabelText('Profile Name')).toHaveValue('person')
+    await user.clear(screen.getByLabelText('Profile Name'))
+    await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
 
     await user.click(screen.getByLabelText('Peanut'))
     await user.click(screen.getByRole('button', { name: 'Save Profile' }))

@@ -53,7 +53,6 @@ function renderRegisterPage(initialEntry = '/family-register') {
 }
 
 async function enterRegistration(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
   await user.type(screen.getByLabelText('Email'), 'person@example.com')
   await user.type(screen.getByLabelText('Password'), 'Password1!')
   await user.type(screen.getByLabelText('Confirm password'), 'Password1!')
@@ -76,12 +75,11 @@ describe('UserRegisterPage', () => {
     vi.mocked(familyApiService.claimInvitation).mockReset()
   })
 
-  it('collects Profile Name and requires matching passwords', async () => {
+  it('requires matching passwords', async () => {
     const user = userEvent.setup()
     renderRegisterPage()
 
-    expect(screen.getByLabelText('Profile Name')).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
+    expect(screen.queryByLabelText('Profile Name')).not.toBeInTheDocument()
     await user.type(screen.getByLabelText('Email'), 'person@example.com')
     await user.type(screen.getByLabelText('Password'), 'Password1!')
     await user.type(screen.getByLabelText('Confirm password'), 'Password2!')
@@ -116,7 +114,6 @@ describe('UserRegisterPage', () => {
     })
     expect(pendingRegistrationOnboardingStore.peekForEmail('person@example.com')).toEqual({
       email: 'person@example.com',
-      profileName: 'Person Name',
       invitationToken: undefined,
     })
   })
@@ -198,7 +195,6 @@ describe('UserRegisterPage', () => {
     )
     expect(screen.getByLabelText('Email')).toBeDisabled()
 
-    await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
     await user.type(screen.getByLabelText('Password'), 'Password1!')
     await user.type(screen.getByLabelText('Confirm password'), 'Password1!')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
@@ -210,10 +206,8 @@ describe('UserRegisterPage', () => {
       invitationToken: 'invite-token',
     })
     // The invitation must be claimed right after login succeeds, not deferred to
-    // whatever the user does next on the dietary-profile setup screen. The typed
-    // Profile Name goes along so the auto-provisioned SELF profile is created
-    // with it instead of an email-derived placeholder.
-    expect(familyApiService.claimInvitation).toHaveBeenCalledWith('invite-token', 'Person Name')
+    // whatever the user does next on the dietary-profile setup screen.
+    expect(familyApiService.claimInvitation).toHaveBeenCalledWith('invite-token')
     expect(
       pendingRegistrationOnboardingStore.peekForEmail('person@example.com')?.invitationToken,
     ).toBeUndefined()
@@ -241,13 +235,12 @@ describe('UserRegisterPage', () => {
       expect(screen.getByLabelText('Email')).toHaveValue('person@example.com'),
     )
 
-    await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
     await user.type(screen.getByLabelText('Password'), 'Password1!')
     await user.type(screen.getByLabelText('Confirm password'), 'Password1!')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
     await waitFor(() => expect(screen.getByText('Dietary setup')).toBeInTheDocument())
-    expect(familyApiService.claimInvitation).toHaveBeenCalledWith('invite-token', 'Person Name')
+    expect(familyApiService.claimInvitation).toHaveBeenCalledWith('invite-token')
     // Setup-profile's own finishPath() fallback still has a token to retry with.
     expect(
       pendingRegistrationOnboardingStore.peekForEmail('person@example.com')?.invitationToken,

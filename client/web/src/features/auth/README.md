@@ -14,12 +14,12 @@ Handles live login/register, session context, and route protection against UC19 
 
 ## UC18 web registration
 - Public route `/register` (`/family-register` redirects here)
-- Collects email, password confirmation and pending personal Profile Name; only
-  email/password are sent to public registration
+- Collects email and password confirmation; only email/password are sent to
+  public registration
 - After `201`, calls the authoritative UC19 login path and opens protected
   `/me/setup-profile`
-- Profile Name remains in credential-free memory until authenticated
-  `POST /api/profiles/me`; Set Up Later creates no profile
+- Profile Name is collected on dietary setup, not registration; Set Up Later
+  creates no profile
 - If automatic login fails, registration is not retried and normal login is
   offered with email prefilled
 - Invitation links preserve their token through registration so the existing
