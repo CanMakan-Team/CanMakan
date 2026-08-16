@@ -8,7 +8,9 @@ import com.canmakan.backend.admin.dto.SystemHealthResponse;
 import com.canmakan.backend.admin.dto.UpdateScanFeedbackResolvedRequest;
 import com.canmakan.backend.admin.dto.UpdateScanFeedbackResolvedResponse;
 import com.canmakan.backend.analytics.dto.ConsumerTrendsResponse;
+import com.canmakan.backend.analytics.dto.UsageStatisticsResponse;
 import com.canmakan.backend.analytics.service.ConsumerTrendsService;
+import com.canmakan.backend.analytics.service.UsageStatisticsService;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
@@ -32,6 +34,7 @@ public class AdminController {
 
     private final ConsumerTrendsService consumerTrendsService;
     private final UserAccountManagementService userAccountManagementService;
+    private final UsageStatisticsService usageStatisticsService;
     private final AdminScanFeedbackService adminScanFeedbackService;
     private final SystemHealthService systemHealthService;
 
@@ -42,6 +45,14 @@ public class AdminController {
         return systemHealthService.generate(hours);
     }
 
+
+    @GetMapping("/usage-statistics")
+    public UsageStatisticsResponse getUsageStatistics(
+            @RequestParam(name = "periodDays", required = false, defaultValue = "7") int periodDays
+    ) {
+        return usageStatisticsService.generate(periodDays);
+    }
+    
     @GetMapping("/consumer-trends")
     public ConsumerTrendsResponse getConsumerTrends(
             @RequestParam(name = "from", required = false)

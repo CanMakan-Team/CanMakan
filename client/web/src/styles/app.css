@@ -1806,6 +1806,17 @@ caption,
   min-height: 42px;
 }
 
+.analytics-export-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+.analytics-page > .form-message {
+  margin: 0;
+}
+
 .analytics-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(150px, 1fr));
@@ -2361,7 +2372,7 @@ caption,
 
   .analytics-controls {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) repeat(2, auto);
   }
 
   .analytics-controls label {
@@ -2370,6 +2381,10 @@ caption,
 
   .analytics-two-column {
     grid-template-columns: 1fr;
+  }
+
+  .analytics-export-help {
+    text-align: left;
   }
 }
 

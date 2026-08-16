@@ -103,7 +103,7 @@ flowchart TB
 |------|--------|--------------|------|
 | **Tier A — same category** | `AlternativeProductQueryService.findSameCategoryCandidates` | Default first step | Up to 50 rows sharing `main_category_en` (source excluded) |
 | **Tier A — substitute tags** | `SubstituteDiscoveryProfiles` + `findSubstituteTagCandidates` / `findExpandedSubstituteCandidates` | Same-category pool empty or all rejected | Curated `category_tags`, optional `labels_tags`, sibling categories |
-| **Tier C — ML sparse** | `MlSparseCatalogRecommender` | Fewer than 5 acceptable candidates **and** `canmakan.recommendation.ml.enabled=true` | Expanded tag slice, cosine-ranked, capped at 50 |
+| **Tier C — ML sparse** | `MlSparseCatalogRecommender` | Fewer than 5 acceptable candidates **and** `canmakan.recommendation.ml.enabled=true` | Expanded tag slice by catalog popularity, capped at 50 |
 
 Logged `discoveryTier` values: `TIER_A_CATALOG` (default) or `TIER_C_ML_SPARSE` when ML expansion contributed candidates.
 
@@ -205,7 +205,24 @@ Catalog hardening rejects obvious same-category triggers (e.g. another cow-milk 
 
 ## Ranking
 
-When `canmakan.recommendation.ml.enabled=true` (default), **all** acceptable candidates are ranked by `MlContentBasedRanker`. When `false`, `AlternativeProductRanker` heuristic ranking is used (substitute-tag vs same-category paths).
+When `canmakan.recommendation.ml.ranker-url` is set, Spring calls the **Python TF-IDF rank service** (`POST /rank`) on SAFE candidates only. On failure or empty URL, Java `MlContentBasedRanker` is used when `ml.enabled=true`; otherwise `AlternativeProductRanker` heuristics apply.
+
+### Python rank service (`canmakan_ml`)
+
+Field-weighted sklearn TF-IDF (joblib artifact) plus domain boosts mirroring Java:
+
+```
+score = min(0.99,
+      cosineSimilarity × 0.63
+    + nutritionSimilarity
+    + 0.12 unsweetened boost
+    + packSizeBoost
+    + domainAdjustment (secondaryIncludeTags +0.03, flour type +0.05, nut-butter +0.02, cooking −0.10)
+    + 0.10 prior SAFE scan
+)
+```
+
+Train: `server/machine-learning/scripts/train_ranker.py`. Run API: `uvicorn canmakan_ml.api:app --app-dir src --port 8091`.
 
 ### Heuristic ranker (`AlternativeProductRanker`)
 

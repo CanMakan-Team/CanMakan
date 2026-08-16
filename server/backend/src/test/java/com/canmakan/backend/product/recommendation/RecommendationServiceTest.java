@@ -59,6 +59,8 @@ class RecommendationServiceTest {
         mlContentBasedRanker = new MlContentBasedRanker(featureEncoder);
         mlSparseCatalogRecommender = new MlSparseCatalogRecommender(
                 queryService, featureEncoder, new SubstituteDiscoveryProfiles());
+        PythonTfidfRankClient pythonTfidfRankClient = new PythonTfidfRankClient(
+                new SubstituteDiscoveryProfiles(), "", 500, 2000);
         recommendationService = new RecommendationService(
                 restrictionRuleLoader,
                 queryService,
@@ -70,7 +72,8 @@ class RecommendationServiceTest {
                 logService,
                 scanRepository,
                 mlSparseCatalogRecommender,
-                mlContentBasedRanker
+                mlContentBasedRanker,
+                pythonTfidfRankClient
         );
         ReflectionTestUtils.setField(recommendationService, "mlRecommendationEnabled", true);
         org.mockito.Mockito.lenient()

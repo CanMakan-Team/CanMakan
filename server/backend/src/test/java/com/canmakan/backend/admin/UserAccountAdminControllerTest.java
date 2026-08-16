@@ -17,6 +17,7 @@ import com.canmakan.backend.admin.exception.AdminUserNotFoundException;
 import com.canmakan.backend.admin.exception.InvalidAccountStatusRequestException;
 import com.canmakan.backend.admin.exception.ProtectedAccountOperationException;
 import com.canmakan.backend.analytics.service.ConsumerTrendsService;
+import com.canmakan.backend.analytics.service.UsageStatisticsService;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
 import com.canmakan.backend.shared.security.SystemRole;
@@ -57,8 +58,13 @@ class UserAccountAdminControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(new AdminController(
                         consumerTrendsService,
                         userAccountManagementService,
+<<<<<<< HEAD
                         adminScanFeedbackService,
                         org.mockito.Mockito.mock(SystemHealthService.class)
+=======
+                        mock(UsageStatisticsService.class),
+                        adminScanFeedbackService
+>>>>>>> origin/develop
                 ))
                 .setControllerAdvice(new AdminExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())

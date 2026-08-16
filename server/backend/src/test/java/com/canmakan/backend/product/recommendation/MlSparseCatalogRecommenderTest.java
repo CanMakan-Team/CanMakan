@@ -33,7 +33,7 @@ class MlSparseCatalogRecommenderTest {
     }
 
     @Test
-    void ranksCloserSpreadFirstInsideUseTypeSlice() {
+    void preservesQueryOrderInsideUseTypeSlice() {
         CatalogProduct source = new CatalogProduct();
         source.setBarcode("8888260007616");
         source.setProductName("Peanut Butter Crunchy");
@@ -59,7 +59,8 @@ class MlSparseCatalogRecommenderTest {
                 source,
                 new SubstituteDiscoveryProfiles().forSourceCategory("Peanut butters").orElseThrow());
 
-        assertEquals("95539553", discovered.getFirst().getBarcode());
+        assertEquals("0044936350150", discovered.getFirst().getBarcode());
+        assertEquals(2, discovered.size());
     }
 
     @Test
