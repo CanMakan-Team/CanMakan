@@ -1,12 +1,6 @@
-export const CANMAKAN_MASCOT_POSES = {
-  wave: '/mascot/canmakan-mascot-wave.png',
-  scan: '/mascot/canmakan-mascot-scan.png',
-  safe: '/mascot/canmakan-mascot-safe.png',
-  warning: '/mascot/canmakan-mascot-warning.png',
-  unsafe: '/mascot/canmakan-mascot-unsafe.png',
-} as const
+import { CANMAKAN_MASCOT_POSES, type CanMakanMascotPose } from './canMakanMascotPoses'
 
-export type CanMakanMascotPose = keyof typeof CANMAKAN_MASCOT_POSES
+export type { CanMakanMascotPose }
 
 export type CanMakanMascotSize = 'compact' | 'banner' | 'medium' | 'large' | 'hero'
 
