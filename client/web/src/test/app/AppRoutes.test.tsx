@@ -22,8 +22,8 @@ vi.mock('../../features/family/api/familyApiService', () => ({
 vi.mock('../../features/family/api/selfProfileApiService', () => ({
   selfProfileApiService: {
     getCatalog: vi.fn(),
-    createSelfProfile: vi.fn(),
     getSelfProfile: vi.fn(),
+    createSelfProfile: vi.fn(),
     updateSelfProfile: vi.fn(),
   },
 }))
@@ -65,8 +65,8 @@ describe('AppRoutes USER and family boundaries', () => {
     vi.mocked(familyApiService.getMyFamily).mockReset()
     vi.mocked(familyApiService.createFamily).mockReset()
     vi.mocked(selfProfileApiService.getCatalog).mockReset()
-    vi.mocked(selfProfileApiService.createSelfProfile).mockReset()
     vi.mocked(selfProfileApiService.getSelfProfile).mockReset()
+    vi.mocked(selfProfileApiService.createSelfProfile).mockReset()
     vi.mocked(selfProfileApiService.updateSelfProfile).mockReset()
     vi.mocked(selfProfileApiService.getCatalog).mockResolvedValue([
       { id: 2, code: 'PEANUT', displayName: 'Peanut', category: 'ALLERGEN' },
