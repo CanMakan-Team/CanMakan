@@ -1,8 +1,9 @@
 name: Deploy Frontends to Firebase
 
 on:
+  workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - 'client/web/**'
       - 'client/mobile/**'
@@ -35,7 +36,7 @@ jobs:
   e2e:
     name: Playwright E2E
     needs: detect-frontend-changes
-    if: needs.detect-frontend-changes.outputs.web == 'true'
+    if: needs.detect-frontend-changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
     timeout-minutes: 60
     runs-on: ubuntu-latest
     defaults:
@@ -93,9 +94,9 @@ jobs:
 
   deploy-web:
     needs: [detect-frontend-changes, e2e]
-    if: needs.detect-frontend-changes.outputs.web == 'true'
+    if: needs.detect-frontend-changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    environment: ${{ vars.DEPLOY_ENVIRONMENT }}
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
     concurrency:
       group: deploy-web-${{ github.ref }}
       cancel-in-progress: true
@@ -135,9 +136,9 @@ jobs:
 
   deploy-mobile:
     needs: detect-frontend-changes
-    if: needs.detect-frontend-changes.outputs.mobile == 'true'
+    if: needs.detect-frontend-changes.outputs.mobile == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    environment: ${{ vars.DEPLOY_ENVIRONMENT }}
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
     concurrency:
       group: deploy-mobile-${{ github.ref }}
       cancel-in-progress: true

@@ -20,7 +20,10 @@ Family membership context and active profile switching on mobile.
 
 ## Create family circle (UC8)
 
-When `/families/me` returns 404 and the user is signed in, the drawer shows a short message plus **Create family circle**. That opens `CreateFamilyCircleScreen`, which calls `POST /api/families` and refreshes membership on success.
+When `/families/me` returns 404 and the user is signed in, the drawer **FAMILY**
+section shows a short message plus **Create family circle**. That opens
+`CreateFamilyCircleScreen`, which calls `POST /api/families` and refreshes
+membership on success.
 
 Create is hidden when the user already has a family. Without a UC19 session, the drawer asks the user to sign in.
 

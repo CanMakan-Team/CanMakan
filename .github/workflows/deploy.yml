@@ -5,7 +5,7 @@ on:
     workflows: ["CI"]
     types:
       - completed
-    branches: [main]
+    branches: [main, develop]
 
 concurrency:
   group: deploy-backend
@@ -42,7 +42,7 @@ jobs:
     needs: resolve-artifact
     if: needs.resolve-artifact.outputs.has_jar == 'true'
     runs-on: ubuntu-latest
-    environment: ${{ vars.DEPLOY_ENVIRONMENT }}
+    environment: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
     env:
       # Server
       SERVER_ADDRESS: ${{ secrets.SERVER_ADDRESS }}

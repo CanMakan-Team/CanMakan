@@ -197,8 +197,7 @@ fun SettingsScreen(
             title = { Text("Delete account?") },
             text = {
                 Text(
-                    "This action cannot be undone. You will no longer be able to sign in. " +
-                        "Scan history and saved profiles stay on the server as inactive account data.",
+                    "This action cannot be undone. You will no longer be able to sign in. ",
                 )
             },
             confirmButton = {
