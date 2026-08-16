@@ -4,6 +4,7 @@ import com.canmakan.backend.admin.dto.AdminScanFeedbackListResponse;
 import com.canmakan.backend.admin.dto.AdminUserSummaryResponse;
 import com.canmakan.backend.admin.dto.UpdateAccountStatusRequest;
 import com.canmakan.backend.admin.dto.UpdateAccountStatusResponse;
+import com.canmakan.backend.admin.dto.SystemHealthResponse;
 import com.canmakan.backend.admin.dto.UpdateScanFeedbackResolvedRequest;
 import com.canmakan.backend.admin.dto.UpdateScanFeedbackResolvedResponse;
 import com.canmakan.backend.analytics.dto.ConsumerTrendsResponse;
@@ -35,6 +36,14 @@ public class AdminController {
     private final UserAccountManagementService userAccountManagementService;
     private final UsageStatisticsService usageStatisticsService;
     private final AdminScanFeedbackService adminScanFeedbackService;
+    private final SystemHealthService systemHealthService;
+
+    @GetMapping("/system-health")
+    public SystemHealthResponse getSystemHealth(
+            @RequestParam(name = "hours", required = false, defaultValue = "24") int hours
+    ) {
+        return systemHealthService.generate(hours);
+    }
 
 
     @GetMapping("/usage-statistics")
