@@ -114,14 +114,15 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
 
     render(<AdminScanFeedbackPage />)
 
-    expect(await screen.findByText('Total feedback')).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument()
-    expect(screen.getByText('Percentage negative feedback')).toBeInTheDocument()
-    expect(screen.getByText('50.0%')).toBeInTheDocument()
-    expect(screen.getByText('Feedback per day')).toBeInTheDocument()
-    expect(screen.getByText('0.07')).toBeInTheDocument()
-    expect(screen.getByText('Negative feedback per day')).toBeInTheDocument()
-    expect(screen.getByText('0.03')).toBeInTheDocument()
+    const summary = screen.getByRole('region', { name: 'Feedback summary' })
+    expect(await within(summary).findByText('2')).toBeInTheDocument()
+    expect(within(summary).getByText('Total feedback')).toBeInTheDocument()
+    expect(within(summary).getByText('Percentage negative feedback')).toBeInTheDocument()
+    expect(within(summary).getByText('50.0%')).toBeInTheDocument()
+    expect(within(summary).getByText('Feedback per day')).toBeInTheDocument()
+    expect(within(summary).getByText('0.07')).toBeInTheDocument()
+    expect(within(summary).getByText('Negative feedback per day')).toBeInTheDocument()
+    expect(within(summary).getByText('0.03')).toBeInTheDocument()
   })
 
   it('renders a row per feedback item with thumbs icons for type', async () => {
