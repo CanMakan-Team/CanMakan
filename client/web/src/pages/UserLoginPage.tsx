@@ -10,11 +10,11 @@ export function UserLoginPage() {
         <section className="family-login-introduction" aria-labelledby="family-entry-title">
           <LoginBrand />
           <CanMakanMascot pose="wave" size="hero" className="login-greeting-mascot" />
-          <p className="eyebrow">User Portal</p>
-          <h1 id="family-entry-title">Personal dietary support, with family tools when you choose.</h1>
+          <p className="eyebrow">Welcome</p>
+          <h1 id="family-entry-title">Dietary support for you, and for your family when you choose.</h1>
           <p>
-            Use your personal dietary profile independently. Family Circle
-            features remain available as an optional household workspace.
+            Look after your own profile at your own pace. A Family Circle is here
+            whenever household tools would help.
           </p>
         </section>
 
