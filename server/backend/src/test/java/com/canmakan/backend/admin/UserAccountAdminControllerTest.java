@@ -59,7 +59,8 @@ class UserAccountAdminControllerTest {
                         consumerTrendsService,
                         userAccountManagementService,
                         mock(UsageStatisticsService.class),
-                        adminScanFeedbackService
+                        adminScanFeedbackService,
+                        mock(SystemHealthService.class)
                 ))
                 .setControllerAdvice(new AdminExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())

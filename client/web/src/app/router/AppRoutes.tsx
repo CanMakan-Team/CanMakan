@@ -18,6 +18,7 @@ import { AdminScanFeedbackPage } from '../../features/admin/AdminScanFeedbackPag
 import { FutureFeaturesPage } from '../../features/admin/FutureFeaturesPage'
 import { SystemDashboardPage } from '../../features/admin/SystemDashboardPage'
 import { UserAccessPage } from '../../features/admin/UserAccessPage'
+import { SystemHealthPage } from '../../features/admin/SystemHealthPage'
 import { PortalLayout } from '../../shared/ui/PortalLayout'
 import { UserLoginPage } from '../../pages/UserLoginPage'
 import { UserRegisterPage } from '../../pages/UserRegisterPage'
@@ -96,6 +97,7 @@ export function AppRoutes() {
           <Route path="usage" element={<UsageStatisticsPage />} />
           <Route path="users" element={<UserAccessPage />} />
           <Route path="feedback" element={<AdminScanFeedbackPage />} />
+          <Route path="health" element={<SystemHealthPage />} />
           <Route path="future" element={<FutureFeaturesPage />} />
         </Route>
       </Route>
