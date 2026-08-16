@@ -10,6 +10,7 @@ import { FamilyMeProvider } from '../../features/family/FamilyMeContext'
 import { useFamilyMe } from '../../features/family/useFamilyMe'
 import { userPortalSections } from '../../features/family/lib/userPortalNav'
 import { useSession } from '../../features/auth/useSession'
+import { PortalIcon } from './PortalIcon'
 
 interface NavigationItem {
   label: string
@@ -22,11 +23,41 @@ interface NavigationSection {
   items: NavigationItem[]
 }
 
+const NAV_OPEN_STORAGE_KEY = 'canmakan.portal.nav-open'
+const COMPACT_NAV_QUERY = '(max-width: 850px)'
+
+function isCompactNavViewport() {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia(COMPACT_NAV_QUERY).matches
+  )
+}
+
+function readNavOpen(): boolean {
+  try {
+    const stored = localStorage.getItem(NAV_OPEN_STORAGE_KEY)
+    if (stored === '1') return true
+    if (stored === '0') return false
+  } catch {
+    return !isCompactNavViewport()
+  }
+  return !isCompactNavViewport()
+}
+
+function writeNavOpen(open: boolean) {
+  try {
+    localStorage.setItem(NAV_OPEN_STORAGE_KEY, open ? '1' : '0')
+  } catch {
+    return
+  }
+}
+
 const systemSections: NavigationSection[] = [
   {
     label: '',
     items: [
-      { label: 'Dashboard', to: '/system', icon: '⌂' },
+      { label: 'Dashboard', to: '/system', icon: 'home' },
       { label: 'Consumer Trends', to: '/system/trends', icon: '↗' },
       { label: 'Usage Statistics', to: '/system/usage', icon: '▤' },
       { label: 'User Accounts & Access', to: '/system/users', icon: '♙' },
@@ -50,8 +81,8 @@ export function PortalLayout({ portal }: { portal: 'family' | 'system' }) {
 }
 
 function UserPortalShell() {
-  const { hasFamily, isPrimaryAdmin } = useFamilyMe()
-  const sections = userPortalSections({ hasFamily, isPrimaryAdmin })
+  const { hasFamily, isPrimaryAdmin, loading } = useFamilyMe()
+  const sections = userPortalSections({ hasFamily, isPrimaryAdmin, loading })
   return <PortalShell portal="family" sections={sections} />
 }
 
@@ -62,7 +93,7 @@ function PortalShell({
   portal: 'family' | 'system'
   sections: NavigationSection[]
 }) {
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [navOpen, setNavOpen] = useState(readNavOpen)
   const { session, logout } = useSession()
   const navigate = useNavigate()
   const location = useLocation()
@@ -72,17 +103,28 @@ function PortalShell({
   const portalName =
     portal === 'family' ? 'CanMakan User Portal' : 'System Administration'
 
+  const setNavigationOpen = (open: boolean) => {
+    setNavOpen(open)
+    writeNavOpen(open)
+  }
+
   const signOut = () => {
     void logout()
     navigate(portal === 'family' ? USER_LOGIN_PATH : '/system-admin-login')
   }
 
   return (
-    <div className={`portal-shell portal-shell--${portal}`}>
+    <div
+      className={`portal-shell portal-shell--${portal}${navOpen ? ' portal-shell--nav-open' : ''}`}
+    >
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
-      <aside className={`sidebar ${menuOpen ? 'sidebar--open' : ''}`}>
+      <aside
+        id="portal-sidebar"
+        className="sidebar"
+        aria-hidden={!navOpen}
+      >
         <div className="sidebar__brand">
           <span className="brand-mark" aria-hidden="true">
             CM
@@ -91,6 +133,14 @@ function PortalShell({
             <strong>CanMakan</strong>
             <span>{portalName}</span>
           </div>
+          <button
+            className="sidebar__collapse"
+            type="button"
+            aria-label="Hide navigation"
+            onClick={() => setNavigationOpen(false)}
+          >
+            «
+          </button>
         </div>
         <nav className="sidebar__nav" aria-label={`${portalName} navigation`}>
           {sections.map((section, sectionIndex) => (
@@ -104,12 +154,16 @@ function PortalShell({
                   key={item.to}
                   to={item.to}
                   end={item.to === `/${portal}` || item.to === '/me'}
-                  onClick={() => setMenuOpen(false)}
+                  onClick={() => {
+                    if (isCompactNavViewport()) setNavigationOpen(false)
+                  }}
                   className={({ isActive }) =>
                     isActive ? 'sidebar__link sidebar__link--active' : 'sidebar__link'
                   }
                 >
-                  <span aria-hidden="true">{item.icon}</span>
+                  <span aria-hidden="true">
+                    <PortalIcon name={item.icon} />
+                  </span>
                   {item.label}
                 </NavLink>
               ))}
@@ -136,25 +190,28 @@ function PortalShell({
           </span>
         </div>
       </aside>
-      {menuOpen && (
+      {navOpen && isCompactNavViewport() ? (
         <button
           className="sidebar-scrim"
           type="button"
           aria-label="Close navigation"
-          onClick={() => setMenuOpen(false)}
+          onClick={() => setNavigationOpen(false)}
         />
-      )}
+      ) : null}
       <div className="portal-main">
         <header className="mobile-header">
-          <button
-            className="icon-button"
-            type="button"
-            aria-label="Open navigation"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen(true)}
-          >
-            ☰
-          </button>
+          {navOpen ? null : (
+            <button
+              className="icon-button"
+              type="button"
+              aria-label="Open navigation"
+              aria-expanded={false}
+              aria-controls="portal-sidebar"
+              onClick={() => setNavigationOpen(true)}
+            >
+              ☰
+            </button>
+          )}
           <strong>CanMakan</strong>
           <span className="mobile-header__page">
             {navigation.find(

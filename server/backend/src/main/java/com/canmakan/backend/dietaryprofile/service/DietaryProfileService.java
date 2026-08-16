@@ -65,7 +65,7 @@ public class DietaryProfileService {
             .orElseThrow(() -> new AuthenticatedUserNotFoundException(
                 "Authenticated user was not found."));
         Map<Long, ResolvedRestriction> resolvedRestrictions =
-            resolveRestrictionSelections(request.restrictions(), true);
+            resolveRestrictionSelections(request.restrictions(), SeverityContract.SELF_SETUP);
 
         DietaryProfile profile = new DietaryProfile();
         profile.setLinkedUser(account);
@@ -127,7 +127,7 @@ public class DietaryProfileService {
             .orElseThrow(SelfProfileNotFoundException::new);
 
         Map<Long, ResolvedRestriction> resolvedRestrictions =
-            resolveRestrictionSelections(request.restrictions(), true);
+            resolveRestrictionSelections(request.restrictions(), SeverityContract.PROFILE_EDIT);
 
         profile.setProfileName(request.profileName());
         applyRestrictionSelections(profile, resolvedRestrictions);
@@ -235,7 +235,7 @@ public class DietaryProfileService {
                 .orElseThrow(() -> new IllegalArgumentException("Profile not found: " + profileId));
 
         Map<Long, ResolvedRestriction> resolvedRestrictions =
-            resolveRestrictionSelections(selections, false);
+            resolveRestrictionSelections(selections, SeverityContract.PROFILE_EDIT);
 
         applyRestrictionSelections(profile, resolvedRestrictions);
         dietaryProfileRepository.save(profile);
@@ -243,7 +243,7 @@ public class DietaryProfileService {
 
     private Map<Long, ResolvedRestriction> resolveRestrictionSelections(
             Map<Long, String> selections,
-            boolean validateForSelfSetup) {
+            SeverityContract severityContract) {
         Map<Long, String> requestedSelections = selections == null ? Map.of() : selections;
         Map<Long, ResolvedRestriction> resolved = new HashMap<>();
 
@@ -255,9 +255,7 @@ public class DietaryProfileService {
             DietaryRestriction restriction = dietaryRestrictionRepository.findById(restrictionId)
                 .orElseThrow(() -> new IllegalArgumentException(
                     "Restriction not found: " + restrictionId));
-            String severity = validateForSelfSetup
-                ? normalizeSelfSetupSeverity(entry.getValue())
-                : entry.getValue();
+            String severity = normalizeRestrictionSeverity(entry.getValue(), severityContract);
             resolved.put(restrictionId, new ResolvedRestriction(restriction, severity));
         }
         return resolved;
@@ -295,7 +293,8 @@ public class DietaryProfileService {
         }
     }
 
-    private static String normalizeSelfSetupSeverity(String rawSeverity) {
+    private static String normalizeRestrictionSeverity(
+            String rawSeverity, SeverityContract severityContract) {
         if (rawSeverity == null || rawSeverity.isBlank()) {
             throw new IllegalArgumentException("Restriction severity is required.");
         }
@@ -310,20 +309,36 @@ public class DietaryProfileService {
             severity = RestrictionSeverity.valueOf(normalized);
         } catch (IllegalArgumentException exception) {
             throw new IllegalArgumentException(
-                "Restriction severity must be STRICT_AVOID or INTOLERANCE.",
+                severityContract.rejectedMessage(),
                 exception
             );
         }
-        // Self-setup only lets a user pick these two severities. PREFERENCE is a
-        // valid enum value used by seeded rules, so it is rejected explicitly here
-        // rather than relying on enum membership.
-        if (severity != RestrictionSeverity.STRICT_AVOID
+        if (severityContract == SeverityContract.SELF_SETUP
+                && severity != RestrictionSeverity.STRICT_AVOID
                 && severity != RestrictionSeverity.INTOLERANCE) {
-            throw new IllegalArgumentException(
-                "Restriction severity must be STRICT_AVOID or INTOLERANCE."
-            );
+            throw new IllegalArgumentException(severityContract.rejectedMessage());
         }
         return severity.name();
+    }
+
+    /**
+     * First-time SELF setup only offers on/off plus INTOLERANCE. Later edits
+     * (web PUT /profiles/me and mobile PUT /profiles/{id}/restrictions) must
+     * also keep PREFERENCE rows that already exist on the profile.
+     */
+    private enum SeverityContract {
+        SELF_SETUP("Restriction severity must be STRICT_AVOID or INTOLERANCE."),
+        PROFILE_EDIT("Restriction severity must be STRICT_AVOID, INTOLERANCE, or PREFERENCE.");
+
+        private final String rejectedMessage;
+
+        SeverityContract(String rejectedMessage) {
+            this.rejectedMessage = rejectedMessage;
+        }
+
+        String rejectedMessage() {
+            return rejectedMessage;
+        }
     }
 
     private static boolean isLinkedUserUniqueViolation(Throwable exception) {

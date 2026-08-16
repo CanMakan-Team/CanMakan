@@ -5,7 +5,7 @@ export type FamilyMeState = {
   family: FamilyMe | null
   loading: boolean
   error: string
-  reload: () => void
+  reload: () => Promise<void>
   isPrimaryAdmin: boolean
   hasFamily: boolean
 }

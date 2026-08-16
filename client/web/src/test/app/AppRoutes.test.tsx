@@ -149,4 +149,21 @@ describe('AppRoutes USER and family boundaries', () => {
     ).not.toBeInTheDocument()
     expect(familyApiService.getMembers).not.toHaveBeenCalled()
   })
+
+  it('opens Create Family Circle from personal home instead of returning to home', async () => {
+    const user = userEvent.setup()
+    renderRoutes('/me', appUserSession())
+
+    expect(
+      await screen.findByRole('heading', { name: 'Your CanMakan account' }),
+    ).toBeInTheDocument()
+    await user.click(await screen.findByRole('link', { name: 'Create Family Circle' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Create your family circle' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Your CanMakan account' }),
+    ).not.toBeInTheDocument()
+  })
 })

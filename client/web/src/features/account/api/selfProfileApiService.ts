@@ -1,6 +1,6 @@
 import { apiRequest } from '../../../shared/api/apiClient'
 
-export type ProfileRestrictionSeverity = 'STRICT_AVOID' | 'INTOLERANCE'
+export type ProfileRestrictionSeverity = 'STRICT_AVOID' | 'INTOLERANCE' | 'PREFERENCE'
 
 export interface DietaryRestrictionOption {
   id: number
@@ -18,6 +18,11 @@ export interface SelfProfileResponse {
   restrictions: Record<string, ProfileRestrictionSeverity>
 }
 
+export interface PersonalScanFindings {
+  matched_rules?: string[]
+  allergens_found?: string[]
+}
+
 export interface PersonalScanHistoryItem {
   id: number
   scannedAt: string
@@ -27,6 +32,8 @@ export interface PersonalScanHistoryItem {
     brand: string | null
     barcode: string | null
   } | null
+  findingsJson?: PersonalScanFindings | null
+  aiExplanation?: string | null
 }
 
 export const selfProfileEndpoints = {

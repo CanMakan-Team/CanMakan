@@ -271,31 +271,23 @@ describe('SelfProfileSetupPage', () => {
     expect(screen.getByLabelText('Profile Name')).toBeInTheDocument()
   })
 
-  it('preserves an untouched restriction saved with an unsupported severity instead of rewriting it to STRICT_AVOID', async () => {
-    // This page only offers an on/off toggle, so a restriction saved elsewhere
-    // (e.g. by a family admin) with PREFERENCE severity displays here as
-    // checked/STRICT_AVOID. Saving without touching that checkbox must resend
-    // its original PREFERENCE severity rather than silently overwriting it.
+  it('preserves an untouched PREFERENCE restriction instead of rewriting it to STRICT_AVOID', async () => {
+    // Matches the mobile editor: on/off toggle, but an existing PREFERENCE row
+    // stays PREFERENCE until the user actually toggles that checkbox.
     const user = userEvent.setup()
     vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
       profileId: 55,
       profileName: 'Existing Name',
       relationship: 'SELF',
       active: true,
-      restrictions: { 2: 'PREFERENCE' } as unknown as Record<
-        number,
-        'STRICT_AVOID' | 'INTOLERANCE'
-      >,
+      restrictions: { 2: 'PREFERENCE' },
     })
     vi.mocked(selfProfileApiService.updateSelfProfile).mockResolvedValue({
       profileId: 55,
       profileName: 'Existing Name',
       relationship: 'SELF',
       active: true,
-      restrictions: { 2: 'PREFERENCE' } as unknown as Record<
-        number,
-        'STRICT_AVOID' | 'INTOLERANCE'
-      >,
+      restrictions: { 2: 'PREFERENCE' },
     })
     renderPageWithoutPending()
 
@@ -315,20 +307,16 @@ describe('SelfProfileSetupPage', () => {
     )
   })
 
-  it('rewrites a restriction with an unsupported severity to STRICT_AVOID only once the user actually toggles it', async () => {
-    // Unchecking then rechecking a restriction is an explicit user action, so
-    // unlike an untouched save, it is expected to replace the original
-    // PREFERENCE severity with the on/off value this form represents.
+  it('rewrites a PREFERENCE restriction to STRICT_AVOID only once the user actually toggles it', async () => {
+    // Unchecking then rechecking is an explicit user action, matching mobile:
+    // newly selected restrictions save as STRICT_AVOID.
     const user = userEvent.setup()
     vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
       profileId: 55,
       profileName: 'Existing Name',
       relationship: 'SELF',
       active: true,
-      restrictions: { 2: 'PREFERENCE' } as unknown as Record<
-        number,
-        'STRICT_AVOID' | 'INTOLERANCE'
-      >,
+      restrictions: { 2: 'PREFERENCE' },
     })
     vi.mocked(selfProfileApiService.updateSelfProfile).mockResolvedValue({
       profileId: 55,

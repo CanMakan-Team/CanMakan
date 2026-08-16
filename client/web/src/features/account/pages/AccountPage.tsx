@@ -65,7 +65,7 @@ export function AccountPage() {
 
   const deleteOwnAccount = async () => {
     const confirmed = window.confirm(
-      'Delete your account? This cannot be undone. You will no longer be able to sign in. Scan history and saved profiles stay on the server as inactive account data.',
+      'Delete your account? This cannot be undone. You will no longer be able to sign in.',
     )
     if (!confirmed) return
     setDeletingAccount(true)
@@ -147,14 +147,8 @@ export function AccountPage() {
       <section className="panel account-danger">
         <h2>Delete your account</h2>
         <p>
-          This deactivates the signed-in account ({account.email}). It does not
-          delete another family member or the profile currently used for scanning.
+          This deletes the signed-in account ({account.email}). Ensure you have removed all family members profiles before deleting your account.
         </p>
-        {deleteAccountError ? (
-          <p className="form-message form-message--error" role="alert">
-            {deleteAccountError}
-          </p>
-        ) : null}
         <button
           className="button button--danger"
           type="button"
@@ -163,6 +157,11 @@ export function AccountPage() {
         >
           {deletingAccount ? 'Deleting…' : 'Delete My Account'}
         </button>
+        {deleteAccountError ? (
+            <p className="form-message form-message--error" role="alert">
+              {deleteAccountError}
+            </p>
+          ) : null}
       </section>
     </>
   )

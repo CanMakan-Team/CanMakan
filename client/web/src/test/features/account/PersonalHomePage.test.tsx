@@ -86,6 +86,9 @@ describe('PersonalHomePage', () => {
     renderHome()
 
     expect(await screen.findByText('person@example.com')).toBeInTheDocument()
+    expect(document.querySelector('[data-icon="gear"]')).toBeTruthy()
+    expect(document.querySelector('[data-icon="person"]')).toBeTruthy()
+    expect(document.querySelector('[data-icon="people"]')).toBeTruthy()
     expect(screen.getByText('Active')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Manage settings' })).toHaveAttribute(
       'href',
@@ -99,18 +102,26 @@ describe('PersonalHomePage', () => {
       'href',
       '/family/circle',
     )
-    expect(screen.getByRole('heading', { name: 'Get CanMakan on Mobile' })).toBeInTheDocument()
     expect(
-      screen.getByRole('link', { name: 'Open Firebase App Distribution' }),
-    ).toHaveAttribute('href', 'https://appdistribution.firebase.google.com/')
+      await screen.findByRole('heading', { name: 'Get CanMakan on Mobile' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: 'Open Firebase App Distribution' }),
+    ).not.toBeInTheDocument()
     expect(
       screen.getByRole('link', { name: 'QR code for Firebase App Distribution' }),
     ).toHaveAttribute('href', 'https://appdistribution.firebase.google.com/')
     expect(
+      screen.getByRole('button', { name: 'I already have it installed' }),
+    ).toBeInTheDocument()
+    expect(
       screen.getByRole('heading', { name: 'Account setup: 1/3 complete' }),
     ).toBeInTheDocument()
     expect(screen.getByText(/tester build/i)).toBeInTheDocument()
-    expect(screen.getByRole('article', { name: 'Example scan result' })).toBeInTheDocument()
+    expect(
+      screen.getByText(/No web scan history yet\. Open CanMakan on your phone/i),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('article', { name: 'Example scan result' })).not.toBeInTheDocument()
   })
 
   it('hides the tester App Distribution notice after dismiss', async () => {
@@ -123,7 +134,30 @@ describe('PersonalHomePage', () => {
     expect(screen.getByRole('heading', { name: 'Get CanMakan on Mobile' })).toBeInTheDocument()
   })
 
-  it('uses VITE_FIREBASE_APP_DISTRIBUTION_URL for the mobile banner links', async () => {
+  it('hides the mobile promo after I already have it installed and keeps it hidden', async () => {
+    const user = userEvent.setup()
+    const { unmount } = renderHome()
+
+    expect(
+      await screen.findByRole('heading', { name: 'Get CanMakan on Mobile' }),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'I already have it installed' }))
+    expect(
+      screen.queryByRole('heading', { name: 'Get CanMakan on Mobile' }),
+    ).not.toBeInTheDocument()
+    expect(localStorage.getItem('canmakan.home.mobile-app-installed.14')).toBe('1')
+
+    unmount()
+    renderHome()
+    expect(
+      await screen.findByRole('heading', { name: 'Account setup: 1/3 complete' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Get CanMakan on Mobile' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('uses VITE_FIREBASE_APP_DISTRIBUTION_URL for the mobile banner QR link', async () => {
     vi.stubEnv(
       'VITE_FIREBASE_APP_DISTRIBUTION_URL',
       'https://appdistribution.firebase.google.com/pub/testerapps/custom',
@@ -131,17 +165,14 @@ describe('PersonalHomePage', () => {
     renderHome()
 
     expect(
-      await screen.findByRole('link', { name: 'Open Firebase App Distribution' }),
+      await screen.findByRole('link', { name: 'QR code for Firebase App Distribution' }),
     ).toHaveAttribute(
       'href',
       'https://appdistribution.firebase.google.com/pub/testerapps/custom',
     )
     expect(
-      screen.getByRole('link', { name: 'QR code for Firebase App Distribution' }),
-    ).toHaveAttribute(
-      'href',
-      'https://appdistribution.firebase.google.com/pub/testerapps/custom',
-    )
+      screen.queryByRole('link', { name: 'Open Firebase App Distribution' }),
+    ).not.toBeInTheDocument()
   })
 
   it('summarises a saved dietary profile and family admin circle', async () => {
@@ -169,8 +200,10 @@ describe('PersonalHomePage', () => {
       {
         id: 9,
         scannedAt: '2026-08-01T10:00:00',
-        verdict: 'SAFE',
+        verdict: 'UNSAFE',
         product: { productName: 'Oat Drink', brand: 'Brand', barcode: '1' },
+        findingsJson: { matched_rules: ['ALCOHOL'], allergens_found: ['Alcohol'] },
+        aiExplanation: 'Contains alcohol.',
       },
     ])
 
@@ -187,9 +220,47 @@ describe('PersonalHomePage', () => {
       'href',
       '/family/dashboard',
     )
-    expect(
-      screen.getByRole('heading', { name: 'Account setup: 3/3 complete' }),
-    ).toBeInTheDocument()
+    expect(screen.getByText('All setup steps completed')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /Account setup:/ })).not.toBeInTheDocument()
     expect(await screen.findByText('Oat Drink')).toBeInTheDocument()
+    expect(screen.getByText(/Brand/)).toBeInTheDocument()
+    expect(screen.getByText('Contains alcohol.')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Get CanMakan on Mobile' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/tester build/i)).not.toBeInTheDocument()
+  })
+
+  it('lists only the 10 most recent personal scans', async () => {
+    vi.mocked(selfProfileApiService.getSelfProfile).mockResolvedValue({
+      profileId: 77,
+      profileName: 'Lia',
+      relationship: 'SELF',
+      active: true,
+      restrictions: {},
+    })
+    vi.mocked(selfProfileApiService.getScanHistoryForProfile).mockResolvedValue(
+      Array.from({ length: 11 }, (_, index) => ({
+        id: index + 1,
+        scannedAt: `2026-08-01T10:${String(11 - index).padStart(2, '0')}:00`,
+        verdict: 'SAFE',
+        product: {
+          productName: `Scan ${index + 1}`,
+          brand: 'Brand',
+          barcode: String(index + 1),
+        },
+        findingsJson: { matched_rules: [], allergens_found: [] },
+        aiExplanation: '',
+      })),
+    )
+
+    renderHome()
+
+    expect(await screen.findByText('Scan 1')).toBeInTheDocument()
+    expect(screen.getByText('Scan 10')).toBeInTheDocument()
+    expect(screen.queryByText('Scan 11')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Get CanMakan on Mobile' }),
+    ).not.toBeInTheDocument()
   })
 })

@@ -9,9 +9,8 @@ export function FamilyMeProvider({ children }: { children: ReactNode }) {
   const [family, setFamily] = useState<FamilyMe | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [attempt, setAttempt] = useState(0)
 
-  const load = useCallback(() => {
+  const load = useCallback((): Promise<void> => {
     setLoading(true)
     setError('')
     return familyApiService.getMyFamilyOrNull().then(
@@ -30,18 +29,18 @@ export function FamilyMeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void load(), 0)
     return () => window.clearTimeout(timeoutId)
-  }, [load, attempt])
+  }, [load])
 
   const value = useMemo<FamilyMeState>(
     () => ({
       family,
       loading,
       error,
-      reload: () => setAttempt((current) => current + 1),
+      reload: load,
       isPrimaryAdmin: isPrimaryAdminRole(family?.memberRole),
       hasFamily: family != null,
     }),
-    [family, loading, error],
+    [family, loading, error, load],
   )
 
   return <FamilyMeContext.Provider value={value}>{children}</FamilyMeContext.Provider>

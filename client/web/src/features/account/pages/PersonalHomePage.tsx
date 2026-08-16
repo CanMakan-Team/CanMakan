@@ -20,13 +20,15 @@ import {
 import { getFirebaseAppDistributionUrl } from '../lib/firebaseAppDistribution'
 import { QRCodeSVG } from 'qrcode.react'
 import { CanMakanMascot } from '../../../shared/ui/CanMakanMascot'
+import { PortalIcon } from '../../../shared/ui/PortalIcon'
 
 type PersonalHomeState = {
   profileSetup?: 'created' | 'deferred'
 }
 
-const RECENT_SCAN_LIMIT = 3
+const RECENT_SCAN_LIMIT = 10
 const TESTER_NOTICE_STORAGE_KEY = 'canmakan.home.tester-distribution-notice.dismissed'
+const MOBILE_APP_INSTALLED_STORAGE_KEY = 'canmakan.home.mobile-app-installed'
 
 /** USER desk: account, dietary profile, optional Family Circle, and mobile scanning. */
 export function PersonalHomePage() {
@@ -41,8 +43,12 @@ export function PersonalHomePage() {
   const [profileLoading, setProfileLoading] = useState(true)
   const [memberCount, setMemberCount] = useState<number | null>(null)
   const [recentScans, setRecentScans] = useState<PersonalScanHistoryItem[]>([])
+  const [scanHistoryReady, setScanHistoryReady] = useState(false)
   const [testerNoticeDismissed, setTesterNoticeDismissed] = useState(() =>
     readTesterNoticeDismissed(),
+  )
+  const [appInstalledDismissed, setAppInstalledDismissed] = useState(() =>
+    readMobileAppInstalled(session?.userId),
   )
 
   useEffect(() => {
@@ -81,21 +87,37 @@ export function PersonalHomePage() {
   }, [familyLoading, hasFamily])
 
   useEffect(() => {
+    setAppInstalledDismissed(readMobileAppInstalled(session?.userId))
+  }, [session?.userId])
+
+  useEffect(() => {
+    if (profileLoading) {
+      return
+    }
     const profileId = profile?.profileId
     if (profileId == null) {
+      setRecentScans([])
+      setScanHistoryReady(true)
       return
     }
     let active = true
+    setScanHistoryReady(false)
     selfProfileApiService.getScanHistoryForProfile(profileId).then(
       (scans) => {
-        if (active) setRecentScans(scans.slice(0, RECENT_SCAN_LIMIT))
+        if (!active) return
+        setRecentScans(scans.slice(0, RECENT_SCAN_LIMIT))
+        setScanHistoryReady(true)
       },
-      () => undefined,
+      () => {
+        if (!active) return
+        setRecentScans([])
+        setScanHistoryReady(true)
+      },
     )
     return () => {
       active = false
     }
-  }, [profile?.profileId])
+  }, [profileLoading, profile?.profileId])
 
   const restrictionNames = useMemo(
     () => (profile ? labelsForRestrictions(profile.restrictions, catalog) : []),
@@ -104,6 +126,7 @@ export function PersonalHomePage() {
 
   const setupCompleteCount =
     1 + (profile ? 1 : 0) + (hasFamily ? 1 : 0)
+  const setupFinished = setupCompleteCount === 3
 
   const notice =
     navigationState?.profileSetup === 'created'
@@ -111,6 +134,9 @@ export function PersonalHomePage() {
       : navigationState?.profileSetup === 'deferred'
         ? 'Dietary Profile setup was skipped. You can set it up whenever you are ready.'
         : ''
+
+  const showMobilePromo =
+    scanHistoryReady && recentScans.length === 0 && !appInstalledDismissed
 
   return (
     <div className="personal-home">
@@ -132,26 +158,38 @@ export function PersonalHomePage() {
         </p>
       ) : null}
 
-      <aside className="home-banner" aria-labelledby="mobile-app-heading">
-        <div className="home-banner__copy">
-          <p className="eyebrow">Mobile app</p>
-          <h2 id="mobile-app-heading">Get CanMakan on Mobile</h2>
-          <p>
-            Scan ingredient lists on the go and check dietary safety instantly.
-          </p>
-        </div>
-        <a
-          className="home-banner__qr"
-          href={firebaseAppDistributionUrl}
-          target="_blank"
-          rel="noreferrer"
-          aria-label="QR code for Firebase App Distribution"
-        >
-          <QRCodeSVG value={firebaseAppDistributionUrl} size={116} />
-        </a>
-      </aside>
+      {showMobilePromo ? (
+        <aside className="home-banner" aria-labelledby="mobile-app-heading">
+          <div className="home-banner__copy">
+            <p className="eyebrow">Mobile app</p>
+            <h2 id="mobile-app-heading">Get CanMakan on Mobile</h2>
+            <p>
+              Scan ingredient lists on the go and check dietary safety instantly.
+            </p>
+            <button
+              type="button"
+              className="button button--secondary home-banner__installed"
+              onClick={() => {
+                writeMobileAppInstalled(session?.userId)
+                setAppInstalledDismissed(true)
+              }}
+            >
+              I already have it installed
+            </button>
+          </div>
+          <a
+            className="home-banner__qr"
+            href={firebaseAppDistributionUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="QR code for Firebase App Distribution"
+          >
+            <QRCodeSVG value={firebaseAppDistributionUrl} size={116} />
+          </a>
+        </aside>
+      ) : null}
 
-      {testerNoticeDismissed ? null : (
+      {showMobilePromo && !testerNoticeDismissed ? (
         <div className="notice notice--neutral home-tester-notice" role="status">
           <p>
             Tester build: the Android app is on Firebase App Distribution, not
@@ -168,12 +206,12 @@ export function PersonalHomePage() {
             Dismiss
           </button>
         </div>
-      )}
+      ) : null}
 
       <section className="summary-grid summary-grid--home" aria-label="Account summary">
         <article className="summary-card home-card">
           <span className="summary-card__icon" aria-hidden="true">
-            @
+            <PortalIcon name="gear" />
           </span>
           <div>
             <span>Account</span>
@@ -191,7 +229,7 @@ export function PersonalHomePage() {
 
         <article className={`summary-card home-card${profile ? '' : ' home-card--action'}`}>
           <span className="summary-card__icon" aria-hidden="true">
-            ◇
+            <PortalIcon name="person" />
           </span>
           <div>
             <span>Dietary Profile</span>
@@ -230,7 +268,7 @@ export function PersonalHomePage() {
 
         <article className={`summary-card home-card${hasFamily ? '' : ' home-card--action'}`}>
           <span className="summary-card__icon" aria-hidden="true">
-            ♙
+            <PortalIcon name="people" />
           </span>
           <div>
             <span>Family Circle</span>
@@ -272,6 +310,12 @@ export function PersonalHomePage() {
         </article>
       </section>
 
+      {setupFinished ? (
+        <p className="setup-complete-banner" role="status">
+          <span aria-hidden="true">✓</span>
+          All setup steps completed
+        </p>
+      ) : (
       <section className="panel" aria-labelledby="setup-progress-title">
         <p className="eyebrow">Setup</p>
         <h2 id="setup-progress-title">Account setup: {setupCompleteCount}/3 complete</h2>
@@ -303,41 +347,53 @@ export function PersonalHomePage() {
           </li>
         </ol>
       </section>
+      )}
 
-      <section className="panel" aria-labelledby="recent-activity-title">
+      <section className="panel home-recent-panel" aria-labelledby="recent-activity-title">
         <p className="eyebrow">Activity</p>
         <h2 id="recent-activity-title">Recent scans</h2>
         {profile && recentScans.length > 0 ? (
-          <div className="recent-list">
-            {recentScans.map((scan) => (
-              <article key={scan.id}>
-                <div>
-                  <strong>{scan.product?.productName || 'Scanned product'}</strong>
-                  <span>{formatScanTime(scan.scannedAt)}</span>
-                </div>
-                <span className={`status-badge status-badge--${scan.verdict.toLowerCase()}`}>
-                  {formatCode(scan.verdict)}
-                </span>
-              </article>
-            ))}
+          <div className="recent-list home-scan-list">
+            {recentScans.map((scan) => {
+              const productName = scan.product?.productName || 'Scanned product'
+              const brand = scan.product?.brand?.trim() || ''
+              const summary = scan.aiExplanation?.trim() || ''
+              return (
+                <article
+                  key={scan.id}
+                  className="home-scan-row"
+                  tabIndex={summary ? 0 : undefined}
+                >
+                  <span className="home-scan-row__thumb" aria-hidden="true">
+                    {productName.slice(0, 1).toUpperCase()}
+                  </span>
+                  <div>
+                    <strong>{productName}</strong>
+                    <span>
+                      {brand || 'Unknown brand'}
+                      {' · '}
+                      {formatScanTime(scan.scannedAt)}
+                    </span>
+                  </div>
+                  <span className={`status-badge status-badge--${scan.verdict.toLowerCase()}`}>
+                    {formatCode(scan.verdict)}
+                  </span>
+                  {summary ? (
+                    <p className="home-scan-row__tip" role="tooltip">
+                      {summary}
+                    </p>
+                  ) : null}
+                </article>
+              )
+            })}
           </div>
         ) : (
           <div className="home-empty-scans">
             <CanMakanMascot pose="scan" size="banner" alt="" />
-            <div>
-              <p>
-                No web scan history yet. Open CanMakan on your phone to check a
-                packaged food against your profile.
-              </p>
-              <article className="home-empty-scans__sample" aria-label="Example scan result">
-                <div>
-                  <p className="eyebrow">Example</p>
-                  <strong>Packaged snack</strong>
-                  <span>How a phone scan will appear here</span>
-                </div>
-                <span className="status-badge status-badge--safe">Safe</span>
-              </article>
-            </div>
+            <p>
+              No web scan history yet. Open CanMakan on your phone to check a
+              packaged food against your profile.
+            </p>
           </div>
         )}
       </section>
@@ -356,6 +412,28 @@ function labelsForRestrictions(
   return Object.keys(restrictions).map(
     (key) => byId.get(key) ?? byCode.get(key.toUpperCase()) ?? formatCode(key),
   )
+}
+
+function mobileAppInstalledStorageKey(userId?: number) {
+  return userId == null
+    ? MOBILE_APP_INSTALLED_STORAGE_KEY
+    : `${MOBILE_APP_INSTALLED_STORAGE_KEY}.${userId}`
+}
+
+function readMobileAppInstalled(userId?: number): boolean {
+  try {
+    return localStorage.getItem(mobileAppInstalledStorageKey(userId)) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeMobileAppInstalled(userId?: number) {
+  try {
+    localStorage.setItem(mobileAppInstalledStorageKey(userId), '1')
+  } catch {
+    return
+  }
 }
 
 function readTesterNoticeDismissed(): boolean {

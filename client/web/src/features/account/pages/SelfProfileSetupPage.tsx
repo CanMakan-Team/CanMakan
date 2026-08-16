@@ -36,9 +36,9 @@ export function SelfProfileSetupPage() {
   const [selected, setSelected] = useState<Record<number, ProfileRestrictionSeverity>>({})
   // Severity actually persisted for each restriction, as loaded from the
   // server, keyed by restriction id. Used to resend a restriction's original
-  // severity (e.g. PREFERENCE, set via the family admin flow) when the user
-  // never touched its checkbox, instead of the STRICT_AVOID/INTOLERANCE
-  // approximation this page displays it as.
+  // severity (including PREFERENCE from family/mobile edits) when the user
+  // never touched its checkbox. The form itself only toggles STRICT_AVOID,
+  // matching the mobile restriction editor.
   const [persistedSeverities, setPersistedSeverities] = useState<Record<number, string>>({})
   // Restriction ids the user has explicitly toggled during this session. Only
   // these should be sent using the on/off severity this form can represent;
@@ -90,15 +90,10 @@ export function SelfProfileSetupPage() {
             Object.entries(existingProfile.restrictions).reduce<
               Record<number, ProfileRestrictionSeverity>
             >((accumulator, [restrictionId, severity]) => {
-              // This page only offers a plain on/off toggle per restriction, not a
-              // severity picker, so it can only submit STRICT_AVOID or INTOLERANCE
-              // (the two the backend accepts from self-setup). A restriction saved
-              // elsewhere with a different severity (e.g. PREFERENCE, set via the
-              // family admin flow) still shows as checked here, defaulting to
-              // STRICT_AVOID rather than resending a severity this form can't
-              // represent and getting rejected on save. The original severity is
-              // preserved separately in `persistedSeverities` and resent as-is on
-              // save unless the user actually toggles this restriction.
+              // This page only offers a plain on/off toggle per restriction, matching
+              // the mobile editor. Newly checked items save as STRICT_AVOID. Existing
+              // INTOLERANCE/PREFERENCE rows stay checked and keep that severity unless
+              // the user toggles them.
               accumulator[Number(restrictionId)] =
                 severity === 'INTOLERANCE' ? 'INTOLERANCE' : 'STRICT_AVOID'
               return accumulator
@@ -197,9 +192,8 @@ export function SelfProfileSetupPage() {
     // sidebar) should keep the user on this page with an in-place confirmation.
     const isFirstEverSave = Boolean(pending) || existingProfileId == null
     // Resend the originally persisted severity for any restriction the user
-    // never touched (e.g. PREFERENCE, set via the family admin flow), instead
-    // of the STRICT_AVOID/INTOLERANCE approximation `selected` displays it
-    // as. Restrictions the user actually toggled use the new on/off value.
+    // never touched, matching mobile PUT /profiles/{id}/restrictions. Toggled
+    // rows use STRICT_AVOID from this form.
     const restrictionsToSave = Object.entries(selected).reduce<
       Record<number, ProfileRestrictionSeverity>
     >((accumulator, [restrictionId, severity]) => {
