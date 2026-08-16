@@ -92,7 +92,7 @@ describe('AppRoutes USER and family boundaries', () => {
     renderRoutes('/me/setup-profile', appUserSession())
 
     expect(await screen.findByLabelText('Profile Name')).toHaveValue('')
-    await user.click(screen.getByRole('button', { name: 'Set Up Later' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(await screen.findByRole('heading', { name: 'Your CanMakan account' }))
       .toBeInTheDocument()

@@ -84,12 +84,12 @@ describe('SelfProfileSetupPage', () => {
     expect(screen.getByText(/You can complete this later/)).toBeInTheDocument()
   })
 
-  it('Set Up Later creates no profile and enters the authenticated area', async () => {
+  it('Cancel creates no profile and enters the authenticated area', async () => {
     const user = userEvent.setup()
     renderPage()
     await screen.findByLabelText('Peanut')
 
-    await user.click(screen.getByRole('button', { name: 'Set Up Later' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(screen.getByText('Personal destination')).toBeInTheDocument()
     expect(selfProfileApiService.createSelfProfile).not.toHaveBeenCalled()
@@ -171,7 +171,7 @@ describe('SelfProfileSetupPage', () => {
     renderPage()
     await screen.findByLabelText('Peanut')
 
-    await user.click(screen.getByRole('button', { name: 'Set Up Later' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(screen.getByText('Invitation continuation')).toBeInTheDocument()
     expect(selfProfileApiService.createSelfProfile).not.toHaveBeenCalled()

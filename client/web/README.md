@@ -228,11 +228,11 @@ Registration and authentication remain separate backend operations. After
 successful account-only registration, the browser calls the normal login path,
 keeps the access credential in memory and opens optional dietary setup. Profile
 Name is entered on `/me/setup-profile` when the user creates a SELF profile;
-**Set Up Later** makes no profile request. If automatic
+**Cancel** makes no profile request. If automatic
 login fails, the account remains and normal login is offered with email prefilled.
 The family navigation keeps `/me/setup-profile` available so an authenticated
-user can complete skipped setup later.
-Save and Set Up Later finish at `/me`, which performs no family
+user can complete setup later.
+Save finishes at `/me`, which performs no family
 creation or membership request. `/family` checks optional membership only to
 route family admins to `/family/dashboard`; a member or 404 routes to `/me`.
 The Family Circle form opens only from the explicit `/family/circle` action.

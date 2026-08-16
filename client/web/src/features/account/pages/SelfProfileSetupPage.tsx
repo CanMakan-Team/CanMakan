@@ -158,12 +158,9 @@ export function SelfProfileSetupPage() {
     setSuccessMessage('')
   }
 
-  const setUpLater = () => {
+  const cancel = () => {
     pendingRegistrationOnboardingStore.clear()
-    navigate(finishPath(pending?.invitationToken), {
-      replace: true,
-      state: { profileSetup: 'deferred' },
-    })
+    navigate(finishPath(pending?.invitationToken), { replace: true })
   }
 
   const save = async () => {
@@ -176,7 +173,7 @@ export function SelfProfileSetupPage() {
       return
     }
     if (existingProfileId == null && Object.keys(selected).length === 0) {
-      setError('Select at least one dietary restriction or set up your profile later.')
+      setError('Select at least one dietary restriction or cancel and complete this later.')
       setSuccessMessage('')
       return
     }
@@ -288,9 +285,9 @@ export function SelfProfileSetupPage() {
             className="button button--secondary"
             type="button"
             disabled={saving}
-            onClick={setUpLater}
+            onClick={cancel}
           >
-            Set Up Later
+            Cancel
           </button>
           <button
             className="button button--primary"

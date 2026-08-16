@@ -204,20 +204,20 @@ test.describe('Authentication and Route Guarding', () => {
     await page.goto('/me');
     await expect(page.getByRole('heading', { name: 'Your CanMakan account' })).toBeVisible({ timeout: 15000 });
 
-    const mobileMenuButton = page.locator('.mobile-header .icon-button');
-    if (await mobileMenuButton.isVisible()) {
-      await mobileMenuButton.click({ force: true });
-      await expect(page.locator('.sidebar')).toHaveClass(/sidebar--open/);
+    const openNavigation = page.getByRole('button', { name: 'Open navigation' })
+    if (await openNavigation.isVisible()) {
+      await openNavigation.click()
+      await expect(page.locator('#portal-sidebar')).toHaveAttribute('aria-hidden', 'false')
     }
-    
-    // Ensure the sign-out button is scrolled into view before clicking
-    const signOutButton = page.locator('.sidebar__signout');
-    await signOutButton.scrollIntoViewIfNeeded();
+
+    const signOutButton = page.getByRole('button', { name: 'Sign out' })
+    await expect(signOutButton).toBeVisible()
+    await signOutButton.scrollIntoViewIfNeeded()
 
     await Promise.all([
       page.waitForURL(/\/login(?:\?|$)/, { timeout: 15000 }),
-      signOutButton.click({ force: true })
-    ]);
+      signOutButton.click(),
+    ])
   });
 
   test('Session Persists Across Page Reloads', async ({ page }) => {

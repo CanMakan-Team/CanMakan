@@ -18,7 +18,7 @@ Handles live login/register, session context, and route protection against UC19 
   public registration
 - After `201`, calls the authoritative UC19 login path and opens protected
   `/me/setup-profile`
-- Profile Name is collected on dietary setup, not registration; Set Up Later
+- Profile Name is collected on dietary setup, not registration; Cancel
   creates no profile
 - If automatic login fails, registration is not retried and normal login is
   offered with email prefilled

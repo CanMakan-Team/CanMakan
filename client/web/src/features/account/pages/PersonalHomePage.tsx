@@ -24,7 +24,7 @@ import { CanMakanMascot } from '../../../shared/ui/CanMakanMascot'
 import { PortalIcon } from '../../../shared/ui/PortalIcon'
 
 type PersonalHomeState = {
-  profileSetup?: 'created' | 'deferred'
+  profileSetup?: 'created'
 }
 
 const RECENT_SCAN_LIMIT = 10
@@ -147,9 +147,7 @@ export function PersonalHomePage() {
   const notice =
     navigationState?.profileSetup === 'created'
       ? 'Your personal Dietary Profile was created successfully.'
-      : navigationState?.profileSetup === 'deferred'
-        ? 'Dietary Profile setup was skipped. You can set it up whenever you are ready.'
-        : ''
+      : ''
 
   const showMobilePromo =
     scanHistoryReady && recentScans.length === 0 && !appInstalledDismissed
