@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -174,14 +175,13 @@ class RecommendationServiceTest {
         assertEquals("100", response.sourceBarcode());
         assertTrue(response.alternatives().isEmpty());
         verify(ranker, never()).rankSameCategory(anyList(), any());
-        verify(ranker, never()).rankSubstituteTags(anyList(), any(), any());
+        verify(ranker, never()).rankSubstituteTags(any(), anyList(), any(), any());
         verify(logService, never()).recordAlternatives(anyList());
     }
 
     @Test
     void fallsBackToTagSubstitutesWhenSameCategoryHasNoAcceptableCandidates() {
         CatalogProduct source = sparseFarmhouseFreshMilk();
-        CatalogProduct dairyMilk = product("8888200132217", "Fresh milks", "100% Fresh Milk", null);
         CatalogProduct oatDrink = namedProduct(
                 "7394376618253",
                 "Oatly barista edition",
@@ -198,9 +198,6 @@ class RecommendationServiceTest {
                 new RestrictionRule("DAIRY", RestrictionCategory.ALLERGEN, RestrictionSeverity.INTOLERANCE),
                 new RestrictionRule("LOW_SUGAR", RestrictionCategory.DIET, RestrictionSeverity.PREFERENCE)
         );
-        SafetyVerdict dairyWarning = SafetyVerdict.warning(
-                "dairy",
-                List.of(new Finding("DAIRY", "milk", "milk matches DAIRY restriction.")));
         SafetyVerdict oatWarning = SafetyVerdict.warning(
                 "unresolved",
                 List.of(new Finding("UNRESOLVED", "dipotassium phosphate", "could not be analysed")));
@@ -208,19 +205,15 @@ class RecommendationServiceTest {
 
         when(queryService.findByBarcode("8888200602857")).thenReturn(Optional.of(source));
         when(restrictionRuleLoader.load(3L)).thenReturn(rules);
-        when(queryService.findSameCategoryCandidates(source)).thenReturn(List.of(dairyMilk));
         when(discoveryProfiles.forSourceProduct(source)).thenReturn(Optional.of(freshMilksProfile));
         when(queryService.findSubstituteTagCandidates(source, freshMilksProfile))
                 .thenReturn(List.of(oatDrink, unsweetenedSoy));
         when(scanRepository.findByProfileIdOrderByScannedAtDesc(3L)).thenReturn(List.of());
-        when(catalogProductMapper.toProductData(dairyMilk)).thenReturn(productData("8888200132217"));
         when(catalogProductMapper.toProductData(oatDrink)).thenReturn(productData("7394376618253"));
         when(catalogProductMapper.toProductData(unsweetenedSoy)).thenReturn(productData("8850025000521"));
         when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
-                .thenReturn(dairyWarning)
                 .thenReturn(oatWarning)
                 .thenReturn(soySafe);
-        when(candidateFilter.isAcceptableAlternative(eq(rules), eq(dairyWarning), eq(dairyMilk))).thenReturn(false);
         when(candidateFilter.isAcceptableAlternative(eq(rules), eq(oatWarning), eq(oatDrink))).thenReturn(true);
         when(candidateFilter.isAcceptableAlternative(eq(rules), eq(soySafe), eq(unsweetenedSoy))).thenReturn(true);
 
@@ -231,7 +224,7 @@ class RecommendationServiceTest {
         assertEquals("8850025000521", response.alternatives().getFirst().barcode());
         assertEquals("ml_unsweetened_substitute", response.alternatives().getFirst().matchReason());
         verify(queryService).findSubstituteTagCandidates(source, freshMilksProfile);
-        verify(ranker, never()).rankSubstituteTags(anyList(), any(), any());
+        verify(ranker, never()).rankSubstituteTags(any(), anyList(), any(), any());
 
         ArgumentCaptor<List<RecommendationLogEntry>> logCaptor = ArgumentCaptor.forClass(List.class);
         verify(logService).recordAlternatives(logCaptor.capture());
@@ -282,7 +275,7 @@ class RecommendationServiceTest {
         assertEquals(1, response.alternatives().size());
         assertEquals("8887501030642", response.alternatives().getFirst().barcode());
         verify(queryService).findSubstituteTagCandidates(source, wheatFloursProfile);
-        verify(ranker, never()).rankSubstituteTags(anyList(), any(), any());
+        verify(ranker, never()).rankSubstituteTags(any(), anyList(), any(), any());
     }
 
     @Test
@@ -331,7 +324,7 @@ class RecommendationServiceTest {
         assertEquals(1, response.alternatives().size());
         assertEquals("9315090200706", response.alternatives().getFirst().barcode());
         verify(queryService).findSubstituteTagCandidates(source, breakfastCerealsProfile);
-        verify(ranker, never()).rankSubstituteTags(anyList(), any(), any());
+        verify(ranker, never()).rankSubstituteTags(any(), anyList(), any(), any());
     }
 
     @Test
@@ -389,7 +382,7 @@ class RecommendationServiceTest {
         assertEquals(1, response.alternatives().size());
         assertEquals("8888536703136", response.alternatives().getFirst().barcode());
         verify(queryService).findSubstituteTagCandidates(source, peanutButterProfile);
-        verify(ranker, never()).rankSubstituteTags(anyList(), any(), any());
+        verify(ranker, never()).rankSubstituteTags(any(), anyList(), any(), any());
     }
 
     @Test
@@ -398,7 +391,6 @@ class RecommendationServiceTest {
         ReflectionTestUtils.setField(recommendationService, "mlRecommendationEnabled", false);
 
         CatalogProduct source = sparseFarmhouseFreshMilk();
-        CatalogProduct dairyMilk = product("8888200132217", "Fresh milks", "100% Fresh Milk", null);
         CatalogProduct unsweetenedSoy = namedProduct(
                 "8850025000521",
                 "Soya Milk Unsweetened",
@@ -409,26 +401,19 @@ class RecommendationServiceTest {
                 new RestrictionRule("DAIRY", RestrictionCategory.ALLERGEN, RestrictionSeverity.INTOLERANCE),
                 new RestrictionRule("LOW_SUGAR", RestrictionCategory.DIET, RestrictionSeverity.PREFERENCE)
         );
-        SafetyVerdict dairyWarning = SafetyVerdict.warning(
-                "dairy",
-                List.of(new Finding("DAIRY", "milk", "milk matches DAIRY restriction.")));
         SafetyVerdict soySafe = SafetyVerdict.safe("ok", List.of());
 
         when(queryService.findByBarcode("8888200602857")).thenReturn(Optional.of(source));
         when(restrictionRuleLoader.load(3L)).thenReturn(rules);
-        when(queryService.findSameCategoryCandidates(source)).thenReturn(List.of(dairyMilk));
         when(discoveryProfiles.forSourceProduct(source)).thenReturn(Optional.of(freshMilksProfile));
         when(queryService.findSubstituteTagCandidates(source, freshMilksProfile))
                 .thenReturn(List.of(unsweetenedSoy));
         when(scanRepository.findByProfileIdOrderByScannedAtDesc(3L)).thenReturn(List.of());
-        when(catalogProductMapper.toProductData(dairyMilk)).thenReturn(productData("8888200132217"));
         when(catalogProductMapper.toProductData(unsweetenedSoy)).thenReturn(productData("8850025000521"));
         when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
-                .thenReturn(dairyWarning)
                 .thenReturn(soySafe);
-        when(candidateFilter.isAcceptableAlternative(eq(rules), eq(dairyWarning), eq(dairyMilk))).thenReturn(false);
         when(candidateFilter.isAcceptableAlternative(eq(rules), eq(soySafe), eq(unsweetenedSoy))).thenReturn(true);
-        when(ranker.rankSubstituteTags(anyList(), any(), eq(freshMilksProfile))).thenReturn(List.of(
+        when(ranker.rankSubstituteTags(eq(source), anyList(), any(), eq(freshMilksProfile))).thenReturn(List.of(
                 new AlternativeProductRanker.RankedAlternative(
                         unsweetenedSoy, new BigDecimal("0.90"), "substitute_category")
         ));
@@ -438,8 +423,9 @@ class RecommendationServiceTest {
 
         assertEquals(1, response.alternatives().size());
         assertEquals("substitute_category", response.alternatives().getFirst().matchReason());
-        verify(ranker).rankSubstituteTags(anyList(), any(), eq(freshMilksProfile));
+        verify(ranker).rankSubstituteTags(eq(source), anyList(), any(), eq(freshMilksProfile));
         verify(queryService).findSubstituteTagCandidates(source, freshMilksProfile);
+        verify(queryService, never()).findExpandedSubstituteCandidates(eq(source), any());
 
         ArgumentCaptor<List<RecommendationLogEntry>> logCaptor = ArgumentCaptor.forClass(List.class);
         verify(logService).recordAlternatives(logCaptor.capture());
@@ -507,7 +493,7 @@ class RecommendationServiceTest {
                 new RecommendationRequest(1L, "0078895129779", 5L));
 
         assertEquals(2, response.alternatives().size());
-        verify(queryService).findExpandedSubstituteCandidates(eq(source), any());
+        verify(queryService, atLeastOnce()).findExpandedSubstituteCandidates(eq(source), any());
         ArgumentCaptor<List<RecommendationLogEntry>> logCaptor = ArgumentCaptor.forClass(List.class);
         verify(logService).recordAlternatives(logCaptor.capture());
         assertEquals(RecommendationDiscoveryTier.TIER_C_ML_SPARSE, logCaptor.getValue().getFirst().discoveryTier());
@@ -517,23 +503,14 @@ class RecommendationServiceTest {
     @DisplayName("MVP: LLM discovery is not used even when the catalog pool is empty")
     void doesNotUseLlmDiscoveryWhenTierAAndTierCEmpty() {
         CatalogProduct source = sparseFarmhouseFreshMilk();
-        CatalogProduct dairyMilk = product("8888200132217", "Fresh milks", "100% Fresh Milk", null);
         List<RestrictionRule> rules = List.of(
                 new RestrictionRule("DAIRY", RestrictionCategory.ALLERGEN, RestrictionSeverity.INTOLERANCE)
         );
-        SafetyVerdict dairyWarning = SafetyVerdict.warning(
-                "dairy",
-                List.of(new Finding("DAIRY", "milk", "milk matches DAIRY restriction.")));
 
         when(queryService.findByBarcode("8888200602857")).thenReturn(Optional.of(source));
         when(restrictionRuleLoader.load(3L)).thenReturn(rules);
-        when(queryService.findSameCategoryCandidates(source)).thenReturn(List.of(dairyMilk));
         when(discoveryProfiles.forSourceProduct(source)).thenReturn(Optional.of(freshMilksProfile));
-        when(queryService.findSubstituteTagCandidates(eq(source), any())).thenReturn(List.of());
-        when(queryService.findExpandedSubstituteCandidates(eq(source), any())).thenReturn(List.of());
-        when(catalogProductMapper.toProductData(dairyMilk)).thenReturn(productData("8888200132217"));
-        when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class))).thenReturn(dairyWarning);
-        when(candidateFilter.isAcceptableAlternative(eq(rules), eq(dairyWarning), eq(dairyMilk))).thenReturn(false);
+        when(queryService.findSubstituteTagCandidates(source, freshMilksProfile)).thenReturn(List.of());
 
         AlternativeProductResponse response = recommendationService.recommend(
                 new RecommendationRequest(3L, "8888200602857", 5L));

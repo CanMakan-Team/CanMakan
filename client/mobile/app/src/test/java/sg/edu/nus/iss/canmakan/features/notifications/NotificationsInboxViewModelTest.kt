@@ -35,8 +35,10 @@ import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyRestrictionSumRes
 import sg.edu.nus.iss.canmakan.features.family.data.InvitationResponse
+import sg.edu.nus.iss.canmakan.features.family.data.NotificationPreferenceResponse
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
 import sg.edu.nus.iss.canmakan.features.family.data.SetActiveProfileRequestBody
+import sg.edu.nus.iss.canmakan.features.family.data.SetNotificationPreferenceRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.UserSearchResponse
 import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsApiService
 import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsRepository
@@ -251,6 +253,14 @@ class NotificationsInboxViewModelTest {
             request: SetActiveProfileRequestBody,
         ): Response<ActiveProfileResponse> =
             Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun getNotificationPreference(): Response<NotificationPreferenceResponse> =
+            Response.success(NotificationPreferenceResponse(notificationsEnabled = true))
+
+        override suspend fun setNotificationPreference(
+            request: SetNotificationPreferenceRequestBody,
+        ): Response<NotificationPreferenceResponse> =
+            Response.success(NotificationPreferenceResponse(request.notificationsEnabled))
 
         override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> =
             Response.error(500, "{}".toResponseBody("application/json".toMediaType()))

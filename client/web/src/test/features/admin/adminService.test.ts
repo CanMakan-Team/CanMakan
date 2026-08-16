@@ -3,7 +3,7 @@ import {
   adminEndpoints,
   adminService,
 } from '../../../features/admin/adminService'
-import { configureApiAuthBridge } from '../../../shared/api/apiClient'
+import { apiBaseUrl, configureApiAuthBridge } from '../../../shared/api/apiClient'
 import { jsonResponse } from '../../testUtils'
 
 const account = {
@@ -42,7 +42,7 @@ describe('adminService UC13 live account calls', () => {
     await adminService.getUsers()
 
     expect(lastRequest().url).toBe(
-      `http://localhost:8080${adminEndpoints.users}`,
+      `${apiBaseUrl}${adminEndpoints.users}`,
     )
     expect(lastRequest().init?.method).toBeUndefined()
   })
@@ -53,7 +53,7 @@ describe('adminService UC13 live account calls', () => {
     await adminService.getUsers({ query: '  alice+admin@example.test  ' })
 
     expect(lastRequest().url).toBe(
-      `http://localhost:8080${adminEndpoints.users}?query=alice%2Badmin%40example.test`,
+      `${apiBaseUrl}${adminEndpoints.users}?query=alice%2Badmin%40example.test`,
     )
   })
 
@@ -113,9 +113,7 @@ describe('adminService UC13 live account calls', () => {
       reason: 'Repeated misuse',
     })
 
-    expect(lastRequest().url).toBe(
-      'http://localhost:8080/api/admin/users/21/status',
-    )
+    expect(lastRequest().url).toBe(`${apiBaseUrl}/api/admin/users/21/status`)
     expect(lastRequest().init?.method).toBe('PATCH')
   })
 

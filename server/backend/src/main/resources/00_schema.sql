@@ -170,9 +170,9 @@ CREATE TABLE dietary_profiles (
 -- After dietary_profiles: active_profile_id FK (UC11) needs that table to exist first.
 CREATE TABLE user_preferences (
     user_id BIGINT PRIMARY KEY,
-    theme VARCHAR(20) DEFAULT 'LIGHT',
-    notifications_enabled TINYINT(1) DEFAULT 1,
-    `language` VARCHAR(10) DEFAULT 'en',
+    theme VARCHAR(20) DEFAULT 'DEFAULT',
+    notifications_enabled TINYINT(1) DEFAULT 0,
+    `language` VARCHAR(10) DEFAULT 'ENGLISH',
     active_profile_id BIGINT NULL,
     CONSTRAINT fk_user_preferences_users
         FOREIGN KEY (user_id) REFERENCES users(id)

@@ -87,6 +87,30 @@ class RecommendationServiceIntegrationTest {
     /** Strawberry jam previously ranked above nut/seed butters via broad en:spreads pool. */
     private static final String STRAWBERRY_JAM = "0044936350150";
 
+    /** Butter spread miscategorized in the coarse Dairies category. */
+    private static final String LUXURY_DAIRY_SPREAD = "8888010320453";
+
+    /** Magnolia fresh milk miscategorized as Dairies instead of Fresh milks. */
+    private static final String MAGNOLIA_FRESH_MILK = "8888200602734";
+
+    /** Unsweetened plant milk from the substitute pool. */
+    private static final String HOME_SOY_UNSWEETENED = "8850025000521";
+
+    /** Magnum peanut-butter ice cream bar (dairy + peanut source). */
+    private static final String MAGNUM_PB_ICE_CREAM = "8712100857645";
+
+    /** Baker Choice wheat flour source for Sarah. */
+    private static final String BAKER_CHOICE_WHEAT_FLOUR = "9555064500016";
+
+    /** Mis-tagged almond flour wrap — must not substitute for wheat flour. */
+    private static final String ALMOND_FLOUR_WRAP = "8881300655204";
+
+    /** Tagged GF rice flour substitute. */
+    private static final String BROWN_RICE_FLOUR = "8887501030642";
+
+    /** Farmhouse fresh milk demo source for Emily. */
+    private static final String FARMHOUSE_FRESH_MILK = "8888200602857";
+
     @Autowired
     private RecommendationService recommendationService;
 
@@ -138,6 +162,115 @@ class RecommendationServiceIntegrationTest {
         assertThat(suggestedBarcodes)
                 .as("oat cereals mis-tagged as GF bread must stay excluded")
                 .doesNotContain("8887143802515", "8887143802539");
+    }
+
+    @Test
+    @DisplayName("profile 3 gets plant milk substitutes for Farmhouse fresh milk")
+    void profile3GetsPlantMilkSubstitutesForFarmhouseFreshMilk() {
+        CatalogProduct source = catalogProductRepository.findById(FARMHOUSE_FRESH_MILK).orElseThrow();
+        var rules = restrictionRuleLoader.load(PROFILE_EMILY_TAN);
+        var milkProfile = new SubstituteDiscoveryProfiles().forSourceProduct(source).orElseThrow();
+
+        long tagPoolAcceptable = queryService.findSubstituteTagCandidates(source, milkProfile).stream()
+                .filter(candidate -> alternativeCandidateFilter.isAcceptableAlternative(
+                        rules,
+                        ruleEngine.assessForRecommendation(
+                                rules, catalogProductMapper.toProductData(candidate)),
+                        candidate))
+                .count();
+
+        assertThat(tagPoolAcceptable)
+                .as("milk-substitute tag pool should contain at least one acceptable plant milk")
+                .isPositive();
+
+        AlternativeProductResponse response = recommendationService.recommend(
+                new RecommendationRequest(PROFILE_EMILY_TAN, FARMHOUSE_FRESH_MILK, null));
+
+        assertThat(response.sourceBarcode()).isEqualTo(FARMHOUSE_FRESH_MILK);
+        assertThat(response.alternatives()).isNotEmpty();
+
+        Set<String> suggestedBarcodes = response.alternatives().stream()
+                .map(AlternativeProductDto::barcode)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertThat(suggestedBarcodes)
+                .as("unsweetened plant milks should substitute for fresh cow milk")
+                .contains(HOME_SOY_UNSWEETENED);
+        assertThat(suggestedBarcodes)
+                .as("cow milk and dairy spreads must not appear")
+                .doesNotContain(FARMHOUSE_FRESH_MILK, LUXURY_DAIRY_SPREAD);
+    }
+
+    @Test
+    @DisplayName("profile 3 gets plant milk substitutes for Magnolia milk miscategorized as Dairies")
+    void profile3GetsPlantMilkSubstitutesForMiscategorizedMagnoliaMilk() {
+        CatalogProduct source = catalogProductRepository.findById(MAGNOLIA_FRESH_MILK).orElseThrow();
+        var milkProfile = new SubstituteDiscoveryProfiles().forSourceProduct(source).orElseThrow();
+
+        AlternativeProductResponse response = recommendationService.recommend(
+                new RecommendationRequest(PROFILE_EMILY_TAN, MAGNOLIA_FRESH_MILK, null));
+
+        assertThat(response.sourceBarcode()).isEqualTo(MAGNOLIA_FRESH_MILK);
+        assertThat(response.alternatives()).isNotEmpty();
+
+        Set<String> suggestedBarcodes = response.alternatives().stream()
+                .map(AlternativeProductDto::barcode)
+                .collect(java.util.stream.Collectors.toSet());
+        Set<String> plantMilkPool = queryService.findSubstituteTagCandidates(source, milkProfile).stream()
+                .map(CatalogProduct::getBarcode)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertThat(suggestedBarcodes)
+                .as("coarse Dairies category must not suggest butter spreads")
+                .doesNotContain(LUXURY_DAIRY_SPREAD);
+        assertThat(suggestedBarcodes)
+                .as("all suggestions should come from the plant-milk tag pool")
+                .isSubsetOf(plantMilkPool);
+    }
+
+    @Test
+    @DisplayName("profile 3 gets dairy-free frozen desserts for Magnum peanut butter ice cream")
+    void profile3GetsDairyFreeFrozenDessertsForMagnumPeanutButterIceCream() {
+        AlternativeProductResponse response = recommendationService.recommend(
+                new RecommendationRequest(PROFILE_EMILY_TAN, MAGNUM_PB_ICE_CREAM, null));
+
+        assertThat(response.sourceBarcode()).isEqualTo(MAGNUM_PB_ICE_CREAM);
+        assertThat(response.alternatives()).isNotEmpty();
+
+        Set<String> suggestedBarcodes = response.alternatives().stream()
+                .map(AlternativeProductDto::barcode)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertThat(suggestedBarcodes)
+                .as("dairy-free frozen desserts from the ice-creams-and-sorbets substitute pool")
+                .contains("0797776401178");
+        assertThat(suggestedBarcodes)
+                .as("other dairy Magnum bars must not substitute dairy ice cream scans")
+                .doesNotContain("8714100638415", "8714100635650", "8000920500224");
+        assertThat(suggestedBarcodes)
+                .as("vegan coconut with declared milk allergen must be catalog-hardened out")
+                .doesNotContain(COCONUT_WITH_MILK_ALLERGEN);
+    }
+
+    @Test
+    @DisplayName("profile 1 gets GF flour substitutes without almond flour wraps")
+    void profile1GetsGlutenFreeFlourSubstitutesWithoutWraps() {
+        AlternativeProductResponse response = recommendationService.recommend(
+                new RecommendationRequest(PROFILE_SARAH_TAN, BAKER_CHOICE_WHEAT_FLOUR, null));
+
+        assertThat(response.sourceBarcode()).isEqualTo(BAKER_CHOICE_WHEAT_FLOUR);
+        assertThat(response.alternatives()).isNotEmpty();
+
+        Set<String> suggestedBarcodes = response.alternatives().stream()
+                .map(AlternativeProductDto::barcode)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertThat(suggestedBarcodes)
+                .as("wraps are not baking-flour substitutes even when name contains flour")
+                .doesNotContain(ALMOND_FLOUR_WRAP);
+        assertThat(suggestedBarcodes)
+                .as("tagged GF flour substitutes should still appear")
+                .contains(BROWN_RICE_FLOUR);
     }
 
     @Test
