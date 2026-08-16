@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { PersonalHomePage } from '../../../features/account/pages/PersonalHomePage'
 import { FamilyMeProvider } from '../../../features/family/FamilyMeContext'
 import { familyApiService } from '../../../features/family/api/familyApiService'
@@ -108,6 +109,18 @@ describe('PersonalHomePage', () => {
     expect(
       screen.getByRole('heading', { name: 'Account setup: 1/3 complete' }),
     ).toBeInTheDocument()
+    expect(screen.getByText(/tester build/i)).toBeInTheDocument()
+    expect(screen.getByRole('article', { name: 'Example scan result' })).toBeInTheDocument()
+  })
+
+  it('hides the tester App Distribution notice after dismiss', async () => {
+    const user = userEvent.setup()
+    renderHome()
+
+    expect(await screen.findByText(/tester build/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByText(/tester build/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Get CanMakan on Mobile' })).toBeInTheDocument()
   })
 
   it('uses VITE_FIREBASE_APP_DISTRIBUTION_URL for the mobile banner links', async () => {

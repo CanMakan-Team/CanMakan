@@ -19,12 +19,14 @@ import {
 } from '../api/selfProfileApiService'
 import { getFirebaseAppDistributionUrl } from '../lib/firebaseAppDistribution'
 import { QRCodeSVG } from 'qrcode.react'
+import { CanMakanMascot } from '../../../shared/ui/CanMakanMascot'
 
 type PersonalHomeState = {
   profileSetup?: 'created' | 'deferred'
 }
 
 const RECENT_SCAN_LIMIT = 3
+const TESTER_NOTICE_STORAGE_KEY = 'canmakan.home.tester-distribution-notice.dismissed'
 
 /** USER desk: account, dietary profile, optional Family Circle, and mobile scanning. */
 export function PersonalHomePage() {
@@ -39,6 +41,9 @@ export function PersonalHomePage() {
   const [profileLoading, setProfileLoading] = useState(true)
   const [memberCount, setMemberCount] = useState<number | null>(null)
   const [recentScans, setRecentScans] = useState<PersonalScanHistoryItem[]>([])
+  const [testerNoticeDismissed, setTesterNoticeDismissed] = useState(() =>
+    readTesterNoticeDismissed(),
+  )
 
   useEffect(() => {
     let active = true
@@ -133,19 +138,7 @@ export function PersonalHomePage() {
           <h2 id="mobile-app-heading">Get CanMakan on Mobile</h2>
           <p>
             Scan ingredient lists on the go and check dietary safety instantly.
-            The Android app is shared with testers on Firebase App Distribution —
-            it is not on the App Store or Google Play.
           </p>
-          <div className="home-banner__stores">
-            <a
-              className="button button--primary"
-              href={firebaseAppDistributionUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open Firebase App Distribution
-            </a>
-          </div>
         </div>
         <a
           className="home-banner__qr"
@@ -157,6 +150,25 @@ export function PersonalHomePage() {
           <QRCodeSVG value={firebaseAppDistributionUrl} size={116} />
         </a>
       </aside>
+
+      {testerNoticeDismissed ? null : (
+        <div className="notice notice--neutral home-tester-notice" role="status">
+          <p>
+            Tester build: the Android app is on Firebase App Distribution, not
+            the App Store or Google Play.
+          </p>
+          <button
+            type="button"
+            className="home-tester-notice__dismiss"
+            onClick={() => {
+              writeTesterNoticeDismissed()
+              setTesterNoticeDismissed(true)
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <section className="summary-grid summary-grid--home" aria-label="Account summary">
         <article className="summary-card home-card">
@@ -171,7 +183,7 @@ export function PersonalHomePage() {
             >
               {session?.active ? 'Active' : 'Unavailable'}
             </span>
-            <Link className="home-card__link" to={ME_ACCOUNT_PATH}>
+            <Link className="button button--secondary home-card__cta" to={ME_ACCOUNT_PATH}>
               Manage settings
             </Link>
           </div>
@@ -197,7 +209,7 @@ export function PersonalHomePage() {
                     ? restrictionNames.slice(0, 3).join(', ')
                     : 'No restrictions recorded yet. Add them so app scans can warn you.'}
                 </small>
-                <Link className="home-card__link" to={ME_SETUP_PROFILE_PATH}>
+                <Link className="button button--secondary home-card__cta" to={ME_SETUP_PROFILE_PATH}>
                   Edit profile
                 </Link>
               </>
@@ -237,10 +249,12 @@ export function PersonalHomePage() {
                     : `${family?.familyName ?? 'Your circle'} — household tools are for the family admin. Scan in the app.`}
                 </small>
                 {isPrimaryAdmin ? (
-                  <Link className="home-card__link" to={FAMILY_DASHBOARD_PATH}>
+                  <Link className="button button--secondary home-card__cta" to={FAMILY_DASHBOARD_PATH}>
                     View circle
                   </Link>
-                ) : null}
+                ) : (
+                  <span className="home-card__cta home-card__hint">Scan in the mobile app</span>
+                )}
               </>
             ) : (
               <>
@@ -308,10 +322,23 @@ export function PersonalHomePage() {
             ))}
           </div>
         ) : (
-          <p>
-            No web scan history yet. Open CanMakan on your phone to check a
-            packaged food against your profile.
-          </p>
+          <div className="home-empty-scans">
+            <CanMakanMascot pose="scan" size="banner" alt="" />
+            <div>
+              <p>
+                No web scan history yet. Open CanMakan on your phone to check a
+                packaged food against your profile.
+              </p>
+              <article className="home-empty-scans__sample" aria-label="Example scan result">
+                <div>
+                  <p className="eyebrow">Example</p>
+                  <strong>Packaged snack</strong>
+                  <span>How a phone scan will appear here</span>
+                </div>
+                <span className="status-badge status-badge--safe">Safe</span>
+              </article>
+            </div>
+          </div>
         )}
       </section>
     </div>
@@ -329,6 +356,22 @@ function labelsForRestrictions(
   return Object.keys(restrictions).map(
     (key) => byId.get(key) ?? byCode.get(key.toUpperCase()) ?? formatCode(key),
   )
+}
+
+function readTesterNoticeDismissed(): boolean {
+  try {
+    return localStorage.getItem(TESTER_NOTICE_STORAGE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeTesterNoticeDismissed() {
+  try {
+    localStorage.setItem(TESTER_NOTICE_STORAGE_KEY, '1')
+  } catch {
+    return
+  }
 }
 
 function formatScanTime(iso: string): string {

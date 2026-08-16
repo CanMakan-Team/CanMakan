@@ -954,12 +954,19 @@ input[readonly] {
 
 .summary-grid--home {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
 }
 
 .home-card {
   align-items: flex-start;
-  min-height: 168px;
+  min-height: 13.5rem;
+  height: 100%;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.home-card > div {
+  flex: 1;
+  height: 100%;
 }
 
 .home-card:hover {
@@ -1000,14 +1007,91 @@ input[readonly] {
 }
 
 .home-card__link {
-  margin-top: 0.7rem;
+  margin-top: auto;
+  padding-top: 0.85rem;
   font-size: 0.85rem;
   font-weight: 700;
 }
 
 .home-card__cta {
-  margin-top: 0.85rem;
+  margin-top: auto;
+  padding-top: 0.85rem;
   width: fit-content;
+}
+
+.home-card__hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.home-tester-notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin: 0 0 1.15rem;
+}
+
+.home-tester-notice p {
+  margin: 0;
+}
+
+.home-tester-notice__dismiss {
+  flex: 0 0 auto;
+  padding: 0.25rem 0.55rem;
+  border: 0;
+  border-radius: 0.45rem;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.home-tester-notice__dismiss:hover,
+.home-tester-notice__dismiss:focus-visible {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--teal-100) 55%, var(--color-surface));
+}
+
+.home-empty-scans {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+  margin-top: 0.85rem;
+}
+
+.home-empty-scans p {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+}
+
+.home-empty-scans__sample {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px dashed var(--line);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--teal-100) 22%, var(--color-surface));
+}
+
+.home-empty-scans__sample .eyebrow {
+  margin: 0;
+}
+
+.home-empty-scans__sample strong {
+  display: block;
+  margin: 0.1rem 0 0.15rem;
+}
+
+.home-empty-scans__sample span:not(.status-badge):not(.eyebrow) {
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .home-banner {
@@ -2568,6 +2652,18 @@ caption,
   }
 
   .home-banner {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-grid--home {
+    grid-template-columns: 1fr;
+  }
+
+  .home-card {
+    min-height: 0;
+  }
+
+  .home-empty-scans {
     grid-template-columns: 1fr;
   }
 
