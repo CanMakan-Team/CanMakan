@@ -48,7 +48,8 @@ class AdminScanFeedbackEndpointTest {
         mockMvc = MockMvcBuilders.standaloneSetup(new AdminController(
                         consumerTrendsService,
                         userAccountManagementService,
-                        adminScanFeedbackService
+                        adminScanFeedbackService,
+                        org.mockito.Mockito.mock(SystemHealthService.class)
                 ))
                 .setControllerAdvice(new AdminExceptionHandler())
                 .setValidator(validator)

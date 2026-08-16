@@ -52,6 +52,7 @@ const systemSections: NavigationSection[] = [
       { label: 'Consumer Trends', to: '/system/trends', icon: '↗' },
       { label: 'User Accounts & Access', to: '/system/users', icon: '♙' },
       { label: 'Handle User Feedback', to: '/system/feedback', icon: '⚑' },
+      { label: 'System Health', to: '/system/health', icon: '♥' },
       { label: 'Future Features', to: '/system/future', icon: '◇' },
     ],
   },

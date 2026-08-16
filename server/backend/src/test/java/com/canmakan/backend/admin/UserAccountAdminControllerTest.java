@@ -57,7 +57,8 @@ class UserAccountAdminControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(new AdminController(
                         consumerTrendsService,
                         userAccountManagementService,
-                        adminScanFeedbackService
+                        adminScanFeedbackService,
+                        org.mockito.Mockito.mock(SystemHealthService.class)
                 ))
                 .setControllerAdvice(new AdminExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
