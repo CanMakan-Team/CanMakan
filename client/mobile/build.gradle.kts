@@ -20,6 +20,10 @@ sonar {
             "sonar.coverage.jacoco.xmlReportPaths",
             "${rootProject.projectDir}/app/build/sonar-coverage/jacoco.xml",
         )
+        property(
+            "sonar.androidLint.reportPaths",
+            "${rootProject.projectDir}/app/build/reports/lint-results-debug.xml",
+        )
         // Binaries are not UTF-8 sources; skip analysis so the scanner does not warn on icons.
         property(
             "sonar.exclusions",
