@@ -11,12 +11,9 @@ import {
   type ProfileRestrictionSeverity,
   type SelfProfileResponse,
 } from '../api/selfProfileApiService'
+import { groupCatalogByCategory } from '../../family/lib/profileOptions'
 
 const RELIGIOUS_CATEGORY = 'RELIGIOUS'
-
-// Fixed display order for dietary restriction sections, regardless of the
-// order categories are returned in from the catalog API.
-const CATEGORY_DISPLAY_ORDER = ['RELIGIOUS', 'ALLERGEN', 'DIET']
 
 function finishPath(invitationToken?: string) {
   return invitationToken
@@ -113,23 +110,7 @@ export function SelfProfileSetupPage() {
   }, [sessionEmail, pending])
 
   const groupedCatalog = useMemo(
-    () =>
-      Object.entries(
-        catalog.reduce<Record<string, DietaryRestrictionOption[]>>((groups, option) => {
-          const category = option.category || 'OTHER'
-          groups[category] = [...(groups[category] ?? []), option]
-          return groups
-        }, {}),
-      ).sort(([categoryA], [categoryB]) => {
-        const indexA = CATEGORY_DISPLAY_ORDER.indexOf(categoryA)
-        const indexB = CATEGORY_DISPLAY_ORDER.indexOf(categoryB)
-        // Categories not in the fixed order list are pushed to the end,
-        // after the known sections, in their original order.
-        if (indexA === -1 && indexB === -1) return 0
-        if (indexA === -1) return 1
-        if (indexB === -1) return -1
-        return indexA - indexB
-      }),
+    () => groupCatalogByCategory(catalog),
     [catalog],
   )
 
