@@ -40,6 +40,17 @@ class ServerAuthRepository @Inject constructor(
         }
     }
 
+    override suspend fun deleteOwnAccount(): AuthResult<Unit> = safely {
+        val response = authApiService.deleteOwnAccount()
+        when {
+            response.isSuccessful -> AuthResult.Success(Unit)
+            response.code() == HTTP_CONFLICT -> AuthResult.Failure(AuthFailureType.CONFLICT)
+            else -> AuthResult.Failure(
+                mapHttpFailure(response.code(), AuthFailureType.UNAUTHENTICATED)
+            )
+        }
+    }
+
     private suspend fun <T> safely(block: suspend () -> AuthResult<T>): AuthResult<T> {
         return try {
             block()
@@ -59,6 +70,7 @@ class ServerAuthRepository @Inject constructor(
         return when {
             statusCode == HTTP_UNAUTHORIZED -> unauthorizedFailure
             statusCode == HTTP_FORBIDDEN -> AuthFailureType.FORBIDDEN
+            statusCode == HTTP_CONFLICT -> AuthFailureType.CONFLICT
             statusCode in HTTP_SERVER_ERROR_RANGE -> AuthFailureType.SERVER
             else -> AuthFailureType.INVALID_RESPONSE
         }
@@ -69,6 +81,7 @@ class ServerAuthRepository @Inject constructor(
         const val HTTP_BAD_REQUEST = 400
         const val HTTP_UNAUTHORIZED = 401
         const val HTTP_FORBIDDEN = 403
+        const val HTTP_CONFLICT = 409
         val HTTP_SERVER_ERROR_RANGE = 500..599
     }
 }

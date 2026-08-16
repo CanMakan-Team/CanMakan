@@ -137,4 +137,17 @@ describe('authService', () => {
     const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
     expect(headers.get('X-CanMakan-Session-Request')).toBe('1')
   })
+
+  it('deletes the signed-in account with bearer and session intent', async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(204))
+
+    await authService.deleteOwnAccount()
+
+    expect(fetch).toHaveBeenCalledWith(
+      `${apiBaseUrl}/api/auth/account`,
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+    const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
+    expect(headers.get('X-CanMakan-Session-Request')).toBe('1')
+  })
 })

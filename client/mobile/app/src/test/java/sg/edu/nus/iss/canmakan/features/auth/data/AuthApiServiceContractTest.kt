@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Headers
@@ -18,12 +19,14 @@ class AuthApiServiceContractTest {
 
     @Test
     fun endpointDefinitionsMatchTheFrozenBackendContract() {
-        // Bearer-client surface: login + /me only. Refresh/logout live on RefreshApiService.
+        // Bearer-client surface: login + /me + self-delete. Refresh/logout live on RefreshApiService.
         assertPost("login", "auth/login")
         assertEquals("auth/me", method("getCurrentUser").getAnnotation(GET::class.java).value)
+        assertEquals("auth/account", method("deleteOwnAccount").getAnnotation(DELETE::class.java).value)
 
         assertTrue(hasParameterAnnotation(method("login"), Body::class.java))
         assertFalse(hasParameterAnnotation(method("getCurrentUser"), Body::class.java))
+        assertFalse(hasParameterAnnotation(method("deleteOwnAccount"), Body::class.java))
 
         val methodNames = AuthApiService::class.java.declaredMethods.map { it.name }.toSet()
         assertFalse(methodNames.contains("refresh"))
@@ -40,11 +43,15 @@ class AuthApiServiceContractTest {
             listOf(NO_RETRY_HEADER),
             method("getCurrentUser").getAnnotation(Headers::class.java).value.toList(),
         )
+        assertEquals(
+            listOf(NO_RETRY_HEADER, SESSION_REQUEST_HEADER),
+            method("deleteOwnAccount").getAnnotation(Headers::class.java).value.toList(),
+        )
     }
 
     @Test
     fun authEndpointsNeverDeclareXUserId() {
-        listOf("login", "getCurrentUser").forEach { name ->
+        listOf("login", "getCurrentUser", "deleteOwnAccount").forEach { name ->
             assertFalse(hasParameterAnnotation(method(name), Header::class.java), name)
             assertFalse(
                 method(name).getAnnotation(Headers::class.java).value

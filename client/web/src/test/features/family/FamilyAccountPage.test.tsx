@@ -1,8 +1,10 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FamilyAccountPage } from '../../../features/family/pages/FamilyAccountPage'
 import { authService } from '../../../features/auth/authService'
 import { familyApiService } from '../../../features/family/api/familyApiService'
+import { ApiError } from '../../../shared/api/apiErrors'
 import {
   SessionContext,
   type SessionContextValue,
@@ -10,7 +12,10 @@ import {
 import { appUserSession } from '../../testUtils'
 
 vi.mock('../../../features/auth/authService', () => ({
-  authService: { getCurrentUser: vi.fn() },
+  authService: {
+    getCurrentUser: vi.fn(),
+    deleteOwnAccount: vi.fn(),
+  },
 }))
 
 vi.mock('../../../features/family/api/familyApiService', () => ({
@@ -35,7 +40,7 @@ const sessionValue: SessionContextValue = {
   registerAndLogin: async () => {
     throw new Error('unused')
   },
-  logout: async () => undefined,
+  logout: vi.fn(async () => undefined),
 }
 
 function renderPage() {
@@ -48,6 +53,10 @@ function renderPage() {
 
 describe('FamilyAccountPage', () => {
   beforeEach(() => {
+    vi.mocked(sessionValue.logout).mockClear()
+    vi.mocked(authService.deleteOwnAccount).mockReset()
+    vi.mocked(authService.deleteOwnAccount).mockResolvedValue(undefined)
+    vi.stubGlobal('confirm', vi.fn(() => true))
     vi.mocked(authService.getCurrentUser).mockResolvedValue({
       userId: 14,
       email: 'verified@example.com',
@@ -99,5 +108,46 @@ describe('FamilyAccountPage', () => {
       ),
     )
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('does not call delete when the confirmation is cancelled', async () => {
+    vi.mocked(window.confirm).mockReturnValue(false)
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('button', { name: 'Delete My Account' })
+
+    await user.click(screen.getByRole('button', { name: 'Delete My Account' }))
+
+    expect(authService.deleteOwnAccount).not.toHaveBeenCalled()
+    expect(sessionValue.logout).not.toHaveBeenCalled()
+  })
+
+  it('deletes the signed-in account then signs out', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('button', { name: 'Delete My Account' })
+
+    await user.click(screen.getByRole('button', { name: 'Delete My Account' }))
+
+    await waitFor(() => expect(authService.deleteOwnAccount).toHaveBeenCalledTimes(1))
+    expect(sessionValue.logout).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the session when the last family admin is blocked', async () => {
+    vi.mocked(authService.deleteOwnAccount).mockRejectedValue(
+      new ApiError('Add another family admin before deleting this account.', 409),
+    )
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('button', { name: 'Delete My Account' })
+
+    await user.click(screen.getByRole('button', { name: 'Delete My Account' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Add another family admin before deleting this account.',
+      ),
+    )
+    expect(sessionValue.logout).not.toHaveBeenCalled()
   })
 })

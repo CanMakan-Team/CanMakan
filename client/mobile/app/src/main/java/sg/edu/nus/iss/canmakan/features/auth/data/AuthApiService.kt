@@ -3,6 +3,7 @@ package sg.edu.nus.iss.canmakan.features.auth.data
 import com.google.gson.annotations.SerializedName
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Headers
 import retrofit2.http.POST
@@ -58,4 +59,11 @@ interface AuthApiService {
     @Headers("X-CanMakan-No-Retry: true")
     @GET("auth/me")
     suspend fun getCurrentUser(): Response<AuthenticatedUserResponse>
+
+    @Headers(
+        "X-CanMakan-No-Retry: true",
+        "X-CanMakan-Session-Request: 1",
+    )
+    @DELETE("auth/account")
+    suspend fun deleteOwnAccount(): Response<Unit>
 }

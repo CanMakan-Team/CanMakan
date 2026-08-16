@@ -162,7 +162,9 @@ class LoginViewModel @Inject constructor(
             AuthFailureType.FORBIDDEN -> FORBIDDEN_MESSAGE
             AuthFailureType.NETWORK -> NETWORK_MESSAGE
             AuthFailureType.SERVER -> SERVER_MESSAGE
-            AuthFailureType.INVALID_RESPONSE -> INVALID_RESPONSE_MESSAGE
+            AuthFailureType.INVALID_RESPONSE,
+            AuthFailureType.CONFLICT,
+            -> INVALID_RESPONSE_MESSAGE
         }
         _uiState.value = _uiState.value.copy(loginError = message)
     }

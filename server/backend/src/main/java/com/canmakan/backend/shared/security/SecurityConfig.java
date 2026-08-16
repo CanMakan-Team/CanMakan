@@ -80,6 +80,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/invitations/*/preview").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/auth/account").authenticated()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/families/**").authenticated()
                 .requestMatchers("/api/invitations/**").authenticated()
