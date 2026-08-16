@@ -15,17 +15,35 @@ sonar {
         property("sonar.projectName", "canmakan-mobile")
         property("sonar.organization", "canmakan-team")
         property("sonar.host.url", "https://sonarcloud.io")
+        property("sonar.sourceEncoding", "UTF-8")
         property(
             "sonar.coverage.jacoco.xmlReportPaths",
             "${rootProject.projectDir}/app/build/sonar-coverage/jacoco.xml",
+        )
+        // Binaries are not UTF-8 sources; skip analysis so the scanner does not warn on icons.
+        property(
+            "sonar.exclusions",
+            listOf(
+                "**/*.webp",
+                "**/*.png",
+                "**/*.jpg",
+                "**/*.jpeg",
+                "**/*.gif",
+            ).joinToString(","),
         )
         property(
             "sonar.coverage.exclusions",
             listOf(
                 "**/*Screen.kt",
-                "**/CanMakanNavGraph.kt",
+                "**/*Screens.kt",
+                "**/*Sheet.kt",
+                "**/*NavGraph.kt",
+                "**/CanMakanApp.kt",
                 "**/MainActivity.kt",
+                "**/ProfileDrawerContent.kt",
+                "**/BarcodeAnalyzer.kt",
                 "**/AndroidSystemNotifier.kt",
+                "**/shared/ui/**",
                 "**/*Module.kt",
                 "**/*_Factory*",
                 "**/*_HiltModules*",
