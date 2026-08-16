@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +35,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import sg.edu.nus.iss.canmakan.navigation.InviteWebDeepLinks
 import sg.edu.nus.iss.canmakan.shared.ui.AppBottomNavBar
 import sg.edu.nus.iss.canmakan.shared.ui.AppTopBar
@@ -180,6 +182,12 @@ fun CreateFamilyCircleScreen(
                     },
                 ) {
                     Text(if (portalLinkCopied) "Copied" else "Copy URL")
+                }
+                LaunchedEffect(portalLinkCopied) {
+                    if (portalLinkCopied) {
+                        delay(2000)
+                        portalLinkCopied = false
+                    }
                 }
             }
         }
