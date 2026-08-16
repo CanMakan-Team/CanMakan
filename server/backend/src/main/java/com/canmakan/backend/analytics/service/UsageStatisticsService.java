@@ -101,7 +101,7 @@ public class UsageStatisticsService {
         long monthlyActiveUsers = activeUsers(scansByUser, now.minus(30, ChronoUnit.DAYS), now).size();
         int stickinessPct = percent(dailyActiveUsers, monthlyActiveUsers);
 
-        Acquisition acquisition = buildAcquisition(createdAtByUser, scansByUser, usersWithProfile, now, periodDays, periodStart);
+        Acquisition acquisition = buildAcquisition(createdAtByUser, scansByUser, usersWithProfile, now, periodDays);
         Activity activity = buildActivity(createdAtByUser, scansByUser, now, periodStart,
                 dailyActiveUsers, weeklyActiveUsers, monthlyActiveUsers, stickinessPct);
         Retention retention = buildRetention(createdAtByUser, scansByUser, now, periodDays, periodStart,
@@ -122,8 +122,7 @@ public class UsageStatisticsService {
             Map<Long, List<Instant>> scansByUser,
             Set<Long> usersWithProfile,
             Instant now,
-            int periodDays,
-            Instant periodStart) {
+            int periodDays) {
 
         Map<LocalDate, Integer> registrationsByDate = new HashMap<>();
         for (Instant createdAt : createdAtByUser.values()) {
