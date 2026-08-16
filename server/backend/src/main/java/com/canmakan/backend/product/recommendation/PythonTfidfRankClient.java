@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -28,6 +29,7 @@ class PythonTfidfRankClient {
     private final SubstituteDiscoveryProfiles discoveryProfiles;
     private final String rankerUrl;
 
+    @Autowired
     PythonTfidfRankClient(
             SubstituteDiscoveryProfiles discoveryProfiles,
             @Value("${canmakan.recommendation.ml.ranker-url:}") String rankerUrl,
@@ -46,6 +48,16 @@ class PythonTfidfRankClient {
                     .requestFactory(requestFactory)
                     .build();
         }
+    }
+
+    /**
+     * Package-private constructor for tests that inject a {@link RestClient} bound to
+     * {@link org.springframework.test.web.client.MockRestServiceServer}.
+     */
+    PythonTfidfRankClient(SubstituteDiscoveryProfiles discoveryProfiles, RestClient restClient) {
+        this.discoveryProfiles = discoveryProfiles;
+        this.rankerUrl = restClient != null ? "http://localhost" : "";
+        this.restClient = restClient;
     }
 
     boolean isConfigured() {

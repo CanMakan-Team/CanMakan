@@ -14,6 +14,7 @@ record PythonTfidfRankRequest(
         List<PythonTfidfProductPayload> candidates,
         PythonTfidfProfileHints profile) {
 
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     record PythonTfidfProductPayload(
             String barcode,
             String productName,
@@ -29,6 +30,7 @@ record PythonTfidfRankRequest(
             BigDecimal sodium100g) {
     }
 
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     record PythonTfidfProfileHints(
             boolean preferLowSugar,
             boolean milkSubstituteDiscovery,
