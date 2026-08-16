@@ -18,6 +18,13 @@ Public account registration plus login, refresh, logout, and `/me` against Sprin
 
 Login and register are owned by `AuthController` / `AuthService` (single mapping for each path).
 
+Login verifies the password before exposing the UC19 account-status distinction:
+unknown accounts and wrong passwords return the same safe `401`, while an
+otherwise valid login for `users.is_active=0` returns `403` without issuing an
+access token, refresh session, or refresh cookie. Refresh authentication remains
+enumeration-safe: unknown, expired, revoked, replayed, or inactive refresh
+credentials all return `401` and clear the presented refresh cookie.
+
 ## Registration boundary
 - Requires `email` and `password`. Optional `invitationToken` locks
   registration to the invited email when the token is a pending invite.

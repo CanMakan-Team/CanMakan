@@ -27,6 +27,8 @@ public class AuthExceptionHandler {
 
     static final String AUTHENTICATION_FAILURE_MESSAGE =
         "Invalid credentials or account unavailable.";
+    static final String ACCOUNT_SUSPENDED_MESSAGE =
+        "This account is suspended.";
     static final String REFRESH_FAILURE_MESSAGE = "Authentication required.";
     private static final String INVALID_LOGIN_MESSAGE = "Invalid login request.";
     private static final String INVALID_REGISTRATION_MESSAGE = "Invalid registration request.";
@@ -69,6 +71,12 @@ public class AuthExceptionHandler {
     public ResponseEntity<Map<String, String>> handleAuthenticationFailure() {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
             .body(Map.of("message", AUTHENTICATION_FAILURE_MESSAGE));
+    }
+
+    @ExceptionHandler(AccountSuspendedException.class)
+    public ResponseEntity<Map<String, String>> handleAccountSuspended() {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(Map.of("message", ACCOUNT_SUSPENDED_MESSAGE));
     }
 
     // Handle refresh authentication exception
