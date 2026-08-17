@@ -25,8 +25,8 @@ import com.canmakan.backend.dietaryprofile.repository.ProfileRestrictionReposito
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
 import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.family.repository.FamilyMemberRepository;
-import com.canmakan.backend.user.UserAccount;
-import com.canmakan.backend.user.UserAccountRepository;
+import com.canmakan.backend.user.model.UserAccount;
+import com.canmakan.backend.user.repository.UserAccountRepository;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
