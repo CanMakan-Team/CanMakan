@@ -19,10 +19,10 @@ import com.canmakan.backend.dietaryprofile.model.ProfileRestrictionId;
 import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
 import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
-import com.canmakan.backend.family.FamilyAuthorizationService;
 import com.canmakan.backend.product.model.ScanProduct;
 import com.canmakan.backend.product.scan.Scan;
 import com.canmakan.backend.product.scan.ScanRepository;
+import com.canmakan.backend.family.config.InviteProperties;
 import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.ClaimInvitationRequest;
 import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
@@ -44,14 +44,19 @@ import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.family.model.FamilyInvitation;
 import com.canmakan.backend.family.model.FamilyMember;
 import com.canmakan.backend.family.model.InvitationStatus;
-import com.canmakan.backend.family.model.UserPreference;
 import com.canmakan.backend.family.repository.FamilyInvitationRepository;
 import com.canmakan.backend.family.repository.FamilyMemberRepository;
 import com.canmakan.backend.family.repository.FamilyRepository;
-import com.canmakan.backend.family.repository.UserPreferenceRepository;
+import com.canmakan.backend.family.service.FamilyAuthorizationService;
+import com.canmakan.backend.family.service.FamilyInvitationService;
+import com.canmakan.backend.family.service.FamilyInviteNotifier;
+import com.canmakan.backend.family.service.FamilyRosterService;
+import com.canmakan.backend.family.service.InvitationEmailService;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
-import com.canmakan.backend.user.UserAccount;
-import com.canmakan.backend.user.UserAccountRepository;
+import com.canmakan.backend.user.model.UserAccount;
+import com.canmakan.backend.user.repository.UserAccountRepository;
+import com.canmakan.backend.user.model.UserPreference;
+import com.canmakan.backend.user.repository.UserPreferenceRepository;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -108,6 +113,23 @@ class FamilyServiceTest {
             familyMemberRepository,
             dietaryProfileRepository
         );
+        FamilyRosterService familyRosterService = new FamilyRosterService(
+            userAccountRepository,
+            familyMemberRepository,
+            dietaryProfileRepository,
+            familyAuthorization
+        );
+        FamilyInvitationService familyInvitationService = new FamilyInvitationService(
+            userAccountRepository,
+            familyRepository,
+            familyMemberRepository,
+            familyInvitationRepository,
+            dietaryProfileRepository,
+            familyAuthorization,
+            inviteProperties,
+            invitationEmailService,
+            familyInviteNotifier
+        );
         familyService = new FamilyService(
             userAccountRepository,
             familyRepository,
@@ -119,9 +141,8 @@ class FamilyServiceTest {
             dietaryProfileService,
             familyAuthorization,
             scanRepository,
-            inviteProperties,
-            invitationEmailService,
-            familyInviteNotifier
+            familyRosterService,
+            familyInvitationService
         );
     }
 
@@ -507,19 +528,23 @@ class FamilyServiceTest {
         DietaryProfile self = new DietaryProfile();
         self.setId(1L);
         self.setProfileName("Admin");
-        when(dietaryProfileRepository.findByLinkedUser_Id(10L)).thenReturn(Optional.of(self));
+        UserAccount linkedUser = new UserAccount();
+        linkedUser.setId(10L);
+        self.setLinkedUser(linkedUser);
+        when(dietaryProfileRepository.findByLinkedUserIdInWithRestrictions(any()))
+            .thenReturn(List.of(self));
 
         DietaryProfile dependant = new DietaryProfile();
         dependant.setId(2L);
         dependant.setProfileName("Toddler");
-        when(dietaryProfileRepository.findDependantProfilesByFamilyId(1L))
+        when(dietaryProfileRepository.findActiveDependantsByFamilyIdWithRestrictions(1L))
             .thenReturn(List.of(dependant));
 
         FamilyRestrictionSumRes summary = familyService.getFamilyRestrictionSummary(10L);
-        assertEquals(2, summary.getFamilyMembers().size());
-        assertEquals(0L, summary.getFamilyMembers().get(1).getUserId());
-        assertEquals(2L, summary.getFamilyMembers().get(1).getProfileId());
-        assertEquals("Toddler", summary.getFamilyMembers().get(1).getName());
+        assertEquals(2, summary.familyMembers().size());
+        assertEquals(0L, summary.familyMembers().get(1).userId());
+        assertEquals(2L, summary.familyMembers().get(1).profileId());
+        assertEquals("Toddler", summary.familyMembers().get(1).name());
     }
 
     @Test
@@ -539,19 +564,23 @@ class FamilyServiceTest {
         self.setProfileName("Admin");
         self.setRelationship("SELF");
         self.setActive(true);
-        when(dietaryProfileRepository.findByLinkedUser_Id(10L)).thenReturn(Optional.of(self));
+        UserAccount linkedUser = new UserAccount();
+        linkedUser.setId(10L);
+        self.setLinkedUser(linkedUser);
+        when(dietaryProfileRepository.findByLinkedUserIdInWithRestrictions(any()))
+            .thenReturn(List.of(self));
 
         UserAccount admin = new UserAccount();
         admin.setId(10L);
         admin.setEmail("admin@example.com");
-        when(userAccountRepository.findById(10L)).thenReturn(Optional.of(admin));
+        when(userAccountRepository.findAllById(any())).thenReturn(List.of(admin));
 
         DietaryProfile dependant = new DietaryProfile();
         dependant.setId(2L);
         dependant.setProfileName("Toddler");
         dependant.setRelationship("CHILD");
         dependant.setActive(true);
-        when(dietaryProfileRepository.findAllDependantProfilesByFamilyId(1L))
+        when(dietaryProfileRepository.findAllDependantsByFamilyIdWithRestrictions(1L))
             .thenReturn(List.of(dependant));
 
         List<com.canmakan.backend.family.dto.FamilyMemberRosterDto> rows =
@@ -901,7 +930,7 @@ class FamilyServiceTest {
         family.setId(1L);
 
         DietaryProfile dependant = activeProfile(88L, "Child", family, true);
-        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(dependant));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(88L)).thenReturn(Optional.of(dependant));
         when(userPreferenceRepository.findById(10L)).thenReturn(Optional.empty());
         when(userPreferenceRepository.saveAndFlush(any(UserPreference.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
@@ -919,7 +948,7 @@ class FamilyServiceTest {
         Family otherFamily = new Family();
         otherFamily.setId(99L);
         DietaryProfile outsider = activeProfile(55L, "Other", otherFamily, true);
-        when(dietaryProfileRepository.findById(55L)).thenReturn(Optional.of(outsider));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(55L)).thenReturn(Optional.of(outsider));
 
         assertThrows(
             FamilyForbiddenException.class,
@@ -933,7 +962,7 @@ class FamilyServiceTest {
         Family family = new Family();
         family.setId(1L);
         DietaryProfile inactive = activeProfile(88L, "Child", family, false);
-        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(inactive));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(88L)).thenReturn(Optional.of(inactive));
 
         assertThrows(
             InactiveProfileException.class,
@@ -984,7 +1013,7 @@ class FamilyServiceTest {
         Family otherFamily = new Family();
         otherFamily.setId(99L);
         DietaryProfile outsider = activeProfile(55L, "Other", otherFamily, true);
-        when(dietaryProfileRepository.findById(55L)).thenReturn(Optional.of(outsider));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(55L)).thenReturn(Optional.of(outsider));
 
         assertThrows(
             FamilyForbiddenException.class,
@@ -1000,7 +1029,7 @@ class FamilyServiceTest {
         family.setId(1L);
         DietaryProfile dependant = activeProfile(88L, "Child", family, true);
         dependant.setLinkedUser(null);
-        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(dependant));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(88L)).thenReturn(Optional.of(dependant));
         when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -1022,7 +1051,7 @@ class FamilyServiceTest {
         Family family = new Family();
         family.setId(1L);
         DietaryProfile profile = activeProfile(88L, "Child", family, true);
-        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(profile));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(88L)).thenReturn(Optional.of(profile));
         when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
         when(userPreferenceRepository.findByActiveProfileId(88L)).thenReturn(List.of());
@@ -1043,7 +1072,7 @@ class FamilyServiceTest {
         UserAccount linked = new UserAccount();
         linked.setId(10L);
         profile.setLinkedUser(linked);
-        when(dietaryProfileRepository.findById(77L)).thenReturn(Optional.of(profile));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(77L)).thenReturn(Optional.of(profile));
 
         FamilyForbiddenException ex = assertThrows(
             FamilyForbiddenException.class,
@@ -1063,7 +1092,7 @@ class FamilyServiceTest {
         UserAccount linked = new UserAccount();
         linked.setId(20L);
         profile.setLinkedUser(linked);
-        when(dietaryProfileRepository.findById(99L)).thenReturn(Optional.of(profile));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(99L)).thenReturn(Optional.of(profile));
         FamilyMember otherAdminMembership = new FamilyMember(
             new FamilyMember.FamilyMemberId(1L, 20L),
             FamilyMember.ROLE_PRIMARY_ADMIN,
@@ -1111,7 +1140,7 @@ class FamilyServiceTest {
         family.setId(1L);
         DietaryProfile dependant = activeProfile(88L, "Child", family, true);
         dependant.setLinkedUser(null);
-        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(dependant));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(88L)).thenReturn(Optional.of(dependant));
         when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
         when(userPreferenceRepository.findByActiveProfileId(88L)).thenReturn(List.of());
@@ -1131,7 +1160,7 @@ class FamilyServiceTest {
         UserAccount user = new UserAccount();
         user.setId(10L);
         self.setLinkedUser(user);
-        when(dietaryProfileRepository.findById(77L)).thenReturn(Optional.of(self));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(77L)).thenReturn(Optional.of(self));
 
         familyService.assertMayEditRestrictions(10L, 77L);
     }
@@ -1146,7 +1175,7 @@ class FamilyServiceTest {
         UserAccount linked = new UserAccount();
         linked.setId(20L);
         other.setLinkedUser(linked);
-        when(dietaryProfileRepository.findById(99L)).thenReturn(Optional.of(other));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(99L)).thenReturn(Optional.of(other));
 
         familyService.assertMayEditRestrictions(10L, 99L);
     }
@@ -1168,7 +1197,7 @@ class FamilyServiceTest {
         UserAccount linked = new UserAccount();
         linked.setId(20L);
         other.setLinkedUser(linked);
-        when(dietaryProfileRepository.findById(99L)).thenReturn(Optional.of(other));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(99L)).thenReturn(Optional.of(other));
 
         assertThrows(
             FamilyForbiddenException.class,

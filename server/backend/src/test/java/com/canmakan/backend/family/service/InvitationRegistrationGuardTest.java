@@ -1,4 +1,4 @@
-package com.canmakan.backend.family;
+package com.canmakan.backend.family.service;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;

@@ -1,4 +1,4 @@
-package com.canmakan.backend.family;
+package com.canmakan.backend.family.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
@@ -12,9 +12,9 @@ import com.canmakan.backend.family.model.InvitationStatus;
 import com.canmakan.backend.family.repository.FamilyInvitationRepository;
 import com.canmakan.backend.family.repository.FamilyRepository;
 import com.canmakan.backend.notification.NotificationService;
-import com.canmakan.backend.notification.NotificationType;
-import com.canmakan.backend.user.UserAccount;
-import com.canmakan.backend.user.UserAccountRepository;
+import com.canmakan.backend.notification.model.NotificationType;
+import com.canmakan.backend.user.model.UserAccount;
+import com.canmakan.backend.user.repository.UserAccountRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;

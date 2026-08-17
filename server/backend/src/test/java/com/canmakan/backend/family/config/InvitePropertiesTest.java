@@ -1,4 +1,4 @@
-package com.canmakan.backend.family;
+package com.canmakan.backend.family.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

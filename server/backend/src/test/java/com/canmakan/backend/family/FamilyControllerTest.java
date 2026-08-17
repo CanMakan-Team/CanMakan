@@ -22,6 +22,7 @@ import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyExceptionHandler;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.family.exception.FamilyNotFoundException;
+import com.canmakan.backend.family.service.FamilyAuthorizationService;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.shared.exception.GlobalExceptionHandler;
 import com.canmakan.backend.shared.security.AuthUserDetails;

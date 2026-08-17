@@ -1,7 +1,9 @@
-package com.canmakan.backend.family;
+package com.canmakan.backend.family.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.canmakan.backend.family.config.InviteProperties;
+import com.canmakan.backend.family.config.ResendProperties;
 import com.canmakan.backend.family.dto.InvitationResponse;
 import com.canmakan.backend.family.model.InvitationStatus;
 import java.time.Instant;
