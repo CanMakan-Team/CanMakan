@@ -854,7 +854,9 @@ input[readonly] {
   flex-direction: column;
 }
 
-.summary-card span:not(.summary-card__icon) {
+/* Status badges keep their own severity colours; only the plain caption
+   spans in a summary card are muted. */
+.summary-card span:not(.summary-card__icon, .status-badge) {
   color: var(--muted);
   font-size: 0.78rem;
 }
@@ -1071,8 +1073,8 @@ input[readonly] {
 }
 
 .home-card .status-badge--suspended {
-  color: var(--unsafe);
-  background: var(--unsafe-bg);
+  color: var(--avoid);
+  background: var(--avoid-bg);
 }
 
 .home-card__link {
@@ -2154,8 +2156,7 @@ caption,
 }
 
 .account-panel {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
   gap: 1.2rem;
 }
 
@@ -2163,14 +2164,93 @@ caption,
   width: 100%;
 }
 
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.account-identity__text {
+  min-width: 0;
+  flex: 1;
+}
+
+.account-identity__text h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.account-identity__text p {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.account-rows {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+}
+
+.account-row__label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.account-row__value {
+  margin: 0.25rem 0 0;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.account-row__meta {
+  margin: 0.1rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* Shared width keeps the row actions aligned regardless of their label. */
+.account-row .button {
+  min-width: 10rem;
+  flex: 0 0 auto;
+}
+
+.button--small {
+  min-height: 2.2rem;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.8rem;
+}
+
 .account-danger {
   display: grid;
   gap: 0.75rem;
   margin-top: 1.2rem;
+  border-color: color-mix(in srgb, var(--avoid) 40%, var(--line));
+  background: color-mix(in srgb, var(--avoid-bg) 55%, var(--color-surface));
 }
 
 .account-danger h2 {
   margin: 0;
+  color: var(--avoid);
   font-size: 1.05rem;
 }
 
@@ -3001,8 +3081,15 @@ caption,
     justify-self: stretch;
   }
 
-  .account-panel {
+  .account-row {
     flex-direction: column;
+    align-items: stretch;
+    gap: 0.7rem;
+  }
+
+  .account-row .button {
+    width: 100%;
+    min-width: 0;
   }
 
   .detail-grid {

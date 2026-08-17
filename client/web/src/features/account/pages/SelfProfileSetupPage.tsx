@@ -210,7 +210,7 @@ export function SelfProfileSetupPage() {
       <section className="page-card dietary-setup__card" aria-labelledby="self-profile-setup-title">
         <p className="eyebrow">Dietary Profile Setup</p>
         <h1 id="self-profile-setup-title">Set up your dietary profile</h1>
-        <p>You can complete this later. Setting it up now helps personalise future scans.</p>
+        <p>These restrictions are used when you scan food products.</p>
 
         <div className="field-group">
           <label htmlFor="setup-profile-name">Profile Name</label>

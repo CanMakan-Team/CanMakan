@@ -81,7 +81,9 @@ describe('SelfProfileSetupPage', () => {
 
     expect(await screen.findByLabelText('Peanut')).toBeInTheDocument()
     expect(screen.getByLabelText('Profile Name')).toHaveValue('')
-    expect(screen.getByText(/You can complete this later/)).toBeInTheDocument()
+    expect(
+      screen.getByText('These restrictions are used when you scan food products.'),
+    ).toBeInTheDocument()
     expect(
       screen.getByText('How this profile appears in your shared Family Circle.'),
     ).toBeInTheDocument()
