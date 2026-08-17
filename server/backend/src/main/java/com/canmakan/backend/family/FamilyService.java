@@ -244,7 +244,6 @@ public class FamilyService {
                 member.getUserId(),
                 name,
                 relationship,
-                FamilyMemberRosterDto.AGE_GROUP_UNSPECIFIED,
                 codes.commonRequirements(),
                 codes.restrictions(),
                 FamilyMemberRosterDto.SOURCE_REGISTERED,
@@ -267,7 +266,6 @@ public class FamilyService {
                 null,
                 dependant.getProfileName(),
                 relationship,
-                FamilyMemberRosterDto.AGE_GROUP_UNSPECIFIED,
                 codes.commonRequirements(),
                 codes.restrictions(),
                 FamilyMemberRosterDto.SOURCE_DEPENDANT,
@@ -322,6 +320,21 @@ public class FamilyService {
             long adminUserId, long profileId, boolean active) {
         familyAuthorization.requirePrimaryAdmin(adminUserId);
         DietaryProfile profile = familyAuthorization.requireProfileInCallerFamily(adminUserId, profileId);
+        if (!active) {
+            Long linkedUserId = profile.getLinkedUser() == null ? null : profile.getLinkedUser().getId();
+            if (linkedUserId != null && linkedUserId == adminUserId) {
+                throw new FamilyForbiddenException(
+                    "Cannot deactivate your own family admin profile.");
+            }
+            if (isFamilyAdminLinkedProfile(profile)) {
+                Long familyId = profile.getFamily() == null ? null : profile.getFamily().getId();
+                if (familyId != null
+                        && familyMemberRepository.countActivePrimaryAdmins(familyId) <= 1) {
+                    throw new LastPrimaryAdminException(
+                        "Cannot deactivate the family admin profile.");
+                }
+            }
+        }
         profile.setActive(active);
         dietaryProfileRepository.saveAndFlush(profile);
         if (!active) {
@@ -411,7 +424,6 @@ public class FamilyService {
                 linkedUserId,
                 profile.getProfileName(),
                 profile.getRelationship(),
-                FamilyMemberRosterDto.AGE_GROUP_UNSPECIFIED,
                 codes.commonRequirements(),
                 codes.restrictions(),
                 FamilyMemberRosterDto.SOURCE_REGISTERED,
@@ -426,7 +438,6 @@ public class FamilyService {
             null,
             profile.getProfileName(),
             profile.getRelationship(),
-            FamilyMemberRosterDto.AGE_GROUP_UNSPECIFIED,
             codes.commonRequirements(),
             codes.restrictions(),
             FamilyMemberRosterDto.SOURCE_DEPENDANT,
@@ -826,14 +837,26 @@ public class FamilyService {
     // Claim an invitation (UC9 deep-link / login path — same rules as accept)
     @Transactional
     public FamilyMeResponse claimInvitation(long userId, ClaimInvitationRequest request) {
-        return acceptInvitation(userId, request.invitationToken());
+        return acceptInvitation(userId, request.invitationToken(), request.profileName());
+    }
+
+    /**
+     * Accept a PENDING invitation by token (UC10 inbox — no typed profile name available).
+     */
+    @Transactional
+    public FamilyMeResponse acceptInvitation(long userId, String invitationToken) {
+        return acceptInvitation(userId, invitationToken, null);
     }
 
     /**
      * Accept a PENDING invitation by token (UC10 inbox + UC9 claim).
+     *
+     * @param profileName the profile name the caller typed at registration, if any;
+     *                     used for the auto-provisioned SELF profile instead of a
+     *                     placeholder derived from the email address.
      */
     @Transactional
-    public FamilyMeResponse acceptInvitation(long userId, String invitationToken) {
+    public FamilyMeResponse acceptInvitation(long userId, String invitationToken, String profileName) {
         UserAccount user = userAccountRepository.findById(userId)
             .orElseThrow(() -> new AuthenticatedUserNotFoundException(
                 "Authenticated user was not found."));
@@ -842,7 +865,7 @@ public class FamilyService {
         }
         FamilyInvitation invitation = resolveClaimableInvitation(
             normalizeEmail(user.getEmail()), invitationToken.strip());
-        return applyInvitationClaim(user, invitation);
+        return applyInvitationClaim(user, invitation, profileName);
     }
 
     /**
@@ -1027,7 +1050,8 @@ public class FamilyService {
     }
 
     // Apply the invitation claim
-    private FamilyMeResponse applyInvitationClaim(UserAccount user, FamilyInvitation invitation) {
+    private FamilyMeResponse applyInvitationClaim(
+            UserAccount user, FamilyInvitation invitation, String profileName) {
         if (familyMemberRepository.existsByIdUserId(user.getId())) {
             throw new AlreadyInFamilyException("You already belong to a family circle.");
         }
@@ -1046,7 +1070,10 @@ public class FamilyService {
                 .orElseGet(DietaryProfile::new);
             selfProfile.setFamily(family);
             selfProfile.setLinkedUser(user);
-            if (selfProfile.getProfileName() == null || selfProfile.getProfileName().isBlank()) {
+            if (profileName != null && !profileName.isBlank()) {
+                // Authoritative: what the caller actually typed at registration.
+                selfProfile.setProfileName(profileName.trim());
+            } else if (selfProfile.getProfileName() == null || selfProfile.getProfileName().isBlank()) {
                 selfProfile.setProfileName(profileNameFromUser(user));
             }
             selfProfile.setRelationship(invitation.getRelationship());

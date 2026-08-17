@@ -101,6 +101,102 @@ class FamilyProfileRepositoryTest {
         assertEquals(400, exception.statusCode)
     }
 
+    @Test
+    @DisplayName("GET /users/me/preferences/notifications 200 returns enabled flag")
+    fun getNotificationPreferenceReturnsBodyOnSuccess() = runBlocking {
+        val repository = FamilyProfileRepository(
+            FakeFamilyProfileApiService(
+                notificationPreferenceResponse = Response.success(
+                    NotificationPreferenceResponse(notificationsEnabled = true),
+                ),
+            ),
+        )
+
+        assertEquals(true, repository.getNotificationPreference())
+    }
+
+    @Test
+    @DisplayName("GET /users/me/preferences/notifications non-2xx throws CreateFamilyException")
+    fun getNotificationPreferenceThrowsOnError() {
+        val body = """{"message":"Preference unavailable."}""".toResponseBody("application/json".toMediaType())
+        val repository = FamilyProfileRepository(
+            FakeFamilyProfileApiService(
+                notificationPreferenceResponse = Response.error(503, body),
+            ),
+        )
+
+        val exception = assertThrows(CreateFamilyException::class.java) {
+            runBlocking { repository.getNotificationPreference() }
+        }
+
+        assertEquals("Preference unavailable.", exception.message)
+        assertEquals(503, exception.statusCode)
+    }
+
+    @Test
+    @DisplayName("GET /users/me/preferences/notifications 200 with empty body throws")
+    fun getNotificationPreferenceThrowsOnEmptyBody() {
+        val repository = FamilyProfileRepository(
+            FakeFamilyProfileApiService(
+                notificationPreferenceResponse = Response.success(null),
+            ),
+        )
+
+        val exception = assertThrows(IllegalStateException::class.java) {
+            runBlocking { repository.getNotificationPreference() }
+        }
+
+        assertEquals("Empty body for GET /users/me/preferences/notifications", exception.message)
+    }
+
+    @Test
+    @DisplayName("PUT /users/me/preferences/notifications 200 returns updated flag")
+    fun setNotificationPreferenceReturnsBodyOnSuccess() = runBlocking {
+        val repository = FamilyProfileRepository(
+            FakeFamilyProfileApiService(
+                setNotificationPreferenceResponse = Response.success(
+                    NotificationPreferenceResponse(notificationsEnabled = false),
+                ),
+            ),
+        )
+
+        assertEquals(false, repository.setNotificationPreference(false))
+    }
+
+    @Test
+    @DisplayName("PUT /users/me/preferences/notifications non-2xx throws CreateFamilyException")
+    fun setNotificationPreferenceThrowsOnError() {
+        val body = """{"message":"Could not save preference."}""".toResponseBody("application/json".toMediaType())
+        val repository = FamilyProfileRepository(
+            FakeFamilyProfileApiService(
+                setNotificationPreferenceResponse = Response.error(400, body),
+            ),
+        )
+
+        val exception = assertThrows(CreateFamilyException::class.java) {
+            runBlocking { repository.setNotificationPreference(true) }
+        }
+
+        assertEquals("Could not save preference.", exception.message)
+        assertEquals(400, exception.statusCode)
+    }
+
+    @Test
+    @DisplayName("PUT /users/me/preferences/notifications 200 with empty body throws")
+    fun setNotificationPreferenceThrowsOnEmptyBody() {
+        val repository = FamilyProfileRepository(
+            FakeFamilyProfileApiService(
+                setNotificationPreferenceResponse = Response.success(null),
+            ),
+        )
+
+        val exception = assertThrows(IllegalStateException::class.java) {
+            runBlocking { repository.setNotificationPreference(true) }
+        }
+
+        assertEquals("Empty body for PUT /users/me/preferences/notifications", exception.message)
+    }
+
     private class FakeFamilyProfileApiService(
         private val meResponse: Response<FamilyMeResponse> = Response.error(
             404,
@@ -109,6 +205,12 @@ class FamilyProfileRepositoryTest {
         private val createResponse: Response<FamilyMeResponse> = Response.error(
             500,
             "{}".toResponseBody("application/json".toMediaType()),
+        ),
+        private val notificationPreferenceResponse: Response<NotificationPreferenceResponse> = Response.success(
+            NotificationPreferenceResponse(notificationsEnabled = true),
+        ),
+        private val setNotificationPreferenceResponse: Response<NotificationPreferenceResponse> = Response.success(
+            NotificationPreferenceResponse(notificationsEnabled = true),
         ),
     ) : FamilyProfileApiService {
         override suspend fun getMyFamily(): Response<FamilyMeResponse> = meResponse
@@ -129,6 +231,13 @@ class FamilyProfileRepositoryTest {
             request: SetActiveProfileRequestBody,
         ): Response<ActiveProfileResponse> =
             Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+
+        override suspend fun getNotificationPreference(): Response<NotificationPreferenceResponse> =
+            notificationPreferenceResponse
+
+        override suspend fun setNotificationPreference(
+            request: SetNotificationPreferenceRequestBody,
+        ): Response<NotificationPreferenceResponse> = setNotificationPreferenceResponse
 
         override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> =
             Response.error(500, "{}".toResponseBody("application/json".toMediaType()))

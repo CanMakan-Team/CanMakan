@@ -3,7 +3,7 @@ import { ApiError, getErrorMessage } from '../../../shared/api/apiErrors'
 import { familyApiService } from '../api/familyApiService'
 
 type CreateFamilyCirclePageProps = {
-  onCreated: () => void
+  onCreated: () => void | Promise<void>
 }
 
 /**
@@ -56,10 +56,10 @@ export function CreateFamilyCirclePage({ onCreated }: CreateFamilyCirclePageProp
     setSubmitting(true)
     try {
       await familyApiService.createFamily(trimmed)
-      onCreated()
+      await onCreated()
     } catch (caughtError) {
       if (caughtError instanceof ApiError && caughtError.status === 409) {
-        onCreated()
+        await onCreated()
         return
       }
       setSubmitError(getErrorMessage(caughtError))
@@ -73,16 +73,20 @@ export function CreateFamilyCirclePage({ onCreated }: CreateFamilyCirclePageProp
     <section className="panel" aria-labelledby="create-family-heading">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Optional family management</p>
+          <p className="eyebrow eyebrow--badge">Family management</p>
           <h1 id="create-family-heading">Create your family circle</h1>
           <p>
-            Create a separate household group only if you want to manage or invite
-            family members. Your personal Dietary Profile does not require a Family Circle.
+            Create a family circle if you want to manage or invite family members.
+            Your personal Dietary Profile does not require a Family Circle.
           </p>
         </div>
       </header>
 
-      <form className="stack-form" onSubmit={(event) => void handleSubmit(event)} noValidate>
+      <form
+        className="stack-form stack-form--start-actions"
+        onSubmit={(event) => void handleSubmit(event)}
+        noValidate
+      >
         <label className="field">
           <span>Family name</span>
           <input

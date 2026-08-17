@@ -1,5 +1,6 @@
 package com.canmakan.backend.auth;
 
+import com.canmakan.backend.admin.exception.ProtectedAccountOperationException;
 import com.canmakan.backend.auth.dto.AuthResponse;
 import com.canmakan.backend.auth.dto.AuthenticationResult;
 import com.canmakan.backend.auth.dto.CurrentUserResponse;
@@ -7,6 +8,7 @@ import com.canmakan.backend.auth.dto.LoginRequest;
 import com.canmakan.backend.auth.dto.RegistrationRequest;
 import com.canmakan.backend.auth.dto.RegistrationResponse;
 import com.canmakan.backend.auth.exception.AuthenticationFailedException;
+import com.canmakan.backend.auth.exception.AccountSuspendedException;
 import com.canmakan.backend.auth.exception.DuplicateEmailException;
 import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
 import com.canmakan.backend.auth.exception.RegistrationFailedException;
@@ -14,6 +16,10 @@ import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
 import com.canmakan.backend.family.FamilyInviteNotifier;
 import com.canmakan.backend.family.InvitationRegistrationGuard;
+import com.canmakan.backend.family.exception.LastPrimaryAdminException;
+import com.canmakan.backend.family.model.FamilyMember;
+import com.canmakan.backend.family.repository.FamilyMemberRepository;
+import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.JwtService;
 import com.canmakan.backend.user.UserAccount;
@@ -22,11 +28,14 @@ import com.canmakan.backend.user.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
 
 import java.sql.SQLException;
+import java.util.List;
+import java.util.Objects;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -46,6 +55,10 @@ public class AuthService {
 
     private static final String TOKEN_TYPE = "Bearer";
     static final String PUBLIC_REGISTRATION_ROLE = "USER";
+    static final String LAST_FAMILY_ADMIN_MESSAGE =
+        "Add another family admin before deleting this account.";
+    static final String LAST_PLATFORM_ADMIN_MESSAGE =
+        "The last active administrator cannot delete their account.";
 
     private final UserAccountRepository userAccountRepository;
     private final PasswordEncoder passwordEncoder;
@@ -55,6 +68,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final FamilyInviteNotifier familyInviteNotifier;
     private final InvitationRegistrationGuard invitationRegistrationGuard;
+    private final FamilyMemberRepository familyMemberRepository;
 
     // User login
     @Transactional
@@ -70,6 +84,8 @@ public class AuthService {
             userDetails = authenticatedUser;
         } catch (AuthenticationServiceException exception) {
             throw exception;
+        } catch (DisabledException exception) {
+            throw new AccountSuspendedException();
         } catch (AuthenticationException exception) {
             throw new AuthenticationFailedException();
         }
@@ -95,6 +111,53 @@ public class AuthService {
     @Transactional
     public void logout(String rawRefreshToken) {
         refreshTokenService.revokeSession(rawRefreshToken);
+    }
+
+    // User delete own account
+    /**
+     * Soft-deactivates the authenticated caller's own account. Never accepts a
+     * target user or profile id; the JWT principal is the only account in scope.
+     */
+    @Transactional
+    public void deleteOwnAccount(long userId) {
+        List<UserAccount> lockedAdmins = userAccountRepository.findAllAdminsForUpdate();
+        UserAccount targetAdmin = lockedAdmins.stream()
+            .filter(account -> Objects.equals(account.getId(), userId))
+            .findFirst()
+            .orElse(null);
+        UserAccount target = targetAdmin == null
+            ? userAccountRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new AuthenticatedUserNotFoundException(
+                    "Authenticated user was not found."
+                ))
+            : targetAdmin;
+
+        if (!target.isActive()) {
+            return;
+        }
+
+        if (targetAdmin != null) {
+            long activeAdminCount = lockedAdmins.stream().filter(UserAccount::isActive).count();
+            if (activeAdminCount <= 1) {
+                throw new ProtectedAccountOperationException(LAST_PLATFORM_ADMIN_MESSAGE);
+            }
+        }
+
+        familyMemberRepository.findMembershipByUserId(userId).ifPresent(membership -> {
+            if (!Boolean.TRUE.equals(membership.getIsActive())) {
+                return;
+            }
+            if (!FamilyMember.ROLE_PRIMARY_ADMIN.equals(membership.getMemberRole())) {
+                return;
+            }
+            if (familyMemberRepository.countActivePrimaryAdmins(membership.getFamilyId()) <= 1) {
+                throw new LastPrimaryAdminException(LAST_FAMILY_ADMIN_MESSAGE);
+            }
+        });
+
+        target.changeActiveStatus(false);
+        refreshTokenService.revokeAllForUser(userId);
+        userAccountRepository.flush();
     }
 
     private AuthenticationResult authenticationResult(

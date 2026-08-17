@@ -185,8 +185,22 @@ class ProductFeatureEncoder {
         if (ingredients == null || ingredients.isBlank()) {
             return true;
         }
+        String trimmedIngredients = ingredients.trim();
         String category = product.getMainCategoryEn();
-        return category != null && ingredients.trim().equalsIgnoreCase(category.trim());
+        if (category != null && trimmedIngredients.equalsIgnoreCase(category.trim())) {
+            return true;
+        }
+        String name = product.getProductName();
+        if (name == null || name.isBlank()) {
+            return false;
+        }
+        String trimmedName = name.trim();
+        if (trimmedIngredients.equalsIgnoreCase(trimmedName)) {
+            return true;
+        }
+        // Sparse OFF rows often store the grain name as ingredients_text
+        // ("Organic Brown Rice") while product_name adds the use-type ("… Flour").
+        return (trimmedIngredients + " flour").equalsIgnoreCase(trimmedName);
     }
 
     private static void addTokens(Map<String, Double> vector, List<String> tokens, double weight) {

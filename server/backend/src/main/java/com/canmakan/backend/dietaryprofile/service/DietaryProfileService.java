@@ -5,6 +5,7 @@ import com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto;
 import com.canmakan.backend.dietaryprofile.dto.DietaryRestrictionDto;
 import com.canmakan.backend.dietaryprofile.dto.SelfProfileResponse;
 import com.canmakan.backend.dietaryprofile.exception.SelfProfileAlreadyExistsException;
+import com.canmakan.backend.dietaryprofile.exception.SelfProfileNotFoundException;
 import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
 import com.canmakan.backend.dietaryprofile.model.DietaryRestriction;
 import com.canmakan.backend.dietaryprofile.model.ProfileRestriction;
@@ -64,7 +65,7 @@ public class DietaryProfileService {
             .orElseThrow(() -> new AuthenticatedUserNotFoundException(
                 "Authenticated user was not found."));
         Map<Long, ResolvedRestriction> resolvedRestrictions =
-            resolveRestrictionSelections(request.restrictions(), true);
+            resolveRestrictionSelections(request.restrictions(), SeverityContract.SELF_SETUP);
 
         DietaryProfile profile = new DietaryProfile();
         profile.setLinkedUser(account);
@@ -94,6 +95,60 @@ public class DietaryProfileService {
                 Map.Entry::getKey,
                 entry -> entry.getValue().severity()
             ))
+        );
+    }
+
+    /**
+     * Fetches the authenticated account's standalone SELF profile, including its
+     * current restriction selections, so a client can pre-populate an edit form.
+     *
+     * <p>Read-only transactional on purpose: {@code spring.jpa.open-in-view} is
+     * disabled, so the lazy {@code profileRestrictions} collection accessed in
+     * {@link #toSelfProfileResponse} would otherwise throw
+     * {@code LazyInitializationException} once the repository call above returns
+     * and the Hibernate session closes.
+     */
+    @Transactional(readOnly = true)
+    public SelfProfileResponse getSelfProfile(long userId) {
+        DietaryProfile profile = dietaryProfileRepository.findByLinkedUser_Id(userId)
+            .orElseThrow(SelfProfileNotFoundException::new);
+        return toSelfProfileResponse(profile);
+    }
+
+    /**
+     * Updates the authenticated account's existing SELF profile name and replaces
+     * its restriction selections. Unlike {@link #createSelfProfile}, this requires
+     * the profile to already exist.
+     */
+    @Transactional
+    public SelfProfileResponse updateSelfProfile(
+            long userId, CreateSelfProfileRequest request) {
+        DietaryProfile profile = dietaryProfileRepository.findByLinkedUser_Id(userId)
+            .orElseThrow(SelfProfileNotFoundException::new);
+
+        Map<Long, ResolvedRestriction> resolvedRestrictions =
+            resolveRestrictionSelections(request.restrictions(), SeverityContract.PROFILE_EDIT);
+
+        profile.setProfileName(request.profileName());
+        applyRestrictionSelections(profile, resolvedRestrictions);
+        dietaryProfileRepository.saveAndFlush(profile);
+
+        return toSelfProfileResponse(profile);
+    }
+
+    private SelfProfileResponse toSelfProfileResponse(DietaryProfile profile) {
+        Map<Long, String> restrictions = new LinkedHashMap<>();
+        for (ProfileRestriction profileRestriction : profile.getProfileRestrictions()) {
+            restrictions.put(
+                profileRestriction.getDietaryRestriction().getId(),
+                profileRestriction.getSeverityLevel());
+        }
+        return new SelfProfileResponse(
+            profile.getId(),
+            profile.getProfileName(),
+            profile.getRelationship(),
+            profile.isActive(),
+            restrictions
         );
     }
 
@@ -180,7 +235,7 @@ public class DietaryProfileService {
                 .orElseThrow(() -> new IllegalArgumentException("Profile not found: " + profileId));
 
         Map<Long, ResolvedRestriction> resolvedRestrictions =
-            resolveRestrictionSelections(selections, false);
+            resolveRestrictionSelections(selections, SeverityContract.PROFILE_EDIT);
 
         applyRestrictionSelections(profile, resolvedRestrictions);
         dietaryProfileRepository.save(profile);
@@ -188,7 +243,7 @@ public class DietaryProfileService {
 
     private Map<Long, ResolvedRestriction> resolveRestrictionSelections(
             Map<Long, String> selections,
-            boolean validateForSelfSetup) {
+            SeverityContract severityContract) {
         Map<Long, String> requestedSelections = selections == null ? Map.of() : selections;
         Map<Long, ResolvedRestriction> resolved = new HashMap<>();
 
@@ -200,9 +255,7 @@ public class DietaryProfileService {
             DietaryRestriction restriction = dietaryRestrictionRepository.findById(restrictionId)
                 .orElseThrow(() -> new IllegalArgumentException(
                     "Restriction not found: " + restrictionId));
-            String severity = validateForSelfSetup
-                ? normalizeSelfSetupSeverity(entry.getValue())
-                : entry.getValue();
+            String severity = normalizeRestrictionSeverity(entry.getValue(), severityContract);
             resolved.put(restrictionId, new ResolvedRestriction(restriction, severity));
         }
         return resolved;
@@ -240,7 +293,8 @@ public class DietaryProfileService {
         }
     }
 
-    private static String normalizeSelfSetupSeverity(String rawSeverity) {
+    private static String normalizeRestrictionSeverity(
+            String rawSeverity, SeverityContract severityContract) {
         if (rawSeverity == null || rawSeverity.isBlank()) {
             throw new IllegalArgumentException("Restriction severity is required.");
         }
@@ -255,20 +309,36 @@ public class DietaryProfileService {
             severity = RestrictionSeverity.valueOf(normalized);
         } catch (IllegalArgumentException exception) {
             throw new IllegalArgumentException(
-                "Restriction severity must be STRICT_AVOID or INTOLERANCE.",
+                severityContract.rejectedMessage(),
                 exception
             );
         }
-        // Self-setup only lets a user pick these two severities. PREFERENCE is a
-        // valid enum value used by seeded rules, so it is rejected explicitly here
-        // rather than relying on enum membership.
-        if (severity != RestrictionSeverity.STRICT_AVOID
+        if (severityContract == SeverityContract.SELF_SETUP
+                && severity != RestrictionSeverity.STRICT_AVOID
                 && severity != RestrictionSeverity.INTOLERANCE) {
-            throw new IllegalArgumentException(
-                "Restriction severity must be STRICT_AVOID or INTOLERANCE."
-            );
+            throw new IllegalArgumentException(severityContract.rejectedMessage());
         }
         return severity.name();
+    }
+
+    /**
+     * First-time SELF setup only offers on/off plus INTOLERANCE. Later edits
+     * (web PUT /profiles/me and mobile PUT /profiles/{id}/restrictions) must
+     * also keep PREFERENCE rows that already exist on the profile.
+     */
+    private enum SeverityContract {
+        SELF_SETUP("Restriction severity must be STRICT_AVOID or INTOLERANCE."),
+        PROFILE_EDIT("Restriction severity must be STRICT_AVOID, INTOLERANCE, or PREFERENCE.");
+
+        private final String rejectedMessage;
+
+        SeverityContract(String rejectedMessage) {
+            this.rejectedMessage = rejectedMessage;
+        }
+
+        String rejectedMessage() {
+            return rejectedMessage;
+        }
     }
 
     private static boolean isLinkedUserUniqueViolation(Throwable exception) {

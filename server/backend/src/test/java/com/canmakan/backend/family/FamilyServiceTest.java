@@ -24,6 +24,7 @@ import com.canmakan.backend.product.model.ScanProduct;
 import com.canmakan.backend.product.scan.Scan;
 import com.canmakan.backend.product.scan.ScanRepository;
 import com.canmakan.backend.family.dto.ActiveProfileResponse;
+import com.canmakan.backend.family.dto.ClaimInvitationRequest;
 import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
 import com.canmakan.backend.family.dto.CreateInvitationRequest;
@@ -38,6 +39,7 @@ import com.canmakan.backend.family.exception.FamilyNotFoundException;
 import com.canmakan.backend.family.exception.InactiveProfileException;
 import com.canmakan.backend.family.exception.InvitationConflictException;
 import com.canmakan.backend.family.exception.InvitationExpiredException;
+import com.canmakan.backend.family.exception.LastPrimaryAdminException;
 import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.family.model.FamilyInvitation;
 import com.canmakan.backend.family.model.FamilyMember;
@@ -565,7 +567,6 @@ class FamilyServiceTest {
         assertEquals(2L, rows.get(1).memberId());
         assertEquals("DEPENDANT_PROFILE", rows.get(1).source());
         assertEquals("Toddler", rows.get(1).profileName());
-        assertEquals("UNSPECIFIED", rows.get(1).ageGroup());
         assertTrue(rows.get(1).profileActive());
     }
 
@@ -675,6 +676,80 @@ class FamilyServiceTest {
         assertFalse(savedProfile.isPrimary());
         assertEquals("SPOUSE", savedProfile.getRelationship());
         assertEquals(InvitationStatus.ACCEPTED, invitation.getStatus());
+    }
+
+    @Test
+    @DisplayName("UC9 claim with a typed profile name uses it instead of the email-derived placeholder")
+    void claimInvitationWithProfileNameUsesTypedName() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyMemberRepository.existsByIdUserId(30L)).thenReturn(false);
+
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        family.setCreatedByUserId(10L);
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(familyMemberRepository.saveAndFlush(any(FamilyMember.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(dietaryProfileRepository.findByLinkedUser_Id(30L)).thenReturn(Optional.empty());
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        FamilyMeResponse response = familyService.claimInvitation(
+            30L, new ClaimInvitationRequest("tok", "Person Name"));
+
+        ArgumentCaptor<DietaryProfile> profileCaptor = ArgumentCaptor.forClass(DietaryProfile.class);
+        verify(dietaryProfileRepository).saveAndFlush(profileCaptor.capture());
+        assertEquals("Person Name", profileCaptor.getValue().getProfileName());
+        assertEquals(1L, response.familyId());
+    }
+
+    @Test
+    @DisplayName("UC9 claim with a typed profile name overrides an auto-provisioned placeholder")
+    void claimInvitationWithProfileNameOverridesExistingPlaceholder() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("invitee@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        FamilyInvitation invitation = pendingInvitation("tok", "invitee@example.com");
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyMemberRepository.existsByIdUserId(30L)).thenReturn(false);
+
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Host Family");
+        family.setCreatedByUserId(10L);
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(familyMemberRepository.saveAndFlush(any(FamilyMember.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(familyInvitationRepository.saveAndFlush(any(FamilyInvitation.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Simulates a placeholder already inserted from an earlier attempt that
+        // was not given the typed name (e.g. a plain login-triggered claim).
+        DietaryProfile placeholder = new DietaryProfile();
+        placeholder.setId(88L);
+        placeholder.setLinkedUser(user);
+        placeholder.setProfileName("invitee");
+        when(dietaryProfileRepository.findByLinkedUser_Id(30L))
+            .thenReturn(Optional.of(placeholder));
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        familyService.claimInvitation(30L, new ClaimInvitationRequest("tok", "Person Name"));
+
+        ArgumentCaptor<DietaryProfile> profileCaptor = ArgumentCaptor.forClass(DietaryProfile.class);
+        verify(dietaryProfileRepository).saveAndFlush(profileCaptor.capture());
+        assertEquals("Person Name", profileCaptor.getValue().getProfileName());
     }
 
     @Test
@@ -956,6 +1031,55 @@ class FamilyServiceTest {
 
         assertFalse(response.active());
         assertFalse(profile.isActive());
+    }
+
+    @Test
+    @DisplayName("setProfileActive rejects deactivating the caller's own admin profile")
+    void setProfileActiveRejectsOwnAdminProfile() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(77L, "Admin", family, true);
+        UserAccount linked = new UserAccount();
+        linked.setId(10L);
+        profile.setLinkedUser(linked);
+        when(dietaryProfileRepository.findById(77L)).thenReturn(Optional.of(profile));
+
+        FamilyForbiddenException ex = assertThrows(
+            FamilyForbiddenException.class,
+            () -> familyService.setProfileActive(10L, 77L, false)
+        );
+        assertEquals("Cannot deactivate your own family admin profile.", ex.getMessage());
+        verify(dietaryProfileRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("setProfileActive rejects deactivating the last primary admin's profile")
+    void setProfileActiveRejectsLastPrimaryAdmin() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(99L, "Other Admin", family, true);
+        UserAccount linked = new UserAccount();
+        linked.setId(20L);
+        profile.setLinkedUser(linked);
+        when(dietaryProfileRepository.findById(99L)).thenReturn(Optional.of(profile));
+        FamilyMember otherAdminMembership = new FamilyMember(
+            new FamilyMember.FamilyMemberId(1L, 20L),
+            FamilyMember.ROLE_PRIMARY_ADMIN,
+            true,
+            null
+        );
+        when(familyMemberRepository.findMembershipByUserId(20L))
+            .thenReturn(Optional.of(otherAdminMembership));
+        when(familyMemberRepository.countActivePrimaryAdmins(1L)).thenReturn(1L);
+
+        LastPrimaryAdminException ex = assertThrows(
+            LastPrimaryAdminException.class,
+            () -> familyService.setProfileActive(10L, 99L, false)
+        );
+        assertEquals("Cannot deactivate the family admin profile.", ex.getMessage());
+        verify(dietaryProfileRepository, never()).saveAndFlush(any());
     }
 
     @Test

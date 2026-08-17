@@ -92,12 +92,12 @@ export const mockFamilyRepository = {
       status: 'PENDING',
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       inviteeRegistered: Boolean(existingUsers[normalized]),
-      emailSent: false,
+      emailSent: true,
     }
   },
 
   // Claim an invitation
-  async claimInvitation(_invitationToken: string): Promise<FamilyMe> {
+  async claimInvitation(_invitationToken: string, _profileName?: string): Promise<FamilyMe> {
     await delay(400)
     return {
       familyId: 1,
@@ -137,7 +137,6 @@ export const mockFamilyRepository = {
       linkedUserId: match.userId,
       profileName: match.displayName,
       relationship: 'OTHER',
-      ageGroup: 'UNSPECIFIED',
       commonRequirements: [],
       restrictions: [],
       source: 'REGISTERED_USER',
@@ -194,7 +193,6 @@ export const mockFamilyRepository = {
       ...state.members[index],
       profileName: input.profileName,
       relationship: input.relationship,
-      ageGroup: input.ageGroup,
       commonRequirements: input.commonRequirements,
       restrictions: input.restrictions,
     }
@@ -210,6 +208,9 @@ export const mockFamilyRepository = {
     const state = readState()
     const member = state.members.find((candidate) => candidate.profileId === profileId)
     if (!member) throw new ApiError('The family profile could not be found.')
+    if (!active && member.memberRole === 'PRIMARY_ADMIN') {
+      throw new ApiError('Cannot deactivate the family admin profile.', 403)
+    }
     member.profileActive = active
     writeState(state)
     return {

@@ -4,8 +4,10 @@ import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.Dietar
 
 /**
  * Client-only presentation of dairy-family catalog codes.
- * Backend keeps separate `DAIRY` and `LACTOSE_INTOLERANT` rows (AllergenChecker aliases);
- * mobile/web UX shows one selectable option and one summary row without changing the API.
+ * The backend catalog now has a single `DAIRY` row (the former separate
+ * `LACTOSE_INTOLERANT` row was removed as a duplicate); this object is kept
+ * defensive so any legacy/alternate code spelling still merges into one
+ * selectable option and one summary row without changing the API.
  */
 object DairyRestrictionPresentation {
     val HIDDEN_ALIAS_CODES = setOf("LACTOSE_INTOLERANT", "LACTOSE")

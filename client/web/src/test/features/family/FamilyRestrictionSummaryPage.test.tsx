@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { FamilyRestrictionSummaryPage } from '../../../features/family/pages/FamilyRestrictionSummaryPage'
 import { familyApiService } from '../../../features/family/api/familyApiService'
 import { ApiError } from '../../../shared/api/apiErrors'
@@ -49,7 +50,7 @@ describe('FamilyRestrictionSummaryPage', () => {
     })
   })
 
-  it('renders a dynamic matrix with a Selected badge for every restriction on a profile, regardless of severity', async () => {
+  it('renders a dynamic matrix with members as columns and restrictions as rows', async () => {
     vi.mocked(familyApiService.getRestrictionSummary).mockResolvedValue({
       familyMembers: [
         {
@@ -58,7 +59,7 @@ describe('FamilyRestrictionSummaryPage', () => {
           isActive: true,
           restrictions: [
             { code: 'PEANUT', displayName: 'Peanut', severity: 'STRICT_AVOID' },
-            { code: 'LACTOSE_INTOLERANT', displayName: 'Lactose Intolerant', severity: 'INTOLERANCE' }
+            { code: 'LACTOSE_INTOLERANT', displayName: 'Lactose Intolerance', severity: 'INTOLERANCE' }
           ]
         },
         {
@@ -80,23 +81,66 @@ describe('FamilyRestrictionSummaryPage', () => {
       expect(screen.getByRole('table')).toBeInTheDocument()
     })
 
-    // Dairy / lactose family codes collapse into one Lactose Intolerance column
+    // Disclaimer sits above the matrix so readers see scope before the grid.
+    const disclaimer = screen.getByText('Profile summary only')
+    const table = screen.getByRole('table')
+    expect(disclaimer.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // Legend and filters sit outside the table card.
+    expect(screen.getByLabelText('Restriction grid legend')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Allergies' })).toBeInTheDocument()
+
+    // Members are column headers. Restriction rows sort as Allergies, then diets.
     const headers = screen.getAllByRole('columnheader').map(h => h.textContent)
     expect(headers).toEqual([
-      'Family member',
-      'Peanut',
-      'Lactose Intolerance',
-      'Vegan',
+      'Dietary restriction',
+      'Alice',
+      'Bob',
     ])
 
-    // Alice has Peanut and Lactose (dairy family); Vegan is not recorded for her
-    const aliceRow = screen.getByRole('row', { name: /Alice/ })
-    expect(within(aliceRow).getAllByText('SELECTED')).toHaveLength(2)
-    expect(within(aliceRow).getByLabelText('Not selected')).toBeInTheDocument()
+    const lactoseRow = screen.getByRole('row', { name: /Lactose Intolerance/ })
+    expect(within(lactoseRow).getAllByText('SELECTED')).toHaveLength(2)
 
-    // Bob has Peanut, Dairy, and Vegan — dairy still counts as the shared column
-    const bobRow = screen.getByRole('row', { name: /Bob/ })
-    expect(within(bobRow).getAllByText('SELECTED')).toHaveLength(3)
+    const peanutRow = screen.getByRole('row', { name: /Peanut/ })
+    expect(within(peanutRow).getAllByText('SELECTED')).toHaveLength(2)
+    expect(within(peanutRow).getAllByText('SELECTED')[0].className).toContain('tone-severe')
+    expect(within(peanutRow).getAllByText('SELECTED')[1].className).toContain('tone-preference')
+
+    const veganRow = screen.getByRole('row', { name: /Vegan/ })
+    expect(within(veganRow).getAllByText('SELECTED')).toHaveLength(1)
+    expect(within(veganRow).getByLabelText('Not selected')).toHaveTextContent('—')
+  })
+
+  it('filters restriction rows by dietary group', async () => {
+    const user = userEvent.setup()
+    vi.mocked(familyApiService.getRestrictionSummary).mockResolvedValue({
+      familyMembers: [
+        {
+          userId: 1,
+          name: 'Alice',
+          isActive: true,
+          restrictions: [
+            { code: 'PEANUT', displayName: 'Peanut', severity: 'STRICT_AVOID' },
+            { code: 'VEGAN', displayName: 'Vegan', severity: 'PREFERENCE' },
+            { code: 'HALAL', displayName: 'Halal', severity: 'STRICT_AVOID' },
+          ]
+        }
+      ]
+    })
+
+    render(<FamilyRestrictionSummaryPage />)
+    await waitFor(() => {
+      expect(screen.getByRole('table')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Allergies' }))
+    expect(screen.getByRole('row', { name: /Peanut/ })).toBeInTheDocument()
+    expect(screen.queryByRole('row', { name: /Vegan/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('row', { name: /Halal/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Diets & preferences' }))
+    expect(screen.getByRole('row', { name: /Vegan/ })).toBeInTheDocument()
+    expect(screen.queryByRole('row', { name: /Peanut/ })).not.toBeInTheDocument()
   })
 
   it('shows a Selected badge for a diet preference like Low Trans Fat, not just religious requirements', async () => {
@@ -120,7 +164,66 @@ describe('FamilyRestrictionSummaryPage', () => {
       expect(screen.getByRole('table')).toBeInTheDocument()
     })
 
-    const davidRow = screen.getByRole('row', { name: /David Lim/ })
-    expect(within(davidRow).getAllByText('SELECTED')).toHaveLength(2)
+    expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
+      'Dietary restriction',
+      'David Lim',
+    ])
+    expect(within(screen.getByRole('row', { name: /Halal/ })).getByText('SELECTED')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('row', { name: /Low Trans Fat/ })).getByText('SELECTED').className,
+    ).toContain('tone-preference')
+  })
+
+  it('opens household reference groups and marks in-family options', async () => {
+    const user = userEvent.setup()
+    vi.mocked(familyApiService.getRestrictionSummary).mockResolvedValue({
+      familyMembers: [
+        {
+          userId: 1,
+          name: 'Alice',
+          isActive: true,
+          restrictions: [
+            { code: 'PEANUT', displayName: 'Peanut', severity: 'STRICT_AVOID' },
+            { code: 'VEGAN', displayName: 'Vegan', severity: 'PREFERENCE' },
+          ],
+        },
+      ],
+    })
+
+    render(<FamilyRestrictionSummaryPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('table')).toBeInTheDocument()
+    })
+
+    const allergyTrigger = screen.getByRole('button', {
+      name: /Allergies and intolerances/i,
+    })
+    const dietTrigger = screen.getByRole('button', {
+      name: /Specific diets and health preferences/i,
+    })
+    const religiousTrigger = screen.getByRole('button', {
+      name: /Religious requirements/i,
+    })
+
+    expect(allergyTrigger).toHaveAttribute('aria-expanded', 'true')
+    expect(dietTrigger).toHaveAttribute('aria-expanded', 'true')
+    expect(religiousTrigger).toHaveAttribute('aria-expanded', 'false')
+
+    expect(screen.getByText('Severe reaction to peanuts and peanut derivatives.')).toBeInTheDocument()
+    expect(screen.getByText('Avoids animal-derived ingredients.')).toBeInTheDocument()
+    expect(
+      screen.queryByText('Requires Halal-certified ingredients and no pork or alcohol.'),
+    ).not.toBeInTheDocument()
+
+    const peanutItem = screen.getByText('Peanut Allergy').closest('li')
+    expect(peanutItem).not.toBeNull()
+    expect(within(peanutItem as HTMLElement).getByText('In your family')).toBeInTheDocument()
+
+    await user.click(religiousTrigger)
+    expect(religiousTrigger).toHaveAttribute('aria-expanded', 'true')
+    expect(
+      screen.getByText('Requires Halal-certified ingredients and no pork or alcohol.'),
+    ).toBeInTheDocument()
   })
 })

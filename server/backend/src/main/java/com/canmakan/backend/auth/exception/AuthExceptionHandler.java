@@ -1,9 +1,11 @@
 package com.canmakan.backend.auth.exception;
 
+import com.canmakan.backend.admin.exception.ProtectedAccountOperationException;
 import com.canmakan.backend.auth.AuthController;
 import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.InvitationConflictException;
 import com.canmakan.backend.family.exception.InvitationEmailMismatchException;
+import com.canmakan.backend.family.exception.LastPrimaryAdminException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
@@ -25,6 +27,8 @@ public class AuthExceptionHandler {
 
     static final String AUTHENTICATION_FAILURE_MESSAGE =
         "Invalid credentials or account unavailable.";
+    static final String ACCOUNT_SUSPENDED_MESSAGE =
+        "This account is suspended.";
     static final String REFRESH_FAILURE_MESSAGE = "Authentication required.";
     private static final String INVALID_LOGIN_MESSAGE = "Invalid login request.";
     private static final String INVALID_REGISTRATION_MESSAGE = "Invalid registration request.";
@@ -69,6 +73,12 @@ public class AuthExceptionHandler {
             .body(Map.of("message", AUTHENTICATION_FAILURE_MESSAGE));
     }
 
+    @ExceptionHandler(AccountSuspendedException.class)
+    public ResponseEntity<Map<String, String>> handleAccountSuspended() {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(Map.of("message", ACCOUNT_SUSPENDED_MESSAGE));
+    }
+
     // Handle refresh authentication exception
     @ExceptionHandler(RefreshAuthenticationException.class)
     public ResponseEntity<Map<String, String>> handleRefreshFailure() {
@@ -92,7 +102,9 @@ public class AuthExceptionHandler {
     // Handle invitation conflict exception
     @ExceptionHandler({
         InvitationConflictException.class,
-        AlreadyInFamilyException.class
+        AlreadyInFamilyException.class,
+        LastPrimaryAdminException.class,
+        ProtectedAccountOperationException.class
     })
     public ResponseEntity<Map<String, String>> handleInviteClaimConflict(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

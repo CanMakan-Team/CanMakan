@@ -1,7 +1,6 @@
 package com.canmakan.backend.product.recommendation;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,8 +8,8 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
- * Tier C discovery: expand the candidate pool inside a curated use-type slice,
- * then keep the top cosine neighbors. Never searches the whole catalog.
+ * Tier C discovery: expand the candidate pool inside a curated use-type slice.
+ * Recall order follows catalog tag-query popularity (SQL), not Java cosine ranking.
  */
 @Service
 class MlSparseCatalogRecommender {
@@ -50,18 +49,20 @@ class MlSparseCatalogRecommender {
         boolean breakfastCerealSubstituteDiscovery =
                 discoveryProfiles.isBreakfastCerealSubstituteDiscovery(substituteProfile);
         boolean peanutSubstituteDiscovery = discoveryProfiles.isPeanutSpreadSubstituteDiscovery(substituteProfile);
+        boolean milkSubstituteDiscovery = discoveryProfiles.isMilkSubstituteDiscovery(substituteProfile);
         boolean narrowSubstituteDiscovery = flourSubstituteDiscovery
                 || breadSubstituteDiscovery
                 || breakfastCerealSubstituteDiscovery
-                || peanutSubstituteDiscovery;
+                || peanutSubstituteDiscovery
+                || milkSubstituteDiscovery;
 
         List<String> tags = new ArrayList<>();
         if (substituteProfile != null && substituteProfile.includeTags() != null) {
             tags.addAll(substituteProfile.includeTags());
         }
         if (flourSubstituteDiscovery
-                && substituteProfile.beverageTags() != null) {
-            for (String flourTag : substituteProfile.beverageTags()) {
+                && substituteProfile.secondaryIncludeTags() != null) {
+            for (String flourTag : substituteProfile.secondaryIncludeTags()) {
                 if (!tags.contains(flourTag)) {
                     tags.add(flourTag);
                 }
@@ -94,7 +95,7 @@ class MlSparseCatalogRecommender {
 
         SubstituteDiscoveryProfile discoveryProfile = new SubstituteDiscoveryProfile(
                 tags,
-                substituteProfile != null ? substituteProfile.beverageTags() : List.of(),
+                substituteProfile != null ? substituteProfile.secondaryIncludeTags() : List.of(),
                 substituteProfile != null ? substituteProfile.deprioritizeTags() : List.of(),
                 labelTags,
                 siblingCategories,
@@ -115,11 +116,6 @@ class MlSparseCatalogRecommender {
         }
 
         List<CatalogProduct> slice = new ArrayList<>(additional.values());
-        Map<String, Double> sourceVector = featureEncoder.encodeQuery(source);
-        slice.sort(Comparator.comparingDouble(
-                (CatalogProduct candidate) -> CosineSimilarity.between(
-                        sourceVector, featureEncoder.encode(candidate)))
-                .reversed());
         if (slice.size() > MAX_CANDIDATES) {
             return new ArrayList<>(slice.subList(0, MAX_CANDIDATES));
         }

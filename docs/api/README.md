@@ -170,8 +170,12 @@ Success: `200 OK` with refresh cookie and body:
 }
 ```
 
-Invalid or inactive accounts return `401` with
-`{"message":"Invalid credentials or account unavailable."}`.
+Unknown accounts and invalid passwords return `401` with
+`{"message":"Invalid credentials or account unavailable."}`. A suspended account
+with otherwise valid credentials returns `403` with
+`{"message":"This account is suspended."}` and receives no access token or refresh
+cookie. A wrong password remains the same generic `401` even when the matching
+account is suspended.
 
 ### Role distinction
 
@@ -183,9 +187,10 @@ Invalid or inactive accounts return `401` with
 | Web `ROLE_SYSTEM_ADMIN` | Portal gate mapped from JWT `ADMIN` on the web client |
 | DB `PRIMARY_ADMIN` / `MEMBER` | Real family-circle role on `family_members` after join/create |
 
-Web clients reject the wrong portal (e.g. `ADMIN` on `/family-login`) with a client-side
-message and clear the session. A platform `USER` with no circle enters the personal
-USER area. `GET /api/families/me` returning 404 never opens family creation unless
+Web clients reject the wrong portal (e.g. `ADMIN` on `/login`) with a client-side
+message and clear the session. A platform `USER` with no circle, or a family
+`MEMBER`, enters `/me`. Household web tools require `PRIMARY_ADMIN`.
+`GET /api/families/me` returning 404 never opens family creation unless
 the user explicitly selected `/family/circle`.
 
 Web clients keep the access token and mapped portal roles in memory only. On

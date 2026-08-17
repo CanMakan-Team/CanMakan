@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { authService } from '../../../features/auth/authService'
+import { apiBaseUrl } from '../../../shared/api/apiClient'
 import { jsonResponse } from '../../testUtils'
 
 /** Test suite for authService.
@@ -44,7 +45,7 @@ describe('authService', () => {
       prototype: false,
     })
     expect(fetch).toHaveBeenCalledWith(
-      'http://localhost:8080/api/auth/login',
+      `${apiBaseUrl}/api/auth/login`,
       expect.objectContaining({ method: 'POST' }),
     )
     const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
@@ -74,6 +75,23 @@ describe('authService', () => {
 
     expect(session.roles).toEqual(['ROLE_SYSTEM_ADMIN'])
     expect(session.portal).toBe('SYSTEM')
+  })
+
+  it('maps suspended-account login to 403 without creating a session payload', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse(403, { message: 'This account is suspended.' }),
+    )
+
+    await expect(
+      authService.loginWithCredentials({
+        email: 'inactive@example.com',
+        password: 'Password1!',
+        portal: 'FAMILY',
+      }),
+    ).rejects.toMatchObject({
+      status: 403,
+      message: 'This account is suspended.',
+    })
   })
 
   it('posts registration body and returns safe account fields', async () => {
@@ -133,6 +151,19 @@ describe('authService', () => {
     vi.mocked(fetch).mockRejectedValue(new TypeError('offline'))
 
     await expect(authService.logout()).rejects.toThrow('currently unreachable')
+    const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
+    expect(headers.get('X-CanMakan-Session-Request')).toBe('1')
+  })
+
+  it('deletes the signed-in account with bearer and session intent', async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(204))
+
+    await authService.deleteOwnAccount()
+
+    expect(fetch).toHaveBeenCalledWith(
+      `${apiBaseUrl}/api/auth/account`,
+      expect.objectContaining({ method: 'DELETE' }),
+    )
     const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
     expect(headers.get('X-CanMakan-Session-Request')).toBe('1')
   })

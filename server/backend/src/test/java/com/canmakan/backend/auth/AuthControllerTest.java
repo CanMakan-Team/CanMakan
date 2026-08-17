@@ -3,11 +3,13 @@ package com.canmakan.backend.auth;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -22,21 +24,29 @@ import com.canmakan.backend.auth.dto.LoginRequest;
 import com.canmakan.backend.auth.dto.RegistrationRequest;
 import com.canmakan.backend.auth.dto.RegistrationResponse;
 import com.canmakan.backend.auth.exception.AuthExceptionHandler;
+import com.canmakan.backend.auth.exception.AccountSuspendedException;
 import com.canmakan.backend.auth.exception.AuthenticationFailedException;
 import com.canmakan.backend.auth.exception.DuplicateEmailException;
 import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
+import com.canmakan.backend.family.exception.LastPrimaryAdminException;
+import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
+import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.SystemRole;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
 import java.time.Duration;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import com.canmakan.backend.shared.security.CorsProperties;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -83,7 +93,13 @@ class AuthControllerTest {
                 "1"
             ))
             .setControllerAdvice(new AuthExceptionHandler())
+            .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
             .build();
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
     }
 
     @Nested
@@ -187,6 +203,25 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message")
                     .value("Invalid credentials or account unavailable."))
                 .andExpect(content().string(not(containsString("missing@example.com"))));
+        }
+
+        @Test
+        void suspendedAccountReturnsSafeForbiddenWithoutTokensOrCookie() throws Exception {
+            when(authService.login(any(LoginRequest.class)))
+                .thenThrow(new AccountSuspendedException());
+
+            mockMvc.perform(post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"email\":\"inactive@example.com\",\"password\":\"Password1!\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("This account is suspended."))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(content().string(not(containsString("Password1!"))))
+                .andExpect(content().string(not(containsString("inactive@example.com"))))
+                .andExpect(header().doesNotExist("Set-Cookie"));
+
+            verify(refreshCookieService, never()).createRefreshCookie(any());
         }
 
         @Test
@@ -573,6 +608,60 @@ class AuthControllerTest {
         }
     }
 
+    @Nested
+    @DisplayName("DELETE /api/auth/account")
+    class DeleteOwnAccount {
+
+        @Test
+        void rejectsMissingSessionMutationHeader() throws Exception {
+            MockMvc unprotectedClient = sessionLifecycleMockMvcWithoutDefaults();
+            authenticateAs(14L);
+
+            unprotectedClient.perform(delete("/api/auth/account"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message")
+                    .value("Authentication request origin could not be verified."));
+
+            verify(authService, never()).deleteOwnAccount(eq(14L));
+        }
+
+        @Test
+        void rejectsUnauthorizedBrowserOrigin() throws Exception {
+            authenticateAs(14L);
+
+            mockMvc.perform(delete("/api/auth/account")
+                    .header("Origin", "https://evil.example"))
+                .andExpect(status().isForbidden());
+
+            verify(authService, never()).deleteOwnAccount(eq(14L));
+        }
+
+        @Test
+        void deactivatesCallerOnlyAndClearsRefreshCookie() throws Exception {
+            authenticateAs(14L);
+
+            mockMvc.perform(delete("/api/auth/account"))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""))
+                .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")));
+
+            verify(authService).deleteOwnAccount(14L);
+        }
+
+        @Test
+        void lastFamilyAdminConflictKeepsRefreshCookie() throws Exception {
+            authenticateAs(14L);
+            doThrow(new LastPrimaryAdminException(AuthService.LAST_FAMILY_ADMIN_MESSAGE))
+                .when(authService).deleteOwnAccount(14L);
+
+            mockMvc.perform(delete("/api/auth/account"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                    .value(AuthService.LAST_FAMILY_ADMIN_MESSAGE))
+                .andExpect(header().doesNotExist("Set-Cookie"));
+        }
+    }
+
     private MockMvc sessionLifecycleMockMvcWithoutDefaults() {
         CorsProperties corsProperties = new CorsProperties();
         corsProperties.setAllowedOrigins(List.of("https://app.example.test"));
@@ -587,6 +676,22 @@ class AuthControllerTest {
                 requestGuard
             ))
             .setControllerAdvice(new AuthExceptionHandler())
+            .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
             .build();
+    }
+
+    private static void authenticateAs(long userId) {
+        AuthUserDetails principal = new AuthUserDetails(
+            new AuthenticatedPrincipal(
+                userId,
+                "user" + userId + "@example.com",
+                true,
+                SystemRole.USER
+            ),
+            "{noop}unused"
+        );
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities())
+        );
     }
 }

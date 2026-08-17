@@ -27,13 +27,15 @@ public class UserPreference {
     private Long userId;
 
     @Column(name = "theme", length = 20)
-    private String theme = "LIGHT";
+    private String theme = "DEFAULT";
 
+    // Off by default: a new user must explicitly opt in via the Settings toggle, which
+    // is what triggers the POST_NOTIFICATIONS permission prompt on the client.
     @Column(name = "notifications_enabled")
-    private Boolean notificationsEnabled = true;
+    private Boolean notificationsEnabled = false;
 
     @Column(name = "language", length = 10)
-    private String language = "en";
+    private String language = "ENGLISH";
 
     @Column(name = "active_profile_id")
     private Long activeProfileId;

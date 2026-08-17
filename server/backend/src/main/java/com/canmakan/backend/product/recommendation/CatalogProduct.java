@@ -37,6 +37,15 @@ public class CatalogProduct {
     @Column(name = "brand")
     private String brand;
 
+    @Column(name = "quantity")
+    private String quantity;
+
+    @Column(name = "serving_size")
+    private String servingSize;
+
+    @Column(name = "serving_quantity", precision = 8, scale = 2)
+    private BigDecimal servingQuantity;
+
     @Column(name = "main_category_en")
     private String mainCategoryEn;
 

@@ -29,6 +29,8 @@ import sg.edu.nus.iss.canmakan.shared.network.AssessmentRequest
 import sg.edu.nus.iss.canmakan.shared.network.AssessmentResponse
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
 import sg.edu.nus.iss.canmakan.shared.network.RecommendationResponse
+import sg.edu.nus.iss.canmakan.shared.network.ScanFeedbackRequest
+import sg.edu.nus.iss.canmakan.shared.network.ScanFeedbackResponse
 import sg.edu.nus.iss.canmakan.shared.network.ScanRequest
 import sg.edu.nus.iss.canmakan.shared.network.ValidationResponse
 import sg.edu.nus.iss.canmakan.testing.signInTestUser
@@ -173,6 +175,7 @@ class ScannerViewModelTest {
         assertEquals("Contains milk", detail.flags[0].label)
         assertEquals("Allergen", detail.flags[1].category)
         assertEquals("Milk", detail.flags[1].label)
+        assertEquals(7L, detail.scanId)
         assertTrue(api.recommendationsCalled)
     }
 
@@ -376,6 +379,8 @@ class ScannerViewModelTest {
             Response.success(AssessmentResponse("SAFE", "ok"))
         var recommendations: Response<RecommendationResponse> =
             Response.success(RecommendationResponse(null, emptyList()))
+        var feedback: Response<ScanFeedbackResponse> =
+            Response.success(ScanFeedbackResponse(1L, 1L, false, null, false, null))
         var validateCalled = false
         var assessCalled = false
         var recommendationsCalled = false
@@ -417,6 +422,13 @@ class ScannerViewModelTest {
                 recommendationsGate?.await()
             }
             return recommendations
+        }
+
+        override suspend fun submitScanFeedback(
+            scanId: Long,
+            request: ScanFeedbackRequest
+        ): Response<ScanFeedbackResponse> {
+            return feedback
         }
     }
 

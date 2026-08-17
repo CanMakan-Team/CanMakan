@@ -10,8 +10,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -21,6 +23,7 @@ import com.canmakan.backend.auth.repository.RefreshTokenRepository;
 import com.canmakan.backend.dietaryprofile.dto.CreateSelfProfileRequest;
 import com.canmakan.backend.dietaryprofile.dto.SelfProfileResponse;
 import com.canmakan.backend.dietaryprofile.exception.SelfProfileAlreadyExistsException;
+import com.canmakan.backend.dietaryprofile.exception.SelfProfileNotFoundException;
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
 import com.canmakan.backend.user.AuthenticationAccountView;
 import com.canmakan.backend.user.UserAccountRepository;
@@ -147,7 +150,7 @@ class AuthenticationHttpIntegrationTest {
     }
 
     @Test
-    void missingEmailWrongPasswordAndInactiveAccountShareOneFailureResponse() throws Exception {
+    void missingEmailAndWrongPasswordShare401WhileVerifiedInactiveAccountReturns403() throws Exception {
         when(userAccountRepository.findAuthenticationAccountByEmail("missing@example.com"))
             .thenReturn(Optional.empty());
         when(userAccountRepository.findAuthenticationAccountByEmail("user@example.com"))
@@ -161,13 +164,19 @@ class AuthenticationHttpIntegrationTest {
         String wrongPasswordBody = login("user@example.com", "Wrong Password1!")
             .andExpect(status().isUnauthorized())
             .andReturn().getResponse().getContentAsString();
-        String inactiveBody = login("inactive@example.com", EXACT_PASSWORD)
+        login("inactive@example.com", "Wrong Password1!")
             .andExpect(status().isUnauthorized())
-            .andReturn().getResponse().getContentAsString();
+            .andExpect(content().string(missingBody));
+        MvcResult inactiveResult = login("inactive@example.com", EXACT_PASSWORD)
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.message").value("This account is suspended."))
+            .andExpect(jsonPath("$.accessToken").doesNotExist())
+            .andExpect(jsonPath("$.refreshToken").doesNotExist())
+            .andReturn();
 
         assertEquals(missingBody, wrongPasswordBody);
-        assertEquals(missingBody, inactiveBody);
         assertEquals("{\"message\":\"Invalid credentials or account unavailable.\"}", missingBody);
+        assertFalse(inactiveResult.getResponse().containsHeader(HttpHeaders.SET_COOKIE));
     }
 
     @Test
@@ -267,6 +276,8 @@ class AuthenticationHttpIntegrationTest {
         String validToken = jwtService.issueAccessToken(12L);
 
         assertSecurityUnauthorized(mockMvc.perform(get("/api/auth/me")));
+        assertSecurityUnauthorized(mockMvc.perform(delete("/api/auth/account")
+            .header(AuthSessionRequestGuard.SESSION_REQUEST_HEADER, "1")));
         assertSecurityUnauthorized(mockMvc.perform(get("/api/auth/me")
             .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-jwt")));
         assertSecurityUnauthorized(mockMvc.perform(get("/api/auth/me")
@@ -470,6 +481,149 @@ class AuthenticationHttpIntegrationTest {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message")
                 .value("Restriction severity must be STRICT_AVOID or INTOLERANCE."));
+    }
+
+    @Test
+    void getSelfProfileRequiresAuthenticationAndUserRole() throws Exception {
+        mockMvc.perform(get("/api/profiles/me"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.message").value("Authentication required."));
+
+        when(userAccountRepository.findAuthenticationAccountById(1L))
+            .thenReturn(Optional.of(account(1L, "admin@example.com", true, "ADMIN")));
+        mockMvc.perform(get("/api/profiles/me")
+                .header(
+                    HttpHeaders.AUTHORIZATION,
+                    bearer(jwtService.issueAccessToken(1L))
+                ))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.message").value("Access denied."));
+
+        verifyNoInteractions(dietaryProfileService);
+    }
+
+    @Test
+    void getSelfProfileReturnsExistingProfileForReturningUser() throws Exception {
+        when(userAccountRepository.findAuthenticationAccountById(12L))
+            .thenReturn(Optional.of(account(12L, "user@example.com", true, "USER")));
+        when(dietaryProfileService.getSelfProfile(12L))
+            .thenReturn(new SelfProfileResponse(
+                77L,
+                "Person Name",
+                "SELF",
+                true,
+                Map.of(2L, "STRICT_AVOID")
+            ));
+
+        mockMvc.perform(get("/api/profiles/me")
+                .header(
+                    HttpHeaders.AUTHORIZATION,
+                    bearer(jwtService.issueAccessToken(12L))
+                ))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.profileId").value(77))
+            .andExpect(jsonPath("$.profileName").value("Person Name"))
+            .andExpect(jsonPath("$.restrictions.2").value("STRICT_AVOID"));
+    }
+
+    @Test
+    void getSelfProfileReturnsNotFoundWhenNoneExistsYet() throws Exception {
+        when(userAccountRepository.findAuthenticationAccountById(12L))
+            .thenReturn(Optional.of(account(12L, "user@example.com", true, "USER")));
+        when(dietaryProfileService.getSelfProfile(12L))
+            .thenThrow(new SelfProfileNotFoundException());
+
+        mockMvc.perform(get("/api/profiles/me")
+                .header(
+                    HttpHeaders.AUTHORIZATION,
+                    bearer(jwtService.issueAccessToken(12L))
+                ))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message")
+                .value("No SELF profile exists for this account yet."));
+    }
+
+    @Test
+    void updateSelfProfileRequiresAuthenticationAndUserRole() throws Exception {
+        mockMvc.perform(put("/api/profiles/me")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"profileName\":\"Person Name\"}"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.message").value("Authentication required."));
+
+        when(userAccountRepository.findAuthenticationAccountById(1L))
+            .thenReturn(Optional.of(account(1L, "admin@example.com", true, "ADMIN")));
+        mockMvc.perform(put("/api/profiles/me")
+                .header(
+                    HttpHeaders.AUTHORIZATION,
+                    bearer(jwtService.issueAccessToken(1L))
+                )
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"profileName\":\"Admin Name\"}"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.message").value("Access denied."));
+
+        verifyNoInteractions(dietaryProfileService);
+    }
+
+    @Test
+    void updateSelfProfilePersistsNameAndRestrictionsForReturningUser() throws Exception {
+        when(userAccountRepository.findAuthenticationAccountById(12L))
+            .thenReturn(Optional.of(account(12L, "user@example.com", true, "USER")));
+        when(dietaryProfileService.updateSelfProfile(
+                eq(12L), any(CreateSelfProfileRequest.class)))
+            .thenReturn(new SelfProfileResponse(
+                77L,
+                "Updated Name",
+                "SELF",
+                true,
+                Map.of(3L, "INTOLERANCE")
+            ));
+
+        mockMvc.perform(put("/api/profiles/me")
+                .header(
+                    HttpHeaders.AUTHORIZATION,
+                    bearer(jwtService.issueAccessToken(12L))
+                )
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "profileName": "Updated Name",
+                      "restrictions": {"3": "INTOLERANCE"}
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.profileId").value(77))
+            .andExpect(jsonPath("$.profileName").value("Updated Name"))
+            .andExpect(jsonPath("$.restrictions.3").value("INTOLERANCE"));
+
+        verify(dietaryProfileService).updateSelfProfile(
+            eq(12L),
+            eq(new CreateSelfProfileRequest(
+                "Updated Name",
+                Map.of(3L, "INTOLERANCE")
+            ))
+        );
+    }
+
+    @Test
+    void updateSelfProfileReturnsNotFoundWhenNoneExistsYet() throws Exception {
+        when(userAccountRepository.findAuthenticationAccountById(12L))
+            .thenReturn(Optional.of(account(12L, "user@example.com", true, "USER")));
+        when(dietaryProfileService.updateSelfProfile(
+                eq(12L), any(CreateSelfProfileRequest.class)))
+            .thenThrow(new SelfProfileNotFoundException());
+
+        mockMvc.perform(put("/api/profiles/me")
+                .header(
+                    HttpHeaders.AUTHORIZATION,
+                    bearer(jwtService.issueAccessToken(12L))
+                )
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"profileName\":\"Person Name\"}"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message")
+                .value("No SELF profile exists for this account yet."));
     }
 
     private ResultActions login(String email, String password) throws Exception {

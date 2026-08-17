@@ -1,16 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  FAMILY_HISTORY_PATH,
+  FAMILY_MEMBERS_PATH,
+  FAMILY_RESTRICTIONS_PATH,
+  FAMILY_VERDICT_TRENDS_PATH,
+} from '../../../app/userPortalPaths'
 import { getErrorMessage } from '../../../shared/api/apiErrors'
 import { familyApiService } from '../api/familyApiService'
-import type { ActiveProfile, FamilyMember, ScanRecord } from '../../../shared/api/types'
-import { getGreetingPeriod } from '../lib/greeting'
+import type { FamilyMember, ScanRecord } from '../../../shared/api/types'
+import { useFamilyMe } from '../useFamilyMe'
 import { ErrorState, LoadingState } from '../../../shared/ui/PageState'
+import { PortalIcon } from '../../../shared/ui/PortalIcon'
 import { StatusBadge } from '../../../shared/ui/StatusBadge'
 
 export function FamilyDashboardPage() {
+  const { family } = useFamilyMe()
   const [members, setMembers] = useState<FamilyMember[]>([])
   const [scans, setScans] = useState<ScanRecord[]>([])
-  const [active, setActive] = useState<ActiveProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -18,12 +25,8 @@ export function FamilyDashboardPage() {
     setLoading(true)
     setError('')
     try {
-      const [loadedMembers, loadedActive] = await Promise.all([
-        familyApiService.getMembers(),
-        familyApiService.getActiveProfile(),
-      ])
+      const loadedMembers = await familyApiService.getMembers()
       setMembers(loadedMembers)
-      setActive(loadedActive)
 
       // Family scan history is PRIMARY_ADMIN-only (UC4); members still see the rest of the dashboard.
       try {
@@ -56,59 +59,61 @@ export function FamilyDashboardPage() {
     })
     return codes
   }, [])
+  const latestScanAt = scans.reduce((latest, scan) => {
+    const scannedAt = Date.parse(scan.scannedAt)
+    if (Number.isNaN(scannedAt)) return latest
+    return scannedAt > latest ? scannedAt : latest
+  }, 0)
   const verdictCounts = scans.reduce<Record<string, number>>((counts, scan) => {
     counts[scan.verdict] = (counts[scan.verdict] ?? 0) + 1
     return counts
   }, {})
 
-  // Greeting uses the family PRIMARY_ADMIN profile, not relationship SELF
-  // (every linked member also has a SELF dietary profile).
-  const adminProfileName = members.find((member) => member.memberRole === 'PRIMARY_ADMIN')
-    ?.profileName
-  const greetingPeriod = getGreetingPeriod()
-
   return (
     <>
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Family overview</p>
-          <h1>
-            Good {greetingPeriod}, {adminProfileName ?? 'there'}.
-          </h1>
-          <p>
-            A practical snapshot of profiles and supplied assessment history.
-            Counts are not medical-risk trends.
-          </p>
+      <header className="page-header page-header--split">
+        <p className="eyebrow">Family overview</p>
+        <div className="page-header__title-row">
+          <h1>Manage {family?.familyName ?? 'your family circle'}</h1>
+          <Link className="button button--primary" to={FAMILY_MEMBERS_PATH}>
+            Manage family
+          </Link>
         </div>
-        <Link className="button button--primary" to="/family/members">
-          Manage family
-        </Link>
+        <p>Household profiles and recent scan activity.</p>
       </header>
 
       <section className="summary-grid" aria-label="Family summary">
         <article className="summary-card">
-          <span className="summary-card__icon" aria-hidden="true">♙</span>
+          <span className="summary-card__icon" aria-hidden="true">
+            <PortalIcon name="people" />
+          </span>
           <div>
             <span>Family members</span>
             <strong>{members.length}</strong>
           </div>
         </article>
         <article className="summary-card">
-          <span className="summary-card__icon" aria-hidden="true">◎</span>
-          <div>
-            <span>Active profile</span>
-            <strong>{active?.profileName ?? 'Not selected'}</strong>
-          </div>
-        </article>
-        <article className="summary-card">
-          <span className="summary-card__icon" aria-hidden="true">▦</span>
+          <span className="summary-card__icon" aria-hidden="true">
+            <PortalIcon name="restrictions" />
+          </span>
           <div>
             <span>Common requirements</span>
             <strong>{commonCodes.length}</strong>
           </div>
         </article>
         <article className="summary-card">
-          <span className="summary-card__icon" aria-hidden="true">◷</span>
+          <span className="summary-card__icon" aria-hidden="true">
+            <PortalIcon name="clock" />
+          </span>
+          <div>
+            <span>Last scan</span>
+            <strong>{latestScanAt ? formatScanRecency(latestScanAt) : 'None yet'}</strong>
+          </div>
+        </article>
+        <article className="summary-card">
+          <span className="summary-card__icon" aria-hidden="true">
+            <PortalIcon name="history" />
+          </span>
           <div>
             <span>Recent scans</span>
             <strong>{scans.length}</strong>
@@ -123,57 +128,81 @@ export function FamilyDashboardPage() {
               <p className="eyebrow">Supplied verdicts</p>
               <h2 id="recent-assessments-title">Recent assessments</h2>
             </div>
-            <Link to="/family/history">View history</Link>
+            <Link to={FAMILY_HISTORY_PATH}>View history</Link>
           </div>
           <div className="verdict-summary">
             {(['SAFE', 'WARNING', 'UNSAFE'] as const).map((verdict) => (
               <div key={verdict}>
-                <StatusBadge status={verdict} />
                 <strong>{verdictCounts[verdict] ?? 0}</strong>
+                <StatusBadge status={verdict} />
               </div>
             ))}
           </div>
-          <div className="recent-list">
-            {scans.slice(0, 3).map((scan) => (
-              <article key={scan.scanId}>
-                <div>
-                  <strong>{scan.product}</strong>
-                  <span>{scan.evaluatedProfile} · {scan.brand}</span>
-                </div>
-                <StatusBadge status={scan.verdict} />
-              </article>
-            ))}
-          </div>
+          {scans.length === 0 ? (
+            <p className="empty-inline" role="status">
+              No scans yet — scan a product in the CanMakan mobile app.
+            </p>
+          ) : (
+            <div className="recent-list">
+              {scans.slice(0, 3).map((scan) => (
+                <article key={scan.scanId}>
+                  <div>
+                    <strong>{scan.product}</strong>
+                    <span>{scan.evaluatedProfile} · {scan.brand}</span>
+                  </div>
+                  <StatusBadge status={scan.verdict} />
+                </article>
+              ))}
+            </div>
+          )}
         </section>
 
         <aside className="panel quick-actions" aria-labelledby="quick-actions-title">
           <p className="eyebrow">Shortcuts</p>
           <h2 id="quick-actions-title">Quick actions</h2>
-          <Link to="/family/members">
-            <span aria-hidden="true">＋</span>
+          <Link to={FAMILY_VERDICT_TRENDS_PATH}>
+            <span aria-hidden="true">
+              <PortalIcon name="trends" />
+            </span>
             <div>
-              <strong>Add or create a member</strong>
-              <span>Keep registered-user linking separate from profiles.</span>
+              <strong>View verdict trends</strong>
+              <span>See how Safe, Warning, and Unsafe outcomes change over time.</span>
             </div>
           </Link>
-          <Link to="/family/restrictions">
-            <span aria-hidden="true">▦</span>
+          <Link to={FAMILY_RESTRICTIONS_PATH}>
+            <span aria-hidden="true">
+              <PortalIcon name="restrictions" />
+            </span>
             <div>
               <strong>Review restriction summary</strong>
-              <span>Compare dynamically returned restriction codes.</span>
+              <span>See shared and unique dietary needs across profiles.</span>
             </div>
           </Link>
         </aside>
       </div>
 
       <div className="safety-disclaimer">
-        <strong>Safety reminder</strong>
-        <p>
-          CanMakan displays assessment results supplied by backend services. It
-          does not provide medical advice or guarantee that a product is safe.
-          Always check the package label.
-        </p>
+        <span className="safety-disclaimer__icon" aria-hidden="true">
+          <PortalIcon name="info" />
+        </span>
+        <div>
+          <strong>Safety reminder</strong>
+          <p>
+            CanMakan displays assessment results supplied by backend services. It
+            does not provide medical advice or guarantee that a product is safe.
+            Always check the package label.
+          </p>
+        </div>
       </div>
     </>
   )
+}
+
+function formatScanRecency(timestamp: number): string {
+  const dayMs = 86_400_000
+  const daysAgo = Math.floor((Date.now() - timestamp) / dayMs)
+  if (daysAgo <= 0) return 'Today'
+  if (daysAgo === 1) return 'Yesterday'
+  if (daysAgo < 7) return `${daysAgo} days ago`
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(timestamp)
 }

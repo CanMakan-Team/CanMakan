@@ -82,6 +82,7 @@ fun ProfileDrawerContent(
     onCloseClick: () -> Unit,
     onCreateFamilyCircleClick: () -> Unit,
     onManageFamilyClick: () -> Unit,
+    onSettingsClick: () -> Unit,
 ) {
     // Session-local expand/collapse; all sections start open. Not persisted across process death.
     var profilesExpanded by remember { mutableStateOf(true) }
@@ -223,26 +224,6 @@ fun ProfileDrawerContent(
                     Spacer(modifier = Modifier.height(4.dp))
                 }
             }
-
-            if (!hasFamily) {
-                Spacer(modifier = Modifier.height(12.dp))
-                if (!noFamilyMessage.isNullOrBlank()) {
-                    Text(
-                        text = noFamilyMessage,
-                        color = DrawerTextMuted,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                if (hasUserSession) {
-                    OutlinedButton(
-                        onClick = onCreateFamilyCircleClick,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Create family circle", color = DrawerTextMuted)
-                    }
-                }
-            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -306,24 +287,25 @@ fun ProfileDrawerContent(
             )
         }
 
-        // Family section: dietary summary for all members; manage actions for PRIMARY_ADMIN.
-        if (hasFamily) {
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                thickness = 1.dp,
-                color = Divider
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            DrawerSectionHeader(
-                title = "FAMILY",
-                expanded = familyExpanded,
-                onToggle = { familyExpanded = !familyExpanded },
-            )
+        // Family section: create circle when none exists; otherwise dietary
+        // summary for all members and manage actions for PRIMARY_ADMIN.
+        Spacer(modifier = Modifier.height(10.dp))
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = 8.dp),
+            thickness = 1.dp,
+            color = Divider
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        DrawerSectionHeader(
+            title = "FAMILY",
+            expanded = familyExpanded,
+            onToggle = { familyExpanded = !familyExpanded },
+        )
 
-            if (familyExpanded) {
-                Spacer(modifier = Modifier.height(8.dp))
+        if (familyExpanded) {
+            Spacer(modifier = Modifier.height(8.dp))
 
+            if (hasFamily) {
                 val isFamilySelected = currentRoute?.startsWith("family/restrictions") == true
                 NavigationDrawerItem(
                     label = {
@@ -369,6 +351,23 @@ fun ProfileDrawerContent(
                         onClick = onManageFamilyClick,
                     )
                 }
+            } else {
+                if (!noFamilyMessage.isNullOrBlank()) {
+                    Text(
+                        text = noFamilyMessage,
+                        color = DrawerTextMuted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                if (hasUserSession) {
+                    OutlinedButton(
+                        onClick = onCreateFamilyCircleClick,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Create family circle", color = DrawerTextMuted)
+                    }
+                }
             }
         }
         }
@@ -391,10 +390,13 @@ fun ProfileDrawerContent(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Sign Out", color = AvoidRed)
             }
-            Row(verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(vertical = 8.dp)) {
-                Icon(Icons.Default.Settings, contentDescription = "", tint = OnDark)
-
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clickable { onSettingsClick() }
+                    .padding(vertical = 8.dp),
+            ) {
+                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = OnDark)
             }
         }
     }

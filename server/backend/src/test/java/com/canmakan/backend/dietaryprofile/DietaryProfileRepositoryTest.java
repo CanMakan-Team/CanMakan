@@ -57,7 +57,7 @@ class DietaryProfileRepositoryTest {
     private static final long RESTRICTION_LOW_SUGAR = 11L;
     private static final long RESTRICTION_HALAL = 8L;
     private static final long RESTRICTION_VEGETARIAN = 9L;
-    private static final long RESTRICTION_COUNT = 20;
+    private static final long RESTRICTION_COUNT = 19;
 
     // Household profiles seeded by the same file.
     private static final long PROFILE_SARAH_TAN = 1L;
@@ -89,12 +89,12 @@ class DietaryProfileRepositoryTest {
         assertThat(all).hasSize((int) RESTRICTION_COUNT);
         // "Egg Allergy" (7) < "Fish Allergy" (5) < "Gluten Intolerance" (1)
         // < "Halal" (8) < "Keto" (20) < "Kosher" (15) < "Lactose Intolerance" (2)
-        // < "Lactose Intolerant" (16) < "Low Cholesterol" (19) < "Low Fat" (12)
+        // < "Low Cholesterol" (19) < "Low Fat" (12)
         // < "Low Salt" (14) < "Low Sugar" (11) < "Low Trans Fat" (13)
         // < "Peanut Allergy" (3) < "Sesame Allergy" (18) < "Shellfish Allergy" (4)
         // < "Soy Allergy" (6) < "Tree Nut Allergy" (17) < "Vegan" (10) < "Vegetarian" (9)
         assertThat(all.stream().map(restriction -> restriction.getId()).toList())
-            .containsExactly(7L, 5L, 1L, 8L, 20L, 15L, 2L, 16L, 19L, 12L, 14L, 11L, 13L, 3L, 18L, 4L, 6L, 17L, 10L, 9L);
+            .containsExactly(7L, 5L, 1L, 8L, 20L, 15L, 2L, 19L, 12L, 14L, 11L, 13L, 3L, 18L, 4L, 6L, 17L, 10L, 9L);
     }
 
     @Test
@@ -106,7 +106,7 @@ class DietaryProfileRepositoryTest {
         // client/web/src/shared/api/types.ts's RestrictionCode union. A code present
         // there but missing here means saving that restriction from the web fails.
         List<String> webPortalCodes = List.of(
-            "HALAL", "KOSHER", "PEANUT", "TREE_NUT", "DAIRY", "LACTOSE_INTOLERANT",
+            "HALAL", "KOSHER", "PEANUT", "TREE_NUT", "DAIRY",
             "EGG", "GLUTEN", "SHELLFISH", "SESAME", "FISH", "SOY", "VEGAN", "VEGETARIAN",
             "LOW_SUGAR", "LOW_FAT", "LOW_TRANS_FAT", "LOW_SODIUM", "LOW_CHOLESTEROL", "KETO"
         );

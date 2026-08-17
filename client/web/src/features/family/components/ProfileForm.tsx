@@ -1,28 +1,33 @@
-import { useState, type SubmitEvent as ReactSubmitEvent } from 'react'
+import { useEffect, useMemo, useState, type SubmitEvent as ReactSubmitEvent } from 'react'
 import type {
-  AgeGroup,
   FamilyProfileInput,
   Relationship,
   RestrictionCode,
 } from '../../../shared/api/types'
 import {
-  ageGroupOptions,
+  groupCatalogByCategory,
   relationshipOptions,
-  restrictionGroups,
+  restrictionCategoryLabel,
 } from '../lib/profileOptions'
 import { getProfileNameError } from '../../../shared/validation/profileFields'
+import {
+  selfProfileApiService,
+  type DietaryRestrictionOption,
+} from '../../account/api/selfProfileApiService'
+import { getErrorMessage } from '../../../shared/api/apiErrors'
 
 /**
- * ProfileForm component for editing a family profile
- * 
+ * ProfileForm component for creating or editing a family dietary profile.
+ *
  * @author Amelia
  * @author YangMaowei
  */
 
+const RELIGIOUS_CATEGORY = 'RELIGIOUS'
+
 const emptyProfile: FamilyProfileInput = {
   profileName: '',
   relationship: 'CHILD',
-  ageGroup: 'CHILD',
   commonRequirements: [],
   restrictions: [],
 }
@@ -49,17 +54,62 @@ export function ProfileForm({
 }) {
   const [form, setForm] = useState<FamilyProfileInput>(initialValue)
   const [nameError, setNameError] = useState('')
+  const [catalog, setCatalog] = useState<DietaryRestrictionOption[]>([])
+  const [catalogLoading, setCatalogLoading] = useState(true)
+  const [catalogError, setCatalogError] = useState('')
 
-  const toggleRestriction = (
-    code: RestrictionCode,
-    target: 'commonRequirements' | 'restrictions',
-  ) => {
-    setForm((current) => ({
-      ...current,
-      [target]: current[target].includes(code)
-        ? current[target].filter((item) => item !== code)
-        : [...current[target], code],
-    }))
+  useEffect(() => {
+    let active = true
+    selfProfileApiService
+      .getCatalog()
+      .then((options) => {
+        if (active) setCatalog(options)
+      })
+      .catch((caughtError: unknown) => {
+        if (active) setCatalogError(getErrorMessage(caughtError))
+      })
+      .finally(() => {
+        if (active) setCatalogLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const groupedCatalog = useMemo(
+    () => groupCatalogByCategory(catalog),
+    [catalog],
+  )
+
+  const toggleRestriction = (option: DietaryRestrictionOption) => {
+    const code = option.code as RestrictionCode
+    const target =
+      option.category === RELIGIOUS_CATEGORY ? 'commonRequirements' : 'restrictions'
+    setForm((current) => {
+      const alreadySelected = current[target].includes(code)
+      if (alreadySelected) {
+        return {
+          ...current,
+          [target]: current[target].filter((item) => item !== code),
+        }
+      }
+      if (option.category === RELIGIOUS_CATEGORY) {
+        const religiousCodes = catalog
+          .filter((item) => item.category === RELIGIOUS_CATEGORY)
+          .map((item) => item.code as RestrictionCode)
+        return {
+          ...current,
+          commonRequirements: [
+            ...current.commonRequirements.filter((item) => !religiousCodes.includes(item)),
+            code,
+          ],
+        }
+      }
+      return {
+        ...current,
+        [target]: [...current[target], code],
+      }
+    })
   }
 
   const handleSubmit = async (event: ReactSubmitEvent<HTMLFormElement>) => {
@@ -121,25 +171,6 @@ export function ProfileForm({
           </select>
         </div>
         )}
-        <div className="field-group">
-          <label htmlFor="age-group">Age group</label>
-          <select
-            id="age-group"
-            value={form.ageGroup}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                ageGroup: event.target.value as AgeGroup,
-              }))
-            }
-          >
-            {ageGroupOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       <div className="restriction-picker">
@@ -148,33 +179,39 @@ export function ProfileForm({
             {restrictionEditHint}
           </p>
         )}
-        {restrictionGroups.map((group) => {
-          const target =
-            group.type === 'common' ? 'commonRequirements' : 'restrictions'
-          return (
-            <fieldset key={group.label} disabled={!allowRestrictionEdit}>
-              <legend>
-                {group.label}
-                {group.type === 'common' && (
-                  <span>Shared requirement where applicable</span>
-                )}
-              </legend>
-              <div className="checkbox-grid">
-                {group.options.map((option) => (
-                  <label className="check-card" key={option.value}>
-                    <input
-                      type="checkbox"
-                      checked={form[target].includes(option.value)}
-                      disabled={!allowRestrictionEdit}
-                      onChange={() => toggleRestriction(option.value, target)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )
-        })}
+        {catalogLoading ? <p role="status">Loading dietary options…</p> : null}
+        {catalogError ? (
+          <p className="form-message form-message--error" role="alert">
+            {catalogError}
+          </p>
+        ) : null}
+        {!catalogLoading
+          ? groupedCatalog.map(([category, options]) => (
+              <fieldset key={category} disabled={!allowRestrictionEdit}>
+                <legend>{restrictionCategoryLabel(category)}</legend>
+                <div className="checkbox-grid">
+                  {options.map((option) => {
+                    const code = option.code as RestrictionCode
+                    const target =
+                      option.category === RELIGIOUS_CATEGORY
+                        ? 'commonRequirements'
+                        : 'restrictions'
+                    return (
+                      <label className="check-card" key={option.id}>
+                        <input
+                          type="checkbox"
+                          checked={form[target].includes(code)}
+                          disabled={!allowRestrictionEdit}
+                          onChange={() => toggleRestriction(option)}
+                        />
+                        <span>{option.displayName}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </fieldset>
+            ))
+          : null}
       </div>
 
       {error && (
@@ -191,7 +228,7 @@ export function ProfileForm({
         >
           Cancel
         </button>
-        <button className="button button--primary" type="submit" disabled={saving}>
+        <button className="button button--primary" type="submit" disabled={saving || catalogLoading}>
           {saving ? 'Saving profile…' : submitLabel}
         </button>
       </div>

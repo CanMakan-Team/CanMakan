@@ -6,7 +6,14 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+
+from canmakan_ml.domain import ProfileHints
+from canmakan_ml.ranker import ProductTfidfModel, rank_products
 
 
 def cosine(left: dict[str, float], right: dict[str, float]) -> float:
@@ -65,11 +72,53 @@ def main() -> None:
         help="Path to product_feature_vectors.json",
     )
     parser.add_argument(
+        "--ranker",
+        default="",
+        help="Optional tfidf_ranker.joblib for end-to-end rank evaluation",
+    )
+    parser.add_argument(
+        "--products",
+        default="artifacts/products.json",
+        help="Catalog products JSON (required with --ranker)",
+    )
+    parser.add_argument(
         "--pairs",
         default=str(default_pairs_path()),
         help="Labeled good/bad substitute pairs JSON",
     )
     args = parser.parse_args()
+
+    pairs_path = Path(args.pairs)
+    if not pairs_path.is_file():
+        print(f"\nNo labeled pairs file at {pairs_path}")
+        return
+
+    pairs = json.loads(pairs_path.read_text(encoding="utf-8"))
+
+    if args.ranker:
+        ranker_path = Path(args.ranker)
+        products_path = Path(args.products)
+        if not ranker_path.is_file() or not products_path.is_file():
+            raise SystemExit("Ranker evaluation requires --ranker and --products files")
+        model = ProductTfidfModel.load(ranker_path)
+        products = {item["barcode"]: item for item in json.loads(products_path.read_text(encoding="utf-8"))}
+        failures = 0
+        for case in pairs:
+            source = products.get(case["source_barcode"])
+            if source is None:
+                print(f"MISSING source product {case['source_barcode']}")
+                failures += 1
+                continue
+            candidates = [products[barcode] for barcode in case.get("good", []) + case.get("bad", []) if barcode in products]
+            ranked = rank_products(model, source, candidates, ProfileHints())
+            order = [item.barcode for item in ranked]
+            best_good_index = min((order.index(barcode) for barcode in case.get("good", []) if barcode in order), default=-1)
+            worst_bad_index = max((order.index(barcode) for barcode in case.get("bad", []) if barcode in order), default=-1)
+            if best_good_index >= 0 and worst_bad_index >= 0 and best_good_index > worst_bad_index:
+                print(f"FAIL rank order for {case.get('id')}")
+                failures += 1
+        print(f"\njoblib ranker labeled pairs: {failures} failure(s)")
+        return
 
     path = Path(args.artifact)
     if not path.is_file():
@@ -90,6 +139,7 @@ def main() -> None:
     pairs_path = Path(args.pairs)
     if pairs_path.is_file():
         pairs = json.loads(pairs_path.read_text(encoding="utf-8"))
+        failures = evaluate_pairs(products, pairs)
         if failures:
             print(f"\nlabeled pairs: {failures} diagnostic warning(s) (pre-filter cosine; rule engine still required)")
         else:

@@ -10,16 +10,19 @@ import com.canmakan.backend.product.scan.Scan;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RecommendationService {
@@ -36,6 +39,7 @@ public class RecommendationService {
     private final ScanRepository scanRepository;
     private final MlSparseCatalogRecommender mlSparseCatalogRecommender;
     private final MlContentBasedRanker mlContentBasedRanker;
+    private final PythonTfidfRankClient pythonTfidfRankClient;
 
     @Value("${canmakan.recommendation.ml.enabled:true}")
     private boolean mlRecommendationEnabled;
@@ -67,9 +71,15 @@ public class RecommendationService {
 	    List<RestrictionRule> rules = restrictionRuleLoader.load(request.profileId());
 	    boolean preferLowSodiumSauceSubstitutes = AlternativeCandidateFilter.hasLowSodiumPreference(rules)
 	            && SubstituteDiscoveryProfiles.isSauceSource(source);
+	    boolean skipSameCategoryForCowMilkSubstitutes = SubstituteDiscoveryProfiles.isCowMilkSource(source);
+	    boolean skipSameCategoryForIceCreamSubstitutes =
+	            SubstituteDiscoveryProfiles.isIceCreamSource(source);
+	    boolean useExpandedSubstituteDiscovery = preferLowSodiumSauceSubstitutes;
 
 	    // --- step 3: query same-category candidates (exclude source) ---
 	    List<CatalogProduct> candidates = preferLowSodiumSauceSubstitutes
+	            || skipSameCategoryForCowMilkSubstitutes
+	            || skipSameCategoryForIceCreamSubstitutes
 	            ? List.of()
 	            : queryService.findSameCategoryCandidates(source);
 
@@ -84,7 +94,7 @@ public class RecommendationService {
 	                discoveryProfiles.forSourceProduct(source);
 	        if (profile.isPresent()) {
 	            substituteProfile = profile.get();
-	            List<CatalogProduct> tagCandidates = preferLowSodiumSauceSubstitutes
+	            List<CatalogProduct> tagCandidates = useExpandedSubstituteDiscovery
 	                    ? queryService.findExpandedSubstituteCandidates(source, substituteProfile)
 	                    : queryService.findSubstituteTagCandidates(source, substituteProfile);
 	            acceptableCandidates = filterAcceptable(tagCandidates, rules, substituteProfile);
@@ -126,7 +136,7 @@ public class RecommendationService {
 	            substituteProfile);
 
 	    // --- step 6: take top N ---
-	    List<AlternativeProductRanker.RankedAlternative> top = ranked.stream()
+	    List<AlternativeProductRanker.RankedAlternative> top = dedupeRankedAlternatives(ranked).stream()
 	        .limit(MAX_RESULTS)
 	        .toList();
 
@@ -145,12 +155,24 @@ public class RecommendationService {
 	        MatchProvenance provenance,
 	        SubstituteDiscoveryProfile substituteProfile) {
 
+	    if (mlRecommendationEnabled && pythonTfidfRankClient.isConfigured()) {
+	        try {
+	            List<AlternativeProductRanker.RankedAlternative> pythonRanked = pythonTfidfRankClient.rank(
+	                    source, acceptableCandidates, rules, priorSafe, substituteProfile);
+	            if (!pythonRanked.isEmpty()) {
+	                return pythonRanked;
+	            }
+	            log.warn("Python TF-IDF ranker returned no ranked candidates; falling back to Java ranker");
+	        } catch (PythonTfidfRankClientException exception) {
+	            log.warn("Python TF-IDF ranker unavailable; falling back to Java ranker: {}", exception.getMessage());
+	        }
+	    }
 	    if (mlRecommendationEnabled) {
 	        return mlContentBasedRanker.rank(
 	                source, acceptableCandidates, rules, priorSafe, substituteProfile);
 	    }
 	    if (provenance == MatchProvenance.SUBSTITUTE_TAG) {
-	        return ranker.rankSubstituteTags(acceptableCandidates, priorSafe, substituteProfile);
+	        return ranker.rankSubstituteTags(source, acceptableCandidates, priorSafe, substituteProfile);
 	    }
 	    return ranker.rankSameCategory(acceptableCandidates, priorSafe);
 	}
@@ -202,6 +224,36 @@ public class RecommendationService {
 	        addCandidateByBarcode(merged, candidate, sourceBarcode);
 	    }
 	    return new ArrayList<>(merged.values());
+	}
+
+	private static List<AlternativeProductRanker.RankedAlternative> dedupeRankedAlternatives(
+	        List<AlternativeProductRanker.RankedAlternative> ranked) {
+	    Map<String, AlternativeProductRanker.RankedAlternative> merged = new LinkedHashMap<>();
+	    int index = 0;
+	    for (AlternativeProductRanker.RankedAlternative alternative : ranked) {
+	        String key = canonicalAlternativeKey(alternative, index);
+	        merged.putIfAbsent(key, alternative);
+	        index++;
+	    }
+	    return new ArrayList<>(merged.values());
+	}
+
+	private static String canonicalAlternativeKey(
+	        AlternativeProductRanker.RankedAlternative alternative,
+	        int index) {
+	    CatalogProduct product = alternative == null ? null : alternative.product();
+	    if (product == null) {
+	        return "__null_product__" + index;
+	    }
+	    String barcode = product.getBarcode();
+	    if (barcode != null && !barcode.isBlank()) {
+	        return barcode;
+	    }
+	    String name = product.getProductName();
+	    if (name == null || name.isBlank()) {
+	        return "__unnamed_product__" + index;
+	    }
+	    return name.trim().toLowerCase(Locale.ROOT);
 	}
 
 	private static void addCandidateByBarcode(

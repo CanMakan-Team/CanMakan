@@ -56,4 +56,33 @@ public final class CategoryTagParser {
     public static boolean containsTag(String categoryTags, String needle) {
         return parseTags(categoryTags).contains(needle);
     }
+
+    /**
+     * True when {@code needles} match {@code category_tags} or the OFF-style slug of
+     * {@code main_category_en} (e.g. {@code Brown Rice Flour} → {@code en:brown-rice-flour}).
+     */
+    public static boolean containsAnyIncludingMainCategory(
+            String categoryTags,
+            String mainCategoryEn,
+            Collection<String> needles) {
+        if (containsAny(parseTags(categoryTags), needles)) {
+            return true;
+        }
+        if (needles == null || needles.isEmpty() || mainCategoryEn == null || mainCategoryEn.isBlank()) {
+            return false;
+        }
+        String slug = toCategoryTag(mainCategoryEn);
+        for (String needle : needles) {
+            if (needle != null && needle.equalsIgnoreCase(slug)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static String toCategoryTag(String mainCategoryEn) {
+        String slug = mainCategoryEn.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-");
+        slug = slug.replaceAll("^-+", "").replaceAll("-+$", "");
+        return "en:" + slug;
+    }
 }

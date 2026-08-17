@@ -113,9 +113,9 @@ Refresh-session configuration:
 JSON and set the opaque refresh token only as an HttpOnly cookie scoped to
 `/api/auth`. The default is `SameSite=Lax`. Cross-site HTTPS deployments must
 explicitly select `None` and satisfy the stricter startup validation above.
-Login, refresh, and logout also require the non-secret session-intent header;
-browser Origins must exactly match the configured allow-list, while native
-clients omit Origin but still send the header.
+Login, refresh, logout, and `DELETE /api/auth/account` also require the non-secret
+session-intent header; browser Origins must exactly match the configured
+allow-list, while native clients omit Origin but still send the header.
 
 Optional env vars (only needed when exercising those features):
 
@@ -152,16 +152,19 @@ On escalate failure the backend logs `Tier-3 escalate skipped ...` and keeps the
 
 Default `CANMAKAN_AI_ENABLED=false` keeps assess on Tier-1 rules only. Do not commit real API keys.
 
-### UC5 recommendations (Tier A catalog + Tier C ML)
+### UC5 recommendations (Tier A catalog + Tier C ML + Python ranker)
 
-MVP recommendations use catalog queries then content-based ranking. LLM discovery is **not** on the request path.
+MVP recommendations use catalog discovery and dietary filtering in Spring, then rank SAFE candidates. LLM discovery is **not** on the request path.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `CANMAKAN_RECOMMENDATION_ML_ENABLED` | `true` | Set `false` for Tier A heuristic ranking only |
-| `CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH` | _(empty)_ | Optional path to `product_feature_vectors.json` from the Python offline pipeline |
+| `CANMAKAN_RECOMMENDATION_ML_RANKER_URL` | _(empty)_ | Python FastAPI rank service (e.g. `http://127.0.0.1:8091`). Empty = Java ranker fallback |
+| `CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH` | _(empty)_ | Legacy Java inline vectors (`product_feature_vectors.json`) |
 
-Fallback order: Tier A (same-category then substitute tags) → Tier C (cosine inside the same use-type slice when fewer than 5 SAFE items) → empty list.
+Local demo: run Spring Boot, then from `server/machine-learning/` train and start uvicorn (see `server/machine-learning/README.md`).
+
+Fallback order: Tier A → Tier C tag recall → Python rank (if configured) → Java `MlContentBasedRanker` → heuristic ranker → empty list.
 
 Tan-family demo gold-set overlays: `01f_uc5_demo_gold_set.sql`. Additive tag backfill: `01c_recommendation_substitute_tags.sql` (from `server/machine-learning/scripts/audit_substitute_tags.py`).
 

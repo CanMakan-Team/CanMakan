@@ -12,7 +12,6 @@ data class FamilyMemberRosterItem(
     @SerializedName("linkedUserId") val linkedUserId: Long?,
     @SerializedName("profileName") val profileName: String,
     @SerializedName("relationship") val relationship: String?,
-    @SerializedName("ageGroup") val ageGroup: String? = null,
     @SerializedName("commonRequirements") val commonRequirements: List<String>? = null,
     @SerializedName("restrictions") val restrictions: List<String>? = null,
     @SerializedName("source") val source: String,

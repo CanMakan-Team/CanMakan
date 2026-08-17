@@ -1,37 +1,40 @@
 # features/family
 
-Personal USER onboarding plus optional Family Circle management.
+Optional Family Circle management for **PRIMARY_ADMIN**. Personal account
+screens live in `features/account`.
 
 ## Purpose
-Keeps a USER's optional SELF profile independent from Family Circle membership,
-while preserving family membership, profiles, and family-level views.
+Family membership, household profiles, and family-level views. Members and
+users without a circle use `/me` instead of these pages.
 
 ## Layout
 
 ```
 family/
-  FamilyMeGate.tsx      # Portal entry: /me → outlet or create-circle
+  FamilyMeGate.tsx      # PRIMARY_ADMIN only; others go to /me
+  FamilyMeContext.tsx   # Provider for GET /families/me (USER portal nav)
+  useFamilyMe.ts        # Hook for membership in layout and personal home
   README.md
   api/
-    familyService.ts    # Live + mock family API calls
+    familyApiService.ts
   lib/
-    profileOptions.ts   # Form/option helpers
+    familyRoles.ts
+    userPortalNav.ts
+    profileOptions.ts
   pages/
     CreateFamilyCirclePage.tsx
     FamilyCirclePage.tsx
-    FamilyAccountPage.tsx
     FamilyDashboardPage.tsx
     FamilyMembersPage.tsx
     FamilyRestrictionSummaryPage.tsx
     FamilyScanHistoryPage.tsx
-    PersonalHomePage.tsx
-    SelfProfileSetupPage.tsx
     UserLandingPage.tsx
   components/
-    ActiveProfileSelector.tsx
     CreateFamilyProfileModal.tsx
+    ScanEligibilityCard.tsx
     EditFamilyProfileModal.tsx
     LinkExistingUserModal.tsx
+    ProfileCardMenu.tsx
     ProfileForm.tsx
 ```
 
@@ -41,20 +44,19 @@ family/
 
 | Piece | Notes |
 | --- | --- |
-| `LinkExistingUserModal` | Search + create PENDING invite; copy link/code; optional mailto |
+| `LinkExistingUserModal` | Invite by email + relationship; backend checks conflicts; requires `emailSent` |
 | `CreateFamilyProfileModal` | `POST /api/families/me/profiles` dependant create |
-| `InviteLandingPage` | `/invite/:token` → Android opens the app (`canmakan://` / Intent URL); desktop stays on web register/login + claim. `?web=1` skips the app. HTTPS invite URLs are built from `CANMAKAN_INVITES_PUBLIC_BASE_URL`. The Resend invitation email does not include this URL; invitees join from Notifications after register/login. |
+| `InviteLandingPage` | `/invite/:token` → Android opens the app; desktop stays on web `/register`/`/login` + claim. `?web=1` skips the app. |
 | Silent `members/link` | Removed from live `familyApiService` |
 
 | Piece | Notes |
 | --- | --- |
-| `UserLandingPage` | Resolves optional membership; member → dashboard, **404** → personal home |
-| `FamilyMeGate` | Protects family-only routes; **404** offers personal/explicit-family links, never an inline create form |
-| `pages/FamilyCirclePage` | Explicit optional family entry; a **404** opens `CreateFamilyCirclePage` |
-| `pages/CreateFamilyCirclePage` | Family name + loading / validation / error; `POST /api/families` |
-| `api/familyService.getMyFamily` / `createFamily` | **Always live** (Bearer JWT); not mocked |
-| `apiClient` | Sends the memory-only access credential and includes the refresh cookie |
-| UC18 register | `/family-register` → live login → `/family/setup-profile` → personal home |
+| `UserLandingPage` | `/family` → `/me` for every USER, including PRIMARY_ADMIN |
+| `FamilyMeGate` | Protects family-admin routes; MEMBER and no-circle users go to `/me` |
+| `pages/FamilyCirclePage` | Explicit create if 404; existing admin → dashboard; member → `/me` |
+| `pages/CreateFamilyCirclePage` | Family name; `POST /api/families` |
+| `api/familyApiService.getMyFamily` / `createFamily` | **Always live** (Bearer JWT); not mocked |
+| UC18 register | `/register` → live login → `/me/setup-profile` → `/me` |
 
 Creating a Family Circle is an explicit action at `/family/circle`. Registration,
 SELF-profile save/skip, and session restoration never open the family form.
@@ -65,7 +67,7 @@ SELF-profile save/skip, and session restoration never open the family form.
 
 | Piece | Notes |
 | --- | --- |
-| `FamilyMembersPage` | Roster with role + inactive badge; manage actions for PRIMARY_ADMIN only |
+| `FamilyMembersPage` | PRIMARY_ADMIN roster: invite, edit, activate, remove; scan-eligibility snapshot; in-app confirm modal for deactivate/remove |
 | `EditFamilyProfileModal` | Live `PUT /me/profiles/{id}`; D3 restricts restriction edits to self + dependants |
 | `familyApiService` | `updateProfile`, `setProfileActive`, `removeMember`, `removeDependantProfile`, `getProfiles`, `getScanHistory` (PRIMARY_ADMIN) |
 | Soft-remove | Linked → `DELETE /me/members/{userId}`; dependant → `DELETE /me/profiles/{id}` |
@@ -74,8 +76,10 @@ SELF-profile save/skip, and session restoration never open the family form.
 Contract: `docs/api/families.md`
 
 ## Notes
-- `FamilyAccountPage` loads the authoritative `/api/auth/me`, family context,
-  and SELF profile; it does not expose token or request-header details.
+- `FamilyAccountPage` / `features/account` `AccountPage` loads `/api/auth/me` even
+  without a family; family and SELF profile rows are omitted when `/families/me`
+  is 404. **Delete My Account** calls `DELETE /api/auth/account` for the signed-in
+  user only, then signs out.
 - Aligns with backend `family` package
 - Dietary details may also touch `dietaryprofile`
 - Uses shared layout (`PortalLayout`) for the portal shell

@@ -45,6 +45,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
  */
 @Composable
 fun ManageFamilyScreen(
+    familyName: String? = null,
     onMenuClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     hasUnreadNotifications: Boolean = false,
@@ -88,15 +89,16 @@ fun ManageFamilyScreen(
                 Text("Back")
             }
 
+            val headingName = familyName?.trim().orEmpty().ifEmpty { "Family" }
             Text(
-                text = "Manage Family",
+                text = "Manage $headingName",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary,
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Add someone to this family circle.",
+                text = "Add someone to your family circle.",
                 color = TextSecondary,
             )
 

@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.navigation
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -47,6 +49,7 @@ import sg.edu.nus.iss.canmakan.features.product.history.ui.HistoryScreen
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.features.product.scan.ScannerScreen
 import sg.edu.nus.iss.canmakan.features.product.verdict.ProductDetailScreen
+import sg.edu.nus.iss.canmakan.features.product.verdict.ScanFeedbackViewModel
 import sg.edu.nus.iss.canmakan.features.family.ui.CreateDependantProfileScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.CreateFamilyCircleScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryScreen
@@ -54,6 +57,8 @@ import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryViewMo
 import sg.edu.nus.iss.canmakan.features.family.ui.InviteFamilyMemberScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.ManageFamilyScreen
 import sg.edu.nus.iss.canmakan.features.notifications.NotificationsInboxScreen
+import sg.edu.nus.iss.canmakan.features.account.SettingsScreen
+import sg.edu.nus.iss.canmakan.features.account.SettingsViewModel
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"
@@ -63,6 +68,7 @@ private const val ROUTE_MANAGE_FAMILY = "family/manage"
 private const val ROUTE_INVITE_MEMBER = "family/invite"
 private const val ROUTE_DEPENDANT_PROFILE = "family/dependant"
 private const val ROUTE_NOTIFICATIONS = "notifications"
+private const val ROUTE_SETTINGS = "settings"
 
 /* The top-level screen. It wires together the navigation between the
  * three screens, the side drawer, and the edit dietary requirements sheet.
@@ -79,6 +85,7 @@ fun CanMakanNavGraph(
     onRequestSelfProfileSetup: () -> Unit = {},
 ) {
     val navController = rememberNavController()
+    val context = LocalContext.current
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val editDietarySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -88,6 +95,7 @@ fun CanMakanNavGraph(
     val activeRestrictions by navGraphViewModel.activeRestrictions.collectAsStateWithLifecycle()
     val profiles by navGraphViewModel.profiles.collectAsStateWithLifecycle()
     val hasFamily by navGraphViewModel.hasFamily.collectAsStateWithLifecycle()
+    val familyName by navGraphViewModel.familyName.collectAsStateWithLifecycle()
     val showManageFamilyActions by navGraphViewModel.showManageFamilyActions.collectAsStateWithLifecycle()
     val selfProfileId by navGraphViewModel.selfProfileId.collectAsStateWithLifecycle()
     val memberRole by navGraphViewModel.memberRole.collectAsStateWithLifecycle()
@@ -100,6 +108,8 @@ fun CanMakanNavGraph(
     val switchProfileError by navGraphViewModel.switchProfileError.collectAsStateWithLifecycle()
     val isSwitchingProfile by navGraphViewModel.isSwitchingProfile.collectAsStateWithLifecycle()
     val hasUnreadNotifications by navGraphViewModel.hasUnreadNotifications.collectAsStateWithLifecycle()
+    val notificationsEnabled by navGraphViewModel.notificationsEnabled.collectAsStateWithLifecycle()
+    val notificationsEnabledError by navGraphViewModel.notificationsEnabledError.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -155,10 +165,12 @@ fun CanMakanNavGraph(
         showEditDietarySheet = false
         if (refresh) {
             navGraphViewModel.refreshRestrictions()
-        }
-        // Only leave overlays (e.g. Notifications); stay put on Scanner to avoid camera restart.
-        if (currentRoute != ROUTE_SCANNER) {
-            navigateToScannerHome()
+            // Product detail still shows a verdict computed against the old restrictions.
+            if (currentRoute == ROUTE_PRODUCT_DETAIL) {
+                if (!navController.popBackStack()) {
+                    navigateToScannerHome()
+                }
+            }
         }
     }
 
@@ -219,6 +231,10 @@ fun CanMakanNavGraph(
                     onManageFamilyClick = {
                         closeDrawer()
                         navController.navigate(ROUTE_MANAGE_FAMILY)
+                    },
+                    onSettingsClick = {
+                        closeDrawer()
+                        navController.navigate(ROUTE_SETTINGS)
                     },
                 )
             }
@@ -369,12 +385,23 @@ fun CanMakanNavGraph(
 
                 // Otherwise, show the product detail screen with the pending verdict
                 } else {
+                    val scanFeedbackViewModel: ScanFeedbackViewModel = hiltViewModel()
+                    val feedbackSubmissionState by scanFeedbackViewModel.submissionState.collectAsStateWithLifecycle()
+
                     ProductDetailScreen(
                         product = detail.product,
                         verdict = detail.verdict,
                         flags = detail.flags,
                         alternatives = detail.alternatives,
                         profileName = activeProfile.profileName,
+                        scanId = detail.scanId,
+                        feedbackSubmissionState = feedbackSubmissionState,
+                        onSubmitPositiveFeedback = { scanId ->
+                            scanFeedbackViewModel.submitPositiveFeedback(scanId)
+                        },
+                        onSubmitNegativeFeedback = { scanId, comment ->
+                            scanFeedbackViewModel.submitNegativeFeedback(scanId, comment)
+                        },
                         explanation = detail.explanation,
                         alternativesError = detail.alternativesError,
                         onBackClick = { navController.popBackStack() },
@@ -386,7 +413,9 @@ fun CanMakanNavGraph(
             composable(ROUTE_CREATE_FAMILY) {
                 if (hasFamily) {
                     LaunchedEffect(Unit) {
-                        navController.popBackStack()
+                        navController.navigate(ROUTE_MANAGE_FAMILY) {
+                            popUpTo(ROUTE_CREATE_FAMILY) { inclusive = true }
+                        }
                     }
                 } else {
                     CreateFamilyCircleScreen(
@@ -400,7 +429,14 @@ fun CanMakanNavGraph(
                         onBackClick = { navController.popBackStack() },
                         onCreateClick = { name ->
                             navGraphViewModel.createFamilyCircle(name) {
-                                navController.popBackStack()
+                                Toast.makeText(
+                                    context,
+                                    "Success! You can now add someone to your family circle",
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                                navController.navigate(ROUTE_MANAGE_FAMILY) {
+                                    popUpTo(ROUTE_CREATE_FAMILY) { inclusive = true }
+                                }
                             }
                         },
                     )
@@ -408,6 +444,7 @@ fun CanMakanNavGraph(
             }
             composable(ROUTE_MANAGE_FAMILY) {
                 ManageFamilyScreen(
+                    familyName = familyName,
                     onMenuClick = { openDrawer() },
                     onNotificationsClick = { openNotifications() },
                     hasUnreadNotifications = hasUnreadNotifications,
@@ -428,9 +465,7 @@ fun CanMakanNavGraph(
                     onBackClick = { navController.popBackStack() },
                     onCancelClick = { navController.popBackStack() },
                     onCreated = {
-                        navController.navigate(ROUTE_SCANNER) {
-                            popUpTo(ROUTE_SCANNER) { inclusive = true }
-                        }
+                        navController.popBackStack()
                         navGraphViewModel.refreshRestrictions()
                     },
                 )
@@ -468,6 +503,27 @@ fun CanMakanNavGraph(
                         navController.popBackStack()
                     },
                     onMarkedAllRead = { navGraphViewModel.refreshNotifications() },
+                )
+            }
+            composable(ROUTE_SETTINGS) {
+                val settingsViewModel: SettingsViewModel = hiltViewModel()
+                val isDeletingAccount by settingsViewModel.isDeletingAccount.collectAsStateWithLifecycle()
+                val deleteAccountError by settingsViewModel.deleteAccountError.collectAsStateWithLifecycle()
+                SettingsScreen(
+                    onMenuClick = { openDrawer() },
+                    onNotificationsClick = { openNotifications() },
+                    hasUnreadNotifications = hasUnreadNotifications,
+                    onBackClick = { navController.popBackStack() },
+                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
+                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    notificationsEnabled = notificationsEnabled,
+                    onNotificationsEnabledChanged = navGraphViewModel::setNotificationsEnabled,
+                    notificationsEnabledError = notificationsEnabledError,
+                    isDeletingAccount = isDeletingAccount,
+                    deleteAccountError = deleteAccountError,
+                    onConfirmDeleteAccount = {
+                        settingsViewModel.deleteOwnAccount(onSuccess = onSignOut)
+                    },
                 )
             }
         }

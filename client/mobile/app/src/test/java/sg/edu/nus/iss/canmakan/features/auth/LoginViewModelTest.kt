@@ -337,6 +337,7 @@ class LoginViewModelTest {
 
         assertEquals(expectedMessage, viewModel.uiState.value.loginError)
         assertNull(viewModel.uiState.value.authenticatedUser)
+        assertNull(sessionStore.currentAccessToken())
     }
 
     private fun enterCredentials(
@@ -366,6 +367,10 @@ class LoginViewModelTest {
 
         override suspend fun getCurrentUser(): AuthResult<AuthenticatedUser> {
             error("/me is outside LoginViewModel scope")
+        }
+
+        override suspend fun deleteOwnAccount(): AuthResult<Unit> {
+            error("deleteOwnAccount is outside LoginViewModel scope")
         }
     }
 

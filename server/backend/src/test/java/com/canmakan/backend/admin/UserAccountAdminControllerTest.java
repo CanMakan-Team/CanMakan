@@ -17,6 +17,7 @@ import com.canmakan.backend.admin.exception.AdminUserNotFoundException;
 import com.canmakan.backend.admin.exception.InvalidAccountStatusRequestException;
 import com.canmakan.backend.admin.exception.ProtectedAccountOperationException;
 import com.canmakan.backend.analytics.service.ConsumerTrendsService;
+import com.canmakan.backend.analytics.service.UsageStatisticsService;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
 import com.canmakan.backend.shared.security.SystemRole;
@@ -51,11 +52,15 @@ class UserAccountAdminControllerTest {
     void setUp() {
         ConsumerTrendsService consumerTrendsService = mock(ConsumerTrendsService.class);
         userAccountManagementService = mock(UserAccountManagementService.class);
+        AdminScanFeedbackService adminScanFeedbackService = mock(AdminScanFeedbackService.class);
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders.standaloneSetup(new AdminController(
                         consumerTrendsService,
-                        userAccountManagementService
+                        userAccountManagementService,
+                        mock(UsageStatisticsService.class),
+                        adminScanFeedbackService,
+                        mock(SystemHealthService.class)
                 ))
                 .setControllerAdvice(new AdminExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())

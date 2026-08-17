@@ -7,11 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.canmakan.backend.admin.exception.ProtectedAccountOperationException;
 import com.canmakan.backend.auth.dto.AuthResponse;
 import com.canmakan.backend.auth.dto.AuthenticationResult;
 import com.canmakan.backend.auth.dto.CurrentUserResponse;
@@ -19,12 +21,17 @@ import com.canmakan.backend.auth.dto.LoginRequest;
 import com.canmakan.backend.auth.dto.RegistrationRequest;
 import com.canmakan.backend.auth.dto.RegistrationResponse;
 import com.canmakan.backend.auth.exception.AuthenticationFailedException;
+import com.canmakan.backend.auth.exception.AccountSuspendedException;
 import com.canmakan.backend.auth.exception.DuplicateEmailException;
 import com.canmakan.backend.auth.exception.RegistrationFailedException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
 import com.canmakan.backend.family.FamilyInviteNotifier;
 import com.canmakan.backend.family.InvitationRegistrationGuard;
+import com.canmakan.backend.family.exception.LastPrimaryAdminException;
+import com.canmakan.backend.family.model.FamilyMember;
+import com.canmakan.backend.family.repository.FamilyMemberRepository;
+import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
 import com.canmakan.backend.shared.security.JwtService;
@@ -32,6 +39,7 @@ import com.canmakan.backend.shared.security.SystemRole;
 import com.canmakan.backend.user.UserAccount;
 import com.canmakan.backend.user.UserAccountRepository;
 import java.sql.SQLIntegrityConstraintViolationException;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -82,6 +90,9 @@ class AuthServiceTest {
     @Mock
     private InvitationRegistrationGuard invitationRegistrationGuard;
 
+    @Mock
+    private FamilyMemberRepository familyMemberRepository;
+
     private PasswordEncoder passwordEncoder;
     private AuthService authService;
 
@@ -95,7 +106,8 @@ class AuthServiceTest {
             jwtService,
             refreshTokenService,
             familyInviteNotifier,
-            invitationRegistrationGuard
+            invitationRegistrationGuard,
+            familyMemberRepository
         );
     }
 
@@ -152,16 +164,23 @@ class AuthServiceTest {
         }
 
         @Test
-        void convertsCredentialAndDisabledFailuresToTheSameInternalSignal() {
+        void convertsCredentialFailuresToTheGenericInternalSignal() {
             LoginRequest request = new LoginRequest("user@example.com", "Password1!");
 
             when(authenticationManager.authenticate(any(Authentication.class)))
                 .thenThrow(new BadCredentialsException("wrong password"));
             assertThrows(AuthenticationFailedException.class, () -> authService.login(request));
+            verifyNoInteractions(jwtService, refreshTokenService);
+        }
+
+        @Test
+        void convertsVerifiedSuspendedAccountToTheDistinctInternalSignal() {
+            LoginRequest request = new LoginRequest("inactive@example.com", "Password1!");
 
             when(authenticationManager.authenticate(any(Authentication.class)))
                 .thenThrow(new DisabledException("inactive account"));
-            assertThrows(AuthenticationFailedException.class, () -> authService.login(request));
+            assertThrows(AccountSuspendedException.class, () -> authService.login(request));
+            verifyNoInteractions(jwtService, refreshTokenService);
         }
 
         @Test
@@ -396,6 +415,126 @@ class AuthServiceTest {
             assertEquals("Registration could not be completed.", exception.getMessage());
             assertFalse(exception.getMessage().contains("internal-host"));
             assertFalse(exception.getMessage().contains("secret"));
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteOwnAccount")
+    class DeleteOwnAccount {
+
+        private static final long CALLER_ID = 14L;
+        private static final long OTHER_MEMBER_ID = 88L;
+        private static final long FAMILY_ID = 3L;
+
+        @Test
+        void deactivatesCallerAndRevokesOnlyCallerSessions() {
+            UserAccount caller = account(CALLER_ID, true);
+            when(userAccountRepository.findAllAdminsForUpdate()).thenReturn(List.of());
+            when(userAccountRepository.findByIdForUpdate(CALLER_ID)).thenReturn(Optional.of(caller));
+            when(familyMemberRepository.findMembershipByUserId(CALLER_ID))
+                .thenReturn(Optional.of(membership(CALLER_ID, FamilyMember.ROLE_MEMBER)));
+
+            authService.deleteOwnAccount(CALLER_ID);
+
+            assertFalse(caller.isActive());
+            verify(refreshTokenService).revokeAllForUser(CALLER_ID);
+            verify(refreshTokenService, never()).revokeAllForUser(OTHER_MEMBER_ID);
+            verify(userAccountRepository, never()).findByIdForUpdate(OTHER_MEMBER_ID);
+            verify(userAccountRepository).flush();
+        }
+
+        @Test
+        void isIdempotentWhenCallerIsAlreadyInactive() {
+            UserAccount caller = account(CALLER_ID, false);
+            when(userAccountRepository.findAllAdminsForUpdate()).thenReturn(List.of());
+            when(userAccountRepository.findByIdForUpdate(CALLER_ID)).thenReturn(Optional.of(caller));
+
+            authService.deleteOwnAccount(CALLER_ID);
+
+            assertFalse(caller.isActive());
+            verify(refreshTokenService, never()).revokeAllForUser(anyLong());
+            verifyNoInteractions(familyMemberRepository);
+            verify(userAccountRepository, never()).flush();
+        }
+
+        @Test
+        void rejectsLastFamilyPrimaryAdminWithoutDeactivating() {
+            UserAccount caller = account(CALLER_ID, true);
+            when(userAccountRepository.findAllAdminsForUpdate()).thenReturn(List.of());
+            when(userAccountRepository.findByIdForUpdate(CALLER_ID)).thenReturn(Optional.of(caller));
+            when(familyMemberRepository.findMembershipByUserId(CALLER_ID))
+                .thenReturn(Optional.of(membership(CALLER_ID, FamilyMember.ROLE_PRIMARY_ADMIN)));
+            when(familyMemberRepository.countActivePrimaryAdmins(FAMILY_ID)).thenReturn(1L);
+
+            LastPrimaryAdminException thrown = assertThrows(
+                LastPrimaryAdminException.class,
+                () -> authService.deleteOwnAccount(CALLER_ID)
+            );
+            assertEquals(AuthService.LAST_FAMILY_ADMIN_MESSAGE, thrown.getMessage());
+            assertTrue(caller.isActive());
+            verify(refreshTokenService, never()).revokeAllForUser(anyLong());
+            verify(userAccountRepository, never()).flush();
+        }
+
+        @Test
+        void allowsFamilyPrimaryAdminWhenAnotherAdminExists() {
+            UserAccount caller = account(CALLER_ID, true);
+            when(userAccountRepository.findAllAdminsForUpdate()).thenReturn(List.of());
+            when(userAccountRepository.findByIdForUpdate(CALLER_ID)).thenReturn(Optional.of(caller));
+            when(familyMemberRepository.findMembershipByUserId(CALLER_ID))
+                .thenReturn(Optional.of(membership(CALLER_ID, FamilyMember.ROLE_PRIMARY_ADMIN)));
+            when(familyMemberRepository.countActivePrimaryAdmins(FAMILY_ID)).thenReturn(2L);
+
+            authService.deleteOwnAccount(CALLER_ID);
+
+            assertFalse(caller.isActive());
+            verify(refreshTokenService).revokeAllForUser(CALLER_ID);
+        }
+
+        @Test
+        void rejectsLastPlatformAdmin() {
+            UserAccount lastAdmin = account(CALLER_ID, true);
+            when(userAccountRepository.findAllAdminsForUpdate()).thenReturn(List.of(lastAdmin));
+
+            ProtectedAccountOperationException thrown = assertThrows(
+                ProtectedAccountOperationException.class,
+                () -> authService.deleteOwnAccount(CALLER_ID)
+            );
+            assertEquals(AuthService.LAST_PLATFORM_ADMIN_MESSAGE, thrown.getMessage());
+            assertTrue(lastAdmin.isActive());
+            verify(userAccountRepository, never()).findByIdForUpdate(anyLong());
+            verify(refreshTokenService, never()).revokeAllForUser(anyLong());
+            verifyNoInteractions(familyMemberRepository);
+        }
+
+        @Test
+        void throwsWhenCallerAccountIsMissing() {
+            when(userAccountRepository.findAllAdminsForUpdate()).thenReturn(List.of());
+            when(userAccountRepository.findByIdForUpdate(CALLER_ID)).thenReturn(Optional.empty());
+
+            assertThrows(
+                AuthenticatedUserNotFoundException.class,
+                () -> authService.deleteOwnAccount(CALLER_ID)
+            );
+            verify(refreshTokenService, never()).revokeAllForUser(anyLong());
+            verifyNoInteractions(familyMemberRepository);
+        }
+
+        private static UserAccount account(long id, boolean active) {
+            UserAccount account = new UserAccount();
+            account.setId(id);
+            account.setEmail("user" + id + "@example.com");
+            account.setRoleId(2L);
+            account.setActive(active);
+            return account;
+        }
+
+        private static FamilyMember membership(long userId, String role) {
+            FamilyMember member = new FamilyMember();
+            member.setId(new FamilyMember.FamilyMemberId(FAMILY_ID, userId));
+            member.setMemberRole(role);
+            member.setIsActive(true);
+            return member;
         }
     }
 

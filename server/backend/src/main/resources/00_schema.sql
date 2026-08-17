@@ -12,6 +12,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- Drop all tables if they exist (child → parent)
+DROP TABLE IF EXISTS user_sessions;
 DROP TABLE IF EXISTS admin_audit_logs;
 DROP TABLE IF EXISTS daily_consumer_trends;
 DROP TABLE IF EXISTS feature_usage;
@@ -23,6 +24,7 @@ DROP TABLE IF EXISTS recommendation_ai_logs;
 DROP TABLE IF EXISTS recommendation_logs;
 DROP TABLE IF EXISTS ai_execution_logs;
 DROP TABLE IF EXISTS ocr_scan_results;
+DROP TABLE IF EXISTS scans_feedback;
 DROP TABLE IF EXISTS scans;
 DROP TABLE IF EXISTS product_ingredients;
 DROP TABLE IF EXISTS products;
@@ -170,9 +172,9 @@ CREATE TABLE dietary_profiles (
 -- After dietary_profiles: active_profile_id FK (UC11) needs that table to exist first.
 CREATE TABLE user_preferences (
     user_id BIGINT PRIMARY KEY,
-    theme VARCHAR(20) DEFAULT 'LIGHT',
-    notifications_enabled TINYINT(1) DEFAULT 1,
-    `language` VARCHAR(10) DEFAULT 'en',
+    theme VARCHAR(20) DEFAULT 'DEFAULT',
+    notifications_enabled TINYINT(1) DEFAULT 0,
+    `language` VARCHAR(10) DEFAULT 'ENGLISH',
     active_profile_id BIGINT NULL,
     CONSTRAINT fk_user_preferences_users
         FOREIGN KEY (user_id) REFERENCES users(id)
@@ -331,6 +333,21 @@ CREATE TABLE scans (
     CONSTRAINT fk_scans_product
         FOREIGN KEY (barcode) REFERENCES products(barcode)
         ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Thumbs up/down feedback on a scan verdict (UC20 report incorrect product
+-- info). is_positive distinguishes a thumbs up from a thumbs down; a thumbs
+-- up never has elaboration text, so user_comments stays nullable for both.
+CREATE TABLE scans_feedback (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    scan_id BIGINT NOT NULL,
+    is_positive BOOLEAN NOT NULL,
+    user_comments TEXT NULL,
+    resolved BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_scans_feedback_scan
+        FOREIGN KEY (scan_id) REFERENCES scans(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE ocr_scan_results (
@@ -500,11 +517,25 @@ CREATE TABLE admin_audit_logs (
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- UC15: in-app session tracking via client heartbeats. Session length is
+-- last_heartbeat_at - started_at; a gap larger than the service timeout starts a new row.
+CREATE TABLE user_sessions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_heartbeat_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user_sessions_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================================================
 -- BATCH INDEXES
 -- ============================================================================
 
 CREATE INDEX idx_users_role_id ON users (role_id);
+CREATE INDEX idx_user_sessions_user_last_heartbeat ON user_sessions (user_id, last_heartbeat_at);
+CREATE INDEX idx_user_sessions_started_at ON user_sessions (started_at);
 CREATE INDEX idx_users_is_active ON users (is_active);
 
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens (user_id);

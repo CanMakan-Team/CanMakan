@@ -109,7 +109,7 @@ Tick after a family UC change lands — keep these aligned with code.
 ## UC11 — Switch Active Profile
 
 **Primary UI:** Mobile drawer / profile switcher (required)  
-**Web:** Demo selector on members page must not diverge for scan truth  
+**Web:** Removed from Family Members; mobile remains MVP SoT  
 **APIs:** `GET/PUT /api/families/me/active-profile`
 
 - [ ] **11.1** After login, open switcher → eligible in-family profiles; no hard-coded profile `1` *(AC 1, 8)*
@@ -119,7 +119,7 @@ Tick after a family UC change lands — keep these aligned with code.
 - [ ] **11.5** Scan / history / restrictions use selected profile context *(AC 5)*
 - [ ] **11.6** After UC12 deactivate → inactive profile omitted / not selectable *(AC 7)*
 - [ ] **11.7** (Optional) Profile outside family → 403 *(AC 6)*
-- [ ] **11.8** (Web demo) Active profile selector → only active profiles; mobile remains MVP SoT *(AC 10)*
+- [ ] **11.8** Web has no active-profile switcher; mobile remains MVP SoT *(AC 10)*
 
 **UC11 result:** Pass / Fail / Partial — notes:
 

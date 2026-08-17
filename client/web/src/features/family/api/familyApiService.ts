@@ -102,13 +102,16 @@ export const familyApiService = {
           body: JSON.stringify({ email, relationship }),
         }),
 
-  /** Claim an invitation. */
-  claimInvitation: (invitationToken: string) =>
+  /**
+   * Claim an invitation. The auto-provisioned SELF profile uses a placeholder
+   * name until the caller sets Profile Name on dietary setup.
+   */
+  claimInvitation: (invitationToken: string, profileName?: string) =>
     useMockApi
-      ? mockFamilyRepository.claimInvitation(invitationToken)
+      ? mockFamilyRepository.claimInvitation(invitationToken, profileName)
       : apiRequest<FamilyMe>(familyEndpoints.claimInvitation, {
           method: 'POST',
-          body: JSON.stringify({ invitationToken }),
+          body: JSON.stringify({ invitationToken, profileName }),
         }),
 
   previewInvitation: (invitationToken: string) =>

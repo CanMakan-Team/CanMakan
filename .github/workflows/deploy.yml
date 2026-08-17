@@ -1,35 +1,48 @@
 name: Deploy Backend to AWS EC2
 
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches: [main, develop]
 
 concurrency:
   group: deploy-backend
   cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
 jobs:
-  # 1. PATH DETECTION
-  detect-backend-changes:
+  # Promote the JAR CI already verified for this SHA (no second Maven compile).
+  resolve-artifact:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
+      has_jar: ${{ steps.check.outputs.has_jar }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
-        id: filter
-        with:
-          filters: |
-            backend:
-              - 'server/backend/**'
+      - name: Check CI uploaded backend-jar
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+            --jq '.artifacts[].name' | grep -qx backend-jar; then
+            echo "has_jar=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_jar=false" >> "$GITHUB_OUTPUT"
+            echo "No backend-jar artefact (CI skipped backend or upload failed)."
+          fi
 
-  # 2. COMPILE & DEPLOY
-  # Env names mirror server/backend/src/main/resources/application.properties
-  # and .github/workflows/ci.yml (build-backend). Forwarded to EC2 at JAR start.
+  # Env names mirror application.properties. Forwarded to EC2 at JAR start.
   deploy-backend:
-    needs: detect-backend-changes
-    if: needs.detect-backend-changes.outputs.backend == 'true'
+    needs: resolve-artifact
+    if: needs.resolve-artifact.outputs.has_jar == 'true'
     runs-on: ubuntu-latest
-    environment: ${{ vars.DEPLOY_ENVIRONMENT }}
+    environment: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
     env:
       # Server
       SERVER_ADDRESS: ${{ secrets.SERVER_ADDRESS }}
@@ -42,8 +55,9 @@ jobs:
       CANMAKAN_CORS_ALLOW_CREDENTIALS: ${{ secrets.CANMAKAN_CORS_ALLOW_CREDENTIALS }}
       CANMAKAN_CORS_MAX_AGE_SECONDS: ${{ secrets.CANMAKAN_CORS_MAX_AGE_SECONDS }}
 
-      # UC9 invites
+      # UC9 invites (+ App Distribution install link shared with web)
       CANMAKAN_INVITES_PUBLIC_BASE_URL: ${{ secrets.CANMAKAN_INVITES_PUBLIC_BASE_URL }}
+      FIREBASE_APP_DISTRIBUTION_URL: ${{ secrets.FIREBASE_APP_DISTRIBUTION_URL }}
       CANMAKAN_INVITES_EXPIRY_DAYS: ${{ secrets.CANMAKAN_INVITES_EXPIRY_DAYS }}
 
       # UC10 Resend invitation email
@@ -99,20 +113,13 @@ jobs:
       CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH: ${{ secrets.CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH }}
       CANMAKAN_RECOMMENDATION_LLM_ENABLED: ${{ secrets.CANMAKAN_RECOMMENDATION_LLM_ENABLED }}
     steps:
-      - uses: actions/checkout@v7
-
-      # 2.1 DEFINE THE REQUIRED JAVA PACKAGE
-      - name: Set up Java 21
-        uses: actions/setup-java@v5
+      - name: Download verified backend JAR
+        uses: actions/download-artifact@v4.3.0
         with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'maven'
-
-      # 2.2 BUILD THE .JAR PACKAGE
-      - name: Build and Package JAR
-        working-directory: server/backend
-        run: mvn -B clean package -DskipTests
+          name: backend-jar
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          path: server/backend/target
 
       # 2.3 PREPARE REMOTE DEPLOY DIRECTORY
       - name: Ensure remote deploy directory exists
@@ -141,7 +148,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: SERVER_ADDRESS,CANMAKAN_CORS_ALLOWED_ORIGINS,CANMAKAN_CORS_ALLOWED_HEADERS,CANMAKAN_CORS_ALLOWED_METHODS,CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS,CANMAKAN_CORS_ALLOW_CREDENTIALS,CANMAKAN_CORS_MAX_AGE_SECONDS,CANMAKAN_INVITES_PUBLIC_BASE_URL,CANMAKAN_INVITES_EXPIRY_DAYS,CANMAKAN_EMAIL_RESEND_ENABLED,CANMAKAN_EMAIL_RESEND_API_KEY,CANMAKAN_EMAIL_RESEND_FROM,CANMAKAN_EMAIL_RESEND_API_URL,MYSQL_HOST,MYSQL_PORT,MYSQL_DB,MYSQL_USERNAME,MYSQL_PASSWORD,JWT_ISSUER,JWT_ACCESS_TTL,JWT_SIGNING_SECRET,REFRESH_TOKEN_TTL,REFRESH_COOKIE_NAME,REFRESH_COOKIE_SECURE,REFRESH_COOKIE_SAME_SITE,OPEN_FOOD_FACTS_BASE_URL,EAN_SEARCH_BASE_URL,EAN_SEARCH_API_KEY,PRODUCT_API_CONNECT_TIMEOUT_MS,PRODUCT_API_RESPONSE_TIMEOUT_MS,PRODUCT_API_RETRY_MAX_ATTEMPTS,PRODUCT_API_RETRY_BACKOFF_MS,OPENAI_BASE_URL,OPENAI_API_KEY,OPENAI_MODEL,CANMAKAN_AI_ENABLED,CANMAKAN_AI_TIMEOUT_MS,CANMAKAN_AI_RETRY_MAX_ATTEMPTS,CANMAKAN_AI_RETRY_BACKOFF_MS,CANMAKAN_AI_AGENT_MAX_TOOL_ITERATIONS,CANMAKAN_AI_AUDIT_ENABLED,CANMAKAN_AI_AUDIT_STORE_PROMPT,CANMAKAN_AI_AUDIT_STORE_RESPONSE,TAVILY_API_KEY,TAVILY_URL,CANMAKAN_RECOMMENDATION_ML_ENABLED,CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH,CANMAKAN_RECOMMENDATION_LLM_ENABLED
+          envs: SERVER_ADDRESS,CANMAKAN_CORS_ALLOWED_ORIGINS,CANMAKAN_CORS_ALLOWED_HEADERS,CANMAKAN_CORS_ALLOWED_METHODS,CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS,CANMAKAN_CORS_ALLOW_CREDENTIALS,CANMAKAN_CORS_MAX_AGE_SECONDS,CANMAKAN_INVITES_PUBLIC_BASE_URL,FIREBASE_APP_DISTRIBUTION_URL,CANMAKAN_INVITES_EXPIRY_DAYS,CANMAKAN_EMAIL_RESEND_ENABLED,CANMAKAN_EMAIL_RESEND_API_KEY,CANMAKAN_EMAIL_RESEND_FROM,CANMAKAN_EMAIL_RESEND_API_URL,MYSQL_HOST,MYSQL_PORT,MYSQL_DB,MYSQL_USERNAME,MYSQL_PASSWORD,JWT_ISSUER,JWT_ACCESS_TTL,JWT_SIGNING_SECRET,REFRESH_TOKEN_TTL,REFRESH_COOKIE_NAME,REFRESH_COOKIE_SECURE,REFRESH_COOKIE_SAME_SITE,OPEN_FOOD_FACTS_BASE_URL,EAN_SEARCH_BASE_URL,EAN_SEARCH_API_KEY,PRODUCT_API_CONNECT_TIMEOUT_MS,PRODUCT_API_RESPONSE_TIMEOUT_MS,PRODUCT_API_RETRY_MAX_ATTEMPTS,PRODUCT_API_RETRY_BACKOFF_MS,OPENAI_BASE_URL,OPENAI_API_KEY,OPENAI_MODEL,CANMAKAN_AI_ENABLED,CANMAKAN_AI_TIMEOUT_MS,CANMAKAN_AI_RETRY_MAX_ATTEMPTS,CANMAKAN_AI_RETRY_BACKOFF_MS,CANMAKAN_AI_AGENT_MAX_TOOL_ITERATIONS,CANMAKAN_AI_AUDIT_ENABLED,CANMAKAN_AI_AUDIT_STORE_PROMPT,CANMAKAN_AI_AUDIT_STORE_RESPONSE,TAVILY_API_KEY,TAVILY_URL,CANMAKAN_RECOMMENDATION_ML_ENABLED,CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH,CANMAKAN_RECOMMENDATION_LLM_ENABLED
           script: |
             # Ensure runtime destination directory exists
             mkdir -p /home/ubuntu/app

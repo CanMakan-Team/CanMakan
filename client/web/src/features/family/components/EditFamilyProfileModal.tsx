@@ -47,7 +47,6 @@ export function EditFamilyProfileModal({
   const initialValue: FamilyProfileInput = {
     profileName: member.profileName,
     relationship: member.relationship,
-    ageGroup: member.ageGroup,
     commonRequirements: member.commonRequirements,
     restrictions: member.restrictions,
   }

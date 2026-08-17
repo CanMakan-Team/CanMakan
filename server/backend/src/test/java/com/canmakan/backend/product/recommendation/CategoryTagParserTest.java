@@ -44,4 +44,16 @@ class CategoryTagParserTest {
                 "en:milk-substitutes,en:plant-based-creams-for-cooking",
                 "en:plant-based-creams-for-cooking"));
     }
+
+    @Test
+    void containsAnyIncludingMainCategoryMatchesSlugFromEnglishCategory() {
+        assertTrue(CategoryTagParser.containsAnyIncludingMainCategory(
+                "en:no-gluten,en:gluten-free,en:gluten-free-flour",
+                "Brown Rice Flour",
+                List.of("en:brown-rice-flour")));
+        assertFalse(CategoryTagParser.containsAnyIncludingMainCategory(
+                "en:no-gluten,en:gluten-free,en:gluten-free-flour",
+                "Brown Rice Flour",
+                List.of("en:oat-flour")));
+    }
 }

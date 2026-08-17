@@ -12,6 +12,8 @@ dietary information.
 
 Shared brand colors live under `design-tokens/` (JSON source → generated
 Compose `Color.kt` and web `tokens.css`). See `design-tokens/README.md`.
+Shared mascot images live under `client/shared/assets/mascot/` and are
+referenced by both the Android and web clients.
 
 The machine-learning, agentic AI, database, and deployment technology choices
 remain pending.
@@ -26,6 +28,7 @@ remain pending.
 |   `-- README.md
 |
 |-- client/
+|   |-- shared/                    # Cross-client assets (mascot PNGs)
 |   |-- mobile/                    # Android Kotlin + Jetpack Compose
 |   |   `-- app/src/main/java/sg/edu/nus/iss/canmakan/
 |   |       |-- shared/            # DI, network, UI kit, shared models, utils
@@ -70,7 +73,7 @@ remain pending.
 |   |       |-- admin/
 |   |       |-- knowledgebase/
 |   |       `-- integration/       # Open Food Facts, OpenRouter, etc.
-|   |-- machine-learning/          # Reserved ML component
+|   |-- machine-learning/          # Python TF-IDF rank API (UC5)
 |   `-- agentic-ai/                # Reserved Agentic AI and RAG component
 |
 |-- database/                      # Reserved database area
@@ -123,8 +126,8 @@ Continuous integration builds the backend, web app, and Android app on pushes an
 
 - Require pull request
 - No direct pushes to main
-- Require the **Build Test** check (aggregates Gitleaks, Semgrep, Trivy, and stack builds)
-- Create GitHub Environment **`production`** and Actions variable **`DEPLOY_ENVIRONMENT`** = `production` (deploy jobs use `environment: ${{ vars.DEPLOY_ENVIRONMENT }}`). Optional reviewers. Until both exist, CD may skip protection or fail.
+- Require the **Build Test** check (aggregates Gitleaks, Semgrep, Trivy, stack builds, and SonarCloud when configured)
+- Production deploys use GitHub Environment **`production`** (`main` only) via `vars.DEPLOY_ENVIRONMENT`
 
 ### Secrets Management
 
@@ -143,18 +146,19 @@ Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 | Job | What it does |
 |-----|----------------|
 | Gitleaks | Secret scanning |
-| Semgrep | SAST (`semgrep/semgrep:1.173.0 --config=auto`; needs network) |
-| Trivy fs | SCA vulns only (CRITICAL/HIGH fails the job; secrets are Gitleaks) |
+| Semgrep | SAST (`semgrep/semgrep:1.173.0 --config p/default`; needs network; skips via [`.semgrepignore`](.semgrepignore)) |
+| Trivy fs | SCA vulns only (CRITICAL/HIGH fails the job; secrets are Gitleaks); CycloneDX SBOM artefact |
 | Trivy config | GitHub Actions / `.github` YAML misconfiguration |
-| Backend | Maven `verify` against job-local MySQL 8 (not RDS), Java 21 |
-| Web | `npm ci` + `npm test` (Vitest) + `npm run build` (Node 24) |
-| Mobile | Gradle `assembleDebug testDebugUnitTest` |
+| Backend | Maven `verify` against job-local MySQL 8 (not RDS), Java 21, JaCoCo; uploads `backend-jar`; SonarCloud `canmakan-backend` |
+| Web | `npm ci` + Vitest with coverage + `npm run build` (Node 24); SonarCloud `canmakan-web` |
+| Mobile | Gradle `assembleDebug testDebugUnitTest` + unit-test coverage XML, then `sonar`; SonarCloud `canmakan-mobile` |
 | Build Test | Required aggregator |
 
 Playwright E2E: [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) on PRs and pushes to `develop` when `client/web/**` changes. Production web deploy re-runs Playwright in [`.github/workflows/deploy-frontends.yml`](.github/workflows/deploy-frontends.yml).
 
-> Backend CI runs `mvn verify` against an ephemeral MySQL 8 service (not RDS). Deploy still injects runtime env vars via GitHub secrets and forwards them to EC2 at JAR start. Deploy jobs use Environment `production`. <br>
-> Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`. Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`, optional `WEB_INVITE_BASE_URLS`. <br>
+> Backend CI runs `mvn verify` against an ephemeral MySQL 8 service (not RDS) and uploads the verified JAR. Production backend deploy waits for that CI run on `main` and SCP’s the artefact (no `skipTests` rebuild). Runtime env vars still come from GitHub secrets and are forwarded to EC2 at JAR start. Deploy jobs use Environment `production` (`vars.DEPLOY_ENVIRONMENT`). <br>
+> SonarCloud runs after each stack’s tests when `SONAR_TOKEN` is set (org `canmakan-team` is in source). A failed quality gate fails that build job and **Build Test**. Semgrep remains SAST. <br>
+> Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`, optional `FIREBASE_APP_DISTRIBUTION_URL` → `VITE_FIREBASE_APP_DISTRIBUTION_URL` (also forwarded to the backend for invite-email “mobile” links). Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`, optional `CANMAKAN_INVITES_PUBLIC_BASE_URL`. <br>
 > Android SDK is provisioned via `android-actions/setup-android` <br>
 
 ### Dependabot
