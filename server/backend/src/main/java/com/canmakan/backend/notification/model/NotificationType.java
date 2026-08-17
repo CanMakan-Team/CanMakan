@@ -1,4 +1,4 @@
-package com.canmakan.backend.notification;
+package com.canmakan.backend.notification.model;
 
 /**
  * Inbox card kinds. Family invite types are one of several possible sources.

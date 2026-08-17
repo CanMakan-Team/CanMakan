@@ -1,4 +1,4 @@
-package com.canmakan.backend.notification;
+package com.canmakan.backend.notification.exception;
 
 /**
  * The caller tried to change a notification that does not exist for their account.
