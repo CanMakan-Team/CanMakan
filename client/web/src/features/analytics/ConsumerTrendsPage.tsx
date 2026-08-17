@@ -318,6 +318,7 @@ function ConsumerTrendsResult({
         <EmptyState
           title="No scan activity in this period"
           description="Try another period or category. The charts remain visible with zero values for the requested dates."
+          showMascot={false}
         />
       ) : null}
 

@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FamilyAccountPage } from '../../../features/family/pages/FamilyAccountPage'
 import { authService } from '../../../features/auth/authService'
@@ -20,7 +21,7 @@ vi.mock('../../../features/auth/authService', () => ({
 
 vi.mock('../../../features/family/api/familyApiService', () => ({
   familyApiService: {
-    getMyFamily: vi.fn(),
+    getMyFamilyOrNull: vi.fn(),
     getAccountProfiles: vi.fn(),
   },
 }))
@@ -46,8 +47,25 @@ const sessionValue: SessionContextValue = {
 function renderPage() {
   return render(
     <SessionContext.Provider value={sessionValue}>
-      <FamilyAccountPage />
+      <MemoryRouter>
+        <FamilyAccountPage />
+      </MemoryRouter>
     </SessionContext.Provider>,
+  )
+}
+
+/** Opens the danger-zone dialog and retypes the email it asks for. */
+async function confirmDeleteDialog(
+  user: ReturnType<typeof userEvent.setup>,
+  email = 'verified@example.com',
+) {
+  await user.click(await screen.findByRole('button', { name: 'Delete My Account' }))
+  await user.type(
+    screen.getByLabelText(`Type ${email} to confirm`),
+    email,
+  )
+  await user.click(
+    screen.getByRole('button', { name: 'Delete account permanently' }),
   )
 }
 
@@ -56,14 +74,13 @@ describe('FamilyAccountPage', () => {
     vi.mocked(sessionValue.logout).mockClear()
     vi.mocked(authService.deleteOwnAccount).mockReset()
     vi.mocked(authService.deleteOwnAccount).mockResolvedValue(undefined)
-    vi.stubGlobal('confirm', vi.fn(() => true))
     vi.mocked(authService.getCurrentUser).mockResolvedValue({
       userId: 14,
       email: 'verified@example.com',
       role: 'USER',
       active: true,
     })
-    vi.mocked(familyApiService.getMyFamily).mockResolvedValue({
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue({
       familyId: 3,
       familyName: 'Verified Family',
       memberRole: 'PRIMARY_ADMIN',
@@ -87,13 +104,45 @@ describe('FamilyAccountPage', () => {
     renderPage()
 
     await screen.findByRole('heading', { name: 'Account Settings' })
-    const panel = screen.getByText('Email').closest('section')
+    const panel = screen
+      .getByRole('heading', { name: 'Verified Person' })
+      .closest('section')
     expect(panel).not.toBeNull()
     expect(within(panel as HTMLElement).getByText('verified@example.com')).toBeInTheDocument()
     expect(within(panel as HTMLElement).getByText('Verified Family')).toBeInTheDocument()
-    expect(within(panel as HTMLElement).getByText('Primary Admin')).toBeInTheDocument()
-    expect(within(panel as HTMLElement).getByText('Verified Person · Self')).toBeInTheDocument()
+    const dietaryRow = within(panel as HTMLElement)
+      .getByText('Dietary profile')
+      .closest('li')
+    expect(within(dietaryRow as HTMLElement).getByText('Verified Person')).toBeInTheDocument()
+    // The family role is implied by the Manage family action, and the profile
+    // status duplicates the account badge, so neither is repeated in the rows.
+    expect(within(panel as HTMLElement).queryByText('Primary Admin')).not.toBeInTheDocument()
+    expect(within(panel as HTMLElement).queryByText('Active')).not.toBeInTheDocument()
     expect(screen.queryByText(/Bearer|JWT|token|Authorization/i)).not.toBeInTheDocument()
+  })
+
+  it('links the family and dietary profile rows to their management screens', async () => {
+    renderPage()
+
+    await screen.findByRole('heading', { name: 'Account Settings' })
+    expect(screen.getByRole('link', { name: 'Edit profile' })).toHaveAttribute(
+      'href',
+      '/me/setup-profile',
+    )
+    expect(screen.getByRole('link', { name: 'Manage family' })).toHaveAttribute(
+      'href',
+      '/family/members',
+    )
+  })
+
+  it('offers creating a family circle when the account has none', async () => {
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue(null)
+    renderPage()
+
+    await screen.findByRole('heading', { name: 'Account Settings' })
+    expect(
+      screen.getByRole('link', { name: 'Create family circle' }),
+    ).toHaveAttribute('href', '/family/circle')
   })
 
   it('shows a retryable error when authoritative details cannot load', async () => {
@@ -110,24 +159,46 @@ describe('FamilyAccountPage', () => {
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
-  it('does not call delete when the confirmation is cancelled', async () => {
-    vi.mocked(window.confirm).mockReturnValue(false)
+  it('does not call delete when the danger dialog is cancelled', async () => {
     const user = userEvent.setup()
     renderPage()
-    await screen.findByRole('button', { name: 'Delete My Account' })
 
-    await user.click(screen.getByRole('button', { name: 'Delete My Account' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete My Account' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(authService.deleteOwnAccount).not.toHaveBeenCalled()
     expect(sessionValue.logout).not.toHaveBeenCalled()
   })
 
+  it('keeps deletion disabled until the account email is retyped', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Delete My Account' }))
+    const confirmButton = screen.getByRole('button', {
+      name: 'Delete account permanently',
+    })
+    expect(confirmButton).toBeDisabled()
+
+    await user.type(
+      screen.getByLabelText('Type verified@example.com to confirm'),
+      'someone-else@example.com',
+    )
+    expect(confirmButton).toBeDisabled()
+
+    await user.clear(screen.getByLabelText('Type verified@example.com to confirm'))
+    await user.type(
+      screen.getByLabelText('Type verified@example.com to confirm'),
+      'verified@example.com',
+    )
+    expect(confirmButton).toBeEnabled()
+  })
+
   it('deletes the signed-in account then signs out', async () => {
     const user = userEvent.setup()
     renderPage()
-    await screen.findByRole('button', { name: 'Delete My Account' })
 
-    await user.click(screen.getByRole('button', { name: 'Delete My Account' }))
+    await confirmDeleteDialog(user)
 
     await waitFor(() => expect(authService.deleteOwnAccount).toHaveBeenCalledTimes(1))
     expect(sessionValue.logout).toHaveBeenCalledTimes(1)
@@ -139,9 +210,8 @@ describe('FamilyAccountPage', () => {
     )
     const user = userEvent.setup()
     renderPage()
-    await screen.findByRole('button', { name: 'Delete My Account' })
 
-    await user.click(screen.getByRole('button', { name: 'Delete My Account' }))
+    await confirmDeleteDialog(user)
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
@@ -149,5 +219,15 @@ describe('FamilyAccountPage', () => {
       ),
     )
     expect(sessionValue.logout).not.toHaveBeenCalled()
+  })
+
+  it('loads account settings when the user has no family circle', async () => {
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue(null)
+    renderPage()
+
+    await screen.findByRole('heading', { name: 'Account Settings' })
+    expect(screen.getByText('None')).toBeInTheDocument()
+    expect(screen.getByText('Not in a family')).toBeInTheDocument()
+    expect(familyApiService.getAccountProfiles).not.toHaveBeenCalled()
   })
 })

@@ -3,7 +3,7 @@ import { ApiError, getErrorMessage } from '../../../shared/api/apiErrors'
 import { familyApiService } from '../api/familyApiService'
 
 type CreateFamilyCirclePageProps = {
-  onCreated: () => void
+  onCreated: () => void | Promise<void>
 }
 
 /**
@@ -56,10 +56,10 @@ export function CreateFamilyCirclePage({ onCreated }: CreateFamilyCirclePageProp
     setSubmitting(true)
     try {
       await familyApiService.createFamily(trimmed)
-      onCreated()
+      await onCreated()
     } catch (caughtError) {
       if (caughtError instanceof ApiError && caughtError.status === 409) {
-        onCreated()
+        await onCreated()
         return
       }
       setSubmitError(getErrorMessage(caughtError))

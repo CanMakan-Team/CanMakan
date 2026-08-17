@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { render, screen, waitFor } from '@testing-library/react'
+import { FamilyMeProvider } from '../../../features/family/FamilyMeContext'
 import { FamilyMeGate } from '../../../features/family/FamilyMeGate'
 import { familyApiService } from '../../../features/family/api/familyApiService'
 import { ApiError } from '../../../shared/api/apiErrors'
@@ -12,31 +13,35 @@ import { ApiError } from '../../../shared/api/apiErrors'
 
 vi.mock('../../../features/family/api/familyApiService', () => ({
   familyApiService: {
-    getMyFamily: vi.fn(),
+    getMyFamilyOrNull: vi.fn(),
     createFamily: vi.fn(),
   },
 }))
 
-function renderGate() {
+function renderGate(initialEntry = '/family') {
   return render(
-    <MemoryRouter initialEntries={['/family']}>
-      <Routes>
-        <Route path="/family" element={<FamilyMeGate />}>
-          <Route index element={<p>Family portal content</p>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>,
+    <FamilyMeProvider>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path="/family" element={<FamilyMeGate />}>
+            <Route index element={<p>Family portal content</p>} />
+            <Route path="members" element={<p>Family members</p>} />
+          </Route>
+          <Route path="/me" element={<p>Personal home</p>} />
+        </Routes>
+      </MemoryRouter>
+    </FamilyMeProvider>,
   )
 }
 
 describe('FamilyMeGate', () => {
   beforeEach(() => {
-    vi.mocked(familyApiService.getMyFamily).mockReset()
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockReset()
     vi.mocked(familyApiService.createFamily).mockReset()
   })
 
   it('renders child routes when /families/me succeeds', async () => {
-    vi.mocked(familyApiService.getMyFamily).mockResolvedValue({
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue({
       familyId: 3,
       familyName: 'Wong Family',
       memberRole: 'PRIMARY_ADMIN',
@@ -51,28 +56,35 @@ describe('FamilyMeGate', () => {
     })
   })
 
-  it('keeps personal navigation available on 404 without opening family creation', async () => {
-    vi.mocked(familyApiService.getMyFamily).mockRejectedValue(
-      new ApiError('Family not found.', 404),
-    )
+  it('sends a visitor with no family to personal home instead of family admin pages', async () => {
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue(null)
 
-    renderGate()
+    renderGate('/family/members')
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole('heading', { name: 'This feature uses a Family Circle' }),
-      ).toBeInTheDocument()
-    })
-    expect(screen.getByRole('link', { name: 'Return to personal home' })).toHaveAttribute(
-      'href',
-      '/family/personal',
-    )
-    expect(screen.queryByLabelText(/family name/i)).not.toBeInTheDocument()
+    expect(await screen.findByText('Personal home')).toBeInTheDocument()
+    expect(screen.queryByText('Family members')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'This feature uses a Family Circle' }))
+      .not.toBeInTheDocument()
     expect(familyApiService.createFamily).not.toHaveBeenCalled()
   })
 
+  it('sends a family member to personal home instead of family admin pages', async () => {
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue({
+      familyId: 3,
+      familyName: 'Wong Family',
+      memberRole: 'MEMBER',
+      selfProfileId: 77,
+      createdByUserId: 10,
+    })
+
+    renderGate('/family/members')
+
+    expect(await screen.findByText('Personal home')).toBeInTheDocument()
+    expect(screen.queryByText('Family members')).not.toBeInTheDocument()
+  })
+
   it('shows retryable error when /me fails for a non-404 reason', async () => {
-    vi.mocked(familyApiService.getMyFamily).mockRejectedValue(
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockRejectedValue(
       new ApiError('The service is currently unreachable. Your page has been kept open.'),
     )
 

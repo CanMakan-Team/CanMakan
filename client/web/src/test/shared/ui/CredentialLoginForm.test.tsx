@@ -43,15 +43,15 @@ function renderFamilyLogin(initialEntry = '/family-login') {
               <CredentialLoginForm
                 portal="FAMILY"
                 expectedRole="ROLE_APP_USER"
-                destination="/family"
+                destination="/me"
                 buttonLabel="Sign in to Family Portal"
                 buttonClassName="button--primary"
                 registerPath="/family-register"
               />
             }
           />
-          <Route path="/family" element={<p>Family destination</p>} />
-          <Route path="/family/setup-profile" element={<p>Dietary setup</p>} />
+          <Route path="/me" element={<p>Personal home</p>} />
+          <Route path="/me/setup-profile" element={<p>Dietary setup</p>} />
           <Route path="/family-register" element={<p>Register page</p>} />
         </Routes>
       </MemoryRouter>
@@ -99,7 +99,6 @@ describe('CredentialLoginForm', () => {
     const user = userEvent.setup()
     pendingRegistrationOnboardingStore.request({
       email: 'person@example.com',
-      profileName: 'Person Name',
     })
     vi.mocked(authService.loginWithCredentials).mockResolvedValue({
       accessToken: 'jwt',
@@ -156,7 +155,7 @@ describe('CredentialLoginForm', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Family destination')).toBeInTheDocument()
+      expect(screen.getByText('Personal home')).toBeInTheDocument()
     })
   })
 
@@ -187,7 +186,7 @@ describe('CredentialLoginForm', () => {
 
     await waitFor(() => {
       expect(familyApiService.claimInvitation).toHaveBeenCalledWith('invite-token')
-      expect(screen.getByText('Family destination')).toBeInTheDocument()
+      expect(screen.getByText('Personal home')).toBeInTheDocument()
     })
   })
 
@@ -215,7 +214,7 @@ describe('CredentialLoginForm', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('Invitation has expired.')
     })
-    expect(screen.queryByText('Family destination')).not.toBeInTheDocument()
+    expect(screen.queryByText('Personal home')).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Retry invitation claim' }),
     ).toBeInTheDocument()
@@ -259,7 +258,7 @@ describe('CredentialLoginForm', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Claiming invitation…' })).toBeDisabled()
     })
-    expect(screen.queryByText('Family destination')).not.toBeInTheDocument()
+    expect(screen.queryByText('Personal home')).not.toBeInTheDocument()
 
     resolveClaim?.({
       familyId: 1,
@@ -269,7 +268,7 @@ describe('CredentialLoginForm', () => {
       createdByUserId: 10,
     })
     await waitFor(() => {
-      expect(screen.getByText('Family destination')).toBeInTheDocument()
+      expect(screen.getByText('Personal home')).toBeInTheDocument()
     })
   })
 
@@ -304,7 +303,7 @@ describe('CredentialLoginForm', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Family destination')).toBeInTheDocument()
+      expect(screen.getByText('Personal home')).toBeInTheDocument()
     })
     expect(authService.loginWithCredentials).toHaveBeenCalledTimes(1)
     expect(familyApiService.claimInvitation).toHaveBeenCalledTimes(2)
@@ -378,6 +377,6 @@ describe('CredentialLoginForm', () => {
     })
     expect(authSessionStore.getSession()).toBeNull()
     expect(authSessionStore.getAccessToken()).toBeNull()
-    expect(screen.queryByText('Family destination')).not.toBeInTheDocument()
+    expect(screen.queryByText('Personal home')).not.toBeInTheDocument()
   })
 })

@@ -5,6 +5,7 @@ import { familyApiService } from '../api/familyApiService'
 import type { ActiveProfile, FamilyMember, ScanRecord } from '../../../shared/api/types'
 import { getGreetingPeriod } from '../lib/greeting'
 import { ErrorState, LoadingState } from '../../../shared/ui/PageState'
+import { PortalIcon } from '../../../shared/ui/PortalIcon'
 import { StatusBadge } from '../../../shared/ui/StatusBadge'
 
 export function FamilyDashboardPage() {
@@ -87,28 +88,36 @@ export function FamilyDashboardPage() {
 
       <section className="summary-grid" aria-label="Family summary">
         <article className="summary-card">
-          <span className="summary-card__icon" aria-hidden="true">♙</span>
+          <span className="summary-card__icon" aria-hidden="true">
+            <PortalIcon name="people" />
+          </span>
           <div>
             <span>Family members</span>
             <strong>{members.length}</strong>
           </div>
         </article>
         <article className="summary-card">
-          <span className="summary-card__icon" aria-hidden="true">◎</span>
+          <span className="summary-card__icon" aria-hidden="true">
+            <PortalIcon name="person" />
+          </span>
           <div>
             <span>Active profile</span>
             <strong>{active?.profileName ?? 'Not selected'}</strong>
           </div>
         </article>
         <article className="summary-card">
-          <span className="summary-card__icon" aria-hidden="true">▦</span>
+          <span className="summary-card__icon" aria-hidden="true">
+            <PortalIcon name="restrictions" />
+          </span>
           <div>
             <span>Common requirements</span>
             <strong>{commonCodes.length}</strong>
           </div>
         </article>
         <article className="summary-card">
-          <span className="summary-card__icon" aria-hidden="true">◷</span>
+          <span className="summary-card__icon" aria-hidden="true">
+            <PortalIcon name="history" />
+          </span>
           <div>
             <span>Recent scans</span>
             <strong>{scans.length}</strong>
@@ -157,7 +166,9 @@ export function FamilyDashboardPage() {
             </div>
           </Link>
           <Link to="/family/restrictions">
-            <span aria-hidden="true">▦</span>
+            <span aria-hidden="true">
+              <PortalIcon name="restrictions" />
+            </span>
             <div>
               <strong>Review restriction summary</strong>
               <span>Compare dynamically returned restriction codes.</span>

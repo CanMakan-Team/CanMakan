@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { FamilyRegisterPage } from '../../../pages/FamilyRegisterPage'
+import { UserRegisterPage } from '../../../pages/UserRegisterPage'
 import { SessionProvider } from '../../../features/auth/SessionProvider'
 import { authService } from '../../../features/auth/authService'
 import { familyApiService } from '../../../features/family/api/familyApiService'
@@ -39,9 +39,12 @@ function renderRegisterPage(initialEntry = '/family-register') {
     <SessionProvider>
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
-          <Route path="/family-register" element={<FamilyRegisterPage />} />
+          <Route path="/family-register" element={<UserRegisterPage />} />
+          <Route path="/register" element={<UserRegisterPage />} />
+          <Route path="/me/setup-profile" element={<p>Dietary setup</p>} />
           <Route path="/family/setup-profile" element={<p>Dietary setup</p>} />
           <Route path="/family" element={<p>Family destination</p>} />
+          <Route path="/login" element={<LocationProbe />} />
           <Route path="/family-login" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
@@ -50,13 +53,12 @@ function renderRegisterPage(initialEntry = '/family-register') {
 }
 
 async function enterRegistration(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
   await user.type(screen.getByLabelText('Email'), 'person@example.com')
   await user.type(screen.getByLabelText('Password'), 'Password1!')
   await user.type(screen.getByLabelText('Confirm password'), 'Password1!')
 }
 
-describe('FamilyRegisterPage', () => {
+describe('UserRegisterPage', () => {
   beforeEach(() => {
     authSessionStore.clear()
     pendingRegistrationOnboardingStore.clear()
@@ -73,12 +75,11 @@ describe('FamilyRegisterPage', () => {
     vi.mocked(familyApiService.claimInvitation).mockReset()
   })
 
-  it('collects Profile Name and requires matching passwords', async () => {
+  it('requires matching passwords', async () => {
     const user = userEvent.setup()
     renderRegisterPage()
 
-    expect(screen.getByLabelText('Profile Name')).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
+    expect(screen.queryByLabelText('Profile Name')).not.toBeInTheDocument()
     await user.type(screen.getByLabelText('Email'), 'person@example.com')
     await user.type(screen.getByLabelText('Password'), 'Password1!')
     await user.type(screen.getByLabelText('Confirm password'), 'Password2!')
@@ -113,7 +114,6 @@ describe('FamilyRegisterPage', () => {
     })
     expect(pendingRegistrationOnboardingStore.peekForEmail('person@example.com')).toEqual({
       email: 'person@example.com',
-      profileName: 'Person Name',
       invitationToken: undefined,
     })
   })
@@ -138,7 +138,7 @@ describe('FamilyRegisterPage', () => {
     )
     expect(screen.getByRole('link', { name: 'Log in here' })).toHaveAttribute(
       'href',
-      '/family-login?email=person%40example.com',
+      '/login?email=person%40example.com',
     )
     expect(screen.getByRole('button', { name: 'Account created' })).toBeDisabled()
     expect(screen.getByLabelText('Password')).toHaveValue('')
@@ -163,7 +163,7 @@ describe('FamilyRegisterPage', () => {
     )
     expect(screen.getByRole('link', { name: 'Log in here' })).toHaveAttribute(
       'href',
-      '/family-login?email=person%40example.com',
+      '/login?email=person%40example.com',
     )
     expect(pendingRegistrationOnboardingStore.peekForEmail('person@example.com')).toBeNull()
   })
@@ -195,7 +195,6 @@ describe('FamilyRegisterPage', () => {
     )
     expect(screen.getByLabelText('Email')).toBeDisabled()
 
-    await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
     await user.type(screen.getByLabelText('Password'), 'Password1!')
     await user.type(screen.getByLabelText('Confirm password'), 'Password1!')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
@@ -207,10 +206,8 @@ describe('FamilyRegisterPage', () => {
       invitationToken: 'invite-token',
     })
     // The invitation must be claimed right after login succeeds, not deferred to
-    // whatever the user does next on the dietary-profile setup screen. The typed
-    // Profile Name goes along so the auto-provisioned SELF profile is created
-    // with it instead of an email-derived placeholder.
-    expect(familyApiService.claimInvitation).toHaveBeenCalledWith('invite-token', 'Person Name')
+    // whatever the user does next on the dietary-profile setup screen.
+    expect(familyApiService.claimInvitation).toHaveBeenCalledWith('invite-token')
     expect(
       pendingRegistrationOnboardingStore.peekForEmail('person@example.com')?.invitationToken,
     ).toBeUndefined()
@@ -238,13 +235,12 @@ describe('FamilyRegisterPage', () => {
       expect(screen.getByLabelText('Email')).toHaveValue('person@example.com'),
     )
 
-    await user.type(screen.getByLabelText('Profile Name'), 'Person Name')
     await user.type(screen.getByLabelText('Password'), 'Password1!')
     await user.type(screen.getByLabelText('Confirm password'), 'Password1!')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
     await waitFor(() => expect(screen.getByText('Dietary setup')).toBeInTheDocument())
-    expect(familyApiService.claimInvitation).toHaveBeenCalledWith('invite-token', 'Person Name')
+    expect(familyApiService.claimInvitation).toHaveBeenCalledWith('invite-token')
     // Setup-profile's own finishPath() fallback still has a token to retry with.
     expect(
       pendingRegistrationOnboardingStore.peekForEmail('person@example.com')?.invitationToken,

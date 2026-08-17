@@ -9,6 +9,9 @@ Android uses Jetpack Compose + Material 3. Web uses React + plain CSS.
 A single component library would force a large stack change. Tokens keep
 brand colors aligned without sharing Compose/React UI code.
 
+Shared mascot PNGs are not tokens. They live in
+[`client/shared/assets/mascot/`](../client/shared/assets/mascot/).
+
 ## Workflow
 
 1. Edit [`colors.json`](./colors.json) (semantic / brand entries with `compose`

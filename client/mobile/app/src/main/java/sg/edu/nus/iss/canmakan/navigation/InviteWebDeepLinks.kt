@@ -18,7 +18,7 @@ object InviteWebDeepLinks {
     }
 
     /**
-     * Public Family Portal home. Local emulator hosts are skipped so
+     * Public User Portal home (`/family` resolver). Local emulator hosts are skipped so
      * a device does not try to open localhost.
      */
     fun familyPortalMembersUrl(baseUrlsCsv: String = BuildConfig.WEB_INVITE_BASE_URLS): String? {

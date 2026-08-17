@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.settings
+package sg.edu.nus.iss.canmakan.features.account
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
