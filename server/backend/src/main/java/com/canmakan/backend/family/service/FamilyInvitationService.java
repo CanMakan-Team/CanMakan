@@ -58,7 +58,7 @@ public class FamilyInvitationService {
     @Transactional
     public InvitationResponse createInvitation(long adminUserId, CreateInvitationRequest request) {
         FamilyMember adminMembership = familyAuthorization.requirePrimaryAdmin(adminUserId);
-        String email = request.email();
+        String email = FamilyDisplayUtil.normalizeEmail(request.email());
         Optional<UserAccount> invitee = userAccountRepository.findByEmail(email);
 
         if (invitee.isPresent() && familyMemberRepository.existsByIdUserId(invitee.get().getId())) {
