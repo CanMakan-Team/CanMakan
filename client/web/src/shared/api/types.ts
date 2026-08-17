@@ -24,9 +24,6 @@ export type Relationship =
   | 'DEPENDANT' // Dependant
   | 'OTHER' // Other
 
-// Define the age group type
-export type AgeGroup = 'CHILD' | 'TEEN' | 'ADULT' | 'SENIOR' | 'UNSPECIFIED'
-
 // Define the restriction code type.
 // These values must match server/backend dietary_restrictions.code exactly
 // (not just resemble it) -- the backend resolves a selection by looking up
@@ -111,7 +108,6 @@ export interface FamilyMember {
   linkedUserId?: number | null // null if there is no linked user (i.e. dependant profile)
   profileName: string // name of the profile
   relationship: Relationship // relationship of the profile
-  ageGroup: AgeGroup // age group of the profile
   commonRequirements: RestrictionCode[] // common requirements of the profile
   restrictions: RestrictionCode[] // restrictions of the profile
   source: 'REGISTERED_USER' | 'DEPENDANT_PROFILE' // source of the profile
@@ -124,7 +120,6 @@ export interface FamilyMember {
 export interface FamilyProfileInput {
   profileName: string // name of the profile
   relationship: Relationship // relationship of the profile
-  ageGroup: AgeGroup // age group of the profile
   commonRequirements: RestrictionCode[] // common requirements of the profile
   restrictions: RestrictionCode[] // restrictions of the profile
 }

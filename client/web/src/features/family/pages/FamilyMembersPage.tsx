@@ -207,7 +207,6 @@ export function FamilyMembersPage() {
                     <div>
                       <h2>{member.profileName}</h2>
                       {caption ? <p>{caption}</p> : null}
-                      <p>{formatCode(member.ageGroup)}</p>
                     </div>
                     <div className="profile-card__meta">
                       <span className="source-label">

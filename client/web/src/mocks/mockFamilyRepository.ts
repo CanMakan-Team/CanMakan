@@ -137,7 +137,6 @@ export const mockFamilyRepository = {
       linkedUserId: match.userId,
       profileName: match.displayName,
       relationship: 'OTHER',
-      ageGroup: 'UNSPECIFIED',
       commonRequirements: [],
       restrictions: [],
       source: 'REGISTERED_USER',
@@ -194,7 +193,6 @@ export const mockFamilyRepository = {
       ...state.members[index],
       profileName: input.profileName,
       relationship: input.relationship,
-      ageGroup: input.ageGroup,
       commonRequirements: input.commonRequirements,
       restrictions: input.restrictions,
     }

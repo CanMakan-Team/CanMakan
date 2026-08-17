@@ -566,7 +566,6 @@ class FamilyServiceTest {
         assertEquals(2L, rows.get(1).memberId());
         assertEquals("DEPENDANT_PROFILE", rows.get(1).source());
         assertEquals("Toddler", rows.get(1).profileName());
-        assertEquals("UNSPECIFIED", rows.get(1).ageGroup());
         assertTrue(rows.get(1).profileActive());
     }
 

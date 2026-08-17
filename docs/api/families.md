@@ -154,7 +154,6 @@ Any family member may list. Returns linked users and dependant profiles:
     "linkedUserId": 10,
     "profileName": "Admin",
     "relationship": "SELF",
-    "ageGroup": "UNSPECIFIED",
     "commonRequirements": ["HALAL"],
     "restrictions": ["PEANUT_ALLERGY"],
     "source": "REGISTERED_USER",
@@ -168,7 +167,6 @@ Any family member may list. Returns linked users and dependant profiles:
     "linkedUserId": null,
     "profileName": "Toddler",
     "relationship": "CHILD",
-    "ageGroup": "UNSPECIFIED",
     "commonRequirements": [],
     "restrictions": [],
     "source": "DEPENDANT_PROFILE",
@@ -186,7 +184,6 @@ Any family member may list. Returns linked users and dependant profiles:
 | `linkedUserId` | Present for registered members; null for dependants |
 | `memberRole` | `PRIMARY_ADMIN` / `MEMBER` / null for dependants |
 | `profileActive` | `dietary_profiles.is_active` |
-| `ageGroup` | Always `UNSPECIFIED` until age is persisted on profiles |
 | `commonRequirements` | Restriction codes whose catalog category is `RELIGIOUS` |
 | `restrictions` | All other catalog categories (allergens, diets, etc.) |
 | `maskedEmail` | Present for linked users only |
