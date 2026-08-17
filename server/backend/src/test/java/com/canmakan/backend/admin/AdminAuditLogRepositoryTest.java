@@ -2,6 +2,8 @@ package com.canmakan.backend.admin;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.canmakan.backend.admin.model.AdminAuditLog;
+import com.canmakan.backend.admin.repository.AdminAuditLogRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import java.sql.PreparedStatement;

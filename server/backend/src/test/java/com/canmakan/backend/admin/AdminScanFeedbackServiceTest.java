@@ -3,6 +3,7 @@ package com.canmakan.backend.admin;
 import com.canmakan.backend.admin.dto.AdminScanFeedbackListResponse;
 import com.canmakan.backend.admin.dto.UpdateScanFeedbackResolvedResponse;
 import com.canmakan.backend.admin.exception.AdminScanFeedbackNotFoundException;
+import com.canmakan.backend.admin.service.AdminScanFeedbackService;
 import com.canmakan.backend.product.scan.AdminScanFeedbackView;
 import com.canmakan.backend.product.scan.ScanFeedback;
 import com.canmakan.backend.product.scan.ScanFeedbackRepository;
