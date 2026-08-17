@@ -239,6 +239,13 @@ export function FamilyRestrictionSummaryPage() {
         <ErrorState message={error} onRetry={loadSummary} />
       ) : (
         <div className="restriction-summary-stack">
+          <div className="notice notice--warning">
+            <strong>Profile summary only</strong>
+            <p>
+              This grid records configured requirements; it does not rate medical
+              risk or make a food-safety assessment.
+            </p>
+          </div>
 
           {activeMembers.length === 0 ? (
             <EmptyState
