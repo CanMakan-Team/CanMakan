@@ -2,6 +2,8 @@
 
 Java Spring Boot backend for the Barcode AI Ingredient Interpreter.
 
+Code quality assessment, refactoring plan checklist, and progress tracking: see [Backend Code Quality](../../docs/code-quality/BACKEND-CODE-QUALITY.md).
+
 ## Package Philosophy
 
 The backend is organised by **feature** (vertical slices) rather than by technical layer.
@@ -24,6 +26,17 @@ Each top-level package represents a cohesive business capability. This makes the
 4. **Pragmatic granularity**  
    Packages are intentionally not too fine-grained. Tightly coupled flows are kept together to reduce friction during early development.
 
+5. **Size-based layout inside a feature**  
+   Do **not** force every feature into the same deep folder tree. Choose layout by size:
+
+| Feature size | Layout |
+| --- | --- |
+| Large / many types (`family`, `auth`, `dietaryprofile`, `admin`) | Nest `dto/`, `exception/`, `model/`, `repository/`; nest `service/` **or** keep a thin root (controllers + facade only) |
+| Multi-capability domain (`product`) | Keep capability sub-slices (`scan/`, `recommendation/`, …); co-locate DTO/service/repo inside each slice |
+| Small (`notification`, `session`, `integration`) | Flat OK until ~8–10 types; then add `dto/` + `exception/` first |
+
+See [Backend Code Quality](../../docs/code-quality/BACKEND-CODE-QUALITY.md) (F19) for packaging history and non-goals (no mass `product` DTO re-package; dual `ScanProduct` / `CatalogProduct` read models stay intentional).
+
 ## Package Overview
 
 ```
@@ -33,6 +46,9 @@ Each top-level package represents a cohesive business capability. This makes the
 | `auth`             | Login, logout, tokens, sessions                      |
 | `dietaryprofile`   | Individual dietary needs and restrictions            |
 | `family`           | Family membership and active profile switching       |
+| `user`             | Account entity, preferences, projection views        |
+| `notification`     | Per-user inbox for invite and system cards           |
+| `session`          | Lightweight session tracking                         |
 | `product`          | Scanning, verdicts, recommendations, history         |
 | `analytics`        | Trends, statistics, AI metrics, exports              |
 | `admin`            | Account, role, health and subscription management    |
@@ -48,15 +64,17 @@ This repository uses feature-first package boundaries even though implementation
 ```
 |     Package      |       Status       |                                 Notes                            |
 |------------------|--------------------|------------------------------------------------------------------|
-| `dietaryprofile` |     Implemented    | Active API, service, repository, and entity mapping              |
-| `family`         | Partial (UC8)  | Create circle + `/families/me` live; D2 UNIQUE; JWT principal. Invite/manage/switch → UC9–UC12 |
-| `user`           |     Foundation     | User entity mapping used for profile linkage and ownership       |
+| `dietaryprofile` |     Implemented    | Nested model/repository/dto/service; active API                  |
+| `family`         |     Implemented    | Thin root (controllers + facade); collaborators in `service/`    |
+| `user`           |     Implemented    | Nested `model/` + `repository/`; preferences API                 |
+| `notification`   |     Implemented    | Inbox API; `dto/` + `exception/` nested                          |
+| `session`        |     Implemented    | Small flat package (under type-count threshold)                  |
 | `knowledgebase`  |     Foundation     | Domain models available; service APIs in progress                |
-| `product`        |     Foundation     | Initial model types available                                    |
-| `auth`           |    Partial | Register + JWT login/refresh/logout/me; family/scan require JWT |
-| `admin`          |    Planned/partial | Package scaffolded; implementation to expand                     |
+| `product`        |     Implemented    | Slice layout (`scan`, `recommendation`, …); dual product entities |
+| `auth`           |     Implemented    | Register + JWT login/refresh/logout/me                           |
+| `admin`          |     Implemented    | Nested admin layout; account + health APIs                       |
 | `analytics`      |    Planned/partial | Package scaffolded; implementation to expand                     |
-| `integration`    |    Planned/partial | Package scaffolded; implementation to expand                     |
+| `integration`    |     Implemented    | External clients for OFF / OpenRouter / search                   |
 ```
 
 ## Resource Source Of Truth
@@ -85,6 +103,8 @@ From `server/backend` on Windows:
 
 Database and external-service defaults are available in `application.properties`.
 Access-token signing material intentionally has no insecure local fallback.
+
+**Profiles:** `spring.profiles.default=dev` so local runs and tests still seed MySQL and allow LAN CORS patterns. Deployed EC2 instances set `SPRING_PROFILES_ACTIVE=prod` via [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) (overridable with GitHub Environment variable `SPRING_PROFILES_ACTIVE` on `staging` / `production`). That loads `application-prod.properties` (no SQL seed, `ddl-auto=validate`, empty CORS origin patterns, no Hibernate SQL DEBUG).
 
 Requirements for a successful local run:
 
