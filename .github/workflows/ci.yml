@@ -195,6 +195,7 @@ jobs:
 
       # UC9 invites
       CANMAKAN_INVITES_PUBLIC_BASE_URL: ${{ secrets.CANMAKAN_INVITES_PUBLIC_BASE_URL }}
+      FIREBASE_APP_DISTRIBUTION_URL: ${{ secrets.FIREBASE_APP_DISTRIBUTION_URL }}
       CANMAKAN_INVITES_EXPIRY_DAYS: ${{ secrets.CANMAKAN_INVITES_EXPIRY_DAYS }}
 
       # UC10 Resend invitation email
@@ -392,7 +393,8 @@ jobs:
     env:
       # Optional override for debug assemble; defaults to emulator localhost in Gradle.
       BASE_URL: ${{ secrets.MOBILE_BASE_URL }}
-      WEB_INVITE_BASE_URLS: ${{ secrets.WEB_INVITE_BASE_URLS }}
+      # Same secret as backend invite minting (CSV aliases OK for App Links).
+      CANMAKAN_INVITES_PUBLIC_BASE_URL: ${{ secrets.CANMAKAN_INVITES_PUBLIC_BASE_URL }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v7.0.1
@@ -417,8 +419,8 @@ jobs:
           if [ -n "${{ env.BASE_URL }}" ]; then
             echo "BASE_URL=${{ env.BASE_URL }}" >> client/mobile/local.properties
           fi
-          if [ -n "${{ env.WEB_INVITE_BASE_URLS }}" ]; then
-            echo "WEB_INVITE_BASE_URLS=${{ env.WEB_INVITE_BASE_URLS }}" >> client/mobile/local.properties
+          if [ -n "${{ env.CANMAKAN_INVITES_PUBLIC_BASE_URL }}" ]; then
+            echo "CANMAKAN_INVITES_PUBLIC_BASE_URL=${{ env.CANMAKAN_INVITES_PUBLIC_BASE_URL }}" >> client/mobile/local.properties
           fi
 
       - name: Build, unit-test, and coverage

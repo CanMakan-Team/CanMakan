@@ -51,7 +51,7 @@
                     android:pathPrefix="/" />
             </intent-filter>
 
-            <!-- Invite web origins from WEB_INVITE_BASE_URLS (localhost for debug, Firebase for deploy). -->
+            <!-- Invite web origins from CANMAKAN_INVITES_PUBLIC_BASE_URL (localhost for debug, Firebase for deploy). -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
