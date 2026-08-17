@@ -25,17 +25,10 @@ class InvitationEmailServiceTest {
         InvitationEmailService service =
             new InvitationEmailService(new ResendProperties(), inviteProperties);
 
-        InvitationResponse invitation = new InvitationResponse(
-            1L,
-            "guest@example.com",
-            "SPOUSE",
+        InvitationResponse invitation = invitation(
             "token",
-            "ABCD1234",
             "https://canmakan-project.web.app/invite/token",
-            InvitationStatus.PENDING,
-            Instant.parse("2026-08-16T00:00:00Z"),
-            false,
-            true
+            Instant.parse("2026-08-16T00:00:00Z")
         );
 
         String html = service.buildInvitationHtml("Wong Family", invitation, true);
@@ -67,22 +60,99 @@ class InvitationEmailServiceTest {
         InvitationEmailService service =
             new InvitationEmailService(new ResendProperties(), inviteProperties);
 
-        InvitationResponse invitation = new InvitationResponse(
-            1L,
-            "guest@example.com",
-            "SPOUSE",
-            "token",
-            "ABCD1234",
-            "https://canmakan-project.web.app/invite/token",
-            InvitationStatus.PENDING,
-            null,
-            false,
+        String html = service.buildInvitationHtml(
+            "Wong Family",
+            invitation("token", "https://canmakan-project.web.app/invite/token", null),
             false
         );
 
-        String html = service.buildInvitationHtml("Wong Family", invitation, false);
-
         assertThat(html).contains("href=\"canmakan://invite/token\"");
         assertThat(html).contains("https://canmakan-project.web.app/email/canmakan-mascot-wave.png");
+        assertThat(html).contains("will not wait forever");
+    }
+
+    @Test
+    void htmlShowsWebOnlyAcceptLinkWhenMobileBaseIsBlank() {
+        InviteProperties inviteProperties = new InviteProperties();
+        inviteProperties.setMobileBaseUrl(" ");
+        InvitationEmailService service =
+            new InvitationEmailService(new ResendProperties(), inviteProperties);
+
+        String html = service.buildInvitationHtml(
+            "Wong Family",
+            invitation("token", "https://canmakan-project.web.app/invite/token", null),
+            true
+        );
+
+        assertThat(html).contains("Accept via <a href=\"https://canmakan-project.web.app/invite/token\">web</a>.</p>");
+        assertThat(html).doesNotContain(">mobile</a>");
+    }
+
+    @Test
+    void htmlShowsMobileOnlyAcceptLinkWhenWebInviteUrlMissing() {
+        InviteProperties inviteProperties = new InviteProperties();
+        inviteProperties.setMobileBaseUrl("canmakan://invite");
+        InvitationEmailService service =
+            new InvitationEmailService(new ResendProperties(), inviteProperties);
+
+        String html = service.buildInvitationHtml(
+            "Wong & Family",
+            invitation("token", null, null),
+            true
+        );
+
+        assertThat(html).contains("<strong>Wong &amp; Family</strong>");
+        assertThat(html).contains("Accept via <a href=\"canmakan://invite/token\">mobile</a>.</p>");
+        assertThat(html).doesNotContain(">web</a>");
+    }
+
+    @Test
+    void htmlOmitsAcceptLinksWhenBothUrlsMissing() {
+        InviteProperties inviteProperties = new InviteProperties();
+        inviteProperties.setMobileBaseUrl("");
+        InvitationEmailService service =
+            new InvitationEmailService(new ResendProperties(), inviteProperties);
+
+        String html = service.buildInvitationHtml(
+            "Wong Family",
+            invitation("token", "   ", null),
+            true
+        );
+
+        assertThat(html).doesNotContain("Accept via");
+    }
+
+    @Test
+    void sendInvitationEmailReturnsFalseWhenResendIsNotConfigured() {
+        ResendProperties resend = new ResendProperties();
+        resend.setEnabled(false);
+        InvitationEmailService service =
+            new InvitationEmailService(resend, new InviteProperties());
+
+        boolean sent = service.sendInvitationEmail(
+            "Wong Family",
+            invitation("token", "https://canmakan-project.web.app/invite/token", null)
+        );
+
+        assertThat(sent).isFalse();
+    }
+
+    private static InvitationResponse invitation(
+        String token,
+        String inviteUrl,
+        Instant expiresAt
+    ) {
+        return new InvitationResponse(
+            1L,
+            "guest@example.com",
+            "SPOUSE",
+            token,
+            "ABCD1234",
+            inviteUrl,
+            InvitationStatus.PENDING,
+            expiresAt,
+            false,
+            true
+        );
     }
 }
