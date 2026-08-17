@@ -26,6 +26,25 @@ export const ageGroupOptions: Array<{ value: AgeGroup; label: string }> = [
 
 export const RESTRICTION_CATEGORY_ORDER = ['RELIGIOUS', 'ALLERGEN', 'DIET']
 
+// Reader-friendly headings for the catalog's raw category values, shared by
+// the personal and family dietary editors.
+const restrictionCategoryLabels: Record<string, string> = {
+  RELIGIOUS: 'Religious requirements',
+  ALLERGEN: 'Allergies and intolerances',
+  DIET: 'Specific diets and health preferences',
+}
+
+export function restrictionCategoryLabel(category: string) {
+  return (
+    restrictionCategoryLabels[category] ??
+    category
+      .toLowerCase()
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  )
+}
+
 export function groupCatalogByCategory<T extends { category: string }>(
   catalog: T[],
 ): Array<[string, T[]]> {

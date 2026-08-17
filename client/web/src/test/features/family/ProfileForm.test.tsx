@@ -33,8 +33,10 @@ describe('ProfileForm', () => {
     expect(
       screen.getAllByRole('checkbox').map((checkbox) => checkbox.closest('label')?.textContent?.trim()),
     ).toEqual(['Halal', 'Kosher', 'Peanut Allergy', 'Egg Allergy', 'Vegan'])
-    expect(screen.getByText('RELIGIOUS')).toBeInTheDocument()
-    expect(screen.getByText('ALLERGEN')).toBeInTheDocument()
-    expect(screen.getByText('DIET')).toBeInTheDocument()
+    expect(screen.getByText('Religious requirements')).toBeInTheDocument()
+    expect(screen.getByText('Allergies and intolerances')).toBeInTheDocument()
+    expect(
+      screen.getByText('Specific diets and health preferences'),
+    ).toBeInTheDocument()
   })
 })

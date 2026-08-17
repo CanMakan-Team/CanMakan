@@ -11,7 +11,10 @@ import {
   type ProfileRestrictionSeverity,
   type SelfProfileResponse,
 } from '../api/selfProfileApiService'
-import { groupCatalogByCategory } from '../../family/lib/profileOptions'
+import {
+  groupCatalogByCategory,
+  restrictionCategoryLabel,
+} from '../../family/lib/profileOptions'
 
 const RELIGIOUS_CATEGORY = 'RELIGIOUS'
 
@@ -231,7 +234,7 @@ export function SelfProfileSetupPage() {
         {!loading
           ? groupedCatalog.map(([category, options]) => (
               <fieldset key={category} className="dietary-setup__category">
-                <legend>{category.replaceAll('_', ' ')}</legend>
+                <legend>{restrictionCategoryLabel(category)}</legend>
                 <div className="checkbox-grid">
                   {options.map((option) => {
                     const isSelected = Boolean(selected[option.id])

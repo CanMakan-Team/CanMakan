@@ -9,6 +9,7 @@ import {
   ageGroupOptions,
   groupCatalogByCategory,
   relationshipOptions,
+  restrictionCategoryLabel,
 } from '../lib/profileOptions'
 import { getProfileNameError } from '../../../shared/validation/profileFields'
 import {
@@ -209,7 +210,7 @@ export function ProfileForm({
         {!catalogLoading
           ? groupedCatalog.map(([category, options]) => (
               <fieldset key={category} disabled={!allowRestrictionEdit}>
-                <legend>{category.replaceAll('_', ' ')}</legend>
+                <legend>{restrictionCategoryLabel(category)}</legend>
                 <div className="checkbox-grid">
                   {options.map((option) => {
                     const code = option.code as RestrictionCode
