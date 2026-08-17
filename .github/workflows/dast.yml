@@ -47,20 +47,16 @@ jobs:
 
       - name: Run ZAP API Scan (Backend)
         uses: zaproxy/action-api-scan@v0.8.0
+        env:
+          ZAP_AUTH_HEADER: Authorization
+          ZAP_AUTH_HEADER_VALUE: "Bearer ${{ secrets.DAST_TEST_JWT }}"
+          ZAP_AUTH_HEADER_SITE: "api.staging.canmakan.space"
         with:
           format: openapi
-          # Ensure this URL matches your actual OpenAPI/Swagger JSON endpoint
           target: 'https://api.staging.canmakan.space/v3/api-docs'
           issue_title: 'DAST Vulnerability Report - API Staging'
           token: ${{ secrets.GITHUB_TOKEN }}
           fail_action: false
-          cmd_options: >-
-            -config replacer.full_list(0).description="JWT Auth"
-            -config replacer.full_list(0).enabled=true
-            -config replacer.full_list(0).matchtype=req_header
-            -config replacer.full_list(0).matchstr="Authorization"
-            -config replacer.full_list(0).regex=false
-            -config replacer.full_list(0).replacement="Bearer ${{ secrets.DAST_TEST_JWT }}"
 
       - name: Upload API Scan Reports
         uses: actions/upload-artifact@v4.3.1
