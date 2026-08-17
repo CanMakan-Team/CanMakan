@@ -4,12 +4,15 @@ import java.net.URI
 import sg.edu.nus.iss.canmakan.BuildConfig
 
 /**
- * HTTPS invite hosts come from {@code WEB_INVITE_BASE_URLS}
- * (local.properties, Gradle property, or env). Custom scheme stays app-owned.
+ * HTTPS invite hosts come from {@code CANMAKAN_INVITES_PUBLIC_BASE_URL}
+ * (local.properties, Gradle property, or env; same name as backend).
+ * Custom scheme {@code canmakan://invite/{token}} stays app-owned.
+ * Firebase App Distribution install links are backend/web shared
+ * ({@code FIREBASE_APP_DISTRIBUTION_URL}) and are not App Link hosts.
  */
 object InviteWebDeepLinks {
 
-    fun uriPatterns(baseUrlsCsv: String = BuildConfig.WEB_INVITE_BASE_URLS): List<String> {
+    fun uriPatterns(baseUrlsCsv: String = BuildConfig.CANMAKAN_INVITES_PUBLIC_BASE_URL): List<String> {
         val webPatterns = baseUrlsCsv.split(",")
             .map { it.trim().trimEnd('/') }
             .filter { it.isNotEmpty() }
@@ -21,7 +24,7 @@ object InviteWebDeepLinks {
      * Public User Portal home (`/family` resolver). Local emulator hosts are skipped so
      * a device does not try to open localhost.
      */
-    fun familyPortalMembersUrl(baseUrlsCsv: String = BuildConfig.WEB_INVITE_BASE_URLS): String? {
+    fun familyPortalMembersUrl(baseUrlsCsv: String = BuildConfig.CANMAKAN_INVITES_PUBLIC_BASE_URL): String? {
         val origin = baseUrlsCsv.split(",")
             .map { it.trim().trimEnd('/') }
             .firstOrNull { raw -> isPublicHttpsOrigin(raw) }

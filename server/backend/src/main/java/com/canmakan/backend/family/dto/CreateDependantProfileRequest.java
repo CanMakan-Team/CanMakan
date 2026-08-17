@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * Create a dependant dietary profile (no login account / no family_members row).
- * Restriction lists use catalog codes; unknown fields such as ageGroup are ignored.
+ * Restriction lists use catalog codes.
  * 
  * @author Amelia
  */

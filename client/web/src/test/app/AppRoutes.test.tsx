@@ -30,6 +30,9 @@ vi.mock('../../features/account/api/selfProfileApiService', () => ({
   },
 }))
 
+// Personal home greets the signed-in user, so the heading varies with the time of day.
+const PERSONAL_HOME_HEADING = /^Good (morning|afternoon|evening), person\.$/
+
 function sessionValue(session: SessionContextValue['session']): SessionContextValue {
   return {
     session,
@@ -94,7 +97,7 @@ describe('AppRoutes USER and family boundaries', () => {
     expect(await screen.findByLabelText('Profile Name')).toHaveValue('')
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
-    expect(await screen.findByRole('heading', { name: 'Your CanMakan account' }))
+    expect(await screen.findByRole('heading', { name: PERSONAL_HOME_HEADING }))
       .toBeInTheDocument()
     expect(selfProfileApiService.createSelfProfile).not.toHaveBeenCalled()
     expect(familyApiService.getMyFamily).not.toHaveBeenCalled()
@@ -114,7 +117,7 @@ describe('AppRoutes USER and family boundaries', () => {
     renderRoutes('/family/personal', appUserSession())
 
     expect(
-      await screen.findByRole('heading', { name: 'Your CanMakan account' }),
+      await screen.findByRole('heading', { name: PERSONAL_HOME_HEADING }),
     ).toBeInTheDocument()
   })
 
@@ -130,7 +133,7 @@ describe('AppRoutes USER and family boundaries', () => {
     renderRoutes('/family/members', appUserSession())
 
     expect(
-      await screen.findByRole('heading', { name: 'Your CanMakan account' }),
+      await screen.findByRole('heading', { name: PERSONAL_HOME_HEADING }),
     ).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Family Members' })).not.toBeInTheDocument()
   })
@@ -141,7 +144,7 @@ describe('AppRoutes USER and family boundaries', () => {
     renderRoutes('/family/members', appUserSession())
 
     expect(
-      await screen.findByRole('heading', { name: 'Your CanMakan account' }),
+      await screen.findByRole('heading', { name: PERSONAL_HOME_HEADING }),
     ).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Family Members' })).not.toBeInTheDocument()
     expect(
@@ -155,7 +158,7 @@ describe('AppRoutes USER and family boundaries', () => {
     renderRoutes('/me', appUserSession())
 
     expect(
-      await screen.findByRole('heading', { name: 'Your CanMakan account' }),
+      await screen.findByRole('heading', { name: PERSONAL_HOME_HEADING }),
     ).toBeInTheDocument()
     await user.click(await screen.findByRole('link', { name: 'Create Family Circle' }))
 
@@ -163,7 +166,7 @@ describe('AppRoutes USER and family boundaries', () => {
       await screen.findByRole('heading', { name: 'Create your family circle' }),
     ).toBeInTheDocument()
     expect(
-      screen.queryByRole('heading', { name: 'Your CanMakan account' }),
+      screen.queryByRole('heading', { name: PERSONAL_HOME_HEADING }),
     ).not.toBeInTheDocument()
   })
 })

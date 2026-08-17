@@ -1,11 +1,3 @@
-export interface VerdictTrendPoint {
-  date: string
-  safeCount: number
-  warningCount: number
-  unsafeCount: number
-  totalCount: number
-}
-
 /**
  * UC14 - View Scan Verdict Trend.
  *
@@ -14,15 +6,25 @@ export interface VerdictTrendPoint {
  * minimum ceiling (at least 10) and rounds up to a "nice" value for larger datasets, so a family that
  * only scans a few items per day still gets a calm, readable line near the baseline rather than a
  * spiky graph that fills the whole panel. Colours are the same ones the verdict-distribution donut
- * uses. A visually-hidden table mirrors the data for screen-reader and no-CSS access.
+ * uses. A visually hidden table mirrors the data for screen-reader and no-CSS access.
  */
+
+export interface VerdictTrendPoint {
+  date: string
+  safeCount: number
+  warningCount: number
+  unsafeCount: number
+  totalCount: number
+}
+
+export type VerdictTrendSeriesKey = 'safe' | 'warning' | 'unsafe'
 
 const SAFE_COLOR = '#27875b'
 const WARNING_COLOR = '#d6a12b'
 const UNSAFE_COLOR = '#b24b44'
 
 const WIDTH = 720
-const HEIGHT = 240
+const HEIGHT = 280
 const PADDING = { top: 16, right: 16, bottom: 28, left: 40 }
 
 // The y-axis never shrinks below this, so sparse data (about one scan per day) draws a gentle line
@@ -47,14 +49,30 @@ function niceStep(target: number): number {
   return stepFactor * power
 }
 
-export function VerdictTrendChart({ points }: { points: VerdictTrendPoint[] }) {
+export function VerdictTrendChart({
+  points,
+  visibleSeries = ['safe', 'warning', 'unsafe'],
+}: {
+  points: VerdictTrendPoint[]
+  visibleSeries?: VerdictTrendSeriesKey[]
+}) {
   if (points.length === 0) {
     return <p>No daily trend data was available for this period.</p>
   }
 
   const innerWidth = WIDTH - PADDING.left - PADDING.right
   const innerHeight = HEIGHT - PADDING.top - PADDING.bottom
-  const dataMax = Math.max(0, ...points.map((point) => point.totalCount))
+  const visible = new Set(visibleSeries)
+  const dataMax = Math.max(
+    0,
+    ...points.map((point) =>
+      Math.max(
+        visible.has('safe') ? point.safeCount : 0,
+        visible.has('warning') ? point.warningCount : 0,
+        visible.has('unsafe') ? point.unsafeCount : 0,
+      ),
+    ),
+  )
   const target = Math.max(dataMax, MINIMUM_AXIS_MAX)
   const step = niceStep(target)
   const axisMax = Math.ceil(target / step) * step
@@ -75,22 +93,36 @@ export function VerdictTrendChart({ points }: { points: VerdictTrendPoint[] }) {
   )
 
   const series = [
-    { key: 'safe', color: SAFE_COLOR, valueOf: (point: VerdictTrendPoint) => point.safeCount },
-    { key: 'warning', color: WARNING_COLOR, valueOf: (point: VerdictTrendPoint) => point.warningCount },
-    { key: 'unsafe', color: UNSAFE_COLOR, valueOf: (point: VerdictTrendPoint) => point.unsafeCount },
-  ]
+    { key: 'safe' as const, color: SAFE_COLOR, valueOf: (point: VerdictTrendPoint) => point.safeCount },
+    {
+      key: 'warning' as const,
+      color: WARNING_COLOR,
+      valueOf: (point: VerdictTrendPoint) => point.warningCount,
+    },
+    {
+      key: 'unsafe' as const,
+      color: UNSAFE_COLOR,
+      valueOf: (point: VerdictTrendPoint) => point.unsafeCount,
+    },
+  ].filter((line) => visible.has(line.key))
 
   return (
     <>
       <svg
+        className="verdict-trend-chart"
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        style={{ width: '100%', height: 'auto' }}
         role="img"
         aria-label="Line chart of safe, warning and unsafe scan counts per day."
       >
         {yTicks.map((tick) => (
           <g key={tick}>
-            <line x1={PADDING.left} y1={yOf(tick)} x2={WIDTH - PADDING.right} y2={yOf(tick)} stroke="#eceae3" />
+            <line
+              x1={PADDING.left}
+              y1={yOf(tick)}
+              x2={WIDTH - PADDING.right}
+              y2={yOf(tick)}
+              stroke="#eceae3"
+            />
             <text x={PADDING.left - 6} y={yOf(tick) + 3} textAnchor="end" fontSize="10" fill="#8a938d">
               {tick}
             </text>
@@ -98,13 +130,22 @@ export function VerdictTrendChart({ points }: { points: VerdictTrendPoint[] }) {
         ))}
 
         {series.map((line) => {
-          const linePoints = points.map((point, index) => `${centerAt(index)},${yOf(line.valueOf(point))}`).join(' ')
+          const linePoints = points
+            .map((point, index) => `${centerAt(index)},${yOf(line.valueOf(point))}`)
+            .join(' ')
           // Close the line back down to the baseline so the enclosed area can be filled with colour.
           const areaPoints = `${centerAt(0)},${baseline} ${linePoints} ${centerAt(count - 1)},${baseline}`
           return (
             <g key={line.key}>
               <polygon points={areaPoints} fill={line.color} fillOpacity={0.18} stroke="none" />
-              <polyline points={linePoints} fill="none" stroke={line.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+              <polyline
+                points={linePoints}
+                fill="none"
+                stroke={line.color}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
             </g>
           )
         })}
@@ -123,7 +164,7 @@ export function VerdictTrendChart({ points }: { points: VerdictTrendPoint[] }) {
         ))}
       </svg>
 
-      <table className="compact-table accessible-equivalent">
+      <table className="accessible-equivalent">
         <caption>Accessible daily verdict trend values</caption>
         <thead>
           <tr>

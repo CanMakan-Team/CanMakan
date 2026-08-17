@@ -670,7 +670,7 @@ UC19, UC9
 
 - **Mobile (required):** `ActiveProfileManager` + drawer (`ProfileDrawerContent`) lets the user pick a profile for scan/history/restrictions. On startup/login, nav graph loads `GET /api/families/me/active-profile` after `/me` + profiles; drawer selection calls `PUT /api/families/me/active-profile`. No `DEFAULT_PROFILE_ID=1L` fallback (`UNSET_PROFILE_ID=0` until resolved).
 - **Profiles load:** Nav graph resolves membership via `GET /api/families/me`, then loads `GET /api/families/{familyId}/profiles` (inactive profiles omitted server-side). Users without a family get a single profile from GET active-profile.
-- **Web:** Not required for MVP switch (ownership: mobile only). Any existing web selector must not become a divergent source of truth if kept for demos.
+- **Web:** Not required for MVP switch (ownership: mobile only). The Family Members page shows scan eligibility counts only; it does not set active-profile.
 
 ### User story
 
@@ -689,7 +689,7 @@ As an app user in a family circle, I want to select which eligible family profil
 | [x] | 7 | Inactive profiles (is_active=0) cannot be selected once UC12 activation exists. |
 | [x] | 8 | Client path no longer hardcodes familyId=1L or DEFAULT_PROFILE_ID=1L for switch/scan context. |
 | [x] | 9 | Loading and error states are handled on the **mobile** switcher UI. |
-| [x] | 10 | Web profile switcher is **out of MVP scope**; if a demo selector remains, it must not override server active-profile for scanning. |
+| [x] | 10 | Web profile switcher is **out of MVP scope**; Family Members shows eligibility only and does not set active-profile. |
 
 ### Jira child stories
 
