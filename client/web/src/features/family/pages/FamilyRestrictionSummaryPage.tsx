@@ -62,6 +62,7 @@ const FILTER_OPTIONS: Array<{ value: MatrixFilter; label: string }> = [
   { value: 'allergy', label: 'Allergies' },
   { value: 'religious', label: 'Religious' },
   { value: 'diet', label: 'Diets & preferences' },
+  { value: 'other', label: 'Other' },
 ]
 
 const DAIRY_FAMILY_CODES = new Set([
