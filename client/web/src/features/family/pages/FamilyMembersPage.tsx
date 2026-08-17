@@ -9,7 +9,9 @@ import { ActiveProfileSelector } from '../components/ActiveProfileSelector'
 import { CreateFamilyProfileModal } from '../components/CreateFamilyProfileModal'
 import { EditFamilyProfileModal } from '../components/EditFamilyProfileModal'
 import { LinkExistingUserModal } from '../components/LinkExistingUserModal'
+import { ProfileCardMenu } from '../components/ProfileCardMenu'
 import { formatCode } from '../lib/profileOptions'
+import { isCurrentAdminProfile } from '../lib/familyRoles'
 import { profileDisplayCaption } from '../lib/profileDisplay'
 import { useFamilyMe } from '../useFamilyMe'
 
@@ -70,6 +72,9 @@ export function FamilyMembersPage() {
 
   /** Toggle the active status of a family member. */
   const toggleActive = async (member: FamilyMember) => {
+    if (isCurrentAdminProfile(member, selfProfileId)) {
+      return
+    }
     const nextActive = !member.profileActive
     if (
       !nextActive &&
@@ -98,6 +103,9 @@ export function FamilyMembersPage() {
 
   /** Remove a family member from the family circle. */
   const removeMember = async (member: FamilyMember) => {
+    if (isCurrentAdminProfile(member, selfProfileId)) {
+      return
+    }
     const label =
       member.source === 'DEPENDANT_PROFILE'
         ? `Remove dependant profile ${member.profileName}? Scan history is kept.`
@@ -128,31 +136,31 @@ export function FamilyMembersPage() {
   /** Render the family members page. PRIMARY_ADMIN only (FamilyMeGate + redirect). */
   return (
     <>
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Family profiles</p>
+      <header className="page-header page-header--split">
+        <p className="eyebrow">Family profiles</p>
+        <div className="page-header__title-row">
           <h1>Family Members</h1>
-          <p>
-            Link a registered App User or create a non-login dependant profile.
-            Edit metadata, toggle scan eligibility, or soft-remove members.
-          </p>
+          <div className="page-header__actions">
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => setOpenModal('link')}
+            >
+              Invite to Family
+            </button>
+            <button
+              className="button button--primary"
+              type="button"
+              onClick={() => setOpenModal('create')}
+            >
+              Create New Profile
+            </button>
+          </div>
         </div>
-        <div className="page-header__actions">
-          <button
-            className="button button--secondary"
-            type="button"
-            onClick={() => setOpenModal('link')}
-          >
-            Invite to Family
-          </button>
-          <button
-            className="button button--primary"
-            type="button"
-            onClick={() => setOpenModal('create')}
-          >
-            Create New Profile
-          </button>
-        </div>
+        <p>
+          Link a registered App User or create a non-login dependant profile.
+          Edit metadata, toggle scan eligibility, or soft-remove members.
+        </p>
       </header>
 
       <div className="sr-live" aria-live="polite">
@@ -161,15 +169,22 @@ export function FamilyMembersPage() {
 
       {loading ? (
         <LoadingState label="Loading family members…" />
-      ) : error ? (
-        <ErrorState message={error} onRetry={loadMembers} />
       ) : members.length === 0 ? (
+        error ? (
+          <ErrorState message={error} onRetry={loadMembers} />
+        ) : (
         <EmptyState
           title="No family profiles yet"
           description="Link an existing App User or create a new dependant profile."
         />
+        )
       ) : (
         <>
+          {error ? (
+            <p className="form-message form-message--error" role="alert">
+              {error}
+            </p>
+          ) : null}
           <ActiveProfileSelector members={members} />
           <section className="profile-grid" aria-label="Family member profiles">
             {members.map((member) => {
@@ -179,6 +194,7 @@ export function FamilyMembersPage() {
                 selfProfileId,
                 isPrimaryAdmin: true,
               })
+              const isAdminRow = isCurrentAdminProfile(member, selfProfileId)
               return (
                 <article
                   className={`profile-card${!member.profileActive ? ' profile-card--inactive' : ''}`}
@@ -193,47 +209,34 @@ export function FamilyMembersPage() {
                       {caption ? <p>{caption}</p> : null}
                       <p>{formatCode(member.ageGroup)}</p>
                     </div>
-                    <span className="source-label">
-                      {!member.profileActive
-                        ? 'Inactive'
-                        : member.source === 'REGISTERED_USER'
-                          ? 'App User'
-                          : 'Family profile'}
-                    </span>
+                    <div className="profile-card__meta">
+                      <span className="source-label">
+                        {!member.profileActive
+                          ? 'Inactive'
+                          : member.source === 'REGISTERED_USER'
+                            ? 'App User'
+                            : 'Family profile'}
+                      </span>
+                      <ProfileCardMenu
+                        disabled={busy}
+                        profileActive={member.profileActive}
+                        profileName={member.profileName}
+                        allowLifecycleActions={!isAdminRow}
+                        onEdit={() => setEditingMember(member)}
+                        onToggleActive={() => void toggleActive(member)}
+                        onRemove={() => void removeMember(member)}
+                      />
+                    </div>
                   </div>
-                  {member.maskedEmail && <p className="masked-email">{member.maskedEmail}</p>}
+                  {member.maskedEmail && (
+                    <p className="masked-email">{member.maskedEmail}</p>
+                  )}
                   <div className="tag-list" aria-label={`${member.profileName} requirements`}>
                     {codes.length ? (
                       codes.map((code) => <span key={code}>{formatCode(code)}</span>)
                     ) : (
                       <span className="tag--empty">No restrictions recorded</span>
                     )}
-                  </div>
-                  <div className="profile-card__actions">
-                    <button
-                      className="button button--secondary button--full"
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setEditingMember(member)}
-                    >
-                      Edit dietary profile
-                    </button>
-                    <button
-                      className="button button--secondary button--full"
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void toggleActive(member)}
-                    >
-                      {member.profileActive ? 'Deactivate' : 'Reactivate'}
-                    </button>
-                    <button
-                      className="button button--danger button--full"
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void removeMember(member)}
-                    >
-                      Remove
-                    </button>
                   </div>
                 </article>
               )

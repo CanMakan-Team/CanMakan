@@ -210,6 +210,9 @@ export const mockFamilyRepository = {
     const state = readState()
     const member = state.members.find((candidate) => candidate.profileId === profileId)
     if (!member) throw new ApiError('The family profile could not be found.')
+    if (!active && member.memberRole === 'PRIMARY_ADMIN') {
+      throw new ApiError('Cannot deactivate the family admin profile.', 403)
+    }
     member.profileActive = active
     writeState(state)
     return {

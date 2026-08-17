@@ -34,6 +34,7 @@ family/
     CreateFamilyProfileModal.tsx
     EditFamilyProfileModal.tsx
     LinkExistingUserModal.tsx
+    ProfileCardMenu.tsx
     ProfileForm.tsx
 ```
 

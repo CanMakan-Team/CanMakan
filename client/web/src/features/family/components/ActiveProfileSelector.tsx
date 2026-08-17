@@ -50,7 +50,10 @@ export function ActiveProfileSelector({
     <section className="active-profile-card" aria-labelledby="active-profile-title">
       <div>
         <p className="eyebrow">Assessment context</p>
-        <h2 id="active-profile-title">Active assessment profile</h2>
+        <h2 id="active-profile-title" className="active-profile-card__title">
+          Active assessment profile
+          {active ? <StatusBadge status="ACTIVE_PROFILE" /> : null}
+        </h2>
         <p>
           This single profile is used by assessment workflows. Inactive profiles
           cannot be selected.
@@ -71,7 +74,6 @@ export function ActiveProfileSelector({
             </option>
           ))}
         </select>
-        {active && <StatusBadge status="ACTIVE_PROFILE" />}
       </div>
       <div className="sr-live" aria-live="polite">
         {message}

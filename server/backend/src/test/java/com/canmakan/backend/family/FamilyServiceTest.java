@@ -1034,6 +1034,26 @@ class FamilyServiceTest {
     }
 
     @Test
+    @DisplayName("setProfileActive rejects deactivating the caller's own admin profile")
+    void setProfileActiveRejectsOwnAdminProfile() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(77L, "Admin", family, true);
+        UserAccount linked = new UserAccount();
+        linked.setId(10L);
+        profile.setLinkedUser(linked);
+        when(dietaryProfileRepository.findById(77L)).thenReturn(Optional.of(profile));
+
+        FamilyForbiddenException ex = assertThrows(
+            FamilyForbiddenException.class,
+            () -> familyService.setProfileActive(10L, 77L, false)
+        );
+        assertEquals("Cannot deactivate your own family admin profile.", ex.getMessage());
+        verify(dietaryProfileRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
     @DisplayName("removeFamilyMember rejects last primary admin")
     void removeFamilyMemberLastAdminConflict() {
         stubPrimaryAdmin(10L, 1L);

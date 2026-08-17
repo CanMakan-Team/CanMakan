@@ -322,6 +322,21 @@ public class FamilyService {
             long adminUserId, long profileId, boolean active) {
         familyAuthorization.requirePrimaryAdmin(adminUserId);
         DietaryProfile profile = familyAuthorization.requireProfileInCallerFamily(adminUserId, profileId);
+        if (!active) {
+            Long linkedUserId = profile.getLinkedUser() == null ? null : profile.getLinkedUser().getId();
+            if (linkedUserId != null && linkedUserId == adminUserId) {
+                throw new FamilyForbiddenException(
+                    "Cannot deactivate your own family admin profile.");
+            }
+            if (isFamilyAdminLinkedProfile(profile)) {
+                Long familyId = profile.getFamily() == null ? null : profile.getFamily().getId();
+                if (familyId != null
+                        && familyMemberRepository.countActivePrimaryAdmins(familyId) <= 1) {
+                    throw new LastPrimaryAdminException(
+                        "Cannot deactivate the family admin profile.");
+                }
+            }
+        }
         profile.setActive(active);
         dietaryProfileRepository.saveAndFlush(profile);
         if (!active) {
