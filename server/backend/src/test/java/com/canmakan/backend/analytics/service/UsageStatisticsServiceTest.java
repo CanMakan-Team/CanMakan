@@ -1,6 +1,7 @@
 package com.canmakan.backend.analytics.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.canmakan.backend.analytics.dto.UsageStatisticsResponse;
@@ -8,6 +9,7 @@ import com.canmakan.backend.analytics.dto.UsageStatisticsResponse.ActivationStep
 import com.canmakan.backend.analytics.repository.AppUserProjection;
 import com.canmakan.backend.analytics.repository.UsageStatisticsRepository;
 import com.canmakan.backend.analytics.repository.UserScanInstantProjection;
+import com.canmakan.backend.session.UserSessionRepository;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -38,11 +40,15 @@ class UsageStatisticsServiceTest {
     @Mock
     private UsageStatisticsRepository repository;
 
+    @Mock
+    private UserSessionRepository userSessionRepository;
+
     private UsageStatisticsService service;
 
     @BeforeEach
     void setUp() {
-        service = new UsageStatisticsService(repository, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new UsageStatisticsService(
+                repository, userSessionRepository, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private static long daysAgoMs(double days) {
@@ -128,6 +134,47 @@ class UsageStatisticsServiceTest {
         assertThat(response.acquisition().dailyNewRegistrations()).hasSize(30);
         // 7 weekday rows in the heatmap.
         assertThat(response.engagement().heatmap()).hasSize(7);
+    }
+
+    @Test
+    @DisplayName("real session data overrides the scan-based engagement estimate")
+    void realSessionsOverrideEngagement() {
+        when(repository.findAppUsers()).thenReturn(new ArrayList<>());
+        when(repository.findAppUserScans()).thenReturn(new ArrayList<>());
+        // 10 sessions over 5 active users, averaging 300s, on 20 active user-days across a 7-day window.
+        when(userSessionRepository.aggregateSince(any()))
+                .thenReturn(aggregate(300.0, 10L, 5L, 20L));
+
+        UsageStatisticsResponse response = service.generate(7);
+
+        assertThat(response.engagement().averageSessionSeconds()).isEqualTo(300);
+        assertThat(response.engagement().sessionsPerUser()).isEqualTo(2.0);
+        assertThat(response.engagement().activeDaysPerWeek()).isEqualTo(4.0);
+        // The KPI card reads the same real average.
+        assertThat(response.kpis().averageSessionSeconds()).isEqualTo(300);
+        // Heatmap stays scan-based (no scans -> 7 weekday rows of zeros).
+        assertThat(response.engagement().heatmap()).hasSize(7);
+    }
+
+    private static UserSessionRepository.SessionAggregate aggregate(
+            Double avgSeconds, Long totalSessions, Long activeUsers, Long activeUserDays) {
+        return new UserSessionRepository.SessionAggregate() {
+            public Double getAvgSeconds() {
+                return avgSeconds;
+            }
+
+            public Long getTotalSessions() {
+                return totalSessions;
+            }
+
+            public Long getActiveUsers() {
+                return activeUsers;
+            }
+
+            public Long getActiveUserDays() {
+                return activeUserDays;
+            }
+        };
     }
 
     @Test

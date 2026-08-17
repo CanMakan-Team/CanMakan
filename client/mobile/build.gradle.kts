@@ -43,6 +43,7 @@ sonar {
                 "**/*Sheet.kt",
                 "**/*NavGraph.kt",
                 "**/CanMakanApp.kt",
+                "**/CanMakanApplication.kt",
                 "**/MainActivity.kt",
                 "**/ProfileDrawerContent.kt",
                 "**/BarcodeAnalyzer.kt",
