@@ -1,4 +1,4 @@
-package com.canmakan.backend.user;
+package com.canmakan.backend.user.model;
 
 import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
 import com.canmakan.backend.shared.AuditableEntity;
