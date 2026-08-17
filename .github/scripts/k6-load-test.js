@@ -1,5 +1,7 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
+import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bencuk.min.js";
+import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.2/index.js";
 
 /**
  * @fileoverview This script is designed to be run in a CI/CD pipeline to perform a load test on the CanMakan backend API.
@@ -27,7 +29,7 @@ export const options = {
   },
 };
 
-const baseUrl = __ENV.VITE_API_BASE_URL || "https://api.staging.canmakan.space";
+const baseUrl = __ENV.API_BASE_URL || "https://api.staging.canmakan.space";
 const testEmail = __ENV.TEST_EMAIL;
 const testPassword = __ENV.TEST_PASSWORD;
 
@@ -53,7 +55,7 @@ export default function () {
   let token;
   try {
     // Adjust 'token' based on the API's actual JSON response key
-    token = loginRes.json("token");
+    token = loginRes.json("accessToken");
   } catch (e) {
     // Proceed safely if token parsing fails
   }
@@ -63,7 +65,7 @@ export default function () {
 
   // 2. Data Retrieval
   if (token) {
-    const dataRes = http.get(`${baseUrl}/api/v1/user/profile`, {
+    const dataRes = http.get(`${baseUrl}/api/profiles/me`, {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
@@ -77,4 +79,18 @@ export default function () {
 
   // Simulate Human Think Time before the Next Iteration
   sleep(1 + Math.random() * 2);
+}
+
+// 3. Generate an HTML Report
+export function handleSummary(data) {
+  return {
+    // 1. Generates the interactive HTML dashboard
+    "result.html": htmlReport(data),
+    
+    // 2. Generates the markdown summary for GitHub Actions UI
+    "github_summary.md": `### 📊 k6 Load Test Summary\n\`\`\`\n${textSummary(data, { indent: " ", enableColors: false })}\n\`\`\``,
+
+    // 3. Generates the JSON file expected by your artifact upload step
+    "results.json": JSON.stringify(data, null, 2),
+  };
 }
