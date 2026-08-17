@@ -1,7 +1,6 @@
-package com.canmakan.backend.dietaryprofile;
+package com.canmakan.backend.dietaryprofile.exception;
 
-import com.canmakan.backend.dietaryprofile.exception.SelfProfileAlreadyExistsException;
-import com.canmakan.backend.dietaryprofile.exception.SelfProfileNotFoundException;
+import com.canmakan.backend.dietaryprofile.DietaryProfileController;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
