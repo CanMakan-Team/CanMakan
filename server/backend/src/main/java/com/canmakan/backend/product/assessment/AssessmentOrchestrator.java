@@ -2,9 +2,14 @@ package com.canmakan.backend.product.assessment;
 
 import com.canmakan.backend.ai.llm.LlmAssessmentResult;
 import com.canmakan.backend.ai.log.AiExecutionLogService;
-import com.canmakan.backend.family.FamilyAuthorizationService;
+import com.canmakan.backend.family.service.FamilyAuthorizationService;
 import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
+import com.canmakan.backend.product.assessment.dto.AssessmentRequest;
+import com.canmakan.backend.product.assessment.dto.AssessmentResponse;
+import com.canmakan.backend.product.assessment.dto.TieredOutcome;
+import com.canmakan.backend.product.assessment.service.LlmEscalationService;
+import com.canmakan.backend.product.assessment.service.ProductNameAllergenLookup;
 import com.canmakan.backend.product.scan.Scan;
 import com.canmakan.backend.product.scan.ScanService;
 import com.canmakan.backend.product.verdict.DietaryRuleEngine;

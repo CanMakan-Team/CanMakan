@@ -1,6 +1,8 @@
 package com.canmakan.backend.product.recommendation;
 
-import com.canmakan.backend.family.FamilyAuthorizationService;
+import com.canmakan.backend.product.recommendation.dto.AlternativeProductResponse;
+import com.canmakan.backend.product.recommendation.dto.RecommendationRequest;
+import com.canmakan.backend.family.service.FamilyAuthorizationService;
 import com.canmakan.backend.shared.security.AuthUserChecker;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import org.springframework.http.ResponseEntity;
