@@ -1,4 +1,4 @@
-package com.canmakan.backend.family;
+package com.canmakan.backend.family.service;
 
 import com.canmakan.backend.family.exception.InvitationEmailMismatchException;
 import com.canmakan.backend.family.model.FamilyInvitation;
@@ -34,7 +34,7 @@ public class InvitationRegistrationGuard {
                 || isExpired(invitation)) {
             return;
         }
-        String normalizedEmail = FamilyService.normalizeEmail(email);
+        String normalizedEmail = FamilyDisplayUtil.normalizeEmail(email);
         if (normalizedEmail == null
                 || !invitation.getInvitedEmail().equalsIgnoreCase(normalizedEmail)) {
             throw new InvitationEmailMismatchException(MISMATCH_MESSAGE);

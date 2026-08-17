@@ -1,4 +1,4 @@
-package com.canmakan.backend.family;
+package com.canmakan.backend.family.service;
 
 import com.canmakan.backend.dietaryprofile.model.DietaryProfile;
 import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class FamilyAuthorizationService {
 
-    static final String NOT_IN_FAMILY_MESSAGE =
+    public static final String NOT_IN_FAMILY_MESSAGE =
         "You are not a member of a family circle.";
     public static final String PRIMARY_ADMIN_REQUIRED =
         "Only the family primary admin can perform this action.";
@@ -47,7 +47,7 @@ public class FamilyAuthorizationService {
     @Transactional(readOnly = true)
     public DietaryProfile requireProfileInCallerFamily(long userId, long profileId) {
         FamilyMember membership = requireMembership(userId);
-        DietaryProfile profile = dietaryProfileRepository.findById(profileId)
+        DietaryProfile profile = dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(profileId)
             .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
         if (profile.getFamily() == null
                 || !membership.getFamilyId().equals(profile.getFamily().getId())) {
@@ -63,7 +63,7 @@ public class FamilyAuthorizationService {
      */
     @Transactional(readOnly = true)
     public void assertMayEditRestrictions(long actorUserId, long profileId) {
-        DietaryProfile profile = dietaryProfileRepository.findById(profileId)
+        DietaryProfile profile = dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(profileId)
             .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
 
         if (profile.getLinkedUser() != null
@@ -98,7 +98,7 @@ public class FamilyAuthorizationService {
 
     @Transactional(readOnly = true)
     public DietaryProfile assertProfileSelectable(long userId, long profileId) {
-        DietaryProfile profile = dietaryProfileRepository.findById(profileId)
+        DietaryProfile profile = dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(profileId)
             .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
         if (!profile.isActive()) {
             throw new InactiveProfileException("Profile is inactive and cannot be selected.");

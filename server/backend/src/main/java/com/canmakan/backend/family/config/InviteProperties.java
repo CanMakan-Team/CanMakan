@@ -1,4 +1,4 @@
-package com.canmakan.backend.family;
+package com.canmakan.backend.family.config;
 
 import lombok.Getter;
 import lombok.Setter;

@@ -1,6 +1,9 @@
-package com.canmakan.backend.family;
+package com.canmakan.backend.family.service;
 
+import com.canmakan.backend.family.config.InviteProperties;
+import com.canmakan.backend.family.config.ResendProperties;
 import com.canmakan.backend.family.dto.InvitationResponse;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.ZoneId;
@@ -15,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 /**
@@ -84,7 +88,7 @@ public class InvitationEmailService {
                 .toBodilessEntity();
             log.info("Invitation email sent to {}", invitation.invitedEmail());
             return true;
-        } catch (Exception ex) {
+        } catch (RestClientException ex) {
             String detail = ex.getMessage();
             if (ex instanceof RestClientResponseException restEx) {
                 detail = restEx.getStatusCode() + " " + restEx.getResponseBodyAsString();
@@ -178,7 +182,7 @@ public class InvitationEmailService {
                 return null;
             }
             return Base64.getEncoder().encodeToString(stream.readAllBytes());
-        } catch (Exception ex) {
+        } catch (IOException ex) {
             log.warn("Could not load invitation mascot PNG: {}", ex.getMessage());
             return null;
         }
