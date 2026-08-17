@@ -110,9 +110,13 @@ describe('FamilyMembersPage', () => {
     vi.mocked(familyApiService.setProfileActive).mockReset()
     vi.mocked(familyApiService.removeDependantProfile).mockReset()
     vi.mocked(familyApiService.removeMember).mockReset()
-    vi.mocked(familyApiService.setProfileActive).mockResolvedValue(undefined)
-    vi.mocked(familyApiService.removeDependantProfile).mockResolvedValue(undefined)
-    vi.mocked(familyApiService.removeMember).mockResolvedValue(undefined)
+    vi.mocked(familyApiService.setProfileActive).mockResolvedValue({
+      id: 2,
+      profileName: 'Child Profile',
+      active: false,
+    })
+    vi.mocked(familyApiService.removeDependantProfile).mockResolvedValue()
+    vi.mocked(familyApiService.removeMember).mockResolvedValue()
   })
 
   it('renders members and opens invite, create, and edit flows', async () => {
