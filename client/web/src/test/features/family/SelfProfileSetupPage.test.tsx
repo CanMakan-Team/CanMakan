@@ -85,7 +85,7 @@ describe('SelfProfileSetupPage', () => {
       screen.getByText('These restrictions are used when you scan food products.'),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('How this profile appears in the CanMakan mobile app.'),
+      screen.getByText('How this profile appears in your shared Family Circle.'),
     ).toBeInTheDocument()
   })
 

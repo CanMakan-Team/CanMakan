@@ -227,7 +227,7 @@ export function SelfProfileSetupPage() {
               setSuccessMessage('')
             }}
           />
-          <p className="field-hint">How this profile appears in the CanMakan mobile app.</p>
+          <p className="field-hint">How this profile appears in your shared Family Circle.</p>
         </div>
 
         {loading ? <p role="status">Loading dietary options…</p> : null}
