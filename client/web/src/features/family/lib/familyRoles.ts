@@ -12,8 +12,8 @@ export function isCurrentAdminProfile(
   member: { profileId: number; memberRole?: string | null },
   selfProfileId: number | null,
 ): boolean {
-  if (selfProfileId != null && member.profileId === selfProfileId) {
-    return true
+  if (selfProfileId != null) {
+    return member.profileId === selfProfileId
   }
   return isPrimaryAdminRole(member.memberRole)
 }

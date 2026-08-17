@@ -39,6 +39,7 @@ import com.canmakan.backend.family.exception.FamilyNotFoundException;
 import com.canmakan.backend.family.exception.InactiveProfileException;
 import com.canmakan.backend.family.exception.InvitationConflictException;
 import com.canmakan.backend.family.exception.InvitationExpiredException;
+import com.canmakan.backend.family.exception.LastPrimaryAdminException;
 import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.family.model.FamilyInvitation;
 import com.canmakan.backend.family.model.FamilyMember;
@@ -1049,6 +1050,35 @@ class FamilyServiceTest {
             () -> familyService.setProfileActive(10L, 77L, false)
         );
         assertEquals("Cannot deactivate your own family admin profile.", ex.getMessage());
+        verify(dietaryProfileRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("setProfileActive rejects deactivating the last primary admin's profile")
+    void setProfileActiveRejectsLastPrimaryAdmin() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(99L, "Other Admin", family, true);
+        UserAccount linked = new UserAccount();
+        linked.setId(20L);
+        profile.setLinkedUser(linked);
+        when(dietaryProfileRepository.findById(99L)).thenReturn(Optional.of(profile));
+        FamilyMember otherAdminMembership = new FamilyMember(
+            new FamilyMember.FamilyMemberId(1L, 20L),
+            FamilyMember.ROLE_PRIMARY_ADMIN,
+            true,
+            null
+        );
+        when(familyMemberRepository.findMembershipByUserId(20L))
+            .thenReturn(Optional.of(otherAdminMembership));
+        when(familyMemberRepository.countActivePrimaryAdmins(1L)).thenReturn(1L);
+
+        LastPrimaryAdminException ex = assertThrows(
+            LastPrimaryAdminException.class,
+            () -> familyService.setProfileActive(10L, 99L, false)
+        );
+        assertEquals("Cannot deactivate the family admin profile.", ex.getMessage());
         verify(dietaryProfileRepository, never()).saveAndFlush(any());
     }
 
