@@ -226,7 +226,7 @@ export function FamilyRestrictionSummaryPage() {
           <p className="eyebrow">At-a-glance comparison</p>
           <h1>Family Allergy & Dietary Restriction Summary</h1>
           <p>
-            This grid dynamically aggregates all active restrictions and allergies
+            This grid dynamically displays all active restrictions and allergies
             across your household.
           </p>
         </div>
@@ -238,13 +238,6 @@ export function FamilyRestrictionSummaryPage() {
         <ErrorState message={error} onRetry={loadSummary} />
       ) : (
         <div className="restriction-summary-stack">
-          <div className="notice notice--warning">
-            <strong>Profile summary only</strong>
-            <p>
-              This grid records configured requirements; it does not rate medical
-              risk or make a food-safety assessment.
-            </p>
-          </div>
 
           {activeMembers.length === 0 ? (
             <EmptyState

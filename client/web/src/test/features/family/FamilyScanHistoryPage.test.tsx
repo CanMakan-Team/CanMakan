@@ -28,6 +28,16 @@ const baseRecord: ScanRecord = {
   scannedAt: '2026-08-18T12:04:30+08:00',
 }
 
+function buildRecords(count: number): ScanRecord[] {
+  return Array.from({ length: count }, (_, index) => ({
+    ...baseRecord,
+    scanId: index + 1,
+    product: `Product ${index + 1}`,
+    brand: index % 2 === 0 ? 'ABC Foods' : 'Sunny Dairy',
+    scannedAt: new Date(Date.now() - index * 3_600_000).toISOString(),
+  }))
+}
+
 describe('FamilyScanHistoryPage', () => {
   beforeEach(() => {
     vi.mocked(familyApiService.getScanHistory).mockReset()
@@ -70,9 +80,6 @@ describe('FamilyScanHistoryPage', () => {
       expect(screen.getByRole('table')).toBeInTheDocument()
     })
 
-    expect(
-      screen.getByText('From past records; not the active assessment profile.'),
-    ).toBeInTheDocument()
     expect(screen.queryByRole('columnheader', { name: 'Notable ingredient' })).not.toBeInTheDocument()
     expect(
       screen.queryByRole('columnheader', { name: 'Resolved name / rule' }),
@@ -103,5 +110,47 @@ describe('FamilyScanHistoryPage', () => {
     })
     expect(screen.getByRole('columnheader', { name: 'Resolved name / rule' })).toBeInTheDocument()
     expect(screen.getByText('Peanut pieces')).toBeInTheDocument()
+  })
+
+  it('paginates filtered rows at 15 per page and resets on filter change', async () => {
+    const user = userEvent.setup()
+    vi.mocked(familyApiService.getScanHistory).mockResolvedValue(buildRecords(16))
+
+    render(<FamilyScanHistoryPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('navigation', { name: 'Scan history pages' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('button', { name: 'Product 1' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Product 15' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Product 16' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Page 1 of 2/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Next' }))
+    expect(screen.getByRole('button', { name: 'Product 16' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Product 1' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Page 2 of 2/)).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('Search'), 'Product 16')
+    expect(screen.getByRole('navigation', { name: 'Scan history pages' })).toBeInTheDocument()
+    expect(screen.getByText(/Page 1 of 1/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Product 16' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+  })
+
+  it('shows pagination status even when all records fit on one page', async () => {
+    vi.mocked(familyApiService.getScanHistory).mockResolvedValue(buildRecords(3))
+
+    render(<FamilyScanHistoryPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('navigation', { name: 'Scan history pages' })).toBeInTheDocument()
+    })
+    expect(screen.getByText(/Page 1 of 1/)).toBeInTheDocument()
+    expect(screen.getByText(/3 records/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
   })
 })

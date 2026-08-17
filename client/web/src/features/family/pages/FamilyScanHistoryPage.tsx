@@ -18,6 +18,8 @@ import {
 
 type Period = 'ALL' | '7' | '30'
 
+const PAGE_SIZE = 15
+
 export function FamilyScanHistoryPage() {
   const [records, setRecords] = useState<ScanRecord[]>([])
   const [members, setMembers] = useState<FamilyMember[]>([])
@@ -26,6 +28,7 @@ export function FamilyScanHistoryPage() {
   const [completeness, setCompleteness] = useState<'ALL' | DataCompleteness>('ALL')
   const [period, setPeriod] = useState<Period>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
+  const [page, setPage] = useState(0)
   const [selected, setSelected] = useState<ScanRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -43,6 +46,7 @@ export function FamilyScanHistoryPage() {
       setRecords(loadedRecords)
       setMembers(loadedMembers)
       setNowMs(Date.now())
+      setPage(0)
     } catch (caughtError) {
       setError(getErrorMessage(caughtError))
     } finally {
@@ -74,6 +78,13 @@ export function FamilyScanHistoryPage() {
     })
   }, [records, memberId, verdict, completeness, period, searchQuery, nowMs])
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages - 1)
+  const paged = useMemo(() => {
+    const start = safePage * PAGE_SIZE
+    return filtered.slice(start, start + PAGE_SIZE)
+  }, [filtered, safePage])
+
   const showDetectedIngredient = useMemo(
     () => filtered.some((record) => hasScanFieldValue(record.detectedIngredient)),
     [filtered],
@@ -89,7 +100,13 @@ export function FamilyScanHistoryPage() {
     setCompleteness('ALL')
     setPeriod('ALL')
     setSearchQuery('')
+    setPage(0)
     setNowMs(Date.now())
+  }
+
+  const updateFilter = <T,>(setter: (value: T) => void, value: T) => {
+    setter(value)
+    setPage(0)
   }
 
   return (
@@ -112,7 +129,7 @@ export function FamilyScanHistoryPage() {
             type="search"
             value={searchQuery}
             placeholder="Search product or brand"
-            onChange={(event) => setSearchQuery(event.target.value)}
+            onChange={(event) => updateFilter(setSearchQuery, event.target.value)}
           />
         </div>
         <div className="filter-bar filter-bar--history">
@@ -121,7 +138,7 @@ export function FamilyScanHistoryPage() {
             <select
               id="history-member"
               value={memberId}
-              onChange={(event) => setMemberId(event.target.value)}
+              onChange={(event) => updateFilter(setMemberId, event.target.value)}
             >
               <option value="ALL">All family profiles</option>
               {members.map((member) => (
@@ -136,7 +153,9 @@ export function FamilyScanHistoryPage() {
             <select
               id="history-verdict"
               value={verdict}
-              onChange={(event) => setVerdict(event.target.value as 'ALL' | ScanVerdict)}
+              onChange={(event) =>
+                updateFilter(setVerdict, event.target.value as 'ALL' | ScanVerdict)
+              }
             >
               <option value="ALL">All verdicts</option>
               <option value="SAFE">Safe</option>
@@ -150,7 +169,7 @@ export function FamilyScanHistoryPage() {
               id="history-period"
               value={period}
               onChange={(event) => {
-                setPeriod(event.target.value as Period)
+                updateFilter(setPeriod, event.target.value as Period)
                 setNowMs(Date.now())
               }}
             >
@@ -165,7 +184,10 @@ export function FamilyScanHistoryPage() {
               id="history-completeness"
               value={completeness}
               onChange={(event) =>
-                setCompleteness(event.target.value as 'ALL' | DataCompleteness)
+                updateFilter(
+                  setCompleteness,
+                  event.target.value as 'ALL' | DataCompleteness,
+                )
               }
             >
               <option value="ALL">All records</option>
@@ -216,7 +238,7 @@ export function FamilyScanHistoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((record) => {
+                {paged.map((record) => {
                   const scanned = formatRelativeScanTime(record.scannedAt, nowMs)
                   return (
                     <tr
@@ -258,6 +280,32 @@ export function FamilyScanHistoryPage() {
               </tbody>
             </table>
           </div>
+          <nav className="analytics-pagination" aria-label="Scan history pages">
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={safePage === 0}
+              onClick={() => setPage(safePage - 1)}
+            >
+              Previous
+            </button>
+            <span>
+              Page {safePage + 1} of {totalPages}
+              {' · '}
+              {filtered.length.toLocaleString()} records
+              {filtered.length > PAGE_SIZE
+                ? ` · ${PAGE_SIZE} per page`
+                : null}
+            </span>
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={safePage >= totalPages - 1}
+              onClick={() => setPage(safePage + 1)}
+            >
+              Next
+            </button>
+          </nav>
         </section>
       )}
 
