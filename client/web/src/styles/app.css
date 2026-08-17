@@ -1149,15 +1149,17 @@ input[readonly] {
 }
 
 .home-card {
-  align-items: flex-start;
-  min-height: 13.5rem;
+  align-items: stretch;
+  min-height: 11rem;
   height: 100%;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .home-card > div {
+  display: flex;
   flex: 1;
-  height: 100%;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .home-card:hover {
@@ -1178,14 +1180,14 @@ input[readonly] {
 }
 
 .home-card small {
-  margin-top: 0.2rem;
+  margin-top: 0;
   color: var(--muted);
   font-size: 0.8rem;
   line-height: 1.4;
 }
 
 .home-card .status-badge {
-  margin-top: 0.45rem;
+  margin-top: 0.2rem;
   width: fit-content;
   color: var(--safe);
   background: var(--safe-bg);
@@ -1199,14 +1201,14 @@ input[readonly] {
 
 .home-card__link {
   margin-top: auto;
-  padding-top: 0.85rem;
+  padding-top: 0.55rem;
   font-size: 0.85rem;
   font-weight: 700;
 }
 
 .home-card__cta {
   margin-top: auto;
-  padding-top: 0.85rem;
+  padding-top: 0.55rem;
   width: 100%;
   align-self: stretch;
   box-sizing: border-box;
