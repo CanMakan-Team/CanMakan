@@ -1,6 +1,7 @@
 package com.canmakan.backend.session;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -83,6 +84,17 @@ class SessionTrackingServiceTest {
         service.recordHeartbeat(null);
 
         verifyNoInteractions(repository);
+    }
+
+    @Test
+    @DisplayName("the autowired constructor uses the system clock and records a first heartbeat")
+    void autowiredConstructorRecordsFirstHeartbeat() {
+        SessionTrackingService systemClockService = new SessionTrackingService(repository);
+        when(repository.findFirstByUserIdOrderByLastHeartbeatAtDesc(USER_ID)).thenReturn(Optional.empty());
+
+        systemClockService.recordHeartbeat(USER_ID);
+
+        verify(repository).save(any(UserSession.class));
     }
 
     @Test

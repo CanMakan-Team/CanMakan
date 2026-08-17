@@ -178,6 +178,47 @@ class UsageStatisticsServiceTest {
     }
 
     @Test
+    @DisplayName("real session data with null aggregates and no active users yields zeroed engagement")
+    void realSessionsWithNullFieldsYieldZeros() {
+        when(repository.findAppUsers()).thenReturn(new ArrayList<>());
+        when(repository.findAppUserScans()).thenReturn(new ArrayList<>());
+        // totalSessions > 0 enters the real-session path; the null/zero aggregates exercise the
+        // divide-by-zero and null guards.
+        when(userSessionRepository.aggregateSince(any())).thenReturn(aggregate(null, 3L, null, null));
+
+        UsageStatisticsResponse response = service.generate(7);
+
+        assertThat(response.engagement().averageSessionSeconds()).isZero();
+        assertThat(response.engagement().sessionsPerUser()).isEqualTo(0.0);
+        assertThat(response.engagement().activeDaysPerWeek()).isEqualTo(0.0);
+    }
+
+    @Test
+    @DisplayName("a session aggregate with a null total falls back to the scan-based estimate")
+    void nullTotalSessionsFallsBackToScanEstimate() {
+        when(repository.findAppUsers()).thenReturn(new ArrayList<>());
+        when(repository.findAppUserScans()).thenReturn(new ArrayList<>());
+        when(userSessionRepository.aggregateSince(any())).thenReturn(aggregate(120.0, null, 4L, 8L));
+
+        UsageStatisticsResponse response = service.generate(7);
+
+        // A null total means no usable session data, so the scan-based estimate (zero here) is kept.
+        assertThat(response.engagement().averageSessionSeconds()).isZero();
+    }
+
+    @Test
+    @DisplayName("the autowired two-arg constructor wires both repositories and produces a response")
+    void autowiredConstructorProducesResponse() {
+        UsageStatisticsService autowired = new UsageStatisticsService(repository, userSessionRepository);
+        when(repository.findAppUsers()).thenReturn(new ArrayList<>());
+        when(repository.findAppUserScans()).thenReturn(new ArrayList<>());
+
+        UsageStatisticsResponse response = autowired.generate(7);
+
+        assertThat(response).isNotNull();
+    }
+
+    @Test
     @DisplayName("handles no users and no scans without dividing by zero")
     void handlesEmptyData() {
         when(repository.findAppUsers()).thenReturn(new ArrayList<>());
