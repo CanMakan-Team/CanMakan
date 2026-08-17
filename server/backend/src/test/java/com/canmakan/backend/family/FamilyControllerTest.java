@@ -221,7 +221,6 @@ class FamilyControllerTest {
                 10L,
                 "Admin",
                 "SELF",
-                "UNSPECIFIED",
                 List.of("HALAL"),
                 List.of("PEANUT_ALLERGY"),
                 "REGISTERED_USER",
@@ -234,7 +233,6 @@ class FamilyControllerTest {
                 null,
                 "Toddler",
                 "CHILD",
-                "UNSPECIFIED",
                 List.of(),
                 List.of(),
                 "DEPENDANT_PROFILE",
@@ -340,7 +338,7 @@ class FamilyControllerTest {
         when(familyService.updateProfileMetadata(
                 eq(10L), eq(88L), any(com.canmakan.backend.family.dto.UpdateProfileRequest.class)))
             .thenReturn(new com.canmakan.backend.family.dto.FamilyMemberRosterDto(
-                88L, 88L, null, "Toddler", "CHILD", "UNSPECIFIED",
+                88L, 88L, null, "Toddler", "CHILD",
                 List.of(), List.of(), "DEPENDANT_PROFILE", null, null, true));
 
         mockMvc.perform(put("/api/families/me/profiles/88")

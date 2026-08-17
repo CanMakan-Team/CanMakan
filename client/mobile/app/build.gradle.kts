@@ -24,10 +24,12 @@ val defaultLocalWebInviteBaseUrls =
         "https://canmakan-project.web.app,https://canmakan-project.firebaseapp.com"
 val defaultDeployedWebInviteBaseUrls =
     "https://canmakan-project.web.app,https://canmakan-project.firebaseapp.com"
+// Same env as backend invite minting. CSV allowed so App Links can claim aliases
+// (e.g. web.app + firebaseapp.com).
 val configuredWebInviteBaseUrls = (
-    localProperties.getProperty("WEB_INVITE_BASE_URLS")
-        ?: System.getenv("WEB_INVITE_BASE_URLS")
-        ?: project.findProperty("WEB_INVITE_BASE_URLS")?.toString()
+    localProperties.getProperty("CANMAKAN_INVITES_PUBLIC_BASE_URL")
+        ?: System.getenv("CANMAKAN_INVITES_PUBLIC_BASE_URL")
+        ?: project.findProperty("CANMAKAN_INVITES_PUBLIC_BASE_URL")?.toString()
     )?.trim().orEmpty()
 
 fun parseWebInviteUris(csv: String): List<URI> {
@@ -162,7 +164,7 @@ extensions.configure<ApplicationExtension> {
 
         buildConfigField(
             "String",
-            "WEB_INVITE_BASE_URLS",
+            "CANMAKAN_INVITES_PUBLIC_BASE_URL",
             buildConfigString(normalizedWebInviteBaseUrls),
         )
         for (index in 0..3) {
@@ -204,7 +206,7 @@ extensions.configure<ApplicationExtension> {
             }
             buildConfigField(
                 "String",
-                "WEB_INVITE_BASE_URLS",
+                "CANMAKAN_INVITES_PUBLIC_BASE_URL",
                 buildConfigString(
                     releaseInviteUris.joinToString(",") { it.toString().trimEnd('/') },
                 ),

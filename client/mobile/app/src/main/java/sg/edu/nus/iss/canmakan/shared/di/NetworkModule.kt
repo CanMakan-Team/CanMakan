@@ -42,6 +42,7 @@ import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileApiService
 import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsApiService
 import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryApiService
 import sg.edu.nus.iss.canmakan.features.product.recommendation.data.RecommendationHistoryApiService
+import sg.edu.nus.iss.canmakan.features.session.data.SessionApiService
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
 import sg.edu.nus.iss.canmakan.shared.util.BACKEND_LOCAL_DATE_TIME_FORMATTER
 import timber.log.Timber
@@ -311,6 +312,12 @@ object NetworkModule {
     @Singleton
     fun provideSelfProfileApiService(retrofit: Retrofit): SelfProfileApiService {
         return retrofit.create(SelfProfileApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideSessionApiService(retrofit: Retrofit): SessionApiService {
+        return retrofit.create(SessionApiService::class.java)
     }
 
     @Provides

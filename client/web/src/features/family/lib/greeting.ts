@@ -1,5 +1,5 @@
 /**
- * Time-of-day greeting helpers for the family dashboard header.
+ * Time-of-day greeting helpers for the personal home page header.
  *
  * @author Amelia
  */

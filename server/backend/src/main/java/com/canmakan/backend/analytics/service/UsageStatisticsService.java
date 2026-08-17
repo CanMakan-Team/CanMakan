@@ -10,6 +10,7 @@ import com.canmakan.backend.analytics.dto.UsageStatisticsResponse.Retention;
 import com.canmakan.backend.analytics.repository.AppUserProjection;
 import com.canmakan.backend.analytics.repository.UsageStatisticsRepository;
 import com.canmakan.backend.analytics.repository.UserScanInstantProjection;
+import com.canmakan.backend.session.UserSessionRepository;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -54,15 +55,21 @@ public class UsageStatisticsService {
     private static final int HEATMAP_HOUR_BUCKETS = 12;
 
     private final UsageStatisticsRepository repository;
+    private final UserSessionRepository userSessionRepository;
     private final Clock clock;
 
     @Autowired
-    public UsageStatisticsService(UsageStatisticsRepository repository) {
-        this(repository, Clock.system(BUSINESS_ZONE));
+    public UsageStatisticsService(
+            UsageStatisticsRepository repository, UserSessionRepository userSessionRepository) {
+        this(repository, userSessionRepository, Clock.system(BUSINESS_ZONE));
     }
 
-    UsageStatisticsService(UsageStatisticsRepository repository, Clock clock) {
+    UsageStatisticsService(
+            UsageStatisticsRepository repository,
+            UserSessionRepository userSessionRepository,
+            Clock clock) {
         this.repository = repository;
+        this.userSessionRepository = userSessionRepository;
         this.clock = clock;
     }
 
@@ -106,7 +113,7 @@ public class UsageStatisticsService {
                 dailyActiveUsers, weeklyActiveUsers, monthlyActiveUsers, stickinessPct);
         Retention retention = buildRetention(createdAtByUser, scansByUser, now, periodDays, periodStart,
                 totalUsers, monthlyActiveUsers);
-        Engagement engagement = buildEngagement(scansByUser, now, periodStart);
+        Engagement engagement = applyRealSessions(buildEngagement(scansByUser, now, periodStart), periodStart, now);
 
         Kpis kpis = new Kpis(
                 countSignupsSince(createdAtByUser, periodStart),
@@ -232,6 +239,32 @@ public class UsageStatisticsService {
             addUserEngagement(totals, scansInPeriod(allScans, periodStart, now));
         }
         return totals.toEngagement(periodStart, now);
+    }
+
+    /**
+     * Replaces the scan-estimated session metrics with real values from {@code user_sessions} (client
+     * heartbeats) when any exist in the window; otherwise keeps the scan-based estimate. The heatmap
+     * always stays scan-derived. Real session length is {@code last_heartbeat_at - started_at}.
+     */
+    private Engagement applyRealSessions(Engagement scanBased, Instant periodStart, Instant now) {
+        UserSessionRepository.SessionAggregate aggregate = userSessionRepository.aggregateSince(periodStart);
+        long totalSessions = aggregate == null || aggregate.getTotalSessions() == null
+                ? 0
+                : aggregate.getTotalSessions();
+        if (totalSessions == 0) {
+            return scanBased;
+        }
+        long activeUserCount = aggregate.getActiveUsers() == null ? 0 : aggregate.getActiveUsers();
+        long averageSessionSeconds = aggregate.getAvgSeconds() == null ? 0 : Math.round(aggregate.getAvgSeconds());
+        double sessionsPerUser = activeUserCount == 0
+                ? 0
+                : Math.round(((double) totalSessions / activeUserCount) * 10.0) / 10.0;
+        long windowDays = Math.max(1, ChronoUnit.DAYS.between(periodStart, now));
+        long activeUserDays = aggregate.getActiveUserDays() == null ? 0 : aggregate.getActiveUserDays();
+        double activeDaysPerWeek = activeUserCount == 0
+                ? 0
+                : Math.round((((double) activeUserDays / activeUserCount) * 7.0 / windowDays) * 10.0) / 10.0;
+        return new Engagement(averageSessionSeconds, sessionsPerUser, activeDaysPerWeek, scanBased.heatmap());
     }
 
     private static List<Instant> scansInPeriod(List<Instant> allScans, Instant periodStart, Instant now) {
