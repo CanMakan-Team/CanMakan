@@ -25,6 +25,7 @@ jobs:
           issue_title: 'DAST Vulnerability Report - Web Staging'
           token: ${{ secrets.GITHUB_TOKEN }}
           fail_action: false
+          artifact_name: 'zap-web-scan-report'
 
       - name: Upload Web Scan Reports
         uses: actions/upload-artifact@v4.3.1
@@ -57,6 +58,7 @@ jobs:
           issue_title: 'DAST Vulnerability Report - API Staging'
           token: ${{ secrets.GITHUB_TOKEN }}
           fail_action: false
+          artifact_name: 'zap-api-scan-report'
 
       - name: Upload API Scan Reports
         uses: actions/upload-artifact@v4.3.1
