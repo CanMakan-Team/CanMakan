@@ -57,8 +57,8 @@ import sg.edu.nus.iss.canmakan.features.family.ui.FamilyRestrictionSummaryViewMo
 import sg.edu.nus.iss.canmakan.features.family.ui.InviteFamilyMemberScreen
 import sg.edu.nus.iss.canmakan.features.family.ui.ManageFamilyScreen
 import sg.edu.nus.iss.canmakan.features.notifications.NotificationsInboxScreen
-import sg.edu.nus.iss.canmakan.features.settings.SettingsScreen
-import sg.edu.nus.iss.canmakan.features.settings.SettingsViewModel
+import sg.edu.nus.iss.canmakan.features.account.SettingsScreen
+import sg.edu.nus.iss.canmakan.features.account.SettingsViewModel
 
 private const val ROUTE_SCANNER = "scanner"
 private const val ROUTE_HISTORY = "history"

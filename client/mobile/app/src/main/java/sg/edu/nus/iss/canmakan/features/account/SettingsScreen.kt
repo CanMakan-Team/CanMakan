@@ -1,4 +1,4 @@
-package sg.edu.nus.iss.canmakan.features.settings
+package sg.edu.nus.iss.canmakan.features.account
 
 import android.Manifest
 import android.content.Context

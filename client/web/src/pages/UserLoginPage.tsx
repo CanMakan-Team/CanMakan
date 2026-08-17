@@ -1,25 +1,20 @@
 import { CredentialLoginForm } from '../shared/ui/CredentialLoginForm'
+import { CanMakanMascot, LoginBrand } from '../shared/ui/CanMakanMascot'
+import { USER_REGISTER_PATH, ME_PATH } from '../app/userPortalPaths'
 
-/** Family portal login — live email/password against POST /api/auth/login. */
-export function FamilyLoginPage() {
+/** USER portal login — live email/password against POST /api/auth/login. */
+export function UserLoginPage() {
   return (
     <main className="login-page login-page--family">
       <div className="login-composition login-composition--family">
         <section className="family-login-introduction" aria-labelledby="family-entry-title">
-          <div className="login-brand">
-            <span className="brand-mark" aria-hidden="true">
-              CM
-            </span>
-            <strong>CanMakan</strong>
-          </div>
-          <span className="portal-icon portal-icon--family" aria-hidden="true">
-            ♡
-          </span>
-          <p className="eyebrow">User Portal</p>
-          <h1 id="family-entry-title">Personal dietary support, with family tools when you choose.</h1>
+          <LoginBrand />
+          <CanMakanMascot pose="wave" size="large" className="login-greeting-mascot" />
+          <p className="eyebrow">Welcome</p>
+          <h1 id="family-entry-title">Dietary support for you, and for your family when you choose.</h1>
           <p>
-            Use your personal dietary profile independently. Family Circle
-            features remain available as an optional household workspace.
+            Look after your own profile at your own pace. A Family Circle is here
+            whenever household tools would help.
           </p>
         </section>
 
@@ -30,10 +25,10 @@ export function FamilyLoginPage() {
           <CredentialLoginForm
             portal="FAMILY"
             expectedRole="ROLE_APP_USER"
-            destination="/family"
+            destination={ME_PATH}
             buttonLabel="Enter CanMakan"
             buttonClassName="button--primary"
-            registerPath="/family-register"
+            registerPath={USER_REGISTER_PATH}
           />
         </section>
       </div>

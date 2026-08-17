@@ -53,8 +53,10 @@ Each category has **one primary tool**. Overlaps (Trivy can scan secrets; Depend
 | Deploy jobs | `environment: ${{ github.ref == 'refs/heads/main' && 'production' \|\| 'staging' }}` |
 | Branch protection | On **`develop`** and **`main`**: require a PR (no direct pushes); require **Build Test**; require review from Code Owners; restrict who can push; restrict deletions; block force pushes. |
 | Visibility | **Public** repository |
-| SARIF upload | Trivy jobs always upload SARIF. |
-| SonarCloud | Repo secret **`SONAR_TOKEN`**. Analysis is in `ci.yml`. |
+| SARIF upload | Trivy jobs always upload SARIF. On a **public** repo, GitHub Code Scanning can show those results in the Security tab without GitHub Advanced Security. Failure is still the **table** scan (`exit-code: 1`) |
+| SonarCloud | Org **`canmakan-team`**. Projects **`canmakan-backend`**, **`canmakan-web`**, **`canmakan-mobile`**. Repo secret **`SONAR_TOKEN`**. Analysis is in `ci.yml` (not a separate `build.yml`). Scans skip until the token is set |
+| App Distribution URL | Repo (or Environment) secret **`FIREBASE_APP_DISTRIBUTION_URL`**. Vite inlines it as `VITE_FIREBASE_APP_DISTRIBUTION_URL` on web CI build and `deploy-web`. Optional; the client falls back to `https://appdistribution.firebase.google.com/` |
+| Gitar | GitHub App **Gitar** (`gitar-bot`) enabled on this repository. PR review only; no Actions secret required for the default App install |
 
 ## 5. Continuous integration (`ci.yml`)
 
@@ -71,6 +73,16 @@ Concurrency: `ci-${{ github.ref }}`. Permissions: `contents: read`, `pull-reques
 | `build-web` | web paths | Node 24, `npm ci`, Vitest with lcov, SonarCloud, `npm run build` |
 | `build-mobile` | mobile paths | `assembleDebug testDebugUnitTest createDebugUnitTestCoverageReport`, JaCoCo XML, Gradle `sonar` |
 | **Build Test** | `if: always()` | Fails if any needed job is `failure` or `cancelled`. |
+
+**Coverage vs SAST.** Sonar’s coverage condition measures new **hand-written logic** that the stack unit job actually runs (JUnit, Vitest, Android `testDebugUnitTest`). New behavior should land with tests in that same job. Coverage exclusions (not `sonar.exclusions`) apply only to code those runners cannot honestly execute: Compose screens (`*Screen*.kt`), sheets, nav graphs, `CanMakanApp`, `MainActivity`, `ProfileDrawerContent`, camera `BarcodeAnalyzer`, Android OS wrappers such as `AndroidSystemNotifier`, `shared/ui` widgets, Hilt `*Module.kt`, and generated DI (`*_Factory*`, `Hilt_*`, `Dagger*`). Web coverage also omits `src/mocks/**` (fixture data, not product logic). Binary launcher/mascot assets (`*.webp`, `*.png`) and generated `tokens.css` are excluded from analysis entirely. Generated code is still compiled and shipped; it is not a coverage target. Semgrep and Sonar **issues** still scan the UI and modules (except those binary/generated assets). Do not treat coverage as a security control.
+
+There is no repo-root `.github/workflows/build.yml` or root `sonar-project.properties`. SonarCloud’s sample assumes a single project on `master`. This monorepo already scans web from `ci.yml` (`projectBaseDir: client/web`, scanner **v8.1.0**) after Vitest coverage. A root properties file would label backend and mobile as `canmakan-web`.
+
+### End-to-end (`e2e.yml`)
+
+Concurrency: `e2e-${{ github.ref }}`. Path job `detect-frontend-changes`; Playwright job runs only if `client/web/**` changed. Report artefact `playwright-report`, 30 days. Sparse-checkout includes `client/web`, `client/shared`, and `client/mobile/app/src/main/res/mipmap-xxxhdpi` (web favicon).
+
+Pushes to **`main` do not** run this workflow. Web production deploy runs Playwright in `deploy-frontends.yml` instead.
 
 ## 6. Continuous testing (Post-Deployment)
 
@@ -94,8 +106,8 @@ Because continuous dynamic and stress testing disrupts development workflows and
 
 `push` to `main` and `develop` with web/mobile path filters, plus `workflow_dispatch` for manual retries.
 
-* **Web** (`deploy-web`): requires Playwright job `e2e` (bypassed on manual dispatch), then Vite build. Injects version tags (e.g., `-STG` or `-PROD`). Firebase Hosting deploy to live channel of the environment-specific project.
-* **Mobile** (`deploy-mobile`): Signed `assembleRelease`, App Distribution to `qa-team`. Release notes automatically prefixed with `[STAGING]` or `[PRODUCTION]`.
+- **Web** (`deploy-web`): needs Playwright job `e2e` (bypassed on `workflow_dispatch`), then Vite build (`VITE_USE_MOCK_API: 'false'`, `VITE_FIREBASE_APP_DISTRIBUTION_URL` from secret `FIREBASE_APP_DISTRIBUTION_URL`). Injects version tags (e.g. `-STG` or `-PROD`) and deploys Firebase Hosting `channelId: live` on the environment-specific project. Concurrency `deploy-web-${{ github.ref }}`.
+- **Mobile** (`deploy-mobile`): `needs` path detection only. Signed `assembleRelease`, shred keystore, App Distribution group `qa-team`. Release notes prefixed with `[STAGING]` or `[PRODUCTION]`. Concurrency `deploy-mobile-${{ github.ref }}`.
 
 ## 8. Pipeline diagram
 

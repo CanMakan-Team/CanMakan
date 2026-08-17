@@ -1,6 +1,5 @@
 export interface PendingRegistrationOnboarding {
   email: string
-  profileName: string
   invitationToken?: string
 }
 
@@ -14,7 +13,6 @@ export const pendingRegistrationOnboardingStore = {
   request(value: PendingRegistrationOnboarding) {
     pending = {
       email: normalizeEmail(value.email),
-      profileName: value.profileName.trim(),
       invitationToken: value.invitationToken?.trim() || undefined,
     }
   },

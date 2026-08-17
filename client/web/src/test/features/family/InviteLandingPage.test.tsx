@@ -66,7 +66,7 @@ describe('InviteLandingPage app handoff', () => {
 
     expect(screen.getByRole('link', { name: 'Create account' })).toHaveAttribute(
       'href',
-      '/family-register?invitationToken=tok-1',
+      '/register?invitationToken=tok-1',
     )
     expect(locationReplace).not.toHaveBeenCalled()
   })

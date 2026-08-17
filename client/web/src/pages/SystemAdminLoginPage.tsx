@@ -1,4 +1,5 @@
 import { CredentialLoginForm } from '../shared/ui/CredentialLoginForm'
+import { LoginBrand } from '../shared/ui/CanMakanMascot'
 
 /** System admin login — live email/password against POST /api/auth/login. */
 export function SystemAdminLoginPage() {
@@ -9,12 +10,7 @@ export function SystemAdminLoginPage() {
           className="system-login-introduction"
           aria-labelledby="system-entry-title"
         >
-          <div className="login-brand login-brand--system">
-            <span className="brand-mark" aria-hidden="true">
-              CM
-            </span>
-            <strong>CanMakan</strong>
-          </div>
+          <LoginBrand variant="system" />
           <span className="restricted-label">Authorised Staff Only</span>
           <span className="portal-icon portal-icon--system" aria-hidden="true">
             ◫

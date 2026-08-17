@@ -329,6 +329,33 @@ class DietaryProfileServiceTest {
     }
 
     @Test
+    @DisplayName("UC1 updateSelfProfile keeps PREFERENCE like the mobile restriction editor")
+    void updateSelfProfileAcceptsPreferenceSeverity() {
+        DietaryProfile profile = new DietaryProfile();
+        profile.setId(77L);
+        profile.setProfileName("Person Name");
+        profile.setRelationship("SELF");
+        profile.setActive(true);
+        profile.setProfileRestrictions(new HashSet<>());
+
+        when(dietaryProfileRepository.findByLinkedUser_Id(14L)).thenReturn(Optional.of(profile));
+        when(dietaryRestrictionRepository.findById(11L))
+            .thenReturn(Optional.of(createRestriction(11L)));
+        when(dietaryProfileRepository.saveAndFlush(profile)).thenReturn(profile);
+
+        SelfProfileResponse response = dietaryProfileService.updateSelfProfile(
+            14L,
+            new CreateSelfProfileRequest("Person Name", Map.of(11L, "preference"))
+        );
+
+        assertEquals(Map.of(11L, "PREFERENCE"), response.restrictions());
+        assertEquals(
+            "PREFERENCE",
+            profile.getProfileRestrictions().iterator().next().getSeverityLevel()
+        );
+    }
+
+    @Test
     @DisplayName("UC1 updateSelfProfile throws when the caller has no linked SELF profile yet")
     void updateSelfProfileThrowsWhenNoneExists() {
         when(dietaryProfileRepository.findByLinkedUser_Id(14L)).thenReturn(Optional.empty());

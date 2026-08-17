@@ -39,6 +39,9 @@ Manages a person’s dietary profile independently of family relationships.
   persists its optional restrictions atomically.
 - SELF setup accepts only the scan engine's current severity vocabulary:
   `STRICT_AVOID` and `INTOLERANCE`.
+- Later SELF edits (`PUT /api/profiles/me`) and the mobile restriction editor
+  (`PUT /api/profiles/{profileId}/restrictions`) also accept `PREFERENCE`, so
+  existing diet-preference rows are not rejected on save.
 
 ## Related packages
 

@@ -29,8 +29,10 @@ jobs:
           filters: |
             web:
               - 'client/web/**'
+              - 'client/shared/**'
             mobile:
               - 'client/mobile/**'
+              - 'client/shared/**'
   
   tests:
     needs: detect-frontend-changes
@@ -46,6 +48,8 @@ jobs:
         with:
           sparse-checkout: |
             client/web
+            client/shared
+            client/mobile/app/src/main/res/mipmap-xxxhdpi
 
       - name: Setup Node.js
         uses: actions/setup-node@v7.0.0
