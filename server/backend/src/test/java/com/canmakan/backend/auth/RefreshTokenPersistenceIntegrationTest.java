@@ -28,6 +28,8 @@ import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshToken;
 import com.canmakan.backend.auth.repository.RefreshTokenRepository;
+import com.canmakan.backend.auth.service.AuthService;
+import com.canmakan.backend.auth.service.RefreshTokenService;
 
 @SpringBootTest
 class RefreshTokenPersistenceIntegrationTest {
