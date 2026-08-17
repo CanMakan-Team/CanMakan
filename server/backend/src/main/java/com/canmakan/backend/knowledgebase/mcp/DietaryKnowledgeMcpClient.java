@@ -31,8 +31,7 @@ import java.util.regex.Pattern;
  * the {@code DietaryKnowledgeMcpServer} tools (MW) and implements {@link IngredientResolver}
  * so the verdict engine can resolve unknown ingredients without knowing about the tools.
  *
- * <p>Marked {@link Primary} so it supersedes {@code IngredientResolverStub} as the
- * resolver the engine injects.
+ * <p>Marked {@link Primary} as the sole {@link IngredientResolver} bean used by the rule engine.
  *
  * @author XieHuayuan
  * @author Amelia

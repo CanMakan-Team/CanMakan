@@ -134,7 +134,7 @@ public class ExternalAllergenMatchMapper {
     private static String buildPrompt(List<String> unresolvedIngredients, String searchSummary) {
         String names = unresolvedIngredients.stream()
             .filter(Objects::nonNull)
-            .map(String::trim)
+            .map(name -> name.trim())
             .filter(name -> !name.isEmpty())
             .map(name -> "- " + name)
             .reduce((left, right) -> left + "\n" + right)

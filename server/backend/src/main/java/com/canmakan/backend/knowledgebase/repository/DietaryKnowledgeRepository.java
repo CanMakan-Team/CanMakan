@@ -5,6 +5,7 @@ import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionReposito
 import com.canmakan.backend.knowledgebase.model.DietaryRule;
 import com.canmakan.backend.knowledgebase.model.ENumber;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
+import com.canmakan.backend.knowledgebase.model.IngredientEntity;
 import com.canmakan.backend.knowledgebase.mcp.contract.CrossContaminationResult;
 
 import jakarta.annotation.PostConstruct;
