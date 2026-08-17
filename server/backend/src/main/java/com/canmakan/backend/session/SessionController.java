@@ -1,5 +1,6 @@
 package com.canmakan.backend.session;
 
+import com.canmakan.backend.shared.security.AuthUserChecker;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +24,8 @@ public class SessionController {
 
     @PostMapping("/heartbeat")
     public ResponseEntity<Void> heartbeat(@AuthenticationPrincipal AuthUserDetails principal) {
-        sessionTrackingService.recordHeartbeat(principal.getUserId());
+        long userId = AuthUserChecker.requireUserId(principal);
+        sessionTrackingService.recordHeartbeat(userId);
         return ResponseEntity.noContent().build();
     }
 }

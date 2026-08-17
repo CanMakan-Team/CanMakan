@@ -26,7 +26,9 @@ public interface UserSessionRepository extends JpaRepository<UserSession, Long> 
     }
 
     @Query(value = """
-            SELECT AVG(TIMESTAMPDIFF(SECOND, started_at, last_heartbeat_at)) AS avgSeconds,
+            SELECT AVG(CASE WHEN last_heartbeat_at > started_at
+                            THEN TIMESTAMPDIFF(SECOND, started_at, last_heartbeat_at)
+                            ELSE NULL END) AS avgSeconds,
                    COUNT(*) AS totalSessions,
                    COUNT(DISTINCT user_id) AS activeUsers,
                    COUNT(DISTINCT user_id, DATE(started_at)) AS activeUserDays

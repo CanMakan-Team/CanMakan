@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.features.session
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -63,7 +64,13 @@ class SessionHeartbeat internal constructor(
     private fun startHeartbeat() {
         heartbeatJob = scope.launch {
             while (isActive) {
-                runCatching { sessionApiService.heartbeat() }
+                try {
+                    sessionApiService.heartbeat()
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (error: Exception) {
+                    // A dropped heartbeat is tolerated by the backend session timeout.
+                }
                 delay(heartbeatIntervalMs)
             }
         }

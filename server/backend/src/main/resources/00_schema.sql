@@ -534,7 +534,8 @@ CREATE TABLE user_sessions (
 -- ============================================================================
 
 CREATE INDEX idx_users_role_id ON users (role_id);
-CREATE INDEX idx_user_sessions_user_started ON user_sessions (user_id, started_at);
+CREATE INDEX idx_user_sessions_user_last_heartbeat ON user_sessions (user_id, last_heartbeat_at);
+CREATE INDEX idx_user_sessions_started_at ON user_sessions (started_at);
 CREATE INDEX idx_users_is_active ON users (is_active);
 
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens (user_id);
