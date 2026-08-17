@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Route } from '@playwright/test';
 
 /**
  * CMK-55 Playwright authentication and route guarding tests for CanMakan web application.
@@ -8,8 +8,8 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Authentication and Route Guarding', () => {
 
-  async function mockAuthenticatedUser(page) {
-    await page.route('**/api/auth/refresh', route => {
+  async function mockAuthenticatedUser(page: Page) {
+    await page.route('**/api/auth/refresh', (route: Route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -22,7 +22,7 @@ test.describe('Authentication and Route Guarding', () => {
       });
     });
 
-    await page.route('**/api/auth/me', route => {
+    await page.route('**/api/auth/me', (route: Route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -30,7 +30,7 @@ test.describe('Authentication and Route Guarding', () => {
       });
     });
 
-    await page.route('**/api/families/me', route => {
+    await page.route('**/api/families/me', (route: Route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -44,7 +44,7 @@ test.describe('Authentication and Route Guarding', () => {
       });
     });
 
-    await page.route('**/api/families/me/members', route => {
+    await page.route('**/api/families/me/members', (route: Route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -64,7 +64,7 @@ test.describe('Authentication and Route Guarding', () => {
       });
     });
 
-    await page.route('**/api/families/me/active-profile', route => {
+    await page.route('**/api/families/me/active-profile', (route: Route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -72,7 +72,7 @@ test.describe('Authentication and Route Guarding', () => {
       });
     });
 
-    await page.route('**/api/families/me/scans', route => {
+    await page.route('**/api/families/me/scans', (route: Route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -80,11 +80,11 @@ test.describe('Authentication and Route Guarding', () => {
       });
     });
 
-    await page.route('**/api/restrictions', route => {
+    await page.route('**/api/restrictions', (route: Route) => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
 
-    await page.route('**/api/profiles/me', route => {
+    await page.route('**/api/profiles/me', (route: Route) => {
       route.fulfill({
         status: 404,
         contentType: 'application/json',
