@@ -8,6 +8,7 @@ import {
 } from '../../../app/userPortalPaths'
 import { ApiError, getErrorMessage } from '../../../shared/api/apiErrors'
 import { formatCode } from '../../family/lib/profileOptions'
+import { getGreetingPeriod } from '../../family/lib/greeting'
 import { familyApiService } from '../../family/api/familyApiService'
 import { useFamilyMe } from '../../family/useFamilyMe'
 import { useSession } from '../../auth/useSession'
@@ -152,12 +153,19 @@ export function PersonalHomePage() {
   const showMobilePromo =
     scanHistoryReady && recentScans.length === 0 && !appInstalledDismissed
 
+  // The signed-in display name is used so the greeting is available immediately,
+  // before the dietary profile request resolves.
+  const greetingPeriod = getGreetingPeriod()
+  const greetingName = session?.displayName ?? 'there'
+
   return (
     <div className="personal-home">
       <header className="page-header">
         <div>
           <p className="eyebrow">User Portal</p>
-          <h1>Your CanMakan account</h1>
+          <h1>
+            Good {greetingPeriod}, {greetingName}.
+          </h1>
           <p>
             Keep your dietary needs ready for scans. Grocery checks happen in the
             CanMakan mobile app

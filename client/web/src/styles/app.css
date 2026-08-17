@@ -89,6 +89,18 @@ p {
   text-transform: uppercase;
 }
 
+/*
+ * Renders the eyebrow as a category tag so it reads as a label rather than as a
+ * second line of heading text.
+ */
+.eyebrow--badge {
+  display: inline-block;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  color: var(--teal-900);
+  background: var(--color-primary-container);
+}
+
 .brand-mark {
   display: inline-grid;
   width: 2.75rem;
@@ -171,8 +183,20 @@ p {
   box-shadow: 0 6px 15px color-mix(in srgb, var(--color-web-19715f) 18%, transparent);
 }
 
+/*
+ * Hover lightens the brand green and deepens the shadow so the button reads as
+ * raised against dark surrounding chrome. The mix is kept small to hold the
+ * white label above the 4.5:1 contrast ratio.
+ */
 .button--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--teal-700) 92%, white);
+  box-shadow: 0 9px 22px color-mix(in srgb, var(--color-web-19715f) 30%, transparent);
+}
+
+.button--primary:active:not(:disabled) {
+  transform: translateY(0);
   background: var(--teal-800);
+  box-shadow: 0 3px 9px color-mix(in srgb, var(--color-web-19715f) 24%, transparent);
 }
 
 .button--dark {
@@ -592,16 +616,16 @@ input[readonly] {
 
 .sidebar__nav {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.1rem;
 }
 
 .sidebar__section {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.1rem;
 }
 
 .sidebar__section-label {
-  margin: 0.9rem 0.75rem 0.15rem;
+  margin: 0.7rem 0.75rem 0.15rem;
   color: var(--color-web-bcd0c9);
   font-size: 0.7rem;
   font-weight: 800;
@@ -614,7 +638,7 @@ input[readonly] {
 }
 
 .sidebar__divider {
-  margin: 0.75rem 0.75rem 0.55rem;
+  margin: 0.6rem 0.75rem 0.45rem;
   border: none;
   border-top: 1px solid color-mix(in srgb, var(--color-web-bcd0c9) 55%, black);
 }
@@ -739,6 +763,16 @@ input[readonly] {
   border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--color-surface) 96%, transparent);
   backdrop-filter: blur(8px);
+}
+
+.mobile-header__brand {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.mobile-header__brand:hover {
+  text-decoration: underline;
 }
 
 .mobile-header__page {
@@ -1813,16 +1847,12 @@ input[readonly] {
 }
 
 .dietary-setup__actions {
-  position: sticky;
-  z-index: 2;
-  bottom: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
   margin-top: 1.4rem;
   padding: 0.9rem 0 0.15rem;
   border-top: 1px solid var(--line);
-  background: var(--color-surface);
 }
 
 .dietary-setup__actions .button {
@@ -3131,4 +3161,12 @@ caption,
   border: 1px solid var(--line, var(--color-web-d0d5dd));
   border-radius: 0.5rem;
   font: inherit;
+}
+
+/*
+ * Aligns the action button with the left edge of the fields above it, instead of
+ * the right-aligned default used by page header actions.
+ */
+.stack-form--start-actions .page-header__actions {
+  justify-content: flex-start;
 }

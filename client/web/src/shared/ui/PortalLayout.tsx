@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import {
+  Link,
   NavLink,
   Outlet,
   useLocation,
   useNavigate,
 } from 'react-router-dom'
-import { USER_LOGIN_PATH } from '../../app/userPortalPaths'
+import { ME_PATH, USER_LOGIN_PATH } from '../../app/userPortalPaths'
 import { FamilyMeProvider } from '../../features/family/FamilyMeContext'
 import { useFamilyMe } from '../../features/family/useFamilyMe'
 import { userPortalSections } from '../../features/family/lib/userPortalNav'
@@ -212,7 +213,9 @@ function PortalShell({
               ☰
             </button>
           )}
-          <strong>CanMakan</strong>
+          <Link className="mobile-header__brand" to={portal === 'family' ? ME_PATH : '/system'}>
+            CanMakan
+          </Link>
           <span className="mobile-header__page">
             {navigation.find(
               (item) =>

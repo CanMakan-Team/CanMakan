@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../../../shared/api/apiErrors'
 import { familyApiService } from '../api/familyApiService'
 import type { ActiveProfile, FamilyMember, ScanRecord } from '../../../shared/api/types'
-import { getGreetingPeriod } from '../lib/greeting'
+import { useFamilyMe } from '../useFamilyMe'
 import { ErrorState, LoadingState } from '../../../shared/ui/PageState'
 import { PortalIcon } from '../../../shared/ui/PortalIcon'
 import { StatusBadge } from '../../../shared/ui/StatusBadge'
 
 export function FamilyDashboardPage() {
+  const { family } = useFamilyMe()
   const [members, setMembers] = useState<FamilyMember[]>([])
   const [scans, setScans] = useState<ScanRecord[]>([])
   const [active, setActive] = useState<ActiveProfile | null>(null)
@@ -62,20 +63,12 @@ export function FamilyDashboardPage() {
     return counts
   }, {})
 
-  // Greeting uses the family PRIMARY_ADMIN profile, not relationship SELF
-  // (every linked member also has a SELF dietary profile).
-  const adminProfileName = members.find((member) => member.memberRole === 'PRIMARY_ADMIN')
-    ?.profileName
-  const greetingPeriod = getGreetingPeriod()
-
   return (
     <>
       <header className="page-header">
         <div>
           <p className="eyebrow">Family overview</p>
-          <h1>
-            Good {greetingPeriod}, {adminProfileName ?? 'there'}.
-          </h1>
+          <h1>Manage {family?.familyName ?? 'your family circle'}</h1>
           <p>
             A practical snapshot of profiles and supplied assessment history.
             Counts are not medical-risk trends.
