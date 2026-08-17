@@ -49,7 +49,9 @@ public class SessionTrackingService {
                 && Duration.between(current.getLastHeartbeatAt(), now).compareTo(SESSION_TIMEOUT) <= 0;
 
         if (extendsOpenSession) {
-            current.setLastHeartbeatAt(now);
+            if (current != null) {
+                current.setLastHeartbeatAt(now);
+            }
             repository.save(current);
         } else {
             repository.save(new UserSession(null, userId, now, now));
