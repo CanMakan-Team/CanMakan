@@ -1,5 +1,7 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
+import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/3.0.4/dist/bundle.js";
+import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.2/index.js";
 
 /**
  * @fileoverview This script is designed to be run in a CI/CD pipeline to perform a load test on the CanMakan backend API.
@@ -7,8 +9,9 @@ import { check, sleep } from "k6";
  *
  * Usage:
  * 1. Set the required environment variables:
- *    - VITE_API_BASE_URL: The base URL of the API to test (e.g., https://api.staging.canmakan.space)
- *    - DAST_TEST_JWT: A valid JWT token for authentication
+ *    - API_BASE_URL: The base URL of the API to test (e.g., https://api.staging.canmakan.space)
+ *    - TEST_EMAIL: A valid user email for authentication
+ *    - TEST_PASSWORD: The password for the TEST_EMAIL account
  * 2. Run the script using k6:
  *    k6 run .github/scripts/k6-load-test.js
  **/
@@ -27,7 +30,7 @@ export const options = {
   },
 };
 
-const baseUrl = __ENV.VITE_API_BASE_URL || "https://api.staging.canmakan.space";
+const baseUrl = __ENV.API_BASE_URL || "https://api.staging.canmakan.space";
 const testEmail = __ENV.TEST_EMAIL;
 const testPassword = __ENV.TEST_PASSWORD;
 
@@ -53,7 +56,7 @@ export default function () {
   let token;
   try {
     // Adjust 'token' based on the API's actual JSON response key
-    token = loginRes.json("token");
+    token = loginRes.json("accessToken");
   } catch (e) {
     // Proceed safely if token parsing fails
   }
@@ -63,7 +66,7 @@ export default function () {
 
   // 2. Data Retrieval
   if (token) {
-    const dataRes = http.get(`${baseUrl}/api/v1/user/profile`, {
+    const dataRes = http.get(`${baseUrl}/api/profiles/me`, {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
@@ -77,4 +80,18 @@ export default function () {
 
   // Simulate Human Think Time before the Next Iteration
   sleep(1 + Math.random() * 2);
+}
+
+// 3. Generate an HTML Report
+export function handleSummary(data) {
+  return {
+    // 1. Generates the interactive HTML dashboard
+    "summary.html": htmlReport(data),
+
+    // 2. Generates the markdown summary for GitHub Actions UI
+    "github_summary.md": `### 📊 k6 Load Test Summary\n\`\`\`\n${textSummary(data, { indent: " ", enableColors: false })}\n\`\`\``,
+
+    // 3. Generates the JSON summary file
+    "summary.json": JSON.stringify(data, null, 2),
+  };
 }
