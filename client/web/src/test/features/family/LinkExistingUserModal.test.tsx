@@ -59,7 +59,7 @@ describe('LinkExistingUserModal', () => {
     })
     expect(familyApiService.searchExistingUser).not.toHaveBeenCalled()
     expect(onSuccess).toHaveBeenCalledWith(
-      'Invitation sent to jamie@example.com. Ask them to check their email inbox (and spam folder) for the invite link.',
+      'Invitation sent to jamie@example.com. Ask them to check their email inbox (and spam folder).',
     )
     expect(onClose).toHaveBeenCalled()
   })
