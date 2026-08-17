@@ -215,6 +215,20 @@ p {
   background: var(--color-web-9f3c38);
 }
 
+.button--warning {
+  color: var(--color-surface);
+  background: var(--warning);
+}
+
+.button--warning:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--warning) 88%, white);
+}
+
+.button--warning:active:not(:disabled) {
+  transform: translateY(0);
+  background: color-mix(in srgb, var(--warning) 88%, black);
+}
+
 .button--full {
   width: 100%;
 }
@@ -1596,9 +1610,9 @@ input[readonly] {
   to { transform: rotate(360deg); }
 }
 
-.active-profile-card {
+.roster-context-card {
   display: grid;
-  grid-template-columns: 1fr minmax(260px, 0.5fr);
+  grid-template-columns: 1fr minmax(220px, 0.45fr);
   gap: 1.5rem;
   margin-bottom: 1rem;
   padding: 1.2rem 1.35rem;
@@ -1608,32 +1622,55 @@ input[readonly] {
   box-shadow: 0 5px 18px color-mix(in srgb, var(--color-web-194135) 6%, transparent);
 }
 
-.active-profile-card h2,
-.active-profile-card p {
+.roster-context-card h2,
+.roster-context-card p {
   margin-bottom: 0.25rem;
 }
 
-.active-profile-card__title {
+.roster-context-card__title {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.55rem;
 }
 
-.active-profile-card p:not(.eyebrow) {
+.roster-context-card p:not(.eyebrow) {
   color: var(--muted);
   font-size: 0.85rem;
 }
 
-.active-profile-card__control {
+.roster-context-card__aside {
   display: grid;
   align-content: end;
-  gap: 0.4rem;
+  justify-items: end;
+  gap: 0.55rem;
 }
 
-.active-profile-card__control label {
+.roster-context-card__stats {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.roster-context-card__stat {
+  display: grid;
+  gap: 0.15rem;
+  text-align: right;
+}
+
+.roster-context-card__stat span {
   color: var(--ink);
   font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.roster-context-card__stat strong {
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.roster-context-card__link {
+  color: var(--teal-700);
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
@@ -1896,6 +1933,21 @@ input[readonly] {
   margin-top: 1.3rem;
   padding-top: 1rem;
   border-top: 1px solid var(--line);
+}
+
+.modal__actions--plain {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.modal:has(.modal__actions--plain) .modal__header {
+  padding-bottom: 0.35rem;
+  border-bottom: none;
+}
+
+.modal:has(.modal__actions--plain) .modal__body {
+  padding-top: 0.85rem;
 }
 
 .form-grid {
@@ -3282,8 +3334,16 @@ caption,
     min-height: 0;
   }
 
-  .active-profile-card {
+  .roster-context-card {
     grid-template-columns: 1fr;
+  }
+
+  .roster-context-card__aside {
+    justify-items: start;
+  }
+
+  .roster-context-card__stat {
+    text-align: left;
   }
 
   .verdict-summary {

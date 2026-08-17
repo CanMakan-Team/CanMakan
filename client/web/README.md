@@ -71,7 +71,7 @@ Protected USER routes:
 - `/me/account` — account settings (works without a family)
 - `/family/circle` — create Family Circle when membership is missing
 - `/family/dashboard` — Family Circle dashboard (`PRIMARY_ADMIN`)
-- `/family/members` — link, create, edit and active-profile flows (`PRIMARY_ADMIN`; other users are sent to `/me`)
+- `/family/members` — link, create, edit, and scan-eligibility roster (`PRIMARY_ADMIN`; other users are sent to `/me`)
 - `/family/restrictions` — dynamic family restriction summary (`PRIMARY_ADMIN`)
 - `/family/history` — supplied scan-assessment history (`PRIMARY_ADMIN`)
 - `/family/verdict-trends` — family verdict trends (`PRIMARY_ADMIN`)

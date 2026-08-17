@@ -30,8 +30,8 @@ family/
     FamilyScanHistoryPage.tsx
     UserLandingPage.tsx
   components/
-    ActiveProfileSelector.tsx
     CreateFamilyProfileModal.tsx
+    ScanEligibilityCard.tsx
     EditFamilyProfileModal.tsx
     LinkExistingUserModal.tsx
     ProfileCardMenu.tsx
@@ -67,7 +67,7 @@ SELF-profile save/skip, and session restoration never open the family form.
 
 | Piece | Notes |
 | --- | --- |
-| `FamilyMembersPage` | PRIMARY_ADMIN roster: invite, edit, activate, remove |
+| `FamilyMembersPage` | PRIMARY_ADMIN roster: invite, edit, activate, remove; scan-eligibility snapshot; in-app confirm modal for deactivate/remove |
 | `EditFamilyProfileModal` | Live `PUT /me/profiles/{id}`; D3 restricts restriction edits to self + dependants |
 | `familyApiService` | `updateProfile`, `setProfileActive`, `removeMember`, `removeDependantProfile`, `getProfiles`, `getScanHistory` (PRIMARY_ADMIN) |
 | Soft-remove | Linked → `DELETE /me/members/{userId}`; dependant → `DELETE /me/profiles/{id}` |

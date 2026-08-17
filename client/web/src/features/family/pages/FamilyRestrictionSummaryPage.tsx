@@ -103,7 +103,7 @@ export function FamilyRestrictionSummaryPage() {
       <header className="page-header">
         <div>
           <p className="eyebrow">At-a-glance comparison</p>
-          <h1>Family Allergy & Dietary Requirement Summary</h1>
+          <h1>Family Allergy & Dietary Restriction Summary</h1>
           <p>
             This grid dynamically aggregates all active restrictions and allergies
             across your household.
