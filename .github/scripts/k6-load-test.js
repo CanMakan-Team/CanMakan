@@ -1,6 +1,6 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
-import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bencuk.min.js";
+import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/3.0.4/dist/bundle.js";
 import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.2/index.js";
 
 /**
@@ -9,8 +9,9 @@ import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.2/index.js";
  *
  * Usage:
  * 1. Set the required environment variables:
- *    - VITE_API_BASE_URL: The base URL of the API to test (e.g., https://api.staging.canmakan.space)
- *    - DAST_TEST_JWT: A valid JWT token for authentication
+ *    - API_BASE_URL: The base URL of the API to test (e.g., https://api.staging.canmakan.space)
+ *    - TEST_EMAIL: A valid user email for authentication
+ *    - TEST_PASSWORD: The password for the TEST_EMAIL account
  * 2. Run the script using k6:
  *    k6 run .github/scripts/k6-load-test.js
  **/
@@ -85,12 +86,12 @@ export default function () {
 export function handleSummary(data) {
   return {
     // 1. Generates the interactive HTML dashboard
-    "result.html": htmlReport(data),
-    
+    "summary.html": htmlReport(data),
+
     // 2. Generates the markdown summary for GitHub Actions UI
     "github_summary.md": `### 📊 k6 Load Test Summary\n\`\`\`\n${textSummary(data, { indent: " ", enableColors: false })}\n\`\`\``,
 
-    // 3. Generates the JSON file expected by your artifact upload step
-    "results.json": JSON.stringify(data, null, 2),
+    // 3. Generates the JSON summary file
+    "summary.json": JSON.stringify(data, null, 2),
   };
 }
