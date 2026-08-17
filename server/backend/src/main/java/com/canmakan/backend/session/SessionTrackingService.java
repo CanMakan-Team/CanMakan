@@ -2,7 +2,7 @@ package com.canmakan.backend.session;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,7 +42,7 @@ public class SessionTrackingService {
         if (userId == null) {
             return;
         }
-        LocalDateTime now = LocalDateTime.now(clock);
+        Instant now = clock.instant();
         UserSession current = repository.findFirstByUserIdOrderByLastHeartbeatAtDesc(userId).orElse(null);
 
         boolean extendsOpenSession = current != null

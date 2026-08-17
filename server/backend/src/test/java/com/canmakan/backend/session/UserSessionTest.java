@@ -2,7 +2,7 @@ package com.canmakan.backend.session;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,8 +18,8 @@ class UserSessionTest {
     @Test
     @DisplayName("all-args constructor exposes every field")
     void allArgsConstructorExposesFields() {
-        LocalDateTime started = LocalDateTime.of(2026, 2, 1, 12, 0);
-        LocalDateTime last = started.plusMinutes(5);
+        Instant started = Instant.parse("2026-02-01T12:00:00Z");
+        Instant last = started.plusSeconds(300);
 
         UserSession session = new UserSession(1L, 7L, started, last);
 
@@ -32,8 +32,8 @@ class UserSessionTest {
     @Test
     @DisplayName("no-args constructor with setters exposes every field")
     void noArgsConstructorWithSetters() {
-        LocalDateTime started = LocalDateTime.of(2026, 2, 1, 12, 0);
-        LocalDateTime last = started.plusMinutes(10);
+        Instant started = Instant.parse("2026-02-01T12:00:00Z");
+        Instant last = started.plusSeconds(600);
 
         UserSession session = new UserSession();
         session.setId(2L);

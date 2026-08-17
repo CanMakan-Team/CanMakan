@@ -8,7 +8,6 @@ import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
 
@@ -40,13 +39,13 @@ class SessionTrackingServiceTest {
     private ArgumentCaptor<UserSession> sessionCaptor;
 
     private SessionTrackingService service;
-    private LocalDateTime nowLocal;
+    private Instant nowInstant;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         service = new SessionTrackingService(repository, clock);
-        nowLocal = LocalDateTime.now(clock);
+        nowInstant = clock.instant();
     }
 
     @Test
@@ -60,22 +59,22 @@ class SessionTrackingServiceTest {
         UserSession saved = sessionCaptor.getValue();
         assertThat(saved.getId()).isNull();
         assertThat(saved.getUserId()).isEqualTo(USER_ID);
-        assertThat(saved.getStartedAt()).isEqualTo(nowLocal);
-        assertThat(saved.getLastHeartbeatAt()).isEqualTo(nowLocal);
+        assertThat(saved.getStartedAt()).isEqualTo(nowInstant);
+        assertThat(saved.getLastHeartbeatAt()).isEqualTo(nowInstant);
     }
 
     @Test
     @DisplayName("a heartbeat within the timeout extends the open session")
     void heartbeatWithinTimeoutExtendsSession() {
-        LocalDateTime startedAt = nowLocal.minusMinutes(10);
-        UserSession open = new UserSession(1L, USER_ID, startedAt, nowLocal.minusSeconds(60));
+        Instant startedAt = nowInstant.minusSeconds(600);
+        UserSession open = new UserSession(1L, USER_ID, startedAt, nowInstant.minusSeconds(60));
         when(repository.findFirstByUserIdOrderByLastHeartbeatAtDesc(USER_ID)).thenReturn(Optional.of(open));
 
         service.recordHeartbeat(USER_ID);
 
         verify(repository).save(open);
         assertThat(open.getStartedAt()).isEqualTo(startedAt);
-        assertThat(open.getLastHeartbeatAt()).isEqualTo(nowLocal);
+        assertThat(open.getLastHeartbeatAt()).isEqualTo(nowInstant);
     }
 
     @Test
@@ -100,7 +99,7 @@ class SessionTrackingServiceTest {
     @Test
     @DisplayName("a heartbeat after the timeout starts a new session")
     void heartbeatAfterTimeoutStartsNewSession() {
-        UserSession stale = new UserSession(1L, USER_ID, nowLocal.minusMinutes(30), nowLocal.minusSeconds(120));
+        UserSession stale = new UserSession(1L, USER_ID, nowInstant.minusSeconds(1800), nowInstant.minusSeconds(120));
         when(repository.findFirstByUserIdOrderByLastHeartbeatAtDesc(USER_ID)).thenReturn(Optional.of(stale));
 
         service.recordHeartbeat(USER_ID);
@@ -108,7 +107,7 @@ class SessionTrackingServiceTest {
         verify(repository).save(sessionCaptor.capture());
         UserSession saved = sessionCaptor.getValue();
         assertThat(saved.getId()).isNull();
-        assertThat(saved.getStartedAt()).isEqualTo(nowLocal);
-        assertThat(saved.getLastHeartbeatAt()).isEqualTo(nowLocal);
+        assertThat(saved.getStartedAt()).isEqualTo(nowInstant);
+        assertThat(saved.getLastHeartbeatAt()).isEqualTo(nowInstant);
     }
 }
