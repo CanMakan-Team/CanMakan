@@ -76,6 +76,10 @@ describe('PersonalHomePage', () => {
       new ApiError('No SELF profile exists for this account yet.', 404),
     )
     vi.mocked(selfProfileApiService.getScanHistoryForProfile).mockResolvedValue([])
+    // Pinned so the QR link assertions stay deterministic whether or not a
+    // local .env supplies an App Distribution URL. Tests that care about a
+    // configured URL stub their own value.
+    vi.stubEnv('VITE_FIREBASE_APP_DISTRIBUTION_URL', '')
   })
 
   afterEach(() => {
