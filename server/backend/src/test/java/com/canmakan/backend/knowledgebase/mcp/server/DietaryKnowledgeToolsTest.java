@@ -9,7 +9,7 @@ import com.canmakan.backend.knowledgebase.mcp.contract.ENumberResult;
 import com.canmakan.backend.knowledgebase.mcp.contract.IngredientAliasResult;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.knowledgebase.repository.DietaryKnowledgeRepository;
-import com.canmakan.backend.knowledgebase.repository.IngredientEntity;
+import com.canmakan.backend.knowledgebase.model.IngredientEntity;
 import com.canmakan.backend.knowledgebase.repository.IngredientEntityRepository;
 
 import org.junit.jupiter.api.BeforeEach;
