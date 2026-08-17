@@ -25,11 +25,19 @@ jobs:
           TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
         with:
           path: '.github/scripts/k6-load-test.js'
-          flags: '--out json=results.json'
 
-      - name: Upload Load Test Results
+      - name: Publish Visual Table to GitHub Summary
         if: always()
-        uses: actions/upload-artifact@v4.3.1
+        run: |
+          if [ -f github_summary.md ]; then
+            cat github_summary.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Load test summary file not found." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Load Test Reports
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: k6-results
           path: |
