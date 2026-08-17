@@ -1,5 +1,7 @@
-package com.canmakan.backend.product.recommendation;
+package com.canmakan.backend.product.recommendation.catalog;
 
+import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
+import com.canmakan.backend.product.recommendation.catalog.CatalogProductMapper;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;

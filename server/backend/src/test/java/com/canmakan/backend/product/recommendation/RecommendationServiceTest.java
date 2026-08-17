@@ -1,5 +1,22 @@
 package com.canmakan.backend.product.recommendation;
 
+import com.canmakan.backend.product.recommendation.catalog.AlternativeProductQueryService;
+import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
+import com.canmakan.backend.product.recommendation.catalog.CatalogProductMapper;
+import com.canmakan.backend.product.recommendation.discovery.RecommendationDiscoveryTier;
+import com.canmakan.backend.product.recommendation.dto.AlternativeProductResponse;
+import com.canmakan.backend.product.recommendation.dto.RecommendationRequest;
+import com.canmakan.backend.product.recommendation.filter.AlternativeCandidateFilter;
+import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfile;
+import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfiles;
+import com.canmakan.backend.product.recommendation.history.RecommendationLogEntry;
+import com.canmakan.backend.product.recommendation.history.RecommendationLogService;
+import com.canmakan.backend.product.recommendation.ranking.AlternativeProductRanker;
+import com.canmakan.backend.product.recommendation.ranking.MlContentBasedRanker;
+import com.canmakan.backend.product.recommendation.ranking.MlSparseCatalogRecommender;
+import com.canmakan.backend.product.recommendation.ranking.ProductFeatureEncoder;
+import com.canmakan.backend.product.recommendation.ranking.ProductFeatureVectorStore;
+import com.canmakan.backend.product.recommendation.ranking.PythonTfidfRankClient;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,7 +29,6 @@ import static org.mockito.Mockito.when;
 
 import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
 import com.canmakan.backend.knowledgebase.model.RestrictionCategory;
-import com.canmakan.backend.product.scan.Scan;
 import com.canmakan.backend.product.scan.ScanRepository;
 import com.canmakan.backend.product.verdict.DietaryRuleEngine;
 import com.canmakan.backend.product.verdict.Finding;
@@ -23,6 +39,7 @@ import com.canmakan.backend.product.verdict.SafetyVerdict;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -129,9 +146,7 @@ class RecommendationServiceTest {
         when(queryService.findByBarcode("100")).thenReturn(Optional.of(source));
         when(restrictionRuleLoader.load(1L)).thenReturn(rules);
         when(queryService.findSameCategoryCandidates(source)).thenReturn(List.of(safe, unsafe));
-        when(scanRepository.findByProfileIdOrderByScannedAtDesc(1L)).thenReturn(List.of(
-                scan(9L, 1L, "200", "SAFE")
-        ));
+        when(scanRepository.findDistinctSafeBarcodesByProfileId(1L)).thenReturn(Set.of("200"));
         when(catalogProductMapper.toProductData(safe)).thenReturn(productData("200"));
         when(catalogProductMapper.toProductData(unsafe)).thenReturn(productData("300"));
         when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
@@ -149,6 +164,7 @@ class RecommendationServiceTest {
         assertEquals("Ancient grain flakes", response.alternatives().getFirst().productName());
         assertEquals("ml_prior_safe_scan", response.alternatives().getFirst().matchReason());
 
+        @SuppressWarnings("unchecked")
         ArgumentCaptor<List<RecommendationLogEntry>> logCaptor = ArgumentCaptor.forClass(List.class);
         verify(logService).recordAlternatives(logCaptor.capture());
         assertEquals(1, logCaptor.getValue().size());
@@ -211,7 +227,7 @@ class RecommendationServiceTest {
         when(discoveryProfiles.forSourceProduct(source)).thenReturn(Optional.of(freshMilksProfile));
         when(queryService.findSubstituteTagCandidates(source, freshMilksProfile))
                 .thenReturn(List.of(oatDrink, unsweetenedSoy));
-        when(scanRepository.findByProfileIdOrderByScannedAtDesc(3L)).thenReturn(List.of());
+        when(scanRepository.findDistinctSafeBarcodesByProfileId(3L)).thenReturn(Set.of());
         when(catalogProductMapper.toProductData(oatDrink)).thenReturn(productData("7394376618253"));
         when(catalogProductMapper.toProductData(unsweetenedSoy)).thenReturn(productData("8850025000521"));
         when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
@@ -229,6 +245,7 @@ class RecommendationServiceTest {
         verify(queryService).findSubstituteTagCandidates(source, freshMilksProfile);
         verify(ranker, never()).rankSubstituteTags(any(), anyList(), any(), any());
 
+        @SuppressWarnings("unchecked")
         ArgumentCaptor<List<RecommendationLogEntry>> logCaptor = ArgumentCaptor.forClass(List.class);
         verify(logService).recordAlternatives(logCaptor.capture());
         assertEquals(RecommendationDiscoveryTier.TIER_A_CATALOG, logCaptor.getValue().getFirst().discoveryTier());
@@ -262,7 +279,7 @@ class RecommendationServiceTest {
         when(queryService.findSameCategoryCandidates(source)).thenReturn(List.of(otherWheatFlour));
         when(discoveryProfiles.forSourceProduct(source)).thenReturn(Optional.of(wheatFloursProfile));
         when(queryService.findSubstituteTagCandidates(source, wheatFloursProfile)).thenReturn(List.of(brownRiceFlour));
-        when(scanRepository.findByProfileIdOrderByScannedAtDesc(1L)).thenReturn(List.of());
+        when(scanRepository.findDistinctSafeBarcodesByProfileId(1L)).thenReturn(Set.of());
         when(catalogProductMapper.toProductData(otherWheatFlour)).thenReturn(productData("8886350000011"));
         when(catalogProductMapper.toProductData(brownRiceFlour)).thenReturn(productData("8887501030642"));
         when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
@@ -311,7 +328,7 @@ class RecommendationServiceTest {
                 .thenReturn(Optional.of(breakfastCerealsProfile));
         when(queryService.findSubstituteTagCandidates(source, breakfastCerealsProfile))
                 .thenReturn(List.of(glutenFreeCereal));
-        when(scanRepository.findByProfileIdOrderByScannedAtDesc(1L)).thenReturn(List.of());
+        when(scanRepository.findDistinctSafeBarcodesByProfileId(1L)).thenReturn(Set.of());
         when(catalogProductMapper.toProductData(otherCereal)).thenReturn(productData("4800361355872"));
         when(catalogProductMapper.toProductData(glutenFreeCereal)).thenReturn(productData("9315090200706"));
         when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
@@ -369,7 +386,7 @@ class RecommendationServiceTest {
                 .thenReturn(Optional.of(peanutButterProfile));
         when(queryService.findSubstituteTagCandidates(source, peanutButterProfile))
                 .thenReturn(List.of(tahini));
-        when(scanRepository.findByProfileIdOrderByScannedAtDesc(3L)).thenReturn(List.of());
+        when(scanRepository.findDistinctSafeBarcodesByProfileId(3L)).thenReturn(Set.of());
         when(catalogProductMapper.toProductData(otherPeanutButter)).thenReturn(productData("0051500710166"));
         when(catalogProductMapper.toProductData(tahini)).thenReturn(productData("8888536703136"));
         when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
@@ -411,7 +428,7 @@ class RecommendationServiceTest {
         when(discoveryProfiles.forSourceProduct(source)).thenReturn(Optional.of(freshMilksProfile));
         when(queryService.findSubstituteTagCandidates(source, freshMilksProfile))
                 .thenReturn(List.of(unsweetenedSoy));
-        when(scanRepository.findByProfileIdOrderByScannedAtDesc(3L)).thenReturn(List.of());
+        when(scanRepository.findDistinctSafeBarcodesByProfileId(3L)).thenReturn(Set.of());
         when(catalogProductMapper.toProductData(unsweetenedSoy)).thenReturn(productData("8850025000521"));
         when(ruleEngine.assessForRecommendation(eq(rules), any(ProductData.class)))
                 .thenReturn(soySafe);
@@ -430,6 +447,7 @@ class RecommendationServiceTest {
         verify(queryService).findSubstituteTagCandidates(source, freshMilksProfile);
         verify(queryService, never()).findExpandedSubstituteCandidates(eq(source), any());
 
+        @SuppressWarnings("unchecked")
         ArgumentCaptor<List<RecommendationLogEntry>> logCaptor = ArgumentCaptor.forClass(List.class);
         verify(logService).recordAlternatives(logCaptor.capture());
         assertEquals(RecommendationDiscoveryTier.TIER_A_CATALOG, logCaptor.getValue().getFirst().discoveryTier());
@@ -480,7 +498,7 @@ class RecommendationServiceTest {
         when(queryService.findSubstituteTagCandidates(source, soySauceProfile)).thenReturn(List.of(kikkomanGf));
         when(queryService.findExpandedSubstituteCandidates(eq(source), any()))
                 .thenReturn(List.of(kikkomanGf, labeledGf));
-        when(scanRepository.findByProfileIdOrderByScannedAtDesc(1L)).thenReturn(List.of());
+        when(scanRepository.findDistinctSafeBarcodesByProfileId(1L)).thenReturn(Set.of());
         when(catalogProductMapper.toProductData(wheatSoy)).thenReturn(productData("4965249200528"));
         when(catalogProductMapper.toProductData(kikkomanGf)).thenReturn(productData("4901515129889"));
         when(catalogProductMapper.toProductData(labeledGf)).thenReturn(productData("9343317000624"));
@@ -497,6 +515,7 @@ class RecommendationServiceTest {
 
         assertEquals(2, response.alternatives().size());
         verify(queryService, atLeastOnce()).findExpandedSubstituteCandidates(eq(source), any());
+        @SuppressWarnings("unchecked")
         ArgumentCaptor<List<RecommendationLogEntry>> logCaptor = ArgumentCaptor.forClass(List.class);
         verify(logService).recordAlternatives(logCaptor.capture());
         assertEquals(RecommendationDiscoveryTier.TIER_C_ML_SPARSE, logCaptor.getValue().getFirst().discoveryTier());
@@ -570,13 +589,4 @@ class RecommendationServiceTest {
         );
     }
 
-    private static Scan scan(Long id, Long profileId, String barcode, String verdict) {
-        Scan scan = new Scan();
-        scan.setId(id);
-        scan.setProfileId(profileId);
-        scan.setBarcode(barcode);
-        scan.setVerdict(verdict);
-        scan.setUserId(4L);
-        return scan;
-    }
 }

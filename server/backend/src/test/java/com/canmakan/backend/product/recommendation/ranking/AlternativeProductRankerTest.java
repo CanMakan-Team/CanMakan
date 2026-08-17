@@ -1,5 +1,9 @@
-package com.canmakan.backend.product.recommendation;
+package com.canmakan.backend.product.recommendation.ranking;
 
+import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
+import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfile;
+import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfiles;
+import com.canmakan.backend.product.recommendation.ranking.AlternativeProductRanker;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

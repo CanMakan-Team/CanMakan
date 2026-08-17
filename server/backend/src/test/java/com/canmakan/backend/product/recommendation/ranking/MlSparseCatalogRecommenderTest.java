@@ -1,5 +1,12 @@
-package com.canmakan.backend.product.recommendation;
+package com.canmakan.backend.product.recommendation.ranking;
 
+import com.canmakan.backend.product.recommendation.catalog.AlternativeProductQueryService;
+import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
+import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfile;
+import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfiles;
+import com.canmakan.backend.product.recommendation.ranking.MlSparseCatalogRecommender;
+import com.canmakan.backend.product.recommendation.ranking.ProductFeatureEncoder;
+import com.canmakan.backend.product.recommendation.ranking.ProductFeatureVectorStore;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;

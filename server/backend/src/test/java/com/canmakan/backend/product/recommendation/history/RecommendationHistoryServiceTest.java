@@ -1,5 +1,12 @@
-package com.canmakan.backend.product.recommendation;
+package com.canmakan.backend.product.recommendation.history;
 
+import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
+import com.canmakan.backend.product.recommendation.catalog.CatalogProductRepository;
+import com.canmakan.backend.product.recommendation.history.RecommendationHistoryEntryDto;
+import com.canmakan.backend.product.recommendation.history.RecommendationHistoryResponse;
+import com.canmakan.backend.product.recommendation.history.RecommendationHistoryService;
+import com.canmakan.backend.product.recommendation.history.RecommendationLog;
+import com.canmakan.backend.product.recommendation.history.RecommendationLogService;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;

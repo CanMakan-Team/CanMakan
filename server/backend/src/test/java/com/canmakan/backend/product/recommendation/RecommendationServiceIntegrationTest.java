@@ -1,5 +1,13 @@
 package com.canmakan.backend.product.recommendation;
 
+import com.canmakan.backend.product.recommendation.catalog.AlternativeProductQueryService;
+import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
+import com.canmakan.backend.product.recommendation.catalog.CatalogProductMapper;
+import com.canmakan.backend.product.recommendation.catalog.CatalogProductRepository;
+import com.canmakan.backend.product.recommendation.dto.AlternativeProductResponse;
+import com.canmakan.backend.product.recommendation.dto.RecommendationRequest;
+import com.canmakan.backend.product.recommendation.filter.AlternativeCandidateFilter;
+import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfiles;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
@@ -152,7 +160,7 @@ class RecommendationServiceIntegrationTest {
                 new RecommendationRequest(PROFILE_SARAH_TAN, SUNSHINE_WHOLE_GRAIN_BREAD, null));
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
@@ -190,7 +198,7 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
@@ -214,10 +222,10 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
         Set<String> plantMilkPool = queryService.findSubstituteTagCandidates(source, milkProfile).stream()
-                .map(CatalogProduct::getBarcode)
+                .map(product -> product.getBarcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
@@ -238,7 +246,7 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
@@ -262,7 +270,7 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
@@ -283,7 +291,7 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
@@ -311,7 +319,7 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.sourceBarcode()).isEqualTo(HI_CALCIUM_MILK_BREAD);
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
@@ -329,7 +337,7 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
@@ -351,7 +359,7 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
@@ -384,7 +392,7 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
@@ -418,7 +426,7 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
