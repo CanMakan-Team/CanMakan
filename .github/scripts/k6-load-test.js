@@ -40,7 +40,10 @@ export default function () {
   });
 
   const loginRes = http.post(`${baseUrl}/api/auth/login`, loginPayload, {
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      'Content-Type': 'application/json',
+      'X-CanMakan-Session-Request': '1'
+    },
   });
 
   check(loginRes, {
