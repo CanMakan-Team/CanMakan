@@ -9,6 +9,8 @@ export type PortalIconName =
   | 'restrictions'
   | 'history'
   | 'trends'
+  | 'info'
+  | 'clock'
 
 const NAMED_ICONS: PortalIconName[] = [
   'home',
@@ -19,6 +21,8 @@ const NAMED_ICONS: PortalIconName[] = [
   'restrictions',
   'history',
   'trends',
+  'info',
+  'clock',
 ]
 
 function iconPaths(name: PortalIconName): ReactNode {
@@ -87,6 +91,21 @@ function iconPaths(name: PortalIconName): ReactNode {
         <>
           <path d="M3 3v16a2 2 0 0 0 2 2h16" />
           <path d="m7 14 4-4 4 3 5-6" />
+        </>
+      )
+    case 'info':
+      return (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 11v6" />
+          <path d="M12 8h.01" />
+        </>
+      )
+    case 'clock':
+      return (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3 2" />
         </>
       )
   }

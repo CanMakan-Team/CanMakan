@@ -37,6 +37,7 @@ public class InvitationEmailService {
     private static final String TEXT_SECONDARY = "#6E6E6E";
 
     private final ResendProperties resendProperties;
+    private final InviteProperties inviteProperties;
 
     /**
      * Attempt to email the invitee. Safe to call when Resend is disabled.
@@ -108,6 +109,17 @@ public class InvitationEmailService {
         String expiryLine = expiry.isEmpty()
             ? "This invitation will not wait forever — join when you can."
             : "This invitation stays open until <strong>" + escape(expiry) + "</strong>.";
+        String webInviteUrl = invitation.inviteUrl() == null ? "" : invitation.inviteUrl().strip();
+        String mobileInviteUrl = inviteProperties.mobileInviteUrl(invitation.invitationToken());
+        String acceptLinks = "";
+        if (hasText(webInviteUrl) && hasText(mobileInviteUrl)) {
+            acceptLinks = "<p>Accept via <a href=\"" + escape(webInviteUrl) + "\">web</a>"
+                + " or <a href=\"" + escape(mobileInviteUrl) + "\">mobile</a>.</p>";
+        } else if (hasText(webInviteUrl)) {
+            acceptLinks = "<p>Accept via <a href=\"" + escape(webInviteUrl) + "\">web</a>.</p>";
+        } else if (hasText(mobileInviteUrl)) {
+            acceptLinks = "<p>Accept via <a href=\"" + escape(mobileInviteUrl) + "\">mobile</a>.</p>";
+        }
 
         return """
             <div style="font-family:Arial,Helvetica,sans-serif;color:%s;font-size:16px;line-height:1.5;max-width:560px;">
@@ -124,6 +136,7 @@ public class InvitationEmailService {
             <p>Good news — you have a seat waiting in the <strong>%s</strong> family circle on CanMakan.</p>
             <p>Scan groceries together, catch allergens and dietary no-gos before they hit the table, and keep everyone in the loop. Food shopping just got a whole lot kinder.</p>
             <p>When you are ready, register a CanMakan account (or sign in if you already have one) with this email. Then open <strong>Notifications</strong> in the app — your invitation will be waiting there, ready to accept.</p>
+            %s
             <p style="color:%s;font-size:14px;">%s</p>
             <br>
             <p style="color:%s;font-size:13px;">If this was not meant for you, you can ignore this email — no action needed.</p>
@@ -132,6 +145,7 @@ public class InvitationEmailService {
                 TEXT_PRIMARY,
                 mascotSrc,
                 escape(familyName),
+                acceptLinks,
                 TEXT_SECONDARY,
                 expiryLine,
                 TEXT_SECONDARY

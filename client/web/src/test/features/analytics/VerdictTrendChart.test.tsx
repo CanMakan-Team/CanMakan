@@ -52,4 +52,13 @@ describe('VerdictTrendChart', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('table', { name: 'Accessible daily verdict trend values' })).toBeInTheDocument()
   })
+
+  it('can hide series when a metric filter is active', () => {
+    const { container } = render(
+      <VerdictTrendChart points={twoDays} visibleSeries={['unsafe']} />,
+    )
+    const polylines = container.querySelectorAll('polyline')
+    expect(polylines).toHaveLength(1)
+    expect(polylines[0]).toHaveAttribute('stroke', '#b24b44')
+  })
 })

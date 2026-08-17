@@ -1,7 +1,10 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { VerdictTrendsPage } from '../../../features/analytics/VerdictTrendsPage'
+import {
+  sharePercents,
+  VerdictTrendsPage,
+} from '../../../features/analytics/VerdictTrendsPage'
 import { familyApiService } from '../../../features/family/api/familyApiService'
 import type { ScanRecord } from '../../../shared/api/types'
 
@@ -47,6 +50,13 @@ const populatedScans: ScanRecord[] = [
   scanOnBucket(20, 'SAFE', 5),
 ]
 
+describe('sharePercents', () => {
+  it('keeps Safe/Warning/Unsafe shares summing to 100', () => {
+    expect(sharePercents([2, 3, 2], 7).reduce((sum, value) => sum + value, 0)).toBe(100)
+    expect(sharePercents([2, 1, 1], 4)).toEqual([50, 25, 25])
+  })
+})
+
 describe('VerdictTrendsPage', () => {
   beforeEach(() => {
     vi.mocked(familyApiService.getScanHistory).mockReset()
@@ -62,11 +72,12 @@ describe('VerdictTrendsPage', () => {
 
     expect(screen.getByText('Loading verdict trend...')).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'Verdict Trends' })).toBeInTheDocument()
+    expect(screen.getByText('Analytics & insights')).toBeInTheDocument()
     expect(familyApiService.getScanHistory).toHaveBeenCalledTimes(1)
 
     expect(screen.getByLabelText('Reporting period')).toHaveValue('7')
     const summary = screen.getByLabelText('Verdict trend summary')
-    expect(within(summary).getByText('Total Scans')).toBeInTheDocument()
+    expect(within(summary).getByRole('button', { name: /Total Scans/i })).toBeInTheDocument()
     expect(within(summary).getByText('4')).toBeInTheDocument()
     expect(within(summary).getByText('50%')).toBeInTheDocument()
     expect(within(summary).getByText('2 scans')).toBeInTheDocument()
@@ -96,6 +107,19 @@ describe('VerdictTrendsPage', () => {
     await user.selectOptions(screen.getByLabelText('Reporting period'), '90')
     expect(screen.getByLabelText('Reporting period')).toHaveValue('90')
     expect(within(summary).getByText('5')).toBeInTheDocument()
+  })
+
+  it('filters the trend chart when a metric card is selected', async () => {
+    const user = userEvent.setup()
+    render(<VerdictTrendsPage />)
+    await screen.findByRole('heading', { name: 'Verdict mix' })
+
+    await user.click(screen.getByRole('button', { name: /Unsafe/i }))
+    expect(screen.getByText(/Showing unsafe scans only/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Unsafe/i })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(screen.getByRole('button', { name: /Total Scans/i }))
+    expect(screen.queryByText(/Showing unsafe scans only/i)).not.toBeInTheDocument()
   })
 
   it('shows an empty period when history has no scans in range', async () => {
@@ -158,5 +182,6 @@ describe('VerdictTrendsPage', () => {
     expect(blob.type).toBe('text/csv;charset=utf-8')
     expect(click).toHaveBeenCalledTimes(1)
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:verdict-trend')
+    expect(screen.getByText('CSV download started.')).toBeInTheDocument()
   })
 })

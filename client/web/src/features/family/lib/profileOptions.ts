@@ -1,5 +1,4 @@
 import type {
-  AgeGroup,
   Relationship,
   RestrictionCode,
 } from '../../../shared/api/types'
@@ -14,14 +13,6 @@ export const relationshipOptions: Array<{
   { value: 'PARENT', label: 'Parent' },
   { value: 'DEPENDANT', label: 'Dependant' },
   { value: 'OTHER', label: 'Other' },
-]
-
-export const ageGroupOptions: Array<{ value: AgeGroup; label: string }> = [
-  { value: 'CHILD', label: 'Child' },
-  { value: 'TEEN', label: 'Teen' },
-  { value: 'ADULT', label: 'Adult' },
-  { value: 'SENIOR', label: 'Senior' },
-  { value: 'UNSPECIFIED', label: 'Unspecified' },
 ]
 
 export const RESTRICTION_CATEGORY_ORDER = ['RELIGIOUS', 'ALLERGEN', 'DIET']

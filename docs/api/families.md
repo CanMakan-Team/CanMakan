@@ -154,7 +154,6 @@ Any family member may list. Returns linked users and dependant profiles:
     "linkedUserId": 10,
     "profileName": "Admin",
     "relationship": "SELF",
-    "ageGroup": "UNSPECIFIED",
     "commonRequirements": ["HALAL"],
     "restrictions": ["PEANUT_ALLERGY"],
     "source": "REGISTERED_USER",
@@ -168,7 +167,6 @@ Any family member may list. Returns linked users and dependant profiles:
     "linkedUserId": null,
     "profileName": "Toddler",
     "relationship": "CHILD",
-    "ageGroup": "UNSPECIFIED",
     "commonRequirements": [],
     "restrictions": [],
     "source": "DEPENDANT_PROFILE",
@@ -186,7 +184,6 @@ Any family member may list. Returns linked users and dependant profiles:
 | `linkedUserId` | Present for registered members; null for dependants |
 | `memberRole` | `PRIMARY_ADMIN` / `MEMBER` / null for dependants |
 | `profileActive` | `dietary_profiles.is_active` |
-| `ageGroup` | Always `UNSPECIFIED` until age is persisted on profiles |
 | `commonRequirements` | Restriction codes whose catalog category is `RELIGIOUS` |
 | `restrictions` | All other catalog categories (allergens, diets, etc.) |
 | `maskedEmail` | Present for linked users only |
@@ -377,15 +374,19 @@ insert `family_members`. Response includes shareable fields and email status:
 Deployed web: set `CANMAKAN_INVITES_PUBLIC_BASE_URL=https://canmakan-project.web.app`.
 The alternate Firebase host `https://canmakan-project.firebaseapp.com` is also a
 live origin (CORS + Android invite filters). Debug Android builds also claim
-`http://localhost:5173` and `http://127.0.0.1:5173`.
+`http://localhost:5173` and `http://127.0.0.1:5173`. Mobile App Links read the
+same `CANMAKAN_INVITES_PUBLIC_BASE_URL` name (CSV aliases allowed).
 
 When Resend is enabled (`canmakan.email.resend.enabled=true` / env
 `CANMAKAN_EMAIL_RESEND_ENABLED=true`, non-blank `CANMAKAN_EMAIL_RESEND_API_KEY`, and
 `CANMAKAN_EMAIL_RESEND_FROM`), the server emails the invitee after create using the
 standard HTML template (friendly copy, waving mascot, expiry in SGT). The email
-does **not** include `inviteUrl`, `invitationToken`, or `inviteCode`. It asks the
-invitee to register or sign in with the invited email, then accept from
-**Notifications**.
+asks the invitee to register or sign in with the invited email, then accept from
+**Notifications**, and includes **Accept via web or mobile** links:
+web = `inviteUrl`; mobile = `FIREBASE_APP_DISTRIBUTION_URL` as-is when it is
+an HTTPS Firebase App Distribution (or other install) URL (same secret as the
+web `/me` download banner). Custom-scheme values such as `canmakan://invite`
+still append `/{token}` for deep links.
 
 `emailSent` is `true` only when Resend accepted the send. A `PENDING` row is kept
 only after a successful send. A later `POST` for the same family+email returns

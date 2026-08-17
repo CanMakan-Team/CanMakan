@@ -10,8 +10,9 @@ export function FamilyMeProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // Reload must not set loading=true: FamilyMeGate swaps Outlet for a spinner and
+  // unmounts pages, which drops local UI state such as success notices.
   const load = useCallback((): Promise<void> => {
-    setLoading(true)
     setError('')
     return familyApiService.getMyFamilyOrNull().then(
       (next) => {
