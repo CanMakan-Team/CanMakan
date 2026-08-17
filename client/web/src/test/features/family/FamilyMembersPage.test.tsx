@@ -142,7 +142,7 @@ describe('FamilyMembersPage', () => {
     renderPage()
 
     expect(await screen.findByRole('heading', { name: 'Family Members' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Admin Self' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Admin Self' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Child Profile' })).toBeInTheDocument()
     expect(screen.getByText('App User')).toBeInTheDocument()
     expect(screen.getByText('Family profile')).toBeInTheDocument()
