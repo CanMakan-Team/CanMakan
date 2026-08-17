@@ -106,6 +106,8 @@ Access-token signing material intentionally has no insecure local fallback.
 
 **Profiles:** `spring.profiles.default=dev` so local runs and tests still seed MySQL and allow LAN CORS patterns. Deployed EC2 instances set `SPRING_PROFILES_ACTIVE=prod` via [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) (overridable with GitHub Environment variable `SPRING_PROFILES_ACTIVE` on `staging` / `production`). That loads `application-prod.properties` (no SQL seed, `ddl-auto=validate`, empty CORS origin patterns, no Hibernate SQL DEBUG).
 
+**Tests:** `src/test/resources/application-dev.properties` replaces the main `application-dev.properties` on the test classpath (same filename resolves to one resource). Keep `ddl-auto=update` and `spring.sql.init.mode=always` in the test file whenever you add JWT or other test-only overrides there.
+
 Requirements for a successful local run:
 
 1. MySQL running on `localhost:3306`
