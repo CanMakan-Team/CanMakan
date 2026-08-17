@@ -733,8 +733,10 @@ input[readonly] {
 }
 
 .sidebar__signout {
-  padding: 0.6rem;
+  margin-top: 0.15rem;
+  padding: 0.75rem 0.6rem 0.6rem;
   border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--color-surface) 10%, transparent);
   color: var(--color-web-bcd0c9);
   background: transparent;
   text-align: left;
@@ -755,8 +757,7 @@ input[readonly] {
   position: sticky;
   z-index: 15;
   top: 0;
-  display: grid;
-  grid-template-columns: auto auto 1fr;
+  display: flex;
   align-items: center;
   gap: 0.7rem;
   padding: 0.7rem 1rem;
@@ -765,21 +766,33 @@ input[readonly] {
   backdrop-filter: blur(8px);
 }
 
+.mobile-header__crumb {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .mobile-header__brand {
-  color: var(--ink);
+  color: var(--teal-700);
   font-weight: 700;
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
 
 .mobile-header__brand:hover {
-  text-decoration: underline;
+  color: var(--teal-800);
+}
+
+.mobile-header__sep {
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .mobile-header__page {
   overflow: hidden;
   color: var(--muted);
   font-size: 0.75rem;
-  text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -830,6 +843,38 @@ input[readonly] {
   color: var(--muted);
 }
 
+/*
+ * Places the primary action on the same row as the page heading so the two
+ * line up vertically, with supporting copy sitting underneath.
+ */
+.page-header--split {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.page-header__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.page-header__title-row h1 {
+  margin: 0;
+  line-height: 1;
+}
+
+.page-header__title-row .button {
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.page-header--split > p:not(.eyebrow) {
+  margin-top: 0.55rem;
+}
+
 .page-header--system .eyebrow {
   color: var(--color-web-3f6f8d);
 }
@@ -850,10 +895,10 @@ input[readonly] {
 
 .summary-card {
   display: flex;
-  min-height: 112px;
+  min-height: 0;
   align-items: center;
-  gap: 0.9rem;
-  padding: 1.15rem;
+  gap: 0.7rem;
+  padding: 0.7rem 0.9rem;
   border: 1px solid var(--line);
   border-radius: 1rem;
   background: var(--color-surface);
@@ -886,6 +931,8 @@ input[readonly] {
   display: flex;
   min-width: 0;
   flex-direction: column;
+  gap: 0;
+  justify-content: center;
 }
 
 /* Status badges keep their own severity colours; only the plain caption
@@ -893,13 +940,16 @@ input[readonly] {
 .summary-card span:not(.summary-card__icon, .status-badge) {
   color: var(--muted);
   font-size: 0.78rem;
+  line-height: 1.2;
 }
 
 .summary-card strong {
   overflow: hidden;
+  margin-top: 0.05rem;
   color: var(--ink);
   font-family: "Manrope", sans-serif;
-  font-size: 1.45rem;
+  font-size: 1.35rem;
+  line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -908,8 +958,20 @@ input[readonly] {
 .trend-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(290px, 0.75fr);
+  align-items: stretch;
   gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.dashboard-grid {
+  grid-auto-rows: 1fr;
+}
+
+.dashboard-grid > .panel {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-self: stretch;
 }
 
 .trend-grid {
@@ -961,28 +1023,40 @@ input[readonly] {
 }
 
 .verdict-summary {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6rem;
   padding-bottom: 1.15rem;
   border-bottom: 1px solid var(--line);
 }
 
 .verdict-summary > div {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
 }
 
 .verdict-summary strong {
   font-family: "Manrope", sans-serif;
   font-size: 1.55rem;
+  line-height: 1;
 }
 
 .recent-list {
   display: grid;
+  flex: 1;
   margin-top: 0.25rem;
+}
+
+.empty-inline {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
 }
 
 .recent-list article {
@@ -1011,6 +1085,7 @@ input[readonly] {
 
 .quick-actions {
   display: flex;
+  flex: 1;
   flex-direction: column;
 }
 
@@ -1023,7 +1098,16 @@ input[readonly] {
   border: 1px solid var(--line);
   border-radius: 0.8rem;
   color: var(--ink);
+  background: var(--color-surface);
   text-decoration: none;
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.quick-actions > a:hover {
+  border-color: color-mix(in srgb, var(--teal-700) 35%, var(--line));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--color-web-194135) 10%, transparent);
+  transform: translateY(-1px);
 }
 
 .quick-actions > a > span {
@@ -1358,7 +1442,29 @@ input[readonly] {
   border-left: 4px solid var(--color-web-b88a22);
   border-radius: 0.75rem;
   color: var(--color-web-67531d);
-  background: var(--color-web-fffaf0);
+  background: var(--color-web-fff8e8);
+}
+
+.safety-disclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.safety-disclaimer__icon {
+  display: grid;
+  width: 1.85rem;
+  height: 1.85rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-web-b88a22);
+  background: color-mix(in srgb, var(--color-web-b88a22) 14%, white);
+}
+
+.safety-disclaimer__icon svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .safety-disclaimer p,
@@ -3020,6 +3126,15 @@ caption,
     flex-direction: column;
   }
 
+  .page-header__title-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page-header__title-row .button {
+    width: 100%;
+  }
+
   .page-header__actions {
     display: grid;
     justify-content: stretch;
@@ -3063,7 +3178,7 @@ caption,
   }
 
   .summary-card {
-    min-height: 92px;
+    min-height: 0;
   }
 
   .active-profile-card {
@@ -3071,7 +3186,8 @@ caption,
   }
 
   .verdict-summary {
-    grid-template-columns: repeat(2, 1fr);
+    flex-wrap: wrap;
+    gap: 1.1rem 1.5rem;
   }
 
   .checkbox-grid {

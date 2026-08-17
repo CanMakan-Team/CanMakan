@@ -213,18 +213,23 @@ function PortalShell({
               ☰
             </button>
           )}
-          <Link className="mobile-header__brand" to={portal === 'family' ? ME_PATH : '/system'}>
-            CanMakan
-          </Link>
-          <span className="mobile-header__page">
-            {navigation.find(
-              (item) =>
-                item.to === location.pathname ||
-                (item.to !== `/${portal}` &&
-                  item.to !== '/me' &&
-                  location.pathname.startsWith(item.to)),
-            )?.label ?? portalName}
-          </span>
+          <nav className="mobile-header__crumb" aria-label="Breadcrumb">
+            <Link className="mobile-header__brand" to={portal === 'family' ? ME_PATH : '/system'}>
+              CanMakan
+            </Link>
+            <span className="mobile-header__sep" aria-hidden="true">
+              /
+            </span>
+            <span className="mobile-header__page">
+              {navigation.find(
+                (item) =>
+                  item.to === location.pathname ||
+                  (item.to !== `/${portal}` &&
+                    item.to !== '/me' &&
+                    location.pathname.startsWith(item.to)),
+              )?.label ?? portalName}
+            </span>
+          </nav>
         </header>
         <main id="main-content" className="content">
           <Outlet />
