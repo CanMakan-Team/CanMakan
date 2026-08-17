@@ -12,7 +12,7 @@ CanMakan uses **GitHub Actions** for a monorepo: Spring Boot (`server/backend`),
 | Web | Vitest + Vite build | `push` to `develop`: Playwright, then Staging Firebase Hosting | `push` to `main`: Playwright, then Production Firebase Hosting |
 | Mobile | `assembleDebug testDebugUnitTest` | `push` to `develop`: signed APK → Firebase App Distribution (Staging QA) | `push` to `main`: signed APK → Firebase App Distribution (Production QA) |
 
-Engineers open pull requests into **`develop`**, then promote **`develop` → `main**`. Direct pushes to `main` are not used. **`develop` acts as the integration and staging branch** (deploying to a dedicated AWS EC2/RDS and Firebase instance). **`main` is production**.
+Engineers open pull requests into **`develop`**, then promote **`develop` → `main`**. Direct pushes to `main` are not used. **`develop` acts as the integration and staging branch** (deploying to a dedicated AWS EC2/RDS and Firebase instance). **`main` is production**.
 
 Security jobs in CI: **Gitleaks** (secrets), **Semgrep** (SAST), **Trivy fs** (SCA vulns), **Trivy config** (Actions YAML). **SonarCloud** is the maintainability / coverage quality gate on each stack build. **Gitar** (`gitar-bot`) reviews pull requests on GitHub. Post-deployment security and load testing (OWASP ZAP and Grafana k6) run against the live Staging environment on automated schedules.
 
@@ -22,10 +22,10 @@ Each category has **one primary tool**. Overlaps (Trivy can scan secrets; Depend
 
 | Category | Tool | Where it runs | Config | Why this tool |
 | --- | --- | --- | --- | --- |
-| Secret scanning | Gitleaks **8.21.2** | `ci.yml` job `gitleaks` | [`.gitleaks.toml`](https://www.google.com/search?q=.gitleaks.toml) (`[allowlist]`, `useDefault = true`); [`.gitleaksignore`](https://www.google.com/search?q=.gitleaksignore); `fetch-depth: 0` | Built for git history and one allowlist. Trivy `fs` can also flag secrets; we turn that off so Trivy red means CVEs, not the test JWT Gitleaks allowlists. |
-| SAST | Semgrep **1.173.0** | `ci.yml` job `sast-scan` | Docker `semgrep/semgrep:1.173.0 semgrep --config p/default`; [`.semgrepignore`](https://www.google.com/search?q=.semgrepignore) | Fast security-pattern scan on every PR. CodeQL would be a second, slower SAST. SonarCloud is the quality gate, not this SAST job. |
+| Secret scanning | Gitleaks **8.21.2** | `ci.yml` job `gitleaks` | [`.gitleaks.toml`](https://github.com/CanMakan-Team/CanMakan/blob/develop/.gitleaks.toml) (`[allowlist]`, `useDefault = true`); [`.gitleaksignore`](https://github.com/CanMakan-Team/CanMakan/blob/develop/.gitleaksignore); `fetch-depth: 0` | Built for git history and one allowlist. Trivy `fs` can also flag secrets; we turn that off so Trivy red means CVEs, not the test JWT Gitleaks allowlists. |
+| SAST | Semgrep **1.173.0** | `ci.yml` job `sast-scan` | Docker `semgrep/semgrep:1.173.0 semgrep --config p/default`; [`.semgrepignore`](https://github.com/CanMakan-Team/CanMakan/blob/develop/.semgrepignore) | Fast security-pattern scan on every PR. CodeQL would be a second, slower SAST. SonarCloud is the quality gate, not this SAST job. |
 | SCA (CVE scan) | Trivy filesystem | `ci.yml` job `sca-scan` | `aquasecurity/trivy-action@v0.36.0`, `scan-type: fs`, `scanners: vuln`, `severity: CRITICAL,HIGH`; CycloneDX artefact `trivy-sbom` | Answers “does the tree **right now** contain a known CRITICAL/HIGH CVE?” and fails **Build Test**. SBOM is an artefact, not the gate. |
-| SCA (upgrade PRs) | Dependabot | GitHub (not Actions YAML) | [`.github/dependabot.yml`](https://www.google.com/search?q=.github/dependabot.yml): weekly Monday, npm / Maven / Gradle / Actions | Answers “move us off old versions **before** they become a gate failure.” |
+| SCA (upgrade PRs) | Dependabot | GitHub (not Actions YAML) | [`.github/dependabot.yml`](https://github.com/CanMakan-Team/CanMakan/blob/develop/.github/dependabot.yml): weekly Monday, npm / Maven / Gradle / Actions | Answers “move us off old versions **before** they become a gate failure.” |
 | IaC / config | Trivy config | `ci.yml` job `config-scan` | `scan-type: config`, `scan-ref: .github`, CRITICAL/HIGH | Same Trivy family, different scan type: misconfigured Actions/Dependabot YAML. |
 | Quality gate | SonarCloud | Inside `build-backend`, `build-web`, `build-mobile` | Org **`canmakan-team`**. Keys `canmakan-backend`, `canmakan-web`, `canmakan-mobile`. `sonar.qualitygate.wait=true` | Semgrep does not rate complexity, duplication, or coverage. That gate belongs here. |
 | DAST | OWASP ZAP | `dast.yml` | Nightly cron (`0 18 * * *`); targets Staging Web & API; authenticated via `DAST_TEST_JWT` | Actively probes the live Staging environment for runtime vulnerabilities (e.g., misconfigured headers, broken access control). |
@@ -37,21 +37,21 @@ Each category has **one primary tool**. Overlaps (Trivy can scan secrets; Depend
 
 | Workflow | Trigger | Role |
 | --- | --- | --- |
-| [`ci.yml`](https://www.google.com/search?q=.github/workflows/ci.yml) | PR / push to `develop` and `main`, `workflow_dispatch` | Gitleaks, Semgrep, Trivy fs, Trivy config, path-filtered builds + SonarCloud, **Build Test**, `backend-jar` upload |
-| [`e2e.yml`](https://www.google.com/search?q=.github/workflows/e2e.yml) | PR to `develop`/`main`, push to `develop`, `workflow_dispatch` | Playwright when `client/web/**` changes |
-| [`deploy.yml`](https://www.google.com/search?q=.github/workflows/deploy.yml) | `workflow_run`: CI on `main` and `develop`, and `backend-jar` exists | EC2 blue/green of the verified JAR. Dynamically targets Staging or Production. |
-| [`deploy-frontends.yml`](https://www.google.com/search?q=.github/workflows/deploy-frontends.yml) | `push` to `main` and `develop` (web/mobile paths) | Web: Playwright then Hosting. Mobile: App Distribution. Dynamically targets Staging or Production. |
-| [`dast.yml`](https://www.google.com/search?q=.github/workflows/dast.yml) | `schedule` (nightly), `workflow_dispatch` | Runs OWASP ZAP baseline and API scans against the live Staging environment. |
-| [`load-test.yml`](https://www.google.com/search?q=.github/workflows/load-test.yml) | `schedule` (weekly), `workflow_dispatch` | Runs Grafana k6 performance scenarios against the live Staging API. |
-| [`sync-branches.yml`](https://www.google.com/search?q=.github/workflows/sync-branches.yml) | `push` to `main` | Opens a PR `main` → `develop` so hotfixes flow back |
+| [`ci.yml`](https://github.com/CanMakan-Team/CanMakan/blob/develop/.github/workflows/ci.yml) | PR / push to `develop` and `main`, `workflow_dispatch` | Gitleaks, Semgrep, Trivy fs, Trivy config, path-filtered builds + SonarCloud, **Build Test**, `backend-jar` upload |
+| [`e2e.yml`](https://github.com/CanMakan-Team/CanMakan/blob/develop/.github/workflows/e2e.yml) | PR to `develop`/`main`, push to `develop`, `workflow_dispatch` | Playwright when `client/web/**` changes |
+| [`deploy.yml`](https://github.com/CanMakan-Team/CanMakan/blob/develop/.github/workflows/deploy.yml) | `workflow_run`: CI on `main` and `develop`, and `backend-jar` exists | EC2 blue/green of the verified JAR. Dynamically targets Staging or Production. |
+| [`deploy-frontends.yml`](https://github.com/CanMakan-Team/CanMakan/blob/develop/.github/workflows/deploy-frontends.yml) | `push` to `main` and `develop` (web/mobile paths) | Web: Playwright then Hosting. Mobile: App Distribution. Dynamically targets Staging or Production. |
+| [`dast.yml`](https://github.com/CanMakan-Team/CanMakan/blob/develop/.github/workflows/dast.yml) | `schedule` (nightly), `workflow_dispatch` | Runs OWASP ZAP baseline and API scans against the live Staging environment. |
+| [`load-test.yml`](https://github.com/CanMakan-Team/CanMakan/blob/develop/.github/workflows/load-test.yml) | `schedule` (weekly), `workflow_dispatch` | Runs Grafana k6 performance scenarios against the live Staging API. |
+| [`sync-branches.yml`](https://github.com/CanMakan-Team/CanMakan/blob/develop/.github/workflows/sync-branches.yml) | `push` to `main` | Opens a PR `main` → `develop` so hotfixes flow back |
 
 ## 4. GitHub repo settings (current)
 
 | Setting | Value |
 | --- | --- |
 | Environments | **`production`** (limited to branch `main`) and **`staging`** (limited to branch `develop`). Both contain distinct infrastructure secrets (e.g., `EC2_HOST`, `MYSQL_PASSWORD`, `FIREBASE_PROJECT_ID`). |
-| Deploy jobs | `environment: ${{ github.ref == 'refs/heads/main' && 'production' |
-| Branch protection | On **`develop` and `main**`: require a PR (no direct pushes); require **Build Test**; require review from Code Owners; restrict who can push; restrict deletions; block force pushes. |
+| Deploy jobs | `environment: ${{ github.ref == 'refs/heads/main' && 'production' \|\| 'staging' }}` |
+| Branch protection | On **`develop`** and **`main`**: require a PR (no direct pushes); require **Build Test**; require review from Code Owners; restrict who can push; restrict deletions; block force pushes. |
 | Visibility | **Public** repository |
 | SARIF upload | Trivy jobs always upload SARIF. |
 | SonarCloud | Repo secret **`SONAR_TOKEN`**. Analysis is in `ci.yml`. |
