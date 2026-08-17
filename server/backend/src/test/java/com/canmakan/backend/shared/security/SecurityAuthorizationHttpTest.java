@@ -34,6 +34,8 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 /** Database-free HTTP tests for the UC19 authorization matcher contract. */
 class SecurityAuthorizationHttpTest {
 
@@ -213,6 +215,13 @@ class SecurityAuthorizationHttpTest {
                 userDetailsService,
                 authenticationEntryPoint
             );
+        }
+
+        @Bean
+        AuthRateLimitFilter authRateLimitFilter() {
+            AuthRateLimitProperties properties = new AuthRateLimitProperties();
+            properties.setEnabled(false);
+            return new AuthRateLimitFilter(properties, new ObjectMapper());
         }
 
         @Bean

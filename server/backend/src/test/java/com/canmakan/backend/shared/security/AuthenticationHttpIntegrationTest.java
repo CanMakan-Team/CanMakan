@@ -26,7 +26,7 @@ import com.canmakan.backend.dietaryprofile.exception.SelfProfileAlreadyExistsExc
 import com.canmakan.backend.dietaryprofile.exception.SelfProfileNotFoundException;
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
 import com.canmakan.backend.user.AuthenticationAccountView;
-import com.canmakan.backend.user.UserAccountRepository;
+import com.canmakan.backend.user.repository.UserAccountRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import java.time.Instant;
