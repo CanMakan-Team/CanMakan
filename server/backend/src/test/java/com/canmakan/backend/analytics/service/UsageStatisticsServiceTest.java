@@ -1,6 +1,7 @@
 package com.canmakan.backend.analytics.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.canmakan.backend.analytics.dto.UsageStatisticsResponse;
@@ -8,6 +9,7 @@ import com.canmakan.backend.analytics.dto.UsageStatisticsResponse.ActivationStep
 import com.canmakan.backend.analytics.repository.AppUserProjection;
 import com.canmakan.backend.analytics.repository.UsageStatisticsRepository;
 import com.canmakan.backend.analytics.repository.UserScanInstantProjection;
+import com.canmakan.backend.session.UserSessionRepository;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -38,11 +40,15 @@ class UsageStatisticsServiceTest {
     @Mock
     private UsageStatisticsRepository repository;
 
+    @Mock
+    private UserSessionRepository userSessionRepository;
+
     private UsageStatisticsService service;
 
     @BeforeEach
     void setUp() {
-        service = new UsageStatisticsService(repository, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new UsageStatisticsService(
+                repository, userSessionRepository, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private static long daysAgoMs(double days) {
@@ -128,6 +134,88 @@ class UsageStatisticsServiceTest {
         assertThat(response.acquisition().dailyNewRegistrations()).hasSize(30);
         // 7 weekday rows in the heatmap.
         assertThat(response.engagement().heatmap()).hasSize(7);
+    }
+
+    @Test
+    @DisplayName("real session data overrides the scan-based engagement estimate")
+    void realSessionsOverrideEngagement() {
+        when(repository.findAppUsers()).thenReturn(new ArrayList<>());
+        when(repository.findAppUserScans()).thenReturn(new ArrayList<>());
+        // 10 sessions over 5 active users, averaging 300s, on 20 active user-days across a 7-day window.
+        when(userSessionRepository.aggregateSince(any()))
+                .thenReturn(aggregate(300.0, 10L, 5L, 20L));
+
+        UsageStatisticsResponse response = service.generate(7);
+
+        assertThat(response.engagement().averageSessionSeconds()).isEqualTo(300);
+        assertThat(response.engagement().sessionsPerUser()).isEqualTo(2.0);
+        assertThat(response.engagement().activeDaysPerWeek()).isEqualTo(4.0);
+        // The KPI card reads the same real average.
+        assertThat(response.kpis().averageSessionSeconds()).isEqualTo(300);
+        // Heatmap stays scan-based (no scans -> 7 weekday rows of zeros).
+        assertThat(response.engagement().heatmap()).hasSize(7);
+    }
+
+    private static UserSessionRepository.SessionAggregate aggregate(
+            Double avgSeconds, Long totalSessions, Long activeUsers, Long activeUserDays) {
+        return new UserSessionRepository.SessionAggregate() {
+            public Double getAvgSeconds() {
+                return avgSeconds;
+            }
+
+            public Long getTotalSessions() {
+                return totalSessions;
+            }
+
+            public Long getActiveUsers() {
+                return activeUsers;
+            }
+
+            public Long getActiveUserDays() {
+                return activeUserDays;
+            }
+        };
+    }
+
+    @Test
+    @DisplayName("real session data with null aggregates and no active users yields zeroed engagement")
+    void realSessionsWithNullFieldsYieldZeros() {
+        when(repository.findAppUsers()).thenReturn(new ArrayList<>());
+        when(repository.findAppUserScans()).thenReturn(new ArrayList<>());
+        // totalSessions > 0 enters the real-session path; the null/zero aggregates exercise the
+        // divide-by-zero and null guards.
+        when(userSessionRepository.aggregateSince(any())).thenReturn(aggregate(null, 3L, null, null));
+
+        UsageStatisticsResponse response = service.generate(7);
+
+        assertThat(response.engagement().averageSessionSeconds()).isZero();
+        assertThat(response.engagement().sessionsPerUser()).isEqualTo(0.0);
+        assertThat(response.engagement().activeDaysPerWeek()).isEqualTo(0.0);
+    }
+
+    @Test
+    @DisplayName("a session aggregate with a null total falls back to the scan-based estimate")
+    void nullTotalSessionsFallsBackToScanEstimate() {
+        when(repository.findAppUsers()).thenReturn(new ArrayList<>());
+        when(repository.findAppUserScans()).thenReturn(new ArrayList<>());
+        when(userSessionRepository.aggregateSince(any())).thenReturn(aggregate(120.0, null, 4L, 8L));
+
+        UsageStatisticsResponse response = service.generate(7);
+
+        // A null total means no usable session data, so the scan-based estimate (zero here) is kept.
+        assertThat(response.engagement().averageSessionSeconds()).isZero();
+    }
+
+    @Test
+    @DisplayName("the autowired two-arg constructor wires both repositories and produces a response")
+    void autowiredConstructorProducesResponse() {
+        UsageStatisticsService autowired = new UsageStatisticsService(repository, userSessionRepository);
+        when(repository.findAppUsers()).thenReturn(new ArrayList<>());
+        when(repository.findAppUserScans()).thenReturn(new ArrayList<>());
+
+        UsageStatisticsResponse response = autowired.generate(7);
+
+        assertThat(response).isNotNull();
     }
 
     @Test
