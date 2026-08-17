@@ -125,7 +125,7 @@ jobs:
 
       - name: Upload CycloneDX SBOM
         if: always()
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: trivy-sbom
           path: trivy-sbom.cdx.json
@@ -259,7 +259,7 @@ jobs:
           cache: 'maven'
 
       - name: Cache SonarQube packages
-        uses: actions/cache@v4.3.0
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
@@ -312,7 +312,7 @@ jobs:
           ls -la staged-backend-jar
 
       - name: Upload verified backend JAR
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: backend-jar
           path: staged-backend-jar/*.jar

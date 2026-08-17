@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Run ZAP Baseline Scan (Web)
-        uses: zaproxy/action-baseline@v0.14.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
           target: 'https://canmakan-staging.web.app'
           issue_title: 'DAST Vulnerability Report - Web Staging'
@@ -28,7 +28,7 @@ jobs:
           artifact_name: 'zap-web-scan-report'
 
       - name: Upload Web Scan Reports
-        uses: actions/upload-artifact@v4.3.1
+        uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
           name: zap-web-reports
@@ -61,7 +61,7 @@ jobs:
           artifact_name: 'zap-api-scan-report'
 
       - name: Upload API Scan Reports
-        uses: actions/upload-artifact@v4.3.1
+        uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
           name: zap-api-reports
