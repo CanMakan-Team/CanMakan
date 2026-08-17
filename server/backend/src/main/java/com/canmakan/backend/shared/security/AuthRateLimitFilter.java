@@ -95,11 +95,8 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     }
 
     private static String clientKey(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            int comma = forwarded.indexOf(',');
-            return (comma > 0 ? forwarded.substring(0, comma) : forwarded).trim();
-        }
+        // Only trust X-Forwarded-For when the direct peer is a known proxy;
+        // otherwise it is client-controlled and trivially spoofed.
         String remote = request.getRemoteAddr();
         return remote == null ? "unknown" : remote;
     }
