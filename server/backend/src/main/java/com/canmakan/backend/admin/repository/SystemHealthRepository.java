@@ -1,4 +1,4 @@
-package com.canmakan.backend.admin;
+package com.canmakan.backend.admin.repository;
 
 import com.canmakan.backend.product.scan.Scan;
 import java.time.Instant;

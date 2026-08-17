@@ -1,5 +1,6 @@
-package com.canmakan.backend.auth;
+package com.canmakan.backend.auth.service;
 
+import com.canmakan.backend.auth.RefreshTokenProperties;
 import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshToken;
@@ -48,7 +49,7 @@ public class RefreshTokenService {
         );
     }
 
-    RefreshTokenService(
+    public RefreshTokenService(
             RefreshTokenRepository refreshTokenRepository,
             AuthUserDetailsService userDetailsService,
             RefreshTokenProperties properties,
@@ -126,7 +127,7 @@ public class RefreshTokenService {
         return refreshTokenRepository.deleteAllByUserId(userId);
     }
 
-    static String hashToken(String rawToken) {
+    public static String hashToken(String rawToken) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
                 .digest(rawToken.getBytes(StandardCharsets.UTF_8));

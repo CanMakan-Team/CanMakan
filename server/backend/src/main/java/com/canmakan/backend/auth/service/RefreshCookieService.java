@@ -1,23 +1,23 @@
-package com.canmakan.backend.auth;
+package com.canmakan.backend.auth.service;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
+import com.canmakan.backend.auth.RefreshTokenProperties;
+
 /** Creates and reads the narrowly scoped UC19 refresh credential cookie. */
 @Component
+@RequiredArgsConstructor
 public class RefreshCookieService {
 
     private static final String COOKIE_PATH = "/api/auth";
 
     private final RefreshTokenProperties properties;
-
-    public RefreshCookieService(RefreshTokenProperties properties) {
-        this.properties = properties;
-    }
 
     public ResponseCookie createRefreshCookie(String rawRefreshToken) {
         if (rawRefreshToken == null || rawRefreshToken.isBlank()) {

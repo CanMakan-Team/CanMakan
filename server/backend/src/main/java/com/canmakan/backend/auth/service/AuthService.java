@@ -1,4 +1,4 @@
-package com.canmakan.backend.auth;
+package com.canmakan.backend.auth.service;
 
 import com.canmakan.backend.admin.exception.ProtectedAccountOperationException;
 import com.canmakan.backend.auth.dto.AuthResponse;
@@ -14,16 +14,16 @@ import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
 import com.canmakan.backend.auth.exception.RegistrationFailedException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
-import com.canmakan.backend.family.FamilyInviteNotifier;
-import com.canmakan.backend.family.InvitationRegistrationGuard;
+import com.canmakan.backend.family.service.FamilyInviteNotifier;
+import com.canmakan.backend.family.service.InvitationRegistrationGuard;
 import com.canmakan.backend.family.exception.LastPrimaryAdminException;
 import com.canmakan.backend.family.model.FamilyMember;
 import com.canmakan.backend.family.repository.FamilyMemberRepository;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.JwtService;
-import com.canmakan.backend.user.UserAccount;
-import com.canmakan.backend.user.UserAccountRepository;
+import com.canmakan.backend.user.model.UserAccount;
+import com.canmakan.backend.user.repository.UserAccountRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -54,10 +54,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     private static final String TOKEN_TYPE = "Bearer";
-    static final String PUBLIC_REGISTRATION_ROLE = "USER";
-    static final String LAST_FAMILY_ADMIN_MESSAGE =
+    public static final String PUBLIC_REGISTRATION_ROLE = "USER";
+    public static final String LAST_FAMILY_ADMIN_MESSAGE =
         "Add another family admin before deleting this account.";
-    static final String LAST_PLATFORM_ADMIN_MESSAGE =
+    public static final String LAST_PLATFORM_ADMIN_MESSAGE =
         "The last active administrator cannot delete their account.";
 
     private final UserAccountRepository userAccountRepository;
@@ -137,7 +137,7 @@ public class AuthService {
         }
 
         if (targetAdmin != null) {
-            long activeAdminCount = lockedAdmins.stream().filter(UserAccount::isActive).count();
+            long activeAdminCount = lockedAdmins.stream().filter(account -> account.isActive()).count();
             if (activeAdminCount <= 1) {
                 throw new ProtectedAccountOperationException(LAST_PLATFORM_ADMIN_MESSAGE);
             }

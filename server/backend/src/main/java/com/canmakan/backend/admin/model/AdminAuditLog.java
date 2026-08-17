@@ -1,4 +1,4 @@
-package com.canmakan.backend.admin;
+package com.canmakan.backend.admin.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -7,10 +7,15 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /** Administrative action persisted to the existing admin audit table. */
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "admin_audit_logs")
 public class AdminAuditLog {
@@ -38,9 +43,6 @@ public class AdminAuditLog {
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    protected AdminAuditLog() {
-    }
-
     public AdminAuditLog(
             Long adminUserId,
             String actionPerformed,
@@ -53,33 +55,5 @@ public class AdminAuditLog {
         this.targetEntity = targetEntity;
         this.details = details;
         this.ipAddress = ipAddress;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Long getAdminUserId() {
-        return adminUserId;
-    }
-
-    public String getActionPerformed() {
-        return actionPerformed;
-    }
-
-    public String getTargetEntity() {
-        return targetEntity;
-    }
-
-    public String getDetails() {
-        return details;
-    }
-
-    public String getIpAddress() {
-        return ipAddress;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
     }
 }

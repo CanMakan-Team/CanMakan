@@ -1,4 +1,4 @@
-package com.canmakan.backend.admin;
+package com.canmakan.backend.admin.service;
 
 import com.canmakan.backend.admin.dto.SystemHealthResponse;
 import com.canmakan.backend.admin.dto.SystemHealthResponse.AiExecutionHealth;
@@ -6,6 +6,7 @@ import com.canmakan.backend.admin.dto.SystemHealthResponse.AuditEntry;
 import com.canmakan.backend.admin.dto.SystemHealthResponse.ComponentHealth;
 import com.canmakan.backend.admin.dto.SystemHealthResponse.ScanDataQuality;
 import com.canmakan.backend.admin.dto.SystemHealthResponse.SlowCall;
+import com.canmakan.backend.admin.repository.SystemHealthRepository;
 
 import java.io.File;
 import java.sql.Connection;
@@ -55,7 +56,7 @@ public class SystemHealthService {
         this(repository, dataSource, Clock.systemUTC());
     }
 
-    SystemHealthService(SystemHealthRepository repository, DataSource dataSource, Clock clock) {
+    public SystemHealthService(SystemHealthRepository repository, DataSource dataSource, Clock clock) {
         this.repository = repository;
         this.dataSource = dataSource;
         this.clock = clock;

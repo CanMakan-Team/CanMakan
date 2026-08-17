@@ -1,4 +1,4 @@
-package com.canmakan.backend.admin;
+package com.canmakan.backend.admin.service;
 
 import com.canmakan.backend.admin.dto.AdminUserSummaryResponse;
 import com.canmakan.backend.admin.dto.UpdateAccountStatusRequest;
@@ -6,11 +6,13 @@ import com.canmakan.backend.admin.dto.UpdateAccountStatusResponse;
 import com.canmakan.backend.admin.exception.AdminUserNotFoundException;
 import com.canmakan.backend.admin.exception.InvalidAccountStatusRequestException;
 import com.canmakan.backend.admin.exception.ProtectedAccountOperationException;
-import com.canmakan.backend.auth.RefreshTokenService;
+import com.canmakan.backend.admin.model.AdminAuditLog;
+import com.canmakan.backend.admin.repository.AdminAuditLogRepository;
+import com.canmakan.backend.auth.service.RefreshTokenService;
 import com.canmakan.backend.shared.security.SystemRole;
 import com.canmakan.backend.user.AdminUserSummaryView;
-import com.canmakan.backend.user.UserAccount;
-import com.canmakan.backend.user.UserAccountRepository;
+import com.canmakan.backend.user.model.UserAccount;
+import com.canmakan.backend.user.repository.UserAccountRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;

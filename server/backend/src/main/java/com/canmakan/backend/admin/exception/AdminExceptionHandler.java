@@ -1,9 +1,6 @@
-package com.canmakan.backend.admin;
+package com.canmakan.backend.admin.exception;
 
-import com.canmakan.backend.admin.exception.AdminScanFeedbackNotFoundException;
-import com.canmakan.backend.admin.exception.AdminUserNotFoundException;
-import com.canmakan.backend.admin.exception.InvalidAccountStatusRequestException;
-import com.canmakan.backend.admin.exception.ProtectedAccountOperationException;
+import com.canmakan.backend.admin.AdminController;
 import com.canmakan.backend.analytics.exception.ConsumerTrendsValidationException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;

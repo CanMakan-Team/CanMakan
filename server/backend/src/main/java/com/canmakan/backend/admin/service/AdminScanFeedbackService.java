@@ -1,4 +1,4 @@
-package com.canmakan.backend.admin;
+package com.canmakan.backend.admin.service;
 
 import com.canmakan.backend.admin.dto.AdminScanFeedbackListResponse;
 import com.canmakan.backend.admin.dto.AdminScanFeedbackPageInfo;
