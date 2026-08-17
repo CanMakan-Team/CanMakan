@@ -206,8 +206,8 @@ export function SelfProfileSetupPage() {
   }
 
   return (
-    <div className="page-shell">
-      <section className="page-card" aria-labelledby="self-profile-setup-title">
+    <div className="page-shell dietary-setup">
+      <section className="page-card dietary-setup__card" aria-labelledby="self-profile-setup-title">
         <p className="eyebrow">Dietary Profile Setup</p>
         <h1 id="self-profile-setup-title">Set up your dietary profile</h1>
         <p>You can complete this later. Setting it up now helps personalise future scans.</p>
@@ -224,26 +224,41 @@ export function SelfProfileSetupPage() {
               setSuccessMessage('')
             }}
           />
-          <p className="field-hint">This is the name for your personal dietary profile.</p>
+          <p className="field-hint">How this profile appears in your shared Family Circle.</p>
         </div>
 
         {loading ? <p role="status">Loading dietary options…</p> : null}
         {!loading
           ? groupedCatalog.map(([category, options]) => (
-              <fieldset key={category} className="restriction-picker">
+              <fieldset key={category} className="dietary-setup__category">
                 <legend>{category.replaceAll('_', ' ')}</legend>
                 <div className="checkbox-grid">
-                  {options.map((option) => (
-                    <label className="check-card" key={option.id}>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(selected[option.id])}
-                        disabled={saving}
-                        onChange={() => toggle(option)}
-                      />
-                      <span>{option.displayName}</span>
-                    </label>
-                  ))}
+                  {options.map((option) => {
+                    const isSelected = Boolean(selected[option.id])
+                    return (
+                      <label
+                        className={
+                          isSelected ? 'check-card check-card--choice is-selected' : 'check-card check-card--choice'
+                        }
+                        key={option.id}
+                      >
+                        <input
+                          className="sr-only"
+                          type="checkbox"
+                          aria-label={option.displayName}
+                          checked={isSelected}
+                          disabled={saving}
+                          onChange={() => toggle(option)}
+                        />
+                        {isSelected ? (
+                          <span className="check-card__badge" aria-hidden="true">
+                            ✓
+                          </span>
+                        ) : null}
+                        <span className="check-card__label">{option.displayName}</span>
+                      </label>
+                    )
+                  })}
                 </div>
               </fieldset>
             ))
@@ -261,7 +276,7 @@ export function SelfProfileSetupPage() {
           </p>
         ) : null}
 
-        <div className="modal__actions">
+        <div className="dietary-setup__actions">
           <button
             className="button button--secondary"
             type="button"
