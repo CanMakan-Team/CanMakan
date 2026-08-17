@@ -11,6 +11,18 @@ UC8 family create/`/me` always call the live Spring Boot API** (UC19 JWT
 Bearer access token). Other family and analytics surfaces may still use browser mocks
 when `VITE_USE_MOCK_API=true`.
 
+Mascot PNGs are shared with Android under `client/shared/assets/mascot/`.
+The web client imports them from that folder (Vite hashes the filenames).
+Invitation emails still use the stable hosted path
+`/email/canmakan-mascot-wave.png`, served from the same wave PNG. Do not copy
+mascots into `public/`.
+
+The browser favicon is the Android launcher at
+`client/mobile/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp`, served as
+`/favicon.webp` (Vite plugin in `vite.config.js`). Do not copy a separate
+icon into `public/`. Playwright jobs sparse-checkout that mipmap folder so
+the icon is present in CI.
+
 ## Selected Web features
 
 The primary information architecture implements the latest selected scope:
@@ -36,30 +48,35 @@ represented as completed Sprint 1 functions.
 
 Public/supporting routes:
 
-- `/` — redirects to the USER entry at `/family-login`
-- `/family-login` — platform USER email/password sign-in (live)
-- `/family-register` — UC18 create account (same family login theme)
-- `/family/setup-profile` — protected optional SELF-profile onboarding after registration
+- `/` — redirects to the USER entry at `/login`
+- `/login` — platform USER email/password sign-in (live); `/family-login` redirects here
+- `/register` — UC18 create account; `/family-register` redirects here
+- `/me/setup-profile` — protected optional SELF-profile onboarding after registration
 - `/system-admin-login` — System Admin email/password sign-in (live)
 - `/access-denied` — role boundary notice
 
-There is no public combined portal chooser. The Family and System login pages
+There is no public combined portal chooser. The User Portal and System login pages
 are separate compositions and do not link to one another. The System
-Administrator entry remains available only at its dedicated route. Family login
-links to `/family-register`; registration does not create a Family Circle.
-Authenticated users may select the explicit `/family/circle` action later.
+Administrator entry remains available only at its dedicated route. User login
+links to `/register`; registration does not create a Family Circle.
+Authenticated users with no circle may select `/family/circle` later. Family
+members use the mobile app for daily scanning; household web tools are for
+`PRIMARY_ADMIN` only.
 
 Protected USER routes:
 
-- `/family` — membership-aware USER landing
-- `/family/personal` — family-independent authenticated USER home
-- `/family/setup-profile` — optional standalone SELF-profile setup
-- `/family/circle` — explicit optional Family Circle entry
-- `/family/dashboard` — existing Family Circle dashboard
-- `/family/members` — link, create, edit and active-profile flows
-- `/family/restrictions` — dynamic family restriction summary
-- `/family/history` — supplied scan-assessment history
-- `/family/account` — authoritative account, family-role and SELF-profile information
+- `/family` — resolver: `PRIMARY_ADMIN` → dashboard; otherwise `/me`
+- `/me` — personal desk (account, optional profile, create-circle if none)
+- `/me/setup-profile` — optional standalone SELF-profile setup
+- `/me/account` — account settings (works without a family)
+- `/family/circle` — create Family Circle when membership is missing
+- `/family/dashboard` — Family Circle dashboard (`PRIMARY_ADMIN`)
+- `/family/members` — link, create, edit and active-profile flows (`PRIMARY_ADMIN`; other users are sent to `/me`)
+- `/family/restrictions` — dynamic family restriction summary (`PRIMARY_ADMIN`)
+- `/family/history` — supplied scan-assessment history (`PRIMARY_ADMIN`)
+- `/family/verdict-trends` — family verdict trends (`PRIMARY_ADMIN`)
+
+Legacy `/family/personal`, `/family/setup-profile`, and `/family/account` redirect to `/me` equivalents.
 
 Protected System Admin routes:
 
@@ -125,6 +142,9 @@ Copy `.env.example` to `.env` or `.env.local` if machine-specific settings are n
 ```text
 VITE_API_BASE_URL=http://localhost:8080
 VITE_USE_MOCK_API=false
+# Optional. Defaults to https://appdistribution.firebase.google.com/
+# Hosted builds use GitHub secret FIREBASE_APP_DISTRIBUTION_URL.
+VITE_FIREBASE_APP_DISTRIBUTION_URL=https://appdistribution.firebase.google.com/
 ```
 
 A checked-in `.env` defaults to the live backend. The browser calls Spring on
@@ -133,7 +153,12 @@ port 8080 from Vite (`5173`); backend CORS must allow that origin (defaults unde
 Network failures show “service is currently unreachable” in `apiClient` — that
 includes CORS blocks, not only a down server.
 
-Never put credentials or secrets in Vite environment variables.
+The `/me` banner QR is drawn in the browser with `qrcode.react` from
+`VITE_FIREBASE_APP_DISTRIBUTION_URL`. The App
+Distribution URL is a public tester link; GitHub stores it as secret
+`FIREBASE_APP_DISTRIBUTION_URL` so hosted builds can change it without a code
+change. Vite still inlines it into the client as
+`VITE_FIREBASE_APP_DISTRIBUTION_URL`.
 
 ## Install and run
 
@@ -164,11 +189,12 @@ UC14 verdict-trend coverage lives in `src/test/features/analytics/VerdictTrendsP
 
 ## Sprint 1 demo flow
 
-Family Portal:
+User Portal (family admin):
 
-1. Open `/family-login` and sign in with a registered email/password, or create
-   an account at `/family-register`.
-2. Confirm there is no System Admin navigation.
+1. Open `/login` and sign in with a **PRIMARY_ADMIN** email/password, or create
+   an account at `/register` then create a Family Circle at `/family/circle`.
+2. Confirm there is no System Admin navigation. Members and users without a
+   circle land on `/me` and do not see Family Members.
 3. Open **Family Members** and choose **Add Existing App User**.
 4. Search `jamie@example.com`, confirm the link and verify Jamie appears.
 5. Choose **Create New Profile** and create Chloe as a Child.
@@ -201,14 +227,14 @@ Auth (live DB, UC19 JWT):
 Registration and authentication remain separate backend operations. After
 successful account-only registration, the browser calls the normal login path,
 keeps the access credential in memory and opens optional dietary setup. Profile
-Name remains credential-free pending data until authenticated
-`POST /api/profiles/me`; **Set Up Later** makes no profile request. If automatic
+Name is entered on `/me/setup-profile` when the user creates a SELF profile;
+**Cancel** makes no profile request. If automatic
 login fails, the account remains and normal login is offered with email prefilled.
-The family navigation keeps `/family/setup-profile` available so an authenticated
-user can complete skipped setup later.
-Save and Set Up Later finish at `/family/personal`, which performs no family
+The family navigation keeps `/me/setup-profile` available so an authenticated
+user can complete setup later.
+Save finishes at `/me`, which performs no family
 creation or membership request. `/family` checks optional membership only to
-route existing members to `/family/dashboard`; a 404 routes to personal home.
+route family admins to `/family/dashboard`; a member or 404 routes to `/me`.
 The Family Circle form opens only from the explicit `/family/circle` action.
 Startup restoration still uses the HttpOnly refresh cookie and verifies
 `/api/auth/me` before protected pages render.

@@ -8,6 +8,7 @@ import { isPasswordWithinBcryptLimit } from '../validation/authFields'
 import { getEmailValidationError } from '../validation/email'
 import { PasswordField } from './PasswordField'
 import { pendingRegistrationOnboardingStore } from '../../features/auth/pendingRegistrationOnboardingStore'
+import { ME_SETUP_PROFILE_PATH, ME_PATH } from '../../app/userPortalPaths'
 
 /**
  * Email/password login form shared by portal entry pages.
@@ -19,7 +20,7 @@ import { pendingRegistrationOnboardingStore } from '../../features/auth/pendingR
 interface CredentialLoginFormProps {
   portal: Portal
   expectedRole: Role
-  destination: '/family' | '/system'
+  destination: typeof ME_PATH | '/system'
   buttonLabel: string
   buttonClassName: string
   registerPath?: string
@@ -57,7 +58,7 @@ export function CredentialLoginForm({
       portal === 'FAMILY' && session
         ? pendingRegistrationOnboardingStore.peekForEmail(session.email)
         : null
-    return <Navigate to={pendingSetup ? '/family/setup-profile' : destination} replace />
+    return <Navigate to={pendingSetup ? ME_SETUP_PROFILE_PATH : destination} replace />
   }
 
   const claimInvitation = async () => {
@@ -129,7 +130,7 @@ export function CredentialLoginForm({
         portal === 'FAMILY' &&
         pendingRegistrationOnboardingStore.peekForEmail(authenticated.email)
       ) {
-        navigate('/family/setup-profile', { replace: true })
+        navigate(ME_SETUP_PROFILE_PATH, { replace: true })
         return
       }
       // If the portal is family and there is an invitation token, claim the invitation
@@ -212,10 +213,6 @@ export function CredentialLoginForm({
           New to CanMakan? <Link to={resolvedRegisterPath}>Create an account</Link>
         </p>
       ) : null}
-      <p className="login-card__security">
-        Your sign-in details are handled securely and are not displayed after
-        you sign in.
-      </p>
     </>
   )
 }

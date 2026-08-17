@@ -1,3 +1,5 @@
+import { CanMakanMascot, type CanMakanMascotPose } from './CanMakanMascot'
+
 export function LoadingState({ label = 'Loading information…' }: { label?: string }) {
   return (
     <div className="page-state" role="status">
@@ -30,12 +32,17 @@ export function ErrorState({
 export function EmptyState({
   title,
   description,
+  pose = 'wave',
+  showMascot = true,
 }: {
   title: string
   description: string
+  pose?: CanMakanMascotPose
+  showMascot?: boolean
 }) {
   return (
     <div className="page-state">
+      {showMascot ? <CanMakanMascot pose={pose} size="large" /> : null}
       <strong>{title}</strong>
       <p>{description}</p>
     </div>

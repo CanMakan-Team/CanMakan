@@ -7,7 +7,7 @@ import { SessionContext, type SessionContextValue } from '../../features/auth/Se
 import { pendingRegistrationOnboardingStore } from '../../features/auth/pendingRegistrationOnboardingStore'
 import { appUserSession, systemAdminSession } from '../testUtils'
 import { familyApiService } from '../../features/family/api/familyApiService'
-import { selfProfileApiService } from '../../features/family/api/selfProfileApiService'
+import { selfProfileApiService } from '../../features/account/api/selfProfileApiService'
 import { ApiError } from '../../shared/api/apiErrors'
 
 vi.mock('../../features/family/api/familyApiService', () => ({
@@ -16,15 +16,17 @@ vi.mock('../../features/family/api/familyApiService', () => ({
     getMyFamily: vi.fn(),
     createFamily: vi.fn(),
     claimInvitation: vi.fn(),
+    getMembers: vi.fn(),
   },
 }))
 
-vi.mock('../../features/family/api/selfProfileApiService', () => ({
+vi.mock('../../features/account/api/selfProfileApiService', () => ({
   selfProfileApiService: {
     getCatalog: vi.fn(),
     getSelfProfile: vi.fn(),
     createSelfProfile: vi.fn(),
     updateSelfProfile: vi.fn(),
+    getScanHistoryForProfile: vi.fn(),
   },
 }))
 
@@ -64,10 +66,15 @@ describe('AppRoutes USER and family boundaries', () => {
     vi.mocked(familyApiService.getMyFamilyOrNull).mockReset()
     vi.mocked(familyApiService.getMyFamily).mockReset()
     vi.mocked(familyApiService.createFamily).mockReset()
+    vi.mocked(familyApiService.getMembers).mockReset()
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue(null)
+    vi.mocked(familyApiService.getMembers).mockResolvedValue([])
     vi.mocked(selfProfileApiService.getCatalog).mockReset()
     vi.mocked(selfProfileApiService.getSelfProfile).mockReset()
     vi.mocked(selfProfileApiService.createSelfProfile).mockReset()
     vi.mocked(selfProfileApiService.updateSelfProfile).mockReset()
+    vi.mocked(selfProfileApiService.getScanHistoryForProfile).mockReset()
+    vi.mocked(selfProfileApiService.getScanHistoryForProfile).mockResolvedValue([])
     vi.mocked(selfProfileApiService.getCatalog).mockResolvedValue([
       { id: 2, code: 'PEANUT', displayName: 'Peanut', category: 'ALLERGEN' },
     ])
@@ -81,26 +88,82 @@ describe('AppRoutes USER and family boundaries', () => {
     const user = userEvent.setup()
     pendingRegistrationOnboardingStore.request({
       email: 'person@example.com',
-      profileName: 'Person Name',
     })
-    renderRoutes('/family/setup-profile', appUserSession())
+    renderRoutes('/me/setup-profile', appUserSession())
 
-    expect(await screen.findByLabelText('Profile Name')).toHaveValue('Person Name')
-    await user.click(screen.getByRole('button', { name: 'Set Up Later' }))
+    expect(await screen.findByLabelText('Profile Name')).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
-    expect(await screen.findByRole('heading', { name: 'Your personal dietary space' }))
+    expect(await screen.findByRole('heading', { name: 'Your CanMakan account' }))
       .toBeInTheDocument()
     expect(selfProfileApiService.createSelfProfile).not.toHaveBeenCalled()
-    expect(familyApiService.getMyFamilyOrNull).not.toHaveBeenCalled()
     expect(familyApiService.getMyFamily).not.toHaveBeenCalled()
     expect(familyApiService.createFamily).not.toHaveBeenCalled()
   })
 
   it('keeps System Admin isolated from USER onboarding', () => {
-    renderRoutes('/family/setup-profile', systemAdminSession())
+    renderRoutes('/me/setup-profile', systemAdminSession())
 
     expect(screen.getByRole('heading', { name: 'This portal is not available to your role.' }))
       .toBeInTheDocument()
     expect(selfProfileApiService.getCatalog).not.toHaveBeenCalled()
+  })
+
+  it('redirects legacy personal URLs to /me', async () => {
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue(null)
+    renderRoutes('/family/personal', appUserSession())
+
+    expect(
+      await screen.findByRole('heading', { name: 'Your CanMakan account' }),
+    ).toBeInTheDocument()
+  })
+
+  it('keeps a family MEMBER off /family/members', async () => {
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue({
+      familyId: 3,
+      familyName: 'Wong Family',
+      memberRole: 'MEMBER',
+      selfProfileId: 77,
+      createdByUserId: 10,
+    })
+
+    renderRoutes('/family/members', appUserSession())
+
+    expect(
+      await screen.findByRole('heading', { name: 'Your CanMakan account' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Family Members' })).not.toBeInTheDocument()
+  })
+
+  it('keeps a user with no Family Circle off /family/members', async () => {
+    vi.mocked(familyApiService.getMyFamilyOrNull).mockResolvedValue(null)
+
+    renderRoutes('/family/members', appUserSession())
+
+    expect(
+      await screen.findByRole('heading', { name: 'Your CanMakan account' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Family Members' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'This feature uses a Family Circle' }),
+    ).not.toBeInTheDocument()
+    expect(familyApiService.getMembers).not.toHaveBeenCalled()
+  })
+
+  it('opens Create Family Circle from personal home instead of returning to home', async () => {
+    const user = userEvent.setup()
+    renderRoutes('/me', appUserSession())
+
+    expect(
+      await screen.findByRole('heading', { name: 'Your CanMakan account' }),
+    ).toBeInTheDocument()
+    await user.click(await screen.findByRole('link', { name: 'Create Family Circle' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Create your family circle' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Your CanMakan account' }),
+    ).not.toBeInTheDocument()
   })
 })

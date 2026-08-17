@@ -187,9 +187,10 @@ account is suspended.
 | Web `ROLE_SYSTEM_ADMIN` | Portal gate mapped from JWT `ADMIN` on the web client |
 | DB `PRIMARY_ADMIN` / `MEMBER` | Real family-circle role on `family_members` after join/create |
 
-Web clients reject the wrong portal (e.g. `ADMIN` on `/family-login`) with a client-side
-message and clear the session. A platform `USER` with no circle enters the personal
-USER area. `GET /api/families/me` returning 404 never opens family creation unless
+Web clients reject the wrong portal (e.g. `ADMIN` on `/login`) with a client-side
+message and clear the session. A platform `USER` with no circle, or a family
+`MEMBER`, enters `/me`. Household web tools require `PRIMARY_ADMIN`.
+`GET /api/families/me` returning 404 never opens family creation unless
 the user explicitly selected `/family/circle`.
 
 Web clients keep the access token and mapped portal roles in memory only. On

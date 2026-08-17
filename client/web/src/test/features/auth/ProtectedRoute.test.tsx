@@ -47,7 +47,7 @@ function renderWithSession(
             <Route path="/family" element={<p>Family home</p>} />
             <Route path="/system" element={<p>System home</p>} />
           </Route>
-          <Route path="/family-login" element={<p>Family login</p>} />
+          <Route path="/login" element={<p>Family login</p>} />
           <Route path="/system-admin-login" element={<p>System login</p>} />
           <Route path="/access-denied" element={<p>Access denied</p>} />
         </Routes>

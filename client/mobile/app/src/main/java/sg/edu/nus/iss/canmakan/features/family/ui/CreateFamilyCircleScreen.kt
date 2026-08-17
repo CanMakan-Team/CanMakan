@@ -164,7 +164,7 @@ fun CreateFamilyCircleScreen(
             if (familyPortalUrl != null) {
                 Spacer(modifier = Modifier.height(32.dp))
                 Text(
-                    text = "Family Portal website",
+                    text = "User Portal website",
                     color = TextSecondary,
                     style = MaterialTheme.typography.bodySmall,
                 )

@@ -12,6 +12,8 @@ dietary information.
 
 Shared brand colors live under `design-tokens/` (JSON source → generated
 Compose `Color.kt` and web `tokens.css`). See `design-tokens/README.md`.
+Shared mascot images live under `client/shared/assets/mascot/` and are
+referenced by both the Android and web clients.
 
 The machine-learning, agentic AI, database, and deployment technology choices
 remain pending.
@@ -26,6 +28,7 @@ remain pending.
 |   `-- README.md
 |
 |-- client/
+|   |-- shared/                    # Cross-client assets (mascot PNGs)
 |   |-- mobile/                    # Android Kotlin + Jetpack Compose
 |   |   `-- app/src/main/java/sg/edu/nus/iss/canmakan/
 |   |       |-- shared/            # DI, network, UI kit, shared models, utils
@@ -155,7 +158,7 @@ Playwright E2E: [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) on PRs 
 
 > Backend CI runs `mvn verify` against an ephemeral MySQL 8 service (not RDS) and uploads the verified JAR. Production backend deploy waits for that CI run on `main` and SCP’s the artefact (no `skipTests` rebuild). Runtime env vars still come from GitHub secrets and are forwarded to EC2 at JAR start. Deploy jobs use Environment `production` (`vars.DEPLOY_ENVIRONMENT`). <br>
 > SonarCloud runs after each stack’s tests when `SONAR_TOKEN` is set (org `canmakan-team` is in source). A failed quality gate fails that build job and **Build Test**. Semgrep remains SAST. <br>
-> Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`. Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`, optional `WEB_INVITE_BASE_URLS`. <br>
+> Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`, optional `FIREBASE_APP_DISTRIBUTION_URL` → `VITE_FIREBASE_APP_DISTRIBUTION_URL`. Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`, optional `WEB_INVITE_BASE_URLS`. <br>
 > Android SDK is provisioned via `android-actions/setup-android` <br>
 
 ### Dependabot

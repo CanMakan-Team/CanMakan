@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { ME_PATH } from '../../../app/userPortalPaths'
 import { getErrorMessage } from '../../../shared/api/apiErrors'
 import { useSession } from '../../auth/useSession'
 import { familyApiService } from '../api/familyApiService'
@@ -50,7 +51,7 @@ export function InviteLandingPage() {
       .claimInvitation(token)
       .then(() => {
         if (!cancelled) {
-          navigate('/family', { replace: true })
+          navigate(ME_PATH, { replace: true })
         }
       })
       .catch((caughtError: unknown) => {
@@ -64,7 +65,7 @@ export function InviteLandingPage() {
   }, [token, session, navigate, handoffToApp])
 
   if (!token) {
-    return <Navigate to="/family-register" replace />
+    return <Navigate to="/register" replace />
   }
 
   const appLink = canmakanInviteDeepLink(token)
@@ -106,8 +107,8 @@ export function InviteLandingPage() {
             </p>
           )}
           {claimError && (
-            <Link className="button button--primary" to="/family">
-              Continue to family
+            <Link className="button button--primary" to={ME_PATH}>
+              Continue to home
             </Link>
           )}
         </section>
@@ -115,8 +116,8 @@ export function InviteLandingPage() {
     )
   }
 
-  const registerPath = `/family-register?invitationToken=${encodeURIComponent(token)}`
-  const loginPath = `/family-login?invitationToken=${encodeURIComponent(token)}`
+  const registerPath = `/register?invitationToken=${encodeURIComponent(token)}`
+  const loginPath = `/login?invitationToken=${encodeURIComponent(token)}`
 
   return (
     <main className="login-page login-page--family">

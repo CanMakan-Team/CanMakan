@@ -41,6 +41,7 @@ account-owned profile is active.
 | Feature            | Purpose                                      |
 |--------------------|----------------------------------------------|
 | `auth`             | Login, logout, session handling              |
+| `account`          | Notification preference and delete account   |
 | `dietaryprofile`   | User dietary preferences and constraints     |
 | `family`           | Family members and active profile switching  |
 | `product`          | Scanning, verdicts, recommendations, history |
@@ -105,8 +106,11 @@ preference logic is covered in `FamilyProfileRepositoryTest` and
 `CanMakanNavGraphViewModelTest`. Sonar coverage exclusions omit Compose screens
 (`*Screen*.kt`), sheets, nav graphs, shared UI widgets, `MainActivity`,
 `BarcodeAnalyzer`, `AndroidSystemNotifier`, Hilt modules, and generated DI; those
-Kotlin files remain in Semgrep/Sonar issue scans. Launcher and mascot images are
-excluded from Sonar analysis (they are not UTF-8 sources). Generated Hilt/Dagger
+Kotlin files remain in Semgrep/Sonar issue scans. Launcher images stay under
+`app/src/main/res`. Mascot PNGs live in `client/shared/assets/mascot/drawable/`
+and are wired in as an extra Android `res` directory at
+`client/shared/assets/mascot/` (resource-type folders only). Those binaries are excluded from
+Sonar analysis (they are not UTF-8 sources). Generated Hilt/Dagger
 output is not a coverage target.
 See `local.properties.example`. The backend listens on `0.0.0.0:8080` so the
 debug build can reach emulator (`10.0.2.2`) and LAN endpoints. Native Retrofit
