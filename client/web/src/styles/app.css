@@ -1936,6 +1936,54 @@ input[readonly] {
   padding: 1.35rem 1.45rem 1.5rem;
 }
 
+.invite-modal-form {
+  display: grid;
+  gap: 1.1rem;
+  width: 100%;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.invite-modal-form .field-group {
+  width: 100%;
+  text-align: left;
+}
+
+.invite-modal-form .field-group label {
+  display: block;
+  text-align: left;
+}
+
+.invite-modal-form input,
+.invite-modal-form select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 42px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  color: var(--ink);
+  background: var(--color-surface);
+  font: inherit;
+}
+
+.invite-modal-form .form-message {
+  text-align: center;
+}
+
+.invite-modal-form__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.invite-modal-form__actions .button {
+  width: 100%;
+  min-height: 42px;
+}
+
 .icon-button {
   display: grid;
   width: 2.4rem;
@@ -2160,6 +2208,13 @@ input[readonly] {
   color: var(--safe);
   background: var(--safe-bg);
   border: 1px solid var(--color-web-cce5d4);
+  font-weight: 600;
+}
+
+.success-inline {
+  margin: 0.75rem 0 1.25rem;
+  color: var(--safe);
+  font-size: 0.9rem;
   font-weight: 600;
 }
 

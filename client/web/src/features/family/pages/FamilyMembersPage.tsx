@@ -210,9 +210,11 @@ export function FamilyMembersPage() {
         </p>
       </header>
 
-      <div className="sr-live" aria-live="polite">
-        {notice}
-      </div>
+      {notice ? (
+        <p className="success-inline" role="status">
+          {notice}
+        </p>
+      ) : null}
 
       {loading ? (
         <LoadingState label="Loading family members…" />

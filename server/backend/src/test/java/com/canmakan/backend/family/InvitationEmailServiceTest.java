@@ -16,10 +16,15 @@ import org.junit.jupiter.api.Test;
 @DisplayName("InvitationEmailService HTML")
 class InvitationEmailServiceTest {
 
-    private final InvitationEmailService service = new InvitationEmailService(new ResendProperties());
-
     @Test
-    void htmlAsksInviteeToRegisterOrSignInAndCheckNotifications() {
+    void htmlLinksWebInviteAndFirebaseAppDistributionForMobile() {
+        InviteProperties inviteProperties = new InviteProperties();
+        inviteProperties.setMobileBaseUrl(
+            "https://appdistribution.firebase.google.com/pub/testerapps/canmakan"
+        );
+        InvitationEmailService service =
+            new InvitationEmailService(new ResendProperties(), inviteProperties);
+
         InvitationResponse invitation = new InvitationResponse(
             1L,
             "guest@example.com",
@@ -37,27 +42,31 @@ class InvitationEmailServiceTest {
 
         assertThat(html).contains("Hello!");
         assertThat(html).contains("cid:mascot-wave");
-        assertThat(html).contains("align=\"center\"");
-        assertThat(html).contains("width=\"100%\"");
-        assertThat(html).contains("margin:0 auto");
-        assertThat(html).contains("<br>");
         assertThat(html).contains("Good news");
         assertThat(html).contains("<strong>Wong Family</strong>");
         assertThat(html).contains("register a CanMakan account");
-        assertThat(html).contains("sign in if you already have one");
         assertThat(html).contains("Notifications");
-        assertThat(html).doesNotContain("Accept the invitation");
-        assertThat(html).doesNotContain("href=\"https://canmakan-project.web.app/invite/token\"");
-        assertThat(html).doesNotContain("/invite/token");
-        assertThat(html).doesNotContain("canmakan://");
+        assertThat(html).contains("Accept via ");
+        assertThat(html).contains("href=\"https://canmakan-project.web.app/invite/token\"");
+        assertThat(html).contains(">web</a>");
+        assertThat(html).contains(
+            "href=\"https://appdistribution.firebase.google.com/pub/testerapps/canmakan\""
+        );
+        assertThat(html).contains(">mobile</a>");
+        assertThat(html).doesNotContain(
+            "appdistribution.firebase.google.com/pub/testerapps/canmakan/token"
+        );
         assertThat(html).doesNotContain("ABCD1234");
-        assertThat(html).doesNotContain("user-select:all");
         assertThat(html).contains("16 Aug 2026, 8:00 AM SGT");
-        assertThat(html).doesNotContain("UTC");
     }
 
     @Test
-    void htmlFallsBackToHostedMascotWhenInlineImageIsUnavailable() {
+    void htmlAppendsTokenWhenMobileBaseIsCustomScheme() {
+        InviteProperties inviteProperties = new InviteProperties();
+        inviteProperties.setMobileBaseUrl("canmakan://invite");
+        InvitationEmailService service =
+            new InvitationEmailService(new ResendProperties(), inviteProperties);
+
         InvitationResponse invitation = new InvitationResponse(
             1L,
             "guest@example.com",
@@ -73,8 +82,7 @@ class InvitationEmailServiceTest {
 
         String html = service.buildInvitationHtml("Wong Family", invitation, false);
 
+        assertThat(html).contains("href=\"canmakan://invite/token\"");
         assertThat(html).contains("https://canmakan-project.web.app/email/canmakan-mascot-wave.png");
-        assertThat(html).doesNotContain("cid:mascot-wave");
-        assertThat(html).contains("will not wait forever");
     }
 }

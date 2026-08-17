@@ -44,7 +44,7 @@ family/
 
 | Piece | Notes |
 | --- | --- |
-| `LinkExistingUserModal` | Search + create PENDING invite; copy link/code; optional mailto |
+| `LinkExistingUserModal` | Invite by email + relationship; backend checks conflicts; requires `emailSent` |
 | `CreateFamilyProfileModal` | `POST /api/families/me/profiles` dependant create |
 | `InviteLandingPage` | `/invite/:token` → Android opens the app; desktop stays on web `/register`/`/login` + claim. `?web=1` skips the app. |
 | Silent `members/link` | Removed from live `familyApiService` |

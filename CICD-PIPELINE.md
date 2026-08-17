@@ -55,7 +55,7 @@ Each category has **one primary tool**. Overlaps (Trivy can scan secrets; Depend
 | Visibility | **Public** repository |
 | SARIF upload | Trivy jobs always upload SARIF. On a **public** repo, GitHub Code Scanning can show those results in the Security tab without GitHub Advanced Security. Failure is still the **table** scan (`exit-code: 1`) |
 | SonarCloud | Org **`canmakan-team`**. Projects **`canmakan-backend`**, **`canmakan-web`**, **`canmakan-mobile`**. Repo secret **`SONAR_TOKEN`**. Analysis is in `ci.yml` (not a separate `build.yml`). Scans skip until the token is set |
-| App Distribution URL | Repo (or Environment) secret **`FIREBASE_APP_DISTRIBUTION_URL`**. Vite inlines it as `VITE_FIREBASE_APP_DISTRIBUTION_URL` on web CI build and `deploy-web`. Optional; the client falls back to `https://appdistribution.firebase.google.com/` |
+| App Distribution URL | Repo (or Environment) secret **`FIREBASE_APP_DISTRIBUTION_URL`**. Vite inlines it as `VITE_FIREBASE_APP_DISTRIBUTION_URL` on web CI build and `deploy-web`; the backend JAR receives the same secret for invite-email “mobile” links. Optional; both fall back to `https://appdistribution.firebase.google.com/` |
 | Gitar | GitHub App **Gitar** (`gitar-bot`) enabled on this repository. PR review only; no Actions secret required for the default App install |
 
 ## 5. Continuous integration (`ci.yml`)
