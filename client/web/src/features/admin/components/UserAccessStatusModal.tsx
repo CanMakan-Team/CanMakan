@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react'
-import { Modal } from '../../shared/ui/Modal'
-import type { AdminUser } from './models'
+import { Modal } from '../../../shared/ui/Modal'
+import type { AdminUser } from '../api/models'
 
 export function UserAccessStatusModal({
   selected,

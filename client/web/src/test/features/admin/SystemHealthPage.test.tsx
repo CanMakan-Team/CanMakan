@@ -1,13 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { SystemHealthPage } from '../../../features/admin/SystemHealthPage'
+import { SystemHealthPage } from '../../../features/admin/pages/SystemHealthPage'
 import {
   systemHealthApiService,
   type SystemHealth,
-} from '../../../features/admin/systemHealthApiService'
+} from '../../../features/admin/api/systemHealthApiService'
 
-vi.mock('../../../features/admin/systemHealthApiService', () => ({
+vi.mock('../../../features/admin/api/systemHealthApiService', () => ({
   systemHealthApiService: {
     getSystemHealth: vi.fn(),
   },

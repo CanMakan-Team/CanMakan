@@ -1,24 +1,24 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ConsumerTrendsPage } from '../../../features/analytics/ConsumerTrendsPage'
-import { consumerTrendsApiService } from '../../../features/analytics/consumerTrendsApiService'
-import { addCalendarDays, buildPeriodQuery } from '../../../features/analytics/consumerTrendsDateRange'
-import { prepareConsumerTrendsResponse } from '../../../features/analytics/consumerTrendsNormalize'
-import { downloadConsumerTrendsReport } from '../../../features/analytics/consumerTrendsReport'
+import { ConsumerTrendsPage } from '../../../features/analytics/pages/ConsumerTrendsPage'
+import { consumerTrendsApiService } from '../../../features/analytics/api/consumerTrendsApiService'
+import { addCalendarDays, buildPeriodQuery } from '../../../features/analytics/lib/consumerTrendsDateRange'
+import { prepareConsumerTrendsResponse } from '../../../features/analytics/lib/consumerTrendsNormalize'
+import { downloadConsumerTrendsReport } from '../../../features/analytics/lib/consumerTrendsReport'
 import { ApiError } from '../../../shared/api/apiErrors'
 import type {
   ConsumerTrendsQuery,
   ConsumerTrendsResponse,
-} from '../../../features/analytics/consumerTrendsTypes'
+} from '../../../features/analytics/api/consumerTrendsTypes'
 
-vi.mock('../../../features/analytics/consumerTrendsApiService', () => ({
+vi.mock('../../../features/analytics/api/consumerTrendsApiService', () => ({
   consumerTrendsApiService: {
     getConsumerTrends: vi.fn(),
   },
 }))
 
-vi.mock('../../../features/analytics/consumerTrendsReport', () => ({
+vi.mock('../../../features/analytics/lib/consumerTrendsReport', () => ({
   downloadConsumerTrendsReport: vi.fn(),
 }))
 

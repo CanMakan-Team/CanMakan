@@ -1,5 +1,5 @@
-import { ApiError } from '../../shared/api/apiErrors'
-import { apiRequest } from '../../shared/api/apiClient'
+import { ApiError } from '../../../shared/api/apiErrors'
+import { apiRequest } from '../../../shared/api/apiClient'
 import type {
   AuthenticatedSession,
   AuthLoginResponse,
@@ -7,7 +7,7 @@ import type {
   Portal,
   RegistrationResponse,
   Role,
-} from '../../shared/api/types'
+} from '../../../shared/api/types'
 
 export const authEndpoints = {
   login: '/api/auth/login',

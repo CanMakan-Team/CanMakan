@@ -1,10 +1,10 @@
-import { mockAdminRepository } from '../../mocks/mockAdminRepository'
-import { apiRequest, useMockApi } from '../../shared/api/apiClient'
+import { mockAdminRepository } from '../../../mocks/mockAdminRepository'
+import { apiRequest, useMockApi } from '../../../shared/api/apiClient'
 import type {
   ConsumerTrendsQuery,
   ConsumerTrendsResponse,
 } from './consumerTrendsTypes'
-import { prepareConsumerTrendsResponse } from './consumerTrendsNormalize'
+import { prepareConsumerTrendsResponse } from '../lib/consumerTrendsNormalize'
 
 export const consumerTrendsEndpoint = '/api/admin/consumer-trends'
 

@@ -1,4 +1,4 @@
-import { apiRequest } from '../../shared/api/apiClient'
+import { apiRequest } from '../../../shared/api/apiClient'
 import type {
   AdminScanFeedbackFilters,
   AdminScanFeedbackListResponse,

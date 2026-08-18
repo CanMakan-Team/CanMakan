@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { getErrorMessage } from '../../shared/api/apiErrors'
-import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
-import { consumerTrendsApiService } from './consumerTrendsApiService'
+import { getErrorMessage } from '../../../shared/api/apiErrors'
+import { EmptyState, ErrorState, LoadingState } from '../../../shared/ui/PageState'
+import { consumerTrendsApiService } from '../api/consumerTrendsApiService'
 import {
   CategoryOverviewChart,
   ConcernBars,
@@ -9,20 +9,20 @@ import {
   OutcomeMix,
   ProductRankingChart,
   SummaryCard,
-} from './ConsumerTrendsCharts'
+} from '../components/ConsumerTrendsCharts'
 import {
   PERIOD_OPTIONS,
   buildPeriodQuery,
   describeRangeError,
   matchingPresetDays,
   singaporeToday,
-} from './consumerTrendsDateRange'
-import { formatDate, formatNumber } from './consumerTrendsFormat'
-import { downloadConsumerTrendsReport } from './consumerTrendsReport'
+} from '../lib/consumerTrendsDateRange'
+import { formatDate, formatNumber } from '../lib/consumerTrendsFormat'
+import { downloadConsumerTrendsReport } from '../lib/consumerTrendsReport'
 import type {
   ConsumerTrendsQuery,
   ConsumerTrendsResponse,
-} from './consumerTrendsTypes'
+} from '../api/consumerTrendsTypes'
 
 const INGREDIENT_RANKING_LIMIT = 20
 

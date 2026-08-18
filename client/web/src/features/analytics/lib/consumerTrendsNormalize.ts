@@ -1,5 +1,5 @@
-import { ApiError } from '../../shared/api/apiErrors'
-import type { ConsumerTrendsResponse } from './consumerTrendsTypes'
+import { ApiError } from '../../../shared/api/apiErrors'
+import type { ConsumerTrendsResponse } from '../api/consumerTrendsTypes'
 
 function isCalendarDate(value: unknown): value is string {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false

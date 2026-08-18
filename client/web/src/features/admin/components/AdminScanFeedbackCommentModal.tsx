@@ -1,5 +1,5 @@
-import { Modal } from '../../shared/ui/Modal'
-import type { AdminScanFeedbackItem } from './models'
+import { Modal } from '../../../shared/ui/Modal'
+import type { AdminScanFeedbackItem } from '../api/models'
 
 export function AdminScanFeedbackCommentModal({
   item,

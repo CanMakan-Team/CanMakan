@@ -2,14 +2,14 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
-import { AdminScanFeedbackPage } from '../../../features/admin/AdminScanFeedbackPage'
-import { formatExactCreatedAt, formatRelativeCreatedAt } from '../../../features/admin/feedbackTimestamps'
-import { adminService } from '../../../features/admin/adminService'
-import type { AdminScanFeedbackItem, AdminScanFeedbackListResponse } from '../../../features/admin/models'
+import { AdminScanFeedbackPage } from '../../../features/admin/pages/AdminScanFeedbackPage'
+import { formatExactCreatedAt, formatRelativeCreatedAt } from '../../../features/admin/lib/feedbackTimestamps'
+import { adminService } from '../../../features/admin/api/adminService'
+import type { AdminScanFeedbackItem, AdminScanFeedbackListResponse } from '../../../features/admin/api/models'
 import { selfProfileApiService } from '../../../features/family/api/selfProfileApiService'
 import { ApiError } from '../../../shared/api/apiErrors'
 
-vi.mock('../../../features/admin/adminService', () => ({
+vi.mock('../../../features/admin/api/adminService', () => ({
   adminService: {
     getScanFeedback: vi.fn(),
     updateScanFeedbackResolved: vi.fn(),

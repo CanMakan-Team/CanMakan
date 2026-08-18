@@ -1,4 +1,4 @@
-import { apiRequest, useMockApi } from '../../shared/api/apiClient'
+import { apiRequest, useMockApi } from '../../../shared/api/apiClient'
 
 /**
  * UC15 - View Application Usage Statistics (system admin).

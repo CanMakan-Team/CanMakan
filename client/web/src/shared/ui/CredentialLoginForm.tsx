@@ -7,7 +7,7 @@ import { familyApiService } from '../../features/family/api/familyApiService'
 import { isPasswordWithinBcryptLimit } from '../validation/authFields'
 import { getEmailValidationError } from '../validation/email'
 import { PasswordField } from './PasswordField'
-import { pendingRegistrationOnboardingStore } from '../../features/auth/pendingRegistrationOnboardingStore'
+import { pendingRegistrationOnboardingStore } from '../../features/auth/lib/pendingRegistrationOnboardingStore'
 import { ME_SETUP_PROFILE_PATH, ME_PATH } from '../../app/userPortalPaths'
 
 /**

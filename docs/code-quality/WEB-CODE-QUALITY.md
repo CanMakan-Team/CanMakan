@@ -7,7 +7,7 @@ Update the **Changes checklist** when work lands; keep findings status notes cur
 **Scope:** `client/web` (~168 TypeScript/TSX source files plus Vitest and Playwright tests)  
 **Out of scope:** Spring Boot, MySQL schema, Android. This client *calls* those APIs; proposed refactors must **not** change API contracts or database behaviour unless a later, separately approved task says otherwise.
 
-**Status of this document:** Assessment and refactoring plan. **REF-001–REF-019** are implemented in `client/web` (see checklist). F-WEB-06 (client-side full-list fetches) and F-WEB-10 (navigation-only RBAC) remain documented with no code change.
+**Status of this document:** Assessment and refactoring plan. **REF-001–REF-020** are implemented in `client/web` (see checklist). F-WEB-06 (client-side full-list fetches) and F-WEB-10 (navigation-only RBAC) remain documented with no code change.
 
 ---
 
@@ -26,13 +26,13 @@ Largest page modules (approximate non-blank lines at review time):
 
 | File | Lines | Role |
 | --- | ---: | --- |
-| `features/analytics/ConsumerTrendsPage.tsx` | ~922 | System-admin consumer analytics |
-| `features/admin/SystemHealthPage.tsx` | ~514 | UC16 health snapshot |
-| `features/analytics/UsageStatisticsPage.tsx` | ~505 | UC15 usage statistics |
+| `features/analytics/pages/ConsumerTrendsPage.tsx` | ~922 | System-admin consumer analytics |
+| `features/admin/pages/SystemHealthPage.tsx` | ~514 | UC16 health snapshot |
+| `features/analytics/pages/UsageStatisticsPage.tsx` | ~505 | UC15 usage statistics |
 | `features/account/pages/PersonalHomePage.tsx` | ~467 | User desk / home |
-| `features/admin/UserAccessPage.tsx` | ~451 | Account suspend/activate |
-| `features/admin/AdminScanFeedbackPage.tsx` | ~415 | Scan feedback moderation |
-| `features/analytics/VerdictTrendsPage.tsx` | ~412 | Family verdict trend (client aggregate) |
+| `features/admin/pages/UserAccessPage.tsx` | ~451 | Account suspend/activate |
+| `features/admin/pages/AdminScanFeedbackPage.tsx` | ~415 | Scan feedback moderation |
+| `features/analytics/pages/VerdictTrendsPage.tsx` | ~412 | Family verdict trend (client aggregate) |
 | `features/family/pages/FamilyRestrictionSummaryPage.tsx` | ~411 | Household restriction matrix |
 | `features/family/pages/FamilyScanHistoryPage.tsx` | ~369 | Family scan history |
 | `features/family/pages/FamilyMembersPage.tsx` | ~314 | Roster admin |
@@ -144,6 +144,7 @@ There is **no CRITICAL** web-only security or data-integrity defect (no `dangero
 | F-WEB-08 | MEDIUM | Duplicated CSV download, hex palettes, debounce/paging, period options | Done |
 | F-WEB-09 | LOW | Always-on ngrok header; unused `VITE_FIREBASE_API_KEY` / likely unused `firebase` package | Done |
 | F-WEB-10 | INFO | Client role gates are navigation-only (correct); do not add a client policy engine | Documented — no change |
+| F-WEB-11 | LOW | Feature packaging is uneven: `account`/`family` nest `pages`/`api`/`lib`; `admin`/`analytics`/`auth` stay flat after the splits | Done |
 
 ### Finding detail
 
@@ -152,7 +153,7 @@ There is **no CRITICAL** web-only security or data-integrity defect (no `dangero
 | Field | Value |
 | --- | --- |
 | Severity | HIGH |
-| File | `client/web/src/features/analytics/VerdictTrendsPage.tsx` |
+| File | `client/web/src/features/analytics/pages/VerdictTrendsPage.tsx` |
 | Class/component | `VerdictTrendsPage` |
 | Method/function | `isoDate()`, `aggregate()` |
 | Current problem | `isoDate` uses `date.toISOString().slice(0, 10)` (UTC calendar day). Bucket keys are built from local `setHours(0, 0, 0, 0)` then passed through `isoDate`. In Singapore (UTC+8), local midnight is the previous UTC date, so “today” scans often miss the intended bucket. Tests in `VerdictTrendsPage.test.tsx` encode this UTC `bucketIso` helper. |
@@ -167,7 +168,7 @@ There is **no CRITICAL** web-only security or data-integrity defect (no `dangero
 | Field | Value |
 | --- | --- |
 | Severity | HIGH |
-| File | `client/web/src/features/analytics/ConsumerTrendsPage.tsx` |
+| File | `client/web/src/features/analytics/pages/ConsumerTrendsPage.tsx` |
 | Class/component | `ConsumerTrendsPage` and nested chart functions |
 | Method/function | Module as a whole; `prepareConsumerTrendsResponse`, `DailyActivityChart`, `usePagedItems` |
 | Current problem | Fetch, range validation, payload sanitizing, export, formatters, paging hook, and six chart sections live in one file. Quote style differs from the rest of the repo. |
@@ -297,6 +298,21 @@ There is **no CRITICAL** web-only security or data-integrity defect (no `dangero
 | Risk | N/A |
 | Blast radius | None |
 
+#### F-WEB-11
+
+| Field | Value |
+| --- | --- |
+| Severity | LOW |
+| File | `features/admin`, `features/analytics`, `features/auth` |
+| Class/component | Feature folders |
+| Method/function | N/A (layout) |
+| Current problem | After REF-001–REF-019, new helpers sat at the feature root. `account` and `family` already used `pages/` / `api/` / `lib/` / `components/` / `hooks/`, so import depth mixed (`./adminService` next to `../../shared`). |
+| Why it matters | New files land in the wrong place; readers cannot tell page vs adapter vs helper from the path. |
+| Proposed solution | REF-020: move files into the same size-based folders and rewrite imports. No behaviour, copy, API-contract, or barrel `index.ts` changes. Keep a thin auth root (`SessionProvider`, `ProtectedRoute`, `useSession`) like `FamilyMeGate`. |
+| Affected layer | Frontend packaging |
+| Risk | LOW (path-only) |
+| Blast radius | `AppRoutes`, Vitest `import` / `vi.mock` paths, feature READMEs |
+
 ---
 
 ## 6. Long / Complex Methods
@@ -307,10 +323,10 @@ Every item below is in the refactoring plan. Extraction must be by **cohesive re
 
 | Field | Detail |
 | --- | --- |
-| Location | `client/web/src/features/analytics/ConsumerTrendsPage.tsx` |
+| Location | `client/web/src/features/analytics/pages/ConsumerTrendsPage.tsx` |
 | Current responsibilities | Query/period/category state; debounced fetch; `prepareConsumerTrendsResponse`; export; date/number format; `ConsumerTrendsResult`; `DailyActivityChart`; `ProductRankingChart`; `CategoryOverviewChart`; `ConcernBars`; `OutcomeMix`; `usePagedItems`; `ListPageNav` |
 | Why too complex | Mixed layers; cannot explain the file in one sentence; charts untestable without the page |
-| Proposed decomposition | `prepareConsumerTrendsResponse` → normalize/API; formatters → `consumerTrendsFormat.ts`; paging → `listPaging`; each chart → `features/analytics/components/`; page = state + load + toolbar + compose |
+| Proposed decomposition | `prepareConsumerTrendsResponse` → normalize/API; formatters → `lib/consumerTrendsFormat.ts`; paging → `lib/consumerTrendsPaging.ts`; each chart → `features/analytics/components/`; page = state + load + toolbar + compose |
 | Assessment criteria | Readability, method length, layer separation, testability |
 | Risk | MEDIUM |
 
@@ -330,7 +346,7 @@ ConsumerTrendsPage()
 
 | Field | Detail |
 | --- | --- |
-| Location | `client/web/src/features/analytics/VerdictTrendsPage.tsx` |
+| Location | `client/web/src/features/analytics/pages/VerdictTrendsPage.tsx` |
 | Current responsibilities | Fetch all family scans; local-midnight window; UTC day keys; Safe/Warning/Unsafe counts; donut gradient; CSV blob; filters; chart |
 | Why too complex | Domain aggregation in the page; **incorrect date keys** (F-WEB-01) |
 | Proposed decomposition | `aggregateFamilyVerdictTrend(records, periodDays, now)` in `verdictTrendAggregate.ts` using Singapore day keys; CSV via `downloadTextFile`; page loads and presents |
@@ -396,7 +412,7 @@ PersonalHomePage()
 
 | Field | Detail |
 | --- | --- |
-| Location | `features/admin/UserAccessPage.tsx`, `AdminScanFeedbackPage.tsx` |
+| Location | `features/admin/pages/UserAccessPage.tsx`, `AdminScanFeedbackPage.tsx` |
 | Current responsibilities | URL-initialized filters, debounce, pagination reset during render, list load, action modals, notices, (feedback) restriction catalog refetch on every load |
 | Why too complex | Many UI workflows in one component; catalog refetch is extra coupling/work |
 | Proposed decomposition | `useDebouncedFilters`; `usePaginationReset`; extract modals; load catalog once on feedback |
@@ -823,6 +839,43 @@ Each step is small, independently reviewable, and must not change API contracts.
 | Testing required | Visual regression / Playwright smoke |
 | Expected benefit | Slightly easier navigation without a CSS rewrite |
 
+### REF-020
+
+| Field | Value |
+| --- | --- |
+| Priority | P3 |
+| Location | `features/admin`, `features/analytics`, `features/auth` (and READMEs) |
+| Current problem | F-WEB-11. Splits landed as extra files at the feature root. `account` and `family` already use `pages/` / `api/` / `lib/` / `components/` / `hooks/`. Imports therefore mix depths (`./adminService` next to `../../shared`). |
+| Assessment criterion | Maintainability, layer separation |
+| Proposed refactoring | **Repackage only.** Move files into the same size-based folders; rewrite imports. No behaviour, copy, or API-contract changes. No barrel `index.ts` files. Keep a thin auth root (`SessionProvider`, `ProtectedRoute`, `useSession`) like the family membership gate. |
+| Target layout | See **Feature packaging** below |
+| Files affected | Admin, analytics, and auth feature files; `AppRoutes`; Vitest/Playwright imports; feature READMEs |
+| Risk | LOW (path-only) |
+| Testing required | `npm run verify`; existing page tests must keep the same assertions |
+| Expected benefit | Predictable imports; new files land in the right folder |
+| Status | Done |
+
+### Feature packaging (web)
+
+Match `account` and `family`. Do **not** invent Spring `controller/` / `service/` packages.
+
+| Folder | Holds |
+| --- | --- |
+| `pages/` | Route screens |
+| `components/` | Feature UI used by those pages |
+| `api/` | HTTP adapters, endpoint constants, response types |
+| `lib/` | Pure helpers (dates, matrix, CSV, palettes) |
+| `hooks/` | Feature hooks (`usePersonalHomeData`) |
+| Feature root | Thin gates/providers only (`FamilyMeGate`, `SessionProvider`, `ProtectedRoute`) |
+
+| Feature | Layout |
+| --- | --- |
+| `account`, `family` | Nested; READMEs list the folders |
+| `admin`, `analytics` | Nested: `pages/` `components/` `api/` `lib/` |
+| `auth` | `authService` → `api/`; stores/coordinators → `lib/`; `AccessDenied` → `pages/`; session/route files stay at root |
+
+**Do not:** merge `admin` into `analytics`, move verdict trends out of analytics, or add re-export shims at old paths once imports are updated.
+
 ### Implementation order
 
 **Phase 1 — Safety:** REF-001, REF-002, REF-003  
@@ -836,6 +889,8 @@ Each step is small, independently reviewable, and must not change API contracts.
 **Phase 5 — Maintainability:** REF-017, REF-018, REF-019 (comments only)  
 
 **Phase 6 — Validation:** `npm run verify` in `client/web`; optional Playwright smoke (login, one family page, one admin analytics page); confirm no API/schema changes.
+
+**Phase 7 — Packaging:** REF-020 (folder moves + import rewrite only) — done
 
 ---
 
@@ -885,20 +940,21 @@ F-WEB-06 (server pagination) is explicitly **out of scope** for a web-only refac
 
 | File | Planned change | Assessment criterion | Risk |
 | --- | --- | --- | --- |
-| `client/web/src/features/analytics/VerdictTrendsPage.tsx` | Calendar-day aggregate extract | Correctness, method length | MEDIUM |
+| `client/web/src/features/analytics/pages/VerdictTrendsPage.tsx` | Calendar-day aggregate extract | Correctness, method length | MEDIUM |
 | `client/web/src/test/features/analytics/VerdictTrendsPage.test.tsx` | Replace UTC `bucketIso` | Testability | MEDIUM |
-| `client/web/src/features/analytics/ConsumerTrendsPage.tsx` | Split module | Method length, readability | MEDIUM |
-| `client/web/src/features/analytics/consumerTrendsApiService.ts` | Normalize/validate response | Layer separation | MEDIUM |
+| `client/web/src/features/analytics/pages/ConsumerTrendsPage.tsx` | Split module | Method length, readability | MEDIUM |
+| `client/web/src/features/analytics/api/consumerTrendsApiService.ts` | Normalize/validate response | Layer separation | MEDIUM |
 | `client/web/src/features/family/pages/FamilyRestrictionSummaryPage.tsx` | Extract matrix lib | Layer separation | MEDIUM |
 | `client/web/src/features/family/api/familyApiService.ts` | Mock facade | Low coupling | LOW |
 | `client/web/src/features/account/pages/PersonalHomePage.tsx` | Hook + sections | Method length | MEDIUM |
 | `client/web/src/features/account/pages/SelfProfileSetupPage.tsx` | Payload helper | Business logic | MEDIUM |
-| `client/web/src/features/admin/SystemHealthPage.tsx` | Result extract; request id | Readability, correctness | LOW |
-| `client/web/src/features/analytics/UsageStatisticsPage.tsx` | Result extract; request id; CSV helper | Readability | LOW |
-| `client/web/src/features/admin/UserAccessPage.tsx` | Filters/modals; request id | Maintainability | MEDIUM |
-| `client/web/src/features/admin/AdminScanFeedbackPage.tsx` | Catalog once; extract filters | Coupling | MEDIUM |
+| `client/web/src/features/admin/pages/SystemHealthPage.tsx` | Result extract; request id | Readability, correctness | LOW |
+| `client/web/src/features/analytics/pages/UsageStatisticsPage.tsx` | Result extract; request id; CSV helper | Readability | LOW |
+| `client/web/src/features/admin/pages/UserAccessPage.tsx` | Filters/modals; request id | Maintainability | MEDIUM |
+| `client/web/src/features/admin/pages/AdminScanFeedbackPage.tsx` | Catalog once; extract filters | Coupling | MEDIUM |
 | `client/web/src/shared/api/apiClient.ts` | Optional ngrok header gate | Security hygiene | LOW |
 | `client/web/package.json` | Remove unused `firebase` if confirmed | Maintainability | LOW |
+| `features/admin`, `analytics`, `auth` | Nest `pages/` `components/` `api/` `lib/`; rewrite imports | Maintainability | LOW |
 
 ---
 
@@ -914,16 +970,18 @@ F-WEB-06 (server pagination) is explicitly **out of scope** for a web-only refac
 - Changing in-memory JWT + HttpOnly refresh cookie session design (already sound).
 - Treating `ProtectedRoute` / `FamilyMeGate` as authorization (they are navigation).
 - Mass-renaming `adminService` vs `*ApiService` for naming fashion.
+- Adding feature-root `index.ts` barrels or old-path re-export shims after a folder move.
 - Expanding `FamilyMeContext` into a global store for all family pages.
+- Inventing Spring `controller/` / `service/` packages on the web client.
 
 ---
 
 ## 14. Expected Assessment Improvement
 
-Implementing REF-001–REF-018 (and incremental CSS comments) should move the scorecard toward the targets in section 4 as follows.
+Implementing REF-001–REF-020 (and incremental CSS comments) should move the scorecard toward the targets in section 4 as follows.
 
 - **Readability:** Pages become composition of named sections (`DailyActivityChart`, `usePersonalHomeData`). Intent is visible without scrolling mixed fetch and SVG.
-- **Maintainability:** One family mock facade; shared download and (where extracted) paging; fewer copy-paste admin filters; fewer hex copies.
+- **Maintainability:** One family mock facade; shared download and (where extracted) paging; fewer copy-paste admin filters; fewer hex copies; admin/analytics/auth folders match account/family.
 - **Layer separation:** Domain and contract checks live in `lib` or ApiServices; JSX presents. Mapping remains Page → lib → ApiService → apiClient, not a fake Spring tree.
 - **Low coupling:** Pages do not know mock repositories; health/usage/verdict share theme tokens; mock events are not a fake live bus.
 - **Reasonable method length:** Charts, matrix builders, and aggregators are isolated functions with one job.
@@ -955,5 +1013,6 @@ Implementing REF-001–REF-018 (and incremental CSS comments) should move the sc
 - [x] REF-019 Incremental `app.css` comments only (no big-bang split)
 - [x] `npm run verify` in `client/web`
 - [x] Optional Playwright smoke
+- [x] REF-020 Nest admin / analytics / auth folders; rewrite imports only
 - [x] Update findings table Status column to Done
 - [x] Fill scorecard “After implementation” column

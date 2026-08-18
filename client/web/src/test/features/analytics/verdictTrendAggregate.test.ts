@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ScanRecord } from '../../../shared/api/types'
-import { addCalendarDays, singaporeToday } from '../../../features/analytics/consumerTrendsDateRange'
-import { aggregateFamilyVerdictTrend } from '../../../features/analytics/verdictTrendAggregate'
+import { addCalendarDays, singaporeToday } from '../../../features/analytics/lib/consumerTrendsDateRange'
+import { aggregateFamilyVerdictTrend } from '../../../features/analytics/lib/verdictTrendAggregate'
 
 const FIXED_NOW = new Date('2026-03-15T10:00:00+08:00')
 

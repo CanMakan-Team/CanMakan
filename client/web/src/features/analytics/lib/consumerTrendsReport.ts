@@ -1,5 +1,5 @@
-import { downloadTextFile } from '../../shared/lib/downloadTextFile'
-import type { ConsumerTrendsResponse } from './consumerTrendsTypes'
+import { downloadTextFile } from '../../../shared/lib/downloadTextFile'
+import type { ConsumerTrendsResponse } from '../api/consumerTrendsTypes'
 
 export const CONSUMER_TRENDS_REPORT_MIME_TYPE = 'text/csv;charset=utf-8'
 

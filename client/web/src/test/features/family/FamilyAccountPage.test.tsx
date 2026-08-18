@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FamilyAccountPage } from '../../../features/family/pages/FamilyAccountPage'
-import { authService } from '../../../features/auth/authService'
+import { authService } from '../../../features/auth/api/authService'
 import { familyApiService } from '../../../features/family/api/familyApiService'
 import { ApiError } from '../../../shared/api/apiErrors'
 import {
@@ -12,7 +12,7 @@ import {
 } from '../../../features/auth/SessionContext'
 import { appUserSession } from '../../testUtils'
 
-vi.mock('../../../features/auth/authService', () => ({
+vi.mock('../../../features/auth/api/authService', () => ({
   authService: {
     getCurrentUser: vi.fn(),
     deleteOwnAccount: vi.fn(),

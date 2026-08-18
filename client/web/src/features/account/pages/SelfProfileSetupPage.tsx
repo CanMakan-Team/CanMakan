@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { pendingRegistrationOnboardingStore } from '../../auth/pendingRegistrationOnboardingStore'
+import { pendingRegistrationOnboardingStore } from '../../auth/lib/pendingRegistrationOnboardingStore'
 import { useSession } from '../../auth/useSession'
 import { USER_LOGIN_PATH, ME_PATH } from '../../../app/userPortalPaths'
 import { ApiError, getErrorMessage } from '../../../shared/api/apiErrors'

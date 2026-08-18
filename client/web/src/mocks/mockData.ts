@@ -4,7 +4,7 @@ import type {
   FamilyMember,
   ScanRecord,
 } from '../shared/api/types'
-import type { ConsumerTrendsResponse } from '../features/analytics/consumerTrendsTypes'
+import type { ConsumerTrendsResponse } from '../features/analytics/api/consumerTrendsTypes'
 
 /**
  * Mock data for the family state

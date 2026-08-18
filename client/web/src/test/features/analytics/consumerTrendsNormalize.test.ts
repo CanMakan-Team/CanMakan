@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '../../../shared/api/apiErrors'
-import { prepareConsumerTrendsResponse } from '../../../features/analytics/consumerTrendsNormalize'
-import type { ConsumerTrendsResponse } from '../../../features/analytics/consumerTrendsTypes'
+import { prepareConsumerTrendsResponse } from '../../../features/analytics/lib/consumerTrendsNormalize'
+import type { ConsumerTrendsResponse } from '../../../features/analytics/api/consumerTrendsTypes'
 
 function validResponse(): ConsumerTrendsResponse {
   return {

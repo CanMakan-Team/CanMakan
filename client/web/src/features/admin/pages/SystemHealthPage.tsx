@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
-import { useLatestRequest } from '../../shared/lib/useLatestRequest'
+import { EmptyState, ErrorState, LoadingState } from '../../../shared/ui/PageState'
+import { useLatestRequest } from '../../../shared/lib/useLatestRequest'
 import {
   systemHealthApiService,
   type HealthWindowHours,
   type SystemHealth,
-} from './systemHealthApiService'
-import { SystemHealthResult } from './SystemHealthResult'
+} from '../api/systemHealthApiService'
+import { SystemHealthResult } from '../components/SystemHealthResult'
 
 /**
  * UC16 - View System Health Logs (system admin).

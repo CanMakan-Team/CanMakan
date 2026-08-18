@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react'
-import { HoverTip } from '../../shared/ui/HoverTip'
-import { ADMIN_ACCENT } from './adminAnalyticsPalette'
-import { chartEndLabelIndexes } from './consumerTrendsChartAxis'
-import type { UsageStatistics } from './usageStatisticsApiService'
+import { HoverTip } from '../../../shared/ui/HoverTip'
+import { ADMIN_ACCENT } from '../lib/adminAnalyticsPalette'
+import { chartEndLabelIndexes } from '../lib/consumerTrendsChartAxis'
+import type { UsageStatistics } from '../api/usageStatisticsApiService'
 
 const BLUE = ADMIN_ACCENT.info
 const BLUE_BG = ADMIN_ACCENT.infoBg

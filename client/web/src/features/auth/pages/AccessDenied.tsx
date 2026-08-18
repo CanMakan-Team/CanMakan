@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import { FAMILY_ROOT_PATH, USER_LOGIN_PATH } from '../../app/userPortalPaths'
-import { useSession } from './useSession'
+import { FAMILY_ROOT_PATH, USER_LOGIN_PATH } from '../../../app/userPortalPaths'
+import { useSession } from '../useSession'
 
 /** Access denied page
  *

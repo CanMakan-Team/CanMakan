@@ -1,4 +1,4 @@
-import { ApiError } from '../../shared/api/apiErrors'
+import { ApiError } from '../../../shared/api/apiErrors'
 
 const sessionMutationLockName = 'canmakan.session-mutation'
 

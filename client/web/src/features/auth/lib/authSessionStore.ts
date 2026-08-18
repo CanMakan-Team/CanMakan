@@ -1,4 +1,4 @@
-import type { AuthenticatedSession } from '../../shared/api/types'
+import type { AuthenticatedSession } from '../../../shared/api/types'
 
 const legacySessionKey = 'canmakan.session'
 const accountBoundMockKey = 'canmakan.mock.family'

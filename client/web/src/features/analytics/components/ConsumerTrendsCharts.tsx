@@ -1,16 +1,16 @@
 import { useState, type ReactNode } from 'react'
-import { HoverTip } from '../../shared/ui/HoverTip'
+import { HoverTip } from '../../../shared/ui/HoverTip'
 import {
   chartEndLabelIndexes,
   consumerTrendsChartAxis,
-} from './consumerTrendsChartAxis'
-import { formatDate, formatNumber, formatShortDate } from './consumerTrendsFormat'
-import { CONSUMER_TRENDS_ROWS_PER_PAGE, usePagedItems } from './consumerTrendsPaging'
+} from '../lib/consumerTrendsChartAxis'
+import { formatDate, formatNumber, formatShortDate } from '../lib/consumerTrendsFormat'
+import { CONSUMER_TRENDS_ROWS_PER_PAGE, usePagedItems } from '../lib/consumerTrendsPaging'
 import type {
   CategoryScanTrend,
   ConsumerTrendsResponse,
   ProductScanTrend,
-} from './consumerTrendsTypes'
+} from '../api/consumerTrendsTypes'
 
 function ListPageNav({
   label,

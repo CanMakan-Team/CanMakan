@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
-import { downloadTextFile } from '../../shared/lib/downloadTextFile'
-import { useLatestRequest } from '../../shared/lib/useLatestRequest'
+import { EmptyState, ErrorState, LoadingState } from '../../../shared/ui/PageState'
+import { downloadTextFile } from '../../../shared/lib/downloadTextFile'
+import { useLatestRequest } from '../../../shared/lib/useLatestRequest'
 import {
   usageStatisticsApiService,
   type UsagePeriodDays,
   type UsageStatistics,
-} from './usageStatisticsApiService'
-import { UsageStatisticsResult } from './UsageStatisticsResult'
+} from '../api/usageStatisticsApiService'
+import { UsageStatisticsResult } from '../components/UsageStatisticsResult'
 
 /**
  * UC15 - View Application Usage Statistics (system admin).

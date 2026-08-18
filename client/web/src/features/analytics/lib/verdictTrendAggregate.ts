@@ -1,5 +1,5 @@
-import type { ScanRecord } from '../../shared/api/types'
-import type { VerdictTrendPoint } from './VerdictTrendChart'
+import type { ScanRecord } from '../../../shared/api/types'
+import type { VerdictTrendPoint } from '../components/VerdictTrendChart'
 import {
   addCalendarDays,
   singaporeDayKeyFromInstant,

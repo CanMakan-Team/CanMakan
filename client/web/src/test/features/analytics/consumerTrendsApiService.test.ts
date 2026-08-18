@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { ConsumerTrendsResponse } from '../../../features/analytics/consumerTrendsTypes'
+import type { ConsumerTrendsResponse } from '../../../features/analytics/api/consumerTrendsTypes'
 
 const apiClientModule = '../../../shared/api/apiClient'
 
@@ -16,7 +16,7 @@ describe('consumerTrendsApiService transport selection', () => {
     vi.doMock(apiClientModule, () => ({ apiRequest, useMockApi: true }))
 
     const { consumerTrendsApiService } = await import(
-      '../../../features/analytics/consumerTrendsApiService'
+      '../../../features/analytics/api/consumerTrendsApiService'
     )
     const categoryPromise = consumerTrendsApiService.getConsumerTrends({
       from: '2026-08-01',
@@ -90,7 +90,7 @@ describe('consumerTrendsApiService transport selection', () => {
     vi.doMock(apiClientModule, () => ({ apiRequest, useMockApi: false }))
 
     const { consumerTrendsApiService } = await import(
-      '../../../features/analytics/consumerTrendsApiService'
+      '../../../features/analytics/api/consumerTrendsApiService'
     )
     const response = await consumerTrendsApiService.getConsumerTrends({
       from: '2026-08-01',

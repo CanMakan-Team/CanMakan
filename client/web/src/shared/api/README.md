@@ -16,6 +16,7 @@ Holds the technical networking foundation used by all features.
   - `features/auth/api/`
   - `features/family/api/`
   - `features/admin/api/`
+  - `features/analytics/api/`
 
 ## Notes
 - Features import the shared client/errors from here

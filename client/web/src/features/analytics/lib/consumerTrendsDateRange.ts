@@ -1,4 +1,4 @@
-import type { ConsumerTrendsQuery } from "./consumerTrendsTypes"
+import type { ConsumerTrendsQuery } from "../api/consumerTrendsTypes"
 
 export const CONSUMER_TRENDS_MAX_PERIOD_DAYS = 90
 export const PERIOD_OPTIONS = [7, 30, 90] as const

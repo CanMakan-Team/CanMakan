@@ -1,4 +1,4 @@
-import { apiRequest, useMockApi } from '../../shared/api/apiClient'
+import { apiRequest, useMockApi } from '../../../shared/api/apiClient'
 
 /**
  * UC16 - View System Health Logs (system admin).

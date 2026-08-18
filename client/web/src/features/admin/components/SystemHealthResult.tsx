@@ -1,12 +1,12 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { HoverTip } from '../../shared/ui/HoverTip'
-import { StatusBadge } from '../../shared/ui/StatusBadge'
-import { ADMIN_ACCENT } from '../analytics/adminAnalyticsPalette'
+import { HoverTip } from '../../../shared/ui/HoverTip'
+import { StatusBadge } from '../../../shared/ui/StatusBadge'
+import { ADMIN_ACCENT } from '../../analytics/lib/adminAnalyticsPalette'
 import {
   type AuditEntry,
   type HealthWindowHours,
   type SystemHealth,
-} from './systemHealthApiService'
+} from '../api/systemHealthApiService'
 
 const BLUE = ADMIN_ACCENT.info
 const BLUE_BG = ADMIN_ACCENT.infoBg

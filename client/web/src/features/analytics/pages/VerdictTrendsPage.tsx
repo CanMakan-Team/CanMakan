@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { getErrorMessage } from '../../shared/api/apiErrors'
-import { downloadTextFile } from '../../shared/lib/downloadTextFile'
-import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
-import type { ScanRecord, ScanVerdict } from '../../shared/api/types'
-import { familyApiService } from '../family/api/familyApiService'
+import { getErrorMessage } from '../../../shared/api/apiErrors'
+import { downloadTextFile } from '../../../shared/lib/downloadTextFile'
+import { EmptyState, ErrorState, LoadingState } from '../../../shared/ui/PageState'
+import type { ScanRecord, ScanVerdict } from '../../../shared/api/types'
+import { familyApiService } from '../../family/api/familyApiService'
 import {
   VerdictTrendChart,
   type VerdictTrendSeriesKey,
-} from './VerdictTrendChart'
-import { aggregateFamilyVerdictTrend } from './verdictTrendAggregate'
-import { formatPercentLabel, sharePercents } from './verdictTrendDisplay'
+} from '../components/VerdictTrendChart'
+import { aggregateFamilyVerdictTrend } from '../lib/verdictTrendAggregate'
+import { formatPercentLabel, sharePercents } from '../lib/verdictTrendDisplay'
 
 /**
  * UC14 - View Scan Verdict Trend (family admin).

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   adminEndpoints,
   adminService,
-} from '../../../features/admin/adminService'
+} from '../../../features/admin/api/adminService'
 import { apiBaseUrl, configureApiAuthBridge } from '../../../shared/api/apiClient'
 import { jsonResponse } from '../../testUtils'
 

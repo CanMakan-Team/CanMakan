@@ -4,8 +4,8 @@ import {
   buildConsumerTrendsFilename,
   CONSUMER_TRENDS_REPORT_MIME_TYPE,
   downloadConsumerTrendsReport,
-} from '../../../features/analytics/consumerTrendsReport'
-import type { ConsumerTrendsResponse } from '../../../features/analytics/consumerTrendsTypes'
+} from '../../../features/analytics/lib/consumerTrendsReport'
+import type { ConsumerTrendsResponse } from '../../../features/analytics/api/consumerTrendsTypes'
 
 const response: ConsumerTrendsResponse = {
   period: { from: '2026-08-01', to: '2026-08-07', timezone: 'Asia/Singapore' },

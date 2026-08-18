@@ -1,9 +1,9 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { sharePercents } from '../../../features/analytics/verdictTrendDisplay'
-import { VerdictTrendsPage } from '../../../features/analytics/VerdictTrendsPage'
-import { addCalendarDays, singaporeToday } from '../../../features/analytics/consumerTrendsDateRange'
+import { sharePercents } from '../../../features/analytics/lib/verdictTrendDisplay'
+import { VerdictTrendsPage } from '../../../features/analytics/pages/VerdictTrendsPage'
+import { addCalendarDays, singaporeToday } from '../../../features/analytics/lib/consumerTrendsDateRange'
 import { familyApiService } from '../../../features/family/api/familyApiService'
 import type { ScanRecord } from '../../../shared/api/types'
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { authService } from '../../auth/authService'
+import { authService } from '../../auth/api/authService'
 import { useSession } from '../../auth/useSession'
 import { getErrorMessage } from '../../../shared/api/apiErrors'
 import type { CurrentUserResponse, FamilyMe } from '../../../shared/api/types'

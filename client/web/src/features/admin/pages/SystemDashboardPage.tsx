@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { adminService } from './adminService'
-import { consumerTrendsApiService } from '../analytics/consumerTrendsApiService'
+import { adminService } from '../api/adminService'
+import { consumerTrendsApiService } from '../../analytics/api/consumerTrendsApiService'
 import type {
   ConsumerTrendsResponse,
   DailyTrendPoint,
-} from '../analytics/consumerTrendsTypes'
-import { getErrorMessage } from '../../shared/api/apiErrors'
-import type { AdminUser } from './models'
+} from '../../analytics/api/consumerTrendsTypes'
+import { getErrorMessage } from '../../../shared/api/apiErrors'
+import type { AdminUser } from '../api/models'
 import {
   systemHealthApiService,
   type SystemHealth,
-} from './systemHealthApiService'
-import { usageStatisticsApiService } from '../analytics/usageStatisticsApiService'
-import { ErrorState, LoadingState } from '../../shared/ui/PageState'
-import { StatusBadge } from '../../shared/ui/StatusBadge'
+} from '../api/systemHealthApiService'
+import { usageStatisticsApiService } from '../../analytics/api/usageStatisticsApiService'
+import { ErrorState, LoadingState } from '../../../shared/ui/PageState'
+import { StatusBadge } from '../../../shared/ui/StatusBadge'
 
 /** Compact SVG sparkline from daily scan totals. */
 function DailyTrendSparkline({ points }: { points: DailyTrendPoint[] }) {
