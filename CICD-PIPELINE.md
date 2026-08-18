@@ -189,7 +189,7 @@ The workflows do not create GHCR packages, bind them to the repo, or fill Enviro
 
 **5. If Trivy image fails Build Test**
 
-CRITICAL/HIGH in `eclipse-temurin:21-jre-jammy` or `python:3.12-slim-bookworm` fails the stack job. Bump the base tag or wait for a patched digest. Do not weaken `exit-code: 1` without a team decision.
+CRITICAL/HIGH in `eclipse-temurin:21-jre-jammy` or `python:3.12-slim-trixie` fails the stack job. Bump the base tag or wait for a patched digest. Do not weaken `exit-code: 1` without a team decision.
 
 ## 8. Pipeline diagram
 
@@ -248,7 +248,7 @@ With Staging, DAST, performance testing, and **containerised backend + ranker de
 
 ### Gap 1: Direct host execution — **done**
 
-The backend runtime is `eclipse-temurin:21-jre-jammy` plus the CI-verified JAR (`server/backend/Dockerfile`). The ranker runtime is `python:3.12-slim-bookworm` plus a CI-trained joblib (`server/machine-learning/Dockerfile`). CI scans both images with Trivy and, on `develop`/`main` pushes, publishes `canmakan-backend:<sha>` and `canmakan-ml:<sha>`. CD pulls them onto the same EC2 Docker network instead of `java -jar` on the host OS.
+The backend runtime is `eclipse-temurin:21-jre-jammy` plus the CI-verified JAR (`server/backend/Dockerfile`). The ranker runtime is `python:3.12-slim-trixie` plus a CI-trained joblib (`server/machine-learning/Dockerfile`). CI scans both images with Trivy and, on `develop`/`main` pushes, publishes `canmakan-backend:<sha>` and `canmakan-ml:<sha>`. CD pulls them onto the same EC2 Docker network instead of `java -jar` on the host OS.
 
 EC2 still needs Docker Engine (the deploy script installs `docker.io` if missing). Follow **§7.1** for GHCR package bind and Environment settings.
 

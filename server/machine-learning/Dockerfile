@@ -1,6 +1,6 @@
 # Runtime image for the UC5 FastAPI ranker (Python 3.12).
 # CI trains artifacts/tfidf_ranker.joblib from 01_products.sql, then copies it in.
-FROM python:3.12-slim-bookworm
+FROM python:3.12-slim-trixie
 
 WORKDIR /app
 
