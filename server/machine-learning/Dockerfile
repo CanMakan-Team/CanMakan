@@ -8,7 +8,7 @@ WORKDIR /build
 RUN apk add --no-cache build-base gfortran openblas-dev
 
 COPY requirements-runtime.txt /build/requirements-runtime.txt
-RUN pip install --no-cache-dir --upgrade pip \
+RUN pip install --no-cache-dir --upgrade "pip>=26.1.2" \
     && pip install --no-cache-dir --prefix=/install -r /build/requirements-runtime.txt \
     && rm -rf /install/bin/pip* /install/bin/wheel /install/lib/python*/site-packages/pip* \
         /install/lib/python*/site-packages/setuptools* /install/lib/python*/site-packages/wheel*
@@ -25,6 +25,10 @@ RUN apk upgrade --no-cache \
 COPY --from=builder /install /usr/local
 COPY --chown=canmakan:canmakan src /app/src
 COPY --chown=canmakan:canmakan artifacts/tfidf_ranker.joblib /app/artifacts/tfidf_ranker.joblib
+
+# Official python images include pip; CVE-2026-8643 is in 25.0.1. Ranker does not need pip at runtime.
+RUN python -m pip uninstall -y pip setuptools wheel \
+    && rm -rf /root/.cache /tmp/pip-*
 
 ENV PYTHONPATH=/app/src
 ENV ARTIFACT_PATH=/app/artifacts/tfidf_ranker.joblib

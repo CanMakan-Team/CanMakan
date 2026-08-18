@@ -48,6 +48,54 @@ jobs:
               - 'server/machine-learning/**'
               - 'server/backend/src/main/resources/01_products.sql'
 
+  # Path filters skip image Trivy jobs. develop still has Code Scanning
+  # categories trivy-image and trivy-ml-image. Without a SARIF upload on the
+  # PR, GitHub cannot compute "alerts introduced by this pull request".
+  code-scanning-skipped-image-sarif:
+    name: Code Scanning image placeholders
+    needs: detect-changes
+    if: >
+      github.event_name == 'pull_request' &&
+      (needs.detect-changes.outputs.backend != 'true' ||
+       needs.detect-changes.outputs.machine-learning != 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: Write empty Trivy SARIF
+        run: |
+          cat > empty-trivy.sarif <<'EOF'
+          {
+            "version": "2.1.0",
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "Trivy",
+                    "informationUri": "https://github.com/aquasecurity/trivy"
+                  }
+                },
+                "results": []
+              }
+            ]
+          }
+          EOF
+
+      - name: Upload placeholder backend image SARIF
+        if: needs.detect-changes.outputs.backend != 'true'
+        uses: github/codeql-action/upload-sarif@v4.37.7
+        with:
+          sarif_file: empty-trivy.sarif
+          category: trivy-image
+
+      - name: Upload placeholder ML image SARIF
+        if: needs.detect-changes.outputs.machine-learning != 'true'
+        uses: github/codeql-action/upload-sarif@v4.37.7
+        with:
+          sarif_file: empty-trivy.sarif
+          category: trivy-ml-image
+
   # 2. SECRET SCANNING
   gitleaks:
     name: Secret Scan (Gitleaks)
