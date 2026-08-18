@@ -1,6 +1,6 @@
 package com.canmakan.backend.product.scan;
 
-import com.canmakan.backend.family.FamilyAuthorizationService;
+import com.canmakan.backend.family.service.FamilyAuthorizationService;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 
 import org.junit.jupiter.api.BeforeEach;

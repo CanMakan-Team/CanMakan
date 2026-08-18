@@ -16,6 +16,7 @@ import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshToken;
 import com.canmakan.backend.auth.model.RefreshTokenRotation;
 import com.canmakan.backend.auth.repository.RefreshTokenRepository;
+import com.canmakan.backend.auth.service.RefreshTokenService;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthUserDetailsService;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;

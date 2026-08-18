@@ -137,7 +137,7 @@ public class AllergenRelationshipLookupFallback {
             }
             log.warn("Tavily search failed for ingredients {}: {}", ingredients, e.getMessage());
             return "";
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             if (isPlanLimitFailure(e)) {
                 tavilyPlanLimitReached = true;
                 log.warn("Tavily plan limit exceeded (HTTP 432); skipping remaining lookups");
@@ -203,7 +203,7 @@ public class AllergenRelationshipLookupFallback {
             }
             log.warn("Tavily product-name allergen lookup failed for {}: {}", productName, e.getMessage());
             return "";
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             if (isPlanLimitFailure(e)) {
                 tavilyPlanLimitReached = true;
                 log.warn("Tavily plan limit exceeded (HTTP 432); skipping remaining lookups");

@@ -59,12 +59,12 @@ Web portals may map `USER` → family-portal access and `ADMIN` → system porta
 
 ## Related packages
 - `auth.dto` / `auth.model` / `auth.exception` / `auth.repository` — request/response, entities, errors, persistence
-- `user` — `UserAccount` / repository
+- `user.model` / `user.repository` — `UserAccount` and account lookups
 - `dietaryprofile` — authenticated SELF profile setup and restrictions
 - `shared/security` — JWT filter, `AuthUserDetails`, SecurityFilterChain
-- `family` — UC8 create-circle / membership (JWT principal)
+- `family.service` — invite registration guard / invite notifier
 
-Controller and service classes stay in `auth` (this package root).
+Controller and service classes stay in `auth` (this package root). Nested `dto/`, `model/`, `exception/`, `repository/` match the large-feature convention.
 
 The refresh cookie is HttpOnly and path-scoped to `/api/auth`. Its Secure and
 SameSite attributes are deployment configuration; `SameSite=None` is accepted

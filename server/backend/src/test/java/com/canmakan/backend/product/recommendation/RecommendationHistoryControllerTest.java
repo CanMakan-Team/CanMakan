@@ -1,5 +1,9 @@
 package com.canmakan.backend.product.recommendation;
 
+import com.canmakan.backend.product.recommendation.history.RecommendationHistoryAlternativeDto;
+import com.canmakan.backend.product.recommendation.history.RecommendationHistoryEntryDto;
+import com.canmakan.backend.product.recommendation.history.RecommendationHistoryResponse;
+import com.canmakan.backend.product.recommendation.history.RecommendationHistoryService;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -9,7 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.canmakan.backend.family.FamilyAuthorizationService;
+import com.canmakan.backend.family.service.FamilyAuthorizationService;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.shared.exception.GlobalExceptionHandler;
 import com.canmakan.backend.shared.security.AuthUserDetails;

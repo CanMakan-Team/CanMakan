@@ -1,9 +1,8 @@
 package com.canmakan.backend.user;
 
-import com.canmakan.backend.family.model.UserPreference;
-import com.canmakan.backend.family.repository.UserPreferenceRepository;
 import com.canmakan.backend.user.dto.NotificationPreferenceResponse;
-import lombok.RequiredArgsConstructor;
+import com.canmakan.backend.user.model.UserPreference;
+import com.canmakan.backend.user.repository.UserPreferenceRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,10 +15,13 @@ import org.springframework.transaction.annotation.Transactional;
  * @author Amelia
  */
 @Service
-@RequiredArgsConstructor
 public class UserPreferenceService {
 
     private final UserPreferenceRepository userPreferenceRepository;
+
+    public UserPreferenceService(UserPreferenceRepository userPreferenceRepository) {
+        this.userPreferenceRepository = userPreferenceRepository;
+    }
 
     /**
      * Returns whether the caller currently allows CanMakan to post system notifications.

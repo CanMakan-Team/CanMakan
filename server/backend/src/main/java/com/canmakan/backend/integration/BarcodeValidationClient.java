@@ -32,6 +32,8 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Client for interacting with the barcode validation service.
@@ -42,6 +44,8 @@ import org.springframework.web.client.RestClientResponseException;
  */
 @Service
 public class BarcodeValidationClient {
+    private static final Logger log = LoggerFactory.getLogger(BarcodeValidationClient.class);
+
     private final RestClient offRestClient;
     private final RestClient eanRestClient;
     private final String eanSearchToken;
@@ -142,8 +146,9 @@ public class BarcodeValidationClient {
                     }
                 }
             }
-        } catch (Exception e) {
-            // Product not found, API error, or parsing error; suppress and proceed to fallback
+        } catch (RestClientException | JsonProcessingException e) {
+            log.warn("Open Food Facts validation lookup failed for barcode {}: {}",
+                    barcode, e.getMessage());
         }
 
         // 2. Fallback Lookup: EAN-Search
@@ -185,8 +190,9 @@ public class BarcodeValidationClient {
                     }
                 }
             }
-        } catch (Exception e) {
-            // EAN-Search failed or parsing error
+        } catch (RestClientException | JsonProcessingException e) {
+            log.warn("EAN-Search validation lookup failed for barcode {}: {}",
+                    barcode, e.getMessage());
         }
 
         // 3. Neither API yielded a result
@@ -325,7 +331,7 @@ public class BarcodeValidationClient {
         }
         return tracesTags.stream()
             .filter(Objects::nonNull)
-            .map(String::trim)
+            .map(tag -> tag.trim())
             .filter(tag -> !tag.isEmpty())
             .distinct()
             .toList();

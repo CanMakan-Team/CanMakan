@@ -4,15 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
-import com.canmakan.backend.auth.AuthService;
 import com.canmakan.backend.auth.dto.RegistrationRequest;
 import com.canmakan.backend.auth.dto.RegistrationResponse;
+import com.canmakan.backend.auth.service.AuthService;
 import com.canmakan.backend.dietaryprofile.dto.CreateSelfProfileRequest;
 import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
 import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
-import com.canmakan.backend.user.UserAccount;
-import com.canmakan.backend.user.UserAccountRepository;
+import com.canmakan.backend.user.model.UserAccount;
+import com.canmakan.backend.user.repository.UserAccountRepository;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;

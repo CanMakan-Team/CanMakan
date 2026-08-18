@@ -1,8 +1,8 @@
 package com.canmakan.backend.shared.security;
 
 import com.canmakan.backend.auth.RefreshTokenProperties;
-import com.canmakan.backend.family.InviteProperties;
-import com.canmakan.backend.family.ResendProperties;
+import com.canmakan.backend.family.config.InviteProperties;
+import com.canmakan.backend.family.config.ResendProperties;
 import jakarta.servlet.DispatcherType;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -32,7 +32,8 @@ import org.springframework.web.cors.CorsConfigurationSource;
     JwtProperties.class,
     RefreshTokenProperties.class,
     InviteProperties.class,
-    ResendProperties.class
+    ResendProperties.class,
+    AuthRateLimitProperties.class
 })
 public class SecurityConfig {
 
@@ -84,6 +85,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
+            AuthRateLimitFilter authRateLimitFilter,
             RestAuthenticationEntryPoint authenticationEntryPoint,
             RestAccessDeniedHandler accessDeniedHandler,
             CorsConfigurationSource corsConfigurationSource) throws Exception {
@@ -125,6 +127,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/**").authenticated()
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .anyRequest().denyAll())
+            .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

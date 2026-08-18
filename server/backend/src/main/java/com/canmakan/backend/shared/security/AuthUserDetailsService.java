@@ -1,23 +1,21 @@
 package com.canmakan.backend.shared.security;
 
 import com.canmakan.backend.user.AuthenticationAccountView;
-import com.canmakan.backend.user.UserAccountRepository;
+import com.canmakan.backend.user.repository.UserAccountRepository;
 import java.util.Locale;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 /** Loads the current database account and role for Spring Security authentication. */
 @Service
+@RequiredArgsConstructor
 public class AuthUserDetailsService implements UserDetailsService {
 
     private static final String ACCOUNT_NOT_FOUND = "Account cannot be authenticated";
 
     private final UserAccountRepository userAccountRepository;
-
-    public AuthUserDetailsService(UserAccountRepository userAccountRepository) {
-        this.userAccountRepository = userAccountRepository;
-    }
 
     @Override
     public AuthUserDetails loadUserByUsername(String username) throws UsernameNotFoundException {

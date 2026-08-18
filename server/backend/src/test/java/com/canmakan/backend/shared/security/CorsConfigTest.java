@@ -108,6 +108,26 @@ class CorsConfigTest {
                 .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
     }
 
+    @Test
+    @DisplayName("Prod-like empty origin patterns reject LAN origins")
+    void emptyPatternsRejectLanOrigins() throws Exception {
+        CorsProperties properties = new CorsProperties();
+        properties.setAllowedOrigins(java.util.List.of(
+                "https://canmakan-project.web.app"));
+        properties.setAllowedOriginPatterns(java.util.List.of());
+        properties.setAllowedHeaders(java.util.List.of("*"));
+        properties.setAllowedMethods(java.util.List.of(
+                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        MockMvc prodLikeMvc = MockMvcBuilders.standaloneSetup(new ProbeController())
+                .addFilters(new CorsFilter(new CorsConfig(properties).corsConfigurationSource()))
+                .build();
+
+        prodLikeMvc.perform(options("/api/auth/login")
+                        .header(HttpHeaders.ORIGIN, "http://192.168.1.50:5173")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
+                .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
+    }
+
     /** Builds the same CorsConfigurationSource shape as {@link CorsConfig}. */
     private static final class CorsConfigurationSourceHolder {
         private final org.springframework.web.cors.CorsConfigurationSource source;

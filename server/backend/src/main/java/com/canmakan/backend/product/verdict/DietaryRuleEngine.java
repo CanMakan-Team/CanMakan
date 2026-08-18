@@ -247,7 +247,7 @@ public class DietaryRuleEngine {
 
         Set<String> profileAllergenCodes = activeRules.stream()
             .filter(rule -> rule.category() == com.canmakan.backend.knowledgebase.model.RestrictionCategory.ALLERGEN)
-            .map(RestrictionRule::code)
+            .map(rule -> rule.code())
             .filter(code -> code != null && !code.isBlank())
             .map(code -> code.trim().toUpperCase(Locale.ROOT))
             .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -303,7 +303,7 @@ public class DietaryRuleEngine {
         List<String> unresolvedIngredientNames
     ) {
         Map<String, RestrictionSeverity> severityByCode = rules.stream()
-            .collect(Collectors.toMap(RestrictionRule::code, RestrictionRule::severity, (a, b) -> a));
+            .collect(Collectors.toMap(rule -> rule.code(), rule -> rule.severity(), (a, b) -> a));
 
         // Cross-contamination findings never count as STRICT_AVOID hits.
         boolean strictHit = findings.stream().anyMatch(f ->
@@ -343,7 +343,7 @@ public class DietaryRuleEngine {
         SafetyVerdict.Level level, List<Finding> findings, List<String> unresolved) {
         List<String> parts = new ArrayList<>();
         if (!findings.isEmpty()) {
-            parts.add(findings.stream().map(Finding::reason).collect(Collectors.joining("; ")));
+            parts.add(findings.stream().map(finding -> finding.reason()).collect(Collectors.joining("; ")));
         }
         if (!unresolved.isEmpty()) {
             String noun = unresolved.size() == 1 ? "ingredient" : "ingredients";

@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
@@ -21,14 +22,10 @@ import org.springframework.stereotype.Service;
  * @author Amelia
  */
 @Service
+@RequiredArgsConstructor
 public class ProductDataAdapter {
 
     private final BarcodeValidationClient barcodeValidationClient;
-
-    public ProductDataAdapter(BarcodeValidationClient barcodeValidationClient) {
-        this.barcodeValidationClient = Objects.requireNonNull(
-            barcodeValidationClient, "barcodeValidationClient");
-    }
 
     /**
      * Looks up a product by barcode via Open Food Facts {@code fetchProduct}
@@ -106,7 +103,7 @@ public class ProductDataAdapter {
     // Naive comma splits (and some OFF leaves) break "Oyster Extract (Oysters, Water, Salt)"
     // into three names. Rejoin those fragments so Water/Salt are not treated as their own labels.
     private static List<Ingredient> rejoinSplitParentheticals(List<Ingredient> ingredients) {
-        List<String> names = ingredients.stream().map(Ingredient::ingredientName).toList();
+        List<String> names = ingredients.stream().map(ingredient -> ingredient.ingredientName()).toList();
         List<String> mergedNames = IngredientLabelParser.normalize(names);
         if (mergedNames.equals(names)) {
             return ingredients;
@@ -169,7 +166,7 @@ public class ProductDataAdapter {
         }
 
         return Arrays.stream(labelTags.split(","))
-                .map(String::trim)
+                .map(tag -> tag.trim())
                 .filter(label -> !label.isEmpty())
                 .distinct()
                 .toList();
