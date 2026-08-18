@@ -1,6 +1,7 @@
 package com.canmakan.backend.dietaryprofile;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -9,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -102,6 +104,20 @@ class DietaryProfileControllerTest {
                 .value("Profile does not belong to your family circle."));
 
         verify(dietaryProfileService, never()).getDietaryRestrictionsForProfile(any());
+    }
+
+    @Test
+    @DisplayName("POST /api/profiles/me returns 400 with field message when profile name is blank")
+    void createSelfProfileValidationFailure() throws Exception {
+        authenticateAs(10L);
+
+        mockMvc.perform(post("/api/profiles/me")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"profileName\":\"\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Profile name is required."));
+
+        verify(dietaryProfileService, never()).createSelfProfile(anyLong(), any());
     }
 
     @Test

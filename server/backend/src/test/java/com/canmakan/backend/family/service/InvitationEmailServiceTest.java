@@ -6,7 +6,12 @@ import com.canmakan.backend.family.config.InviteProperties;
 import com.canmakan.backend.family.config.ResendProperties;
 import com.canmakan.backend.family.dto.InvitationResponse;
 import com.canmakan.backend.family.model.InvitationStatus;
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -17,6 +22,15 @@ import org.junit.jupiter.api.Test;
  */
 @DisplayName("InvitationEmailService HTML")
 class InvitationEmailServiceTest {
+
+    private HttpServer resendStub;
+
+    @AfterEach
+    void tearDown() {
+        if (resendStub != null) {
+            resendStub.stop(0);
+        }
+    }
 
     @Test
     void htmlLinksWebInviteAndFirebaseAppDistributionForMobile() {
@@ -137,6 +151,149 @@ class InvitationEmailServiceTest {
         );
 
         assertThat(sent).isFalse();
+    }
+
+    @Test
+    void sendInvitationEmailReturnsFalseWhenApiKeyIsBlank() {
+        ResendProperties resend = new ResendProperties();
+        resend.setEnabled(true);
+        resend.setApiKey("  ");
+        resend.setFrom("CanMakan <onboarding@resend.dev>");
+        InvitationEmailService service =
+            new InvitationEmailService(resend, new InviteProperties());
+
+        boolean sent = service.sendInvitationEmail(
+            "Wong Family",
+            invitation("token", "https://canmakan-project.web.app/invite/token", null)
+        );
+
+        assertThat(sent).isFalse();
+    }
+
+    @Test
+    void sendInvitationEmailReturnsFalseWhenFromAddressIsBlank() {
+        ResendProperties resend = new ResendProperties();
+        resend.setEnabled(true);
+        resend.setApiKey("test-key");
+        resend.setFrom("  ");
+        InvitationEmailService service =
+            new InvitationEmailService(resend, new InviteProperties());
+
+        boolean sent = service.sendInvitationEmail(
+            "Wong Family",
+            invitation("token", "https://canmakan-project.web.app/invite/token", null)
+        );
+
+        assertThat(sent).isFalse();
+    }
+
+    @Test
+    void sendInvitationEmailReturnsTrueWhenResendAcceptsTheRequest() throws IOException {
+        resendStub = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        resendStub.createContext("/emails", exchange -> {
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        resendStub.start();
+        InvitationEmailService service = new InvitationEmailService(
+            resendConfiguredFor(resendStub), new InviteProperties());
+
+        boolean sent = service.sendInvitationEmail(
+            "Wong Family",
+            invitation("token", "https://canmakan-project.web.app/invite/token", null)
+        );
+
+        assertThat(sent).isTrue();
+    }
+
+    @Test
+    void sendInvitationEmailReturnsFalseWhenResendRejectsTheRequest() throws IOException {
+        resendStub = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        resendStub.createContext("/emails", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] body = "{\"message\":\"invalid api key\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(401, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        resendStub.start();
+        InvitationEmailService service = new InvitationEmailService(
+            resendConfiguredFor(resendStub), new InviteProperties());
+
+        boolean sent = service.sendInvitationEmail(
+            "Wong Family",
+            invitation("token", "https://canmakan-project.web.app/invite/token", null)
+        );
+
+        assertThat(sent).isFalse();
+    }
+
+    @Test
+    void sendInvitationEmailReturnsFalseWhenResendHostIsUnreachable() {
+        ResendProperties resend = new ResendProperties();
+        resend.setEnabled(true);
+        resend.setApiKey("test-key");
+        resend.setFrom("CanMakan <onboarding@resend.dev>");
+        resend.setApiUrl("http://127.0.0.1:1/emails");
+        InvitationEmailService service = new InvitationEmailService(resend, new InviteProperties());
+
+        boolean sent = service.sendInvitationEmail(
+            "Wong Family",
+            invitation("token", "https://canmakan-project.web.app/invite/token", null)
+        );
+
+        assertThat(sent).isFalse();
+    }
+
+    private static ResendProperties resendConfiguredFor(HttpServer server) {
+        ResendProperties resend = new ResendProperties();
+        resend.setEnabled(true);
+        resend.setApiKey("test-key");
+        resend.setFrom("CanMakan <onboarding@resend.dev>");
+        resend.setApiUrl("http://localhost:" + server.getAddress().getPort() + "/emails");
+        return resend;
+    }
+
+    @Test
+    void htmlMascotFallsBackToHostedUrlWhenInviteUrlHasNoAuthority() {
+        InvitationEmailService service =
+            new InvitationEmailService(new ResendProperties(), new InviteProperties());
+
+        String html = service.buildInvitationHtml(
+            "Wong Family",
+            invitation("token", "invite/token", null),
+            false
+        );
+
+        assertThat(html).contains("src=\"/email/canmakan-mascot-wave.png\"");
+    }
+
+    @Test
+    void htmlMascotFallsBackToHostedUrlWhenInviteUrlIsMissing() {
+        InvitationEmailService service =
+            new InvitationEmailService(new ResendProperties(), new InviteProperties());
+
+        String html = service.buildInvitationHtml(
+            "Wong Family",
+            invitation("token", null, null),
+            false
+        );
+
+        assertThat(html).contains("src=\"/email/canmakan-mascot-wave.png\"");
+    }
+
+    @Test
+    void htmlMascotFallsBackToHostedUrlWhenInviteUrlIsMalformed() {
+        InvitationEmailService service =
+            new InvitationEmailService(new ResendProperties(), new InviteProperties());
+
+        String html = service.buildInvitationHtml(
+            "Wong Family",
+            invitation("token", "http://exa mple.com/invite/token", null),
+            false
+        );
+
+        assertThat(html).contains("src=\"/email/canmakan-mascot-wave.png\"");
     }
 
     private static InvitationResponse invitation(

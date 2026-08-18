@@ -1,9 +1,13 @@
 package com.canmakan.backend.family.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.canmakan.backend.family.model.Family;
@@ -54,6 +58,26 @@ class FamilyInviteNotifierTest {
     @Test
     void friendlyNameUsesLocalPart() {
         assertEquals("Jamie", FamilyInviteNotifier.friendlyName("jamie@example.com"));
+    }
+
+    @Test
+    void friendlyNameReturnsSomeoneForNullEmail() {
+        assertEquals("Someone", FamilyInviteNotifier.friendlyName(null));
+    }
+
+    @Test
+    void friendlyNameReturnsSomeoneForBlankEmail() {
+        assertEquals("Someone", FamilyInviteNotifier.friendlyName("   "));
+    }
+
+    @Test
+    void friendlyNameUsesWholeValueWhenThereIsNoAtSign() {
+        assertEquals("Jamie", FamilyInviteNotifier.friendlyName("jamie"));
+    }
+
+    @Test
+    void friendlyNameFallsBackToRawEmailWhenLocalPartHasNoLetters() {
+        assertEquals("...@example.com", FamilyInviteNotifier.friendlyName("...@example.com"));
     }
 
     @Test
@@ -114,6 +138,56 @@ class FamilyInviteNotifierTest {
     }
 
     @Test
+    void notifyInviteSentSkipsInviteeCardWhenInviteeIsUnregistered() {
+        FamilyInvitation invitation = pendingInvite();
+        stubFamily();
+
+        familyInviteNotifier.notifyInviteSent(invitation, null);
+
+        verify(notificationService).upsert(
+            eq(10L),
+            eq(NotificationType.FAMILY_INVITE_UPDATE),
+            eq(new NotificationService.NotificationReference("INVITATION", 5L)),
+            eq("Invite sent to jamie@example.com."),
+            eq("Wong Family"),
+            isNull(),
+            isNull()
+        );
+        verify(notificationService, never()).upsert(
+            eq(30L),
+            eq(NotificationType.FAMILY_INVITE_REQUEST),
+            any(NotificationService.NotificationReference.class),
+            anyString(),
+            anyString(),
+            any(),
+            any()
+        );
+    }
+
+    @Test
+    void notifyInviteDeclinedUpdatesAdminAndRemovesInviteeCard() {
+        FamilyInvitation invitation = pendingInvite();
+        stubFamily();
+
+        familyInviteNotifier.notifyInviteDeclined(invitation, "jamie@example.com");
+
+        verify(notificationService).upsert(
+            eq(10L),
+            eq(NotificationType.FAMILY_INVITE_UPDATE),
+            eq(new NotificationService.NotificationReference("INVITATION", 5L)),
+            eq("Jamie declined this time."),
+            eq("Wong Family"),
+            isNull(),
+            isNull()
+        );
+        verify(notificationService).deleteByReference(
+            NotificationType.FAMILY_INVITE_REQUEST,
+            "INVITATION",
+            5L
+        );
+    }
+
+    @Test
     void hydrateIncomingCreatesInviteeCard() {
         FamilyInvitation invitation = pendingInvite();
         stubFamily();
@@ -135,6 +209,34 @@ class FamilyInviteNotifierTest {
             "tok",
             invitation.getExpiresAt()
         );
+    }
+
+    @Test
+    void hydrateIncomingFallsBackToGenericAdminNameWhenAdminAccountIsMissing() {
+        FamilyInvitation invitation = pendingInvite();
+        stubFamily();
+        when(familyInvitationRepository.findPendingByEmail("jamie@example.com"))
+            .thenReturn(List.of(invitation));
+        when(userAccountRepository.findById(10L)).thenReturn(Optional.empty());
+
+        familyInviteNotifier.hydrateIncomingInvites(30L, "jamie@example.com");
+
+        verify(notificationService).upsert(
+            30L,
+            NotificationType.FAMILY_INVITE_REQUEST,
+            new NotificationService.NotificationReference("INVITATION", 5L),
+            "Join Wong Family?",
+            "Invited by your family admin.",
+            "tok",
+            invitation.getExpiresAt()
+        );
+    }
+
+    @Test
+    void hydrateIncomingDoesNothingForBlankEmail() {
+        familyInviteNotifier.hydrateIncomingInvites(30L, "   ");
+
+        verifyNoInteractions(familyInvitationRepository, notificationService);
     }
 
     private FamilyInvitation pendingInvite() {
