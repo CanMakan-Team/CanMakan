@@ -175,19 +175,7 @@ public class AssessmentOrchestrator {
             if (scanId == null) {
                 return null;
             }
-            try {
-                if (tier == ExecutionTier.TIER_3_LLM) {
-                    aiExecutionLogService.record(scanId, tier, llmResult);
-                } else {
-                    aiExecutionLogService.recordRulesOnly(scanId, ruleLatencyMs);
-                }
-            } catch (DataAccessException | IllegalArgumentException | IllegalStateException ex) {
-                log.warn(
-                    "Assess verdict OK but AI/execution log persist failed for barcode {}: {}",
-                    request.barcode(),
-                    ex.getMessage()
-                );
-            }
+            logAiExecution(scanId, tier, llmResult, ruleLatencyMs, request.barcode());
             return scanId;
         } catch (DataAccessException | IllegalArgumentException | IllegalStateException ex) {
             log.warn(
@@ -196,6 +184,32 @@ public class AssessmentOrchestrator {
                 ex.getMessage()
             );
             return null;
+        }
+    }
+
+    /**
+     * Best-effort AI/rules execution-log write. A failure here does not undo the already-persisted
+     * scan or change the verdict already returned to the caller.
+     */
+    private void logAiExecution(
+            Long scanId,
+            ExecutionTier tier,
+            LlmAssessmentResult llmResult,
+            long ruleLatencyMs,
+            String barcode
+    ) {
+        try {
+            if (tier == ExecutionTier.TIER_3_LLM) {
+                aiExecutionLogService.recordLlmExecution(scanId, tier, llmResult);
+            } else {
+                aiExecutionLogService.recordRulesOnly(scanId, ruleLatencyMs);
+            }
+        } catch (DataAccessException | IllegalArgumentException | IllegalStateException ex) {
+            log.warn(
+                "Assess verdict OK but AI/execution log persist failed for barcode {}: {}",
+                barcode,
+                ex.getMessage()
+            );
         }
     }
 }

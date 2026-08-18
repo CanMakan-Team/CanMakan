@@ -134,6 +134,23 @@ class AuthUserDetailsServiceTest {
     }
 
     @Test
+    void rejectsAccountRecordMissingAnEmail() {
+        AuthenticationAccountView account = account(
+            14L,
+            null,
+            true,
+            "USER"
+        );
+        when(userAccountRepository.findAuthenticationAccountByEmail("person@example.com"))
+            .thenReturn(Optional.of(account));
+
+        assertThrows(
+            UsernameNotFoundException.class,
+            () -> userDetailsService.loadUserByUsername("person@example.com")
+        );
+    }
+
+    @Test
     void erasesPasswordHashFromUserDetails() {
         AuthenticationAccountView account = account(
             14L,

@@ -57,8 +57,7 @@ class NotificationServiceTest {
         notificationService.upsert(
             10L,
             NotificationType.FAMILY_INVITE_UPDATE,
-            "INVITATION",
-            5L,
+            new NotificationService.NotificationReference("INVITATION", 5L),
             "Invite sent to jamie@example.com.",
             "Wong Family",
             null,

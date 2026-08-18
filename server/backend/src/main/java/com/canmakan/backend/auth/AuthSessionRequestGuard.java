@@ -27,7 +27,7 @@ public final class AuthSessionRequestGuard {
             CorsProperties corsProperties,
             RefreshTokenProperties refreshTokenProperties) {
         List<String> exactOrigins = corsProperties.getAllowedOrigins().stream()
-            .map(origin -> origin.strip())
+            .map(String::strip)
             .filter(origin -> !origin.isEmpty())
             .toList();
         this.trustedBrowserOrigins = exactOrigins.stream().collect(Collectors.toUnmodifiableSet());

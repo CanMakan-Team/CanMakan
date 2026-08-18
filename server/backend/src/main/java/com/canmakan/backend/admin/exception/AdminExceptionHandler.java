@@ -14,18 +14,20 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice(assignableTypes = AdminController.class)
 public class AdminExceptionHandler {
 
+    private static final String MESSAGE_KEY = "message";
+
     @ExceptionHandler(ConsumerTrendsValidationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleConsumerTrendsValidation(
             ConsumerTrendsValidationException exception
     ) {
-        return Map.of("message", exception.getMessage());
+        return Map.of(MESSAGE_KEY, exception.getMessage());
     }
 
     @ExceptionHandler(AdminUserNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Map<String, String> handleAdminUserNotFound(AdminUserNotFoundException exception) {
-        return Map.of("message", exception.getMessage());
+        return Map.of(MESSAGE_KEY, exception.getMessage());
     }
 
     @ExceptionHandler(AdminScanFeedbackNotFoundException.class)
@@ -33,7 +35,7 @@ public class AdminExceptionHandler {
     public Map<String, String> handleAdminScanFeedbackNotFound(
             AdminScanFeedbackNotFoundException exception
     ) {
-        return Map.of("message", exception.getMessage());
+        return Map.of(MESSAGE_KEY, exception.getMessage());
     }
 
     @ExceptionHandler(InvalidAccountStatusRequestException.class)
@@ -41,7 +43,7 @@ public class AdminExceptionHandler {
     public Map<String, String> handleInvalidAccountStatusRequest(
             InvalidAccountStatusRequestException exception
     ) {
-        return Map.of("message", exception.getMessage());
+        return Map.of(MESSAGE_KEY, exception.getMessage());
     }
 
     @ExceptionHandler(ProtectedAccountOperationException.class)
@@ -49,7 +51,7 @@ public class AdminExceptionHandler {
     public Map<String, String> handleProtectedAccountOperation(
             ProtectedAccountOperationException exception
     ) {
-        return Map.of("message", exception.getMessage());
+        return Map.of(MESSAGE_KEY, exception.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -59,12 +61,12 @@ public class AdminExceptionHandler {
                 .findFirst()
                 .map(error -> error.getDefaultMessage())
                 .orElse("Request validation failed.");
-        return Map.of("message", message);
+        return Map.of(MESSAGE_KEY, message);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleUnreadableBody(HttpMessageNotReadableException exception) {
-        return Map.of("message", "Request body is required.");
+        return Map.of(MESSAGE_KEY, "Request body is required.");
     }
 }

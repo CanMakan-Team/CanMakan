@@ -39,6 +39,7 @@ public class InvitationEmailService {
     private static final String MASCOT_RESOURCE = "/email/canmakan-mascot-wave.png";
     private static final String TEXT_PRIMARY = "#1C1C1C";
     private static final String TEXT_SECONDARY = "#6E6E6E";
+    private static final String ACCEPT_VIA_LINK_PREFIX = "<p>Accept via <a href=\"";
 
     private final ResendProperties resendProperties;
     private final InviteProperties inviteProperties;
@@ -117,12 +118,12 @@ public class InvitationEmailService {
         String mobileInviteUrl = inviteProperties.mobileInviteUrl(invitation.invitationToken());
         String acceptLinks = "";
         if (hasText(webInviteUrl) && hasText(mobileInviteUrl)) {
-            acceptLinks = "<p>Accept via <a href=\"" + escape(webInviteUrl) + "\">web</a>"
+            acceptLinks = ACCEPT_VIA_LINK_PREFIX + escape(webInviteUrl) + "\">web</a>"
                 + " or <a href=\"" + escape(mobileInviteUrl) + "\">mobile</a>.</p>";
         } else if (hasText(webInviteUrl)) {
-            acceptLinks = "<p>Accept via <a href=\"" + escape(webInviteUrl) + "\">web</a>.</p>";
+            acceptLinks = ACCEPT_VIA_LINK_PREFIX + escape(webInviteUrl) + "\">web</a>.</p>";
         } else if (hasText(mobileInviteUrl)) {
-            acceptLinks = "<p>Accept via <a href=\"" + escape(mobileInviteUrl) + "\">mobile</a>.</p>";
+            acceptLinks = ACCEPT_VIA_LINK_PREFIX + escape(mobileInviteUrl) + "\">mobile</a>.</p>";
         }
 
         return """
@@ -157,7 +158,7 @@ public class InvitationEmailService {
     }
 
     private static String hostedMascotUrl(InvitationResponse invitation) {
-        return webOrigin(invitation.inviteUrl()) + "/email/canmakan-mascot-wave.png";
+        return webOrigin(invitation.inviteUrl()) + MASCOT_RESOURCE;
     }
 
     private static String webOrigin(String inviteUrl) {

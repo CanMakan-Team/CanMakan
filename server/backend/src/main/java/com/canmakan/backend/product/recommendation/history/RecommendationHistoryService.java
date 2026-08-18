@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,20 +49,20 @@ public class RecommendationHistoryService {
 
         Map<String, List<RecommendationLog>> groupedLogs = groupLogs(logs);
         Map<Long, Scan> scansById = loadScans(groupedLogs.values().stream()
-                .flatMap(list -> list.stream())
-                .map(recommendationLog -> recommendationLog.getScanId())
+                .flatMap(Collection::stream)
+                .map(RecommendationLog::getScanId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()));
         Map<String, CatalogProduct> productsByBarcode = loadSourceProducts(groupedLogs.values().stream()
-                .flatMap(list -> list.stream())
-                .map(recommendationLog -> recommendationLog.getSourceBarcode())
+                .flatMap(Collection::stream)
+                .map(RecommendationLog::getSourceBarcode)
                 .filter(barcode -> barcode != null && !barcode.isBlank())
                 .collect(Collectors.toSet()));
 
         List<RecommendationHistoryEntryDto> history = groupedLogs.values().stream()
                 .map(sessionLogs -> toEntry(sessionLogs, scansById, productsByBarcode))
                 .sorted(Comparator.comparing(
-                        recommendationHistoryEntryDto -> recommendationHistoryEntryDto.recommendedAt(),
+                        RecommendationHistoryEntryDto::recommendedAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
 
@@ -92,7 +93,7 @@ public class RecommendationHistoryService {
             return Map.of();
         }
         return scanRepository.findAllById(scanIds).stream()
-                .collect(Collectors.toMap(scan -> scan.getId(), Function.identity()));
+                .collect(Collectors.toMap(Scan::getId, Function.identity()));
     }
 
     private Map<String, CatalogProduct> loadSourceProducts(Set<String> barcodes) {
@@ -100,7 +101,7 @@ public class RecommendationHistoryService {
             return Map.of();
         }
         return catalogProductRepository.findAllById(barcodes).stream()
-                .collect(Collectors.toMap(catalogProduct -> catalogProduct.getBarcode(), Function.identity()));
+                .collect(Collectors.toMap(CatalogProduct::getBarcode, Function.identity()));
     }
 
     private RecommendationHistoryEntryDto toEntry(
@@ -125,12 +126,12 @@ public class RecommendationHistoryService {
 
         List<RecommendationHistoryAlternativeDto> alternatives = sessionLogs.stream()
                 .sorted(Comparator.comparing(
-                        recommendationLog -> recommendationLog.getRankScore(),
+                        RecommendationLog::getRankScore,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(this::toAlternative)
                 .collect(Collectors.collectingAndThen(
                         Collectors.toMap(
-                                recommendationHistoryAlternativeDto -> recommendationHistoryAlternativeDto.barcode(),
+                                RecommendationHistoryAlternativeDto::barcode,
                                 Function.identity(),
                                 (left, right) -> left,
                                 LinkedHashMap::new),

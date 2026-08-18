@@ -75,7 +75,7 @@ public final class IngredientLabelParser {
             if (part == null || part.isBlank()) {
                 continue;
             }
-            if (buffer.length() > 0) {
+            if (!buffer.isEmpty()) {
                 buffer.append(", ");
             }
             buffer.append(part.trim());
@@ -86,7 +86,7 @@ public final class IngredientLabelParser {
                 depth = 0;
             }
         }
-        if (buffer.length() > 0) {
+        if (!buffer.isEmpty()) {
             merged.add(buffer.toString());
         }
         return List.copyOf(merged);

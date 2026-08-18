@@ -43,6 +43,9 @@ public class FamilyInvitationService {
     private static final String INVITE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int INVITE_CODE_LENGTH = 8;
     private static final int INVITE_TOKEN_BYTES = 24;
+    private static final String AUTHENTICATED_USER_NOT_FOUND_MESSAGE =
+        "Authenticated user was not found.";
+    private static final String INVITATION_NOT_FOUND_MESSAGE = "Invitation was not found.";
 
     private final UserAccountRepository userAccountRepository;
     private final FamilyRepository familyRepository;
@@ -98,24 +101,35 @@ public class FamilyInvitationService {
 
     @Transactional
     public FamilyMeResponse claimInvitation(long userId, ClaimInvitationRequest request) {
-        return acceptInvitation(userId, request.invitationToken(), request.profileName());
+        return processAcceptInvitation(userId, request.invitationToken(), request.profileName());
     }
 
     @Transactional
     public FamilyMeResponse acceptInvitation(long userId, String invitationToken) {
-        return acceptInvitation(userId, invitationToken, null);
+        return processAcceptInvitation(userId, invitationToken, null);
     }
 
     @Transactional
     public FamilyMeResponse acceptInvitation(long userId, String invitationToken, String profileName) {
+        return processAcceptInvitation(userId, invitationToken, profileName);
+    }
+
+    // Plain (non-@Transactional) so the three public overloads above share it directly instead of
+    // calling one another via 'this' — a self-invocation bypasses Spring's proxy and silently
+    // skips the annotation.
+    private FamilyMeResponse processAcceptInvitation(
+            long userId, String invitationToken, String profileName) {
         UserAccount user = userAccountRepository.findById(userId)
             .orElseThrow(() -> new AuthenticatedUserNotFoundException(
-                "Authenticated user was not found."));
+                AUTHENTICATED_USER_NOT_FOUND_MESSAGE));
         if (invitationToken == null || invitationToken.isBlank()) {
             throw new IllegalArgumentException("Invitation token is required.");
         }
         FamilyInvitation invitation = resolveClaimableInvitation(
             FamilyDisplayUtil.normalizeEmail(user.getEmail()), invitationToken.strip());
+        if (invitation == null) {
+            throw new InvitationNotFoundException(INVITATION_NOT_FOUND_MESSAGE);
+        }
         return applyInvitationClaim(user, invitation, profileName);
     }
 
@@ -123,13 +137,13 @@ public class FamilyInvitationService {
     public void declineInvitation(long userId, String invitationToken) {
         UserAccount user = userAccountRepository.findById(userId)
             .orElseThrow(() -> new AuthenticatedUserNotFoundException(
-                "Authenticated user was not found."));
+                AUTHENTICATED_USER_NOT_FOUND_MESSAGE));
         if (invitationToken == null || invitationToken.isBlank()) {
             throw new IllegalArgumentException("Invitation token is required.");
         }
         FamilyInvitation invitation = familyInvitationRepository
             .findByInvitationToken(invitationToken.strip())
-            .orElseThrow(() -> new InvitationNotFoundException("Invitation was not found."));
+            .orElseThrow(() -> new InvitationNotFoundException(INVITATION_NOT_FOUND_MESSAGE));
 
         ensureEmailMatches(invitation, FamilyDisplayUtil.normalizeEmail(user.getEmail()));
         if (invitation.getStatus() != InvitationStatus.PENDING) {
@@ -145,7 +159,7 @@ public class FamilyInvitationService {
     public List<PendingInvitationResponse> listMyPendingInvitations(long userId) {
         UserAccount user = userAccountRepository.findById(userId)
             .orElseThrow(() -> new AuthenticatedUserNotFoundException(
-                "Authenticated user was not found."));
+                AUTHENTICATED_USER_NOT_FOUND_MESSAGE));
         String email = FamilyDisplayUtil.normalizeEmail(user.getEmail());
         List<FamilyInvitation> pending = familyInvitationRepository.findPendingByEmail(email);
 
@@ -154,7 +168,7 @@ public class FamilyInvitationService {
             Family family = familyRepository.findById(invitation.getFamilyId()).orElse(null);
             String familyName = family == null ? "Family" : family.getFamilyName();
             String invitedBy = userAccountRepository.findById(invitation.getInvitedByUserId())
-                .map(account -> account.getEmail())
+                .map(UserAccount::getEmail)
                 .orElse("Family admin");
             results.add(new PendingInvitationResponse(
                 invitation.getId(),
@@ -174,13 +188,13 @@ public class FamilyInvitationService {
     @Transactional(readOnly = true)
     public InvitationPreviewResponse previewInvitation(String invitationToken) {
         if (invitationToken == null || invitationToken.isBlank()) {
-            throw new InvitationNotFoundException("Invitation was not found.");
+            throw new InvitationNotFoundException(INVITATION_NOT_FOUND_MESSAGE);
         }
         FamilyInvitation invitation = familyInvitationRepository
             .findByInvitationToken(invitationToken.strip())
-            .orElseThrow(() -> new InvitationNotFoundException("Invitation was not found."));
+            .orElseThrow(() -> new InvitationNotFoundException(INVITATION_NOT_FOUND_MESSAGE));
         String familyName = familyRepository.findById(invitation.getFamilyId())
-            .map(family -> family.getFamilyName())
+            .map(Family::getFamilyName)
             .orElse("a family circle");
         return new InvitationPreviewResponse(
             invitation.getInvitedEmail(),
@@ -204,7 +218,7 @@ public class FamilyInvitationService {
             FamilyInvitation byToken = familyInvitationRepository
                 .findByInvitationToken(optionalToken.strip())
                 .orElseThrow(() -> new InvitationNotFoundException(
-                    "Invitation was not found."));
+                    INVITATION_NOT_FOUND_MESSAGE));
             ensureAcceptable(byToken, normalizedEmail);
             return byToken;
         }

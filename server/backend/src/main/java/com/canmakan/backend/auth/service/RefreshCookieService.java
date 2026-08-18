@@ -6,12 +6,12 @@ import java.time.Duration;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseCookie;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import com.canmakan.backend.auth.RefreshTokenProperties;
 
 /** Creates and reads the narrowly scoped UC19 refresh credential cookie. */
-@Component
+@Service
 @RequiredArgsConstructor
 public class RefreshCookieService {
 

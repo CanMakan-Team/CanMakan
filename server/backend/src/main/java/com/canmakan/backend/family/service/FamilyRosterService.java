@@ -42,10 +42,10 @@ public class FamilyRosterService {
             DietaryProfile profile = profilesByUserId.get(member.getUserId());
             Optional<DietaryProfile> dietaryProfileOpt = Optional.ofNullable(profile);
             String name = dietaryProfileOpt
-                .map(dietaryProfile -> dietaryProfile.getProfileName())
+                .map(DietaryProfile::getProfileName)
                 .orElse("Unknown Member");
             Long profileId = dietaryProfileOpt
-                .map(dietaryProfile -> dietaryProfile.getId())
+                .map(DietaryProfile::getId)
                 .orElse(null);
             List<FamilyMeRestrictionDetail> restrictionDetails =
                 FamilyDisplayUtil.mapRestrictions(dietaryProfileOpt);
@@ -172,7 +172,7 @@ public class FamilyRosterService {
 
     private static List<Long> memberUserIds(List<FamilyMember> members) {
         return members.stream()
-            .map(member -> member.getUserId())
+            .map(FamilyMember::getUserId)
             .toList();
     }
 }

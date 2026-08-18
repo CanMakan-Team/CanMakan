@@ -1,6 +1,5 @@
 package com.canmakan.backend.product.recommendation.filter;
 
-import com.canmakan.backend.product.recommendation.filter.CategoryTagParser;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,6 +43,16 @@ class CategoryTagParserTest {
         assertTrue(CategoryTagParser.containsTag(
                 "en:milk-substitutes,en:plant-based-creams-for-cooking",
                 "en:plant-based-creams-for-cooking"));
+    }
+
+    @Test
+    void toCategoryTagStripsLeadingAndTrailingDashesFromNonAlphanumericEdges() {
+        assertEquals("en:weird-category", CategoryTagParser.toCategoryTag("!!Weird Category??"));
+    }
+
+    @Test
+    void toCategoryTagLeavesCleanInputUnchanged() {
+        assertEquals("en:brown-rice-flour", CategoryTagParser.toCategoryTag("Brown Rice Flour"));
     }
 
     @Test

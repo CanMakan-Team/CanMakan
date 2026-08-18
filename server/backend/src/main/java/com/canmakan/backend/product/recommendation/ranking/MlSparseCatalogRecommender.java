@@ -5,6 +5,7 @@ import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
 import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfile;
 import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfiles;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,51 +49,12 @@ public class MlSparseCatalogRecommender {
             SubstituteDiscoveryProfile substituteProfile,
             Set<String> alreadyFoundBarcodes) {
 
-        boolean flourSubstituteDiscovery = discoveryProfiles.isFlourSubstituteDiscovery(substituteProfile);
-        boolean breadSubstituteDiscovery = discoveryProfiles.isBreadSubstituteDiscovery(substituteProfile);
-        boolean breakfastCerealSubstituteDiscovery =
-                discoveryProfiles.isBreakfastCerealSubstituteDiscovery(substituteProfile);
-        boolean peanutSubstituteDiscovery = discoveryProfiles.isPeanutSpreadSubstituteDiscovery(substituteProfile);
-        boolean milkSubstituteDiscovery = discoveryProfiles.isMilkSubstituteDiscovery(substituteProfile);
-        boolean narrowSubstituteDiscovery = flourSubstituteDiscovery
-                || breadSubstituteDiscovery
-                || breakfastCerealSubstituteDiscovery
-                || peanutSubstituteDiscovery
-                || milkSubstituteDiscovery;
-
-        List<String> tags = new ArrayList<>();
-        if (substituteProfile != null && substituteProfile.includeTags() != null) {
-            tags.addAll(substituteProfile.includeTags());
-        }
-        if (flourSubstituteDiscovery
-                && substituteProfile != null
-                && substituteProfile.secondaryIncludeTags() != null) {
-            for (String flourTag : substituteProfile.secondaryIncludeTags()) {
-                if (!tags.contains(flourTag)) {
-                    tags.add(flourTag);
-                }
-            }
-        }
-        if (!flourSubstituteDiscovery
-                && !breakfastCerealSubstituteDiscovery
-                && !peanutSubstituteDiscovery) {
-            for (String inferredTag : featureEncoder.inferSubstituteTags(source)) {
-                if (!tags.contains(inferredTag)) {
-                    tags.add(inferredTag);
-                }
-            }
-        }
-
-        List<String> labelTags = narrowSubstituteDiscovery
-                ? List.of()
-                : substituteProfile != null && substituteProfile.labelTags() != null
-                        ? substituteProfile.labelTags()
-                        : List.of();
-        List<String> siblingCategories = narrowSubstituteDiscovery
-                ? List.of()
-                : substituteProfile != null && substituteProfile.siblingCategories() != null
-                        ? substituteProfile.siblingCategories()
-                        : List.of();
+        DiscoveryFlags flags = resolveDiscoveryFlags(substituteProfile);
+        List<String> tags = buildTags(source, substituteProfile, flags);
+        List<String> labelTags = resolveNarrowedList(
+                flags.narrow(), substituteProfile == null ? null : substituteProfile.labelTags());
+        List<String> siblingCategories = resolveNarrowedList(
+                flags.narrow(), substituteProfile == null ? null : substituteProfile.siblingCategories());
 
         if (tags.isEmpty() && labelTags.isEmpty() && siblingCategories.isEmpty()) {
             return List.of();
@@ -107,6 +69,64 @@ public class MlSparseCatalogRecommender {
                 substituteProfile != null ? substituteProfile.excludeCategoryTags() : List.of(),
                 substituteProfile != null ? substituteProfile.excludeTracesTags() : List.of());
 
+        Map<String, CatalogProduct> additional =
+                collectAdditionalCandidates(source, discoveryProfile, alreadyFoundBarcodes);
+        return capCandidates(additional.values());
+    }
+
+    /** Which narrowed-discovery substitute profile applies, if any. */
+    private record DiscoveryFlags(
+            boolean narrow,
+            boolean flour,
+            boolean breakfastCereal,
+            boolean peanut) {
+    }
+
+    private DiscoveryFlags resolveDiscoveryFlags(SubstituteDiscoveryProfile substituteProfile) {
+        boolean flour = discoveryProfiles.isFlourSubstituteDiscovery(substituteProfile);
+        boolean bread = discoveryProfiles.isBreadSubstituteDiscovery(substituteProfile);
+        boolean breakfastCereal = discoveryProfiles.isBreakfastCerealSubstituteDiscovery(substituteProfile);
+        boolean peanut = discoveryProfiles.isPeanutSpreadSubstituteDiscovery(substituteProfile);
+        boolean milk = discoveryProfiles.isMilkSubstituteDiscovery(substituteProfile);
+        boolean narrow = flour || bread || breakfastCereal || peanut || milk;
+        return new DiscoveryFlags(narrow, flour, breakfastCereal, peanut);
+    }
+
+    private List<String> buildTags(
+            CatalogProduct source, SubstituteDiscoveryProfile substituteProfile, DiscoveryFlags flags) {
+        List<String> tags = new ArrayList<>();
+        if (substituteProfile != null && substituteProfile.includeTags() != null) {
+            tags.addAll(substituteProfile.includeTags());
+        }
+        if (flags.flour() && substituteProfile != null && substituteProfile.secondaryIncludeTags() != null) {
+            addMissing(tags, substituteProfile.secondaryIncludeTags());
+        }
+        if (!flags.flour() && !flags.breakfastCereal() && !flags.peanut()) {
+            addMissing(tags, featureEncoder.inferSubstituteTags(source));
+        }
+        return tags;
+    }
+
+    private static void addMissing(List<String> target, List<String> candidates) {
+        for (String candidate : candidates) {
+            if (!target.contains(candidate)) {
+                target.add(candidate);
+            }
+        }
+    }
+
+    /** Narrowed discovery always drops this list; otherwise falls back to an empty list when unset. */
+    private static List<String> resolveNarrowedList(boolean narrow, List<String> value) {
+        if (narrow) {
+            return List.of();
+        }
+        return value != null ? value : List.of();
+    }
+
+    private Map<String, CatalogProduct> collectAdditionalCandidates(
+            CatalogProduct source,
+            SubstituteDiscoveryProfile discoveryProfile,
+            Set<String> alreadyFoundBarcodes) {
         Map<String, CatalogProduct> additional = new LinkedHashMap<>();
         Set<String> skip = alreadyFoundBarcodes == null ? Set.of() : alreadyFoundBarcodes;
         String sourceBarcode = source == null ? null : source.getBarcode();
@@ -119,8 +139,11 @@ public class MlSparseCatalogRecommender {
             }
             additional.putIfAbsent(candidate.getBarcode(), candidate);
         }
+        return additional;
+    }
 
-        List<CatalogProduct> slice = new ArrayList<>(additional.values());
+    private static List<CatalogProduct> capCandidates(Collection<CatalogProduct> candidates) {
+        List<CatalogProduct> slice = new ArrayList<>(candidates);
         if (slice.size() > MAX_CANDIDATES) {
             return new ArrayList<>(slice.subList(0, MAX_CANDIDATES));
         }

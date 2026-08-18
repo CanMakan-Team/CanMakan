@@ -3,6 +3,7 @@ package com.canmakan.backend.ai.log;
 import com.canmakan.backend.ai.llm.LlmAssessmentResult;
 import com.canmakan.backend.product.assessment.ExecutionTier;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -19,6 +20,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class AiExecutionLogService {
+
+    static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Singapore");
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AiExecutionLogService.class);
     private static final Pattern BEARER_TOKEN = Pattern.compile(
@@ -77,7 +80,7 @@ public class AiExecutionLogService {
      * @param tier   the tier used
      * @param llm    the LLM result carrying usage metadata
      */
-    public AiExecutionLog record(Long scanId, ExecutionTier tier, LlmAssessmentResult llm) {
+    public AiExecutionLog recordLlmExecution(Long scanId, ExecutionTier tier, LlmAssessmentResult llm) {
         if (!auditEnabled) {
             return null;
         }
@@ -104,7 +107,7 @@ public class AiExecutionLogService {
         log.setScanId(scanId);
         log.setExecutionTier(tier.name());
         log.setLatencyMs((int) latencyMs);
-        log.setCreatedAt(LocalDateTime.now());
+        log.setCreatedAt(LocalDateTime.now(BUSINESS_ZONE));
         return log;
     }
 

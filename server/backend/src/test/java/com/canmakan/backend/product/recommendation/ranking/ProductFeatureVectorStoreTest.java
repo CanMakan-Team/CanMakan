@@ -1,6 +1,5 @@
 package com.canmakan.backend.product.recommendation.ranking;
 
-import com.canmakan.backend.product.recommendation.ranking.ProductFeatureVectorStore;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -14,9 +13,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 @DisplayName("UC5 Tier C: ProductFeatureVectorStore")
 class ProductFeatureVectorStoreTest {
-
-    @TempDir
-    Path tempDir;
 
     @Test
     void loadsSparseVectorsFromArtifactFile(@TempDir Path dir) throws Exception {

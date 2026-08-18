@@ -1,5 +1,6 @@
 package com.canmakan.backend.product.scan;
 
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -18,10 +19,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice(assignableTypes = ScanController.class)
 public class ScanExceptionHandler {
 
+    private static final String MESSAGE_KEY = "message";
+
     @ExceptionHandler(ScanNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Map<String, String> handleScanNotFound(ScanNotFoundException ex) {
-        return Map.of("message", ex.getMessage());
+        return Map.of(MESSAGE_KEY, ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -31,7 +34,7 @@ public class ScanExceptionHandler {
                 .findFirst()
                 .map(error -> error.getDefaultMessage())
                 .orElse("Request validation failed.");
-        return Map.of("message", message);
+        return Map.of(MESSAGE_KEY, message);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
@@ -39,8 +42,8 @@ public class ScanExceptionHandler {
     public Map<String, String> handleConstraintViolation(ConstraintViolationException exception) {
         String message = exception.getConstraintViolations().stream()
                 .findFirst()
-                .map(violation -> violation.getMessage())
+                .map(ConstraintViolation::getMessage)
                 .orElse("Request validation failed.");
-        return Map.of("message", message);
+        return Map.of(MESSAGE_KEY, message);
     }
 }
