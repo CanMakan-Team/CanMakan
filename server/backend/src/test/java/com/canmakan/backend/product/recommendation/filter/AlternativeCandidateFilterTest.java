@@ -581,6 +581,55 @@ class AlternativeCandidateFilterTest {
     }
 
     @Test
+    void isCowMilkCatalogProductReturnsFalseForNullCandidate() {
+        assertFalse(AlternativeCandidateFilter.isCowMilkCatalogProduct(null));
+    }
+
+    @Test
+    void isAcceptableAlternativeReturnsFalseWhenVerdictIsNull() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("GLUTEN", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID)
+        );
+
+        assertFalse(filter.isAcceptableAlternative(rules, null, null));
+    }
+
+    @Test
+    void rejectsGlutenWarningCandidateThatMatchesNoGlutenFreeSubstitute() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("GLUTEN", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID)
+        );
+        CatalogProduct plainSnack = catalogProduct(
+                "1234567890123",
+                "Snacks",
+                "en:snacks",
+                null);
+        SafetyVerdict unresolvedWarning = SafetyVerdict.warning(
+                "unresolved",
+                List.of(new Finding("UNRESOLVED", "some additive", "could not be analysed")));
+
+        assertFalse(filter.isAcceptableAlternative(rules, unresolvedWarning, plainSnack));
+    }
+
+    @Test
+    void acceptsPeanutFreeSpreadSubstituteOnWarningVerdictWithoutPeanutFinding() {
+        List<RestrictionRule> rules = List.of(
+                new RestrictionRule("PEANUT", RestrictionCategory.ALLERGEN, RestrictionSeverity.STRICT_AVOID)
+        );
+        CatalogProduct tahini = catalogProduct(
+                "8888536703136",
+                "White tahini",
+                "en:oilseed-purees,en:cereal-butters,en:tahini",
+                null);
+        tahini.setTracesTags(null);
+        SafetyVerdict unresolvedWarning = SafetyVerdict.warning(
+                "unresolved",
+                List.of(new Finding("UNRESOLVED", "some additive", "could not be analysed")));
+
+        assertTrue(filter.isAcceptableAlternative(rules, unresolvedWarning, tahini));
+    }
+
+    @Test
     void rejectsDairyMagnumAsIceCreamSubstitute() {
         CatalogProduct magnum = catalogProduct(
                 "8712100857645",
