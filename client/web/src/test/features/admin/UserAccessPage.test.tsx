@@ -259,6 +259,10 @@ describe('UserAccessPage UC13 account status management', () => {
 
     expect(await screen.findByText('Account suspended successfully.'))
       .toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveClass('notice--success')
+
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByText('Account suspended successfully.')).not.toBeInTheDocument()
   })
 
   it('uses neutral feedback when changed=false', async () => {
@@ -305,7 +309,6 @@ describe('UserAccessPage UC13 account status management', () => {
     await user.type(screen.getByLabelText('Email search'), '  user21  ')
     await user.selectOptions(screen.getByLabelText('Role'), 'USER')
     await user.selectOptions(screen.getByLabelText('Status'), 'ACTIVE')
-    await user.click(screen.getByRole('button', { name: 'Apply filters' }))
     const appliedFilters = { query: 'user21', role: 'USER' as const, active: true }
     await waitFor(() => {
       expect(adminService.getUsers).toHaveBeenCalledWith(appliedFilters)
@@ -334,9 +337,15 @@ describe('UserAccessPage UC13 account status management', () => {
 
     await user.click(within(dialog).getByRole('button', { name: 'Suspend account' }))
 
-    expect(await screen.findByText(
+    expect(await within(dialog).findByText(
       'The last active administrator cannot be suspended.',
     )).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByText(
+      'The last active administrator cannot be suspended.',
+    )).not.toBeInTheDocument()
   })
 
   it('uses backend-aligned email, role and status filters', async () => {
@@ -347,8 +356,6 @@ describe('UserAccessPage UC13 account status management', () => {
     await user.type(screen.getByLabelText('Email search'), '  alice@example.test  ')
     await user.selectOptions(screen.getByLabelText('Role'), 'ADMIN')
     await user.selectOptions(screen.getByLabelText('Status'), 'SUSPENDED')
-
-    await user.click(screen.getByRole('button', { name: 'Apply filters' }))
 
     await waitFor(() => {
       expect(adminService.getUsers).toHaveBeenLastCalledWith({
@@ -400,7 +407,6 @@ describe('UserAccessPage UC13 account status management', () => {
     await user.type(screen.getByLabelText('Email search'), 'user21')
     await user.selectOptions(screen.getByLabelText('Role'), 'USER')
     await user.selectOptions(screen.getByLabelText('Status'), 'ACTIVE')
-    await user.click(screen.getByRole('button', { name: 'Apply filters' }))
     await waitFor(() => {
       expect(adminService.getUsers).toHaveBeenCalledWith({
         query: 'user21',
@@ -451,7 +457,7 @@ describe('UserAccessPage UC13 account status management', () => {
     expect(screen.queryByText('user10@example.test')).not.toBeInTheDocument()
     expect(screen.getByText(/Page 1 of 2/)).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Next' }))
+    await user.click(screen.getByRole('button', { name: 'Page 2' }))
     expect(await screen.findByText('user10@example.test')).toBeInTheDocument()
     expect(screen.queryByText('user0@example.test')).not.toBeInTheDocument()
 

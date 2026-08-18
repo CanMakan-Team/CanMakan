@@ -14,8 +14,14 @@ type StatusFilter = 'ALL' | 'ACTIVE' | 'SUSPENDED'
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
 const SEARCH_DEBOUNCE_MS = 300
+const NOTICE_DISMISS_MS = 5000
 
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
+
+type PageNotice = {
+  message: string
+  tone: 'success' | 'neutral'
+}
 
 function filtersEqual(left: AdminUserFilters, right: AdminUserFilters): boolean {
   return left.query === right.query
@@ -56,12 +62,19 @@ export function UserAccessPage() {
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState('')
   const [busyUserId, setBusyUserId] = useState<number | null>(null)
-  const [notice, setNotice] = useState('')
+  const [notice, setNotice] = useState<PageNotice | null>(null)
   const [actionError, setActionError] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState<PageSize>(10)
+  const paginationResetKey = `${filters.query ?? ''}|${filters.role ?? ''}|${String(filters.active)}|${pageSize}`
+  const [storedPaginationResetKey, setStoredPaginationResetKey] = useState(paginationResetKey)
+
+  if (storedPaginationResetKey !== paginationResetKey) {
+    setStoredPaginationResetKey(paginationResetKey)
+    setPage(0)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -89,21 +102,18 @@ export function UserAccessPage() {
   }, [query, roleFilter, statusFilter])
 
   useEffect(() => {
-    setPage(0)
-  }, [filters, pageSize])
-
-  const applyFilters = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setNotice('')
-    setActionError('')
-    setFilters(toFilters(query, roleFilter, statusFilter))
-  }
+    if (!notice) {
+      return
+    }
+    const timeoutId = window.setTimeout(() => setNotice(null), NOTICE_DISMISS_MS)
+    return () => window.clearTimeout(timeoutId)
+  }, [notice])
 
   const clearFilters = () => {
     setQuery('')
     setRoleFilter('ALL')
     setStatusFilter('ALL')
-    setNotice('')
+    setNotice(null)
     setActionError('')
     setFilters({})
   }
@@ -124,6 +134,10 @@ export function UserAccessPage() {
 
   const totalPages = Math.max(1, Math.ceil(manageableUsers.length / pageSize))
   const safePage = Math.min(page, totalPages - 1)
+  const pageIndexes = useMemo(
+    () => Array.from({ length: totalPages }, (_, index) => index),
+    [totalPages],
+  )
   const visibleUsers = useMemo(() => {
     const start = safePage * pageSize
     return manageableUsers.slice(start, start + pageSize)
@@ -137,7 +151,10 @@ export function UserAccessPage() {
   }
 
   const closeStatusModal = useCallback(() => {
-    if (busyUserId === null) setSelected(null)
+    if (busyUserId === null) {
+      setSelected(null)
+      setActionError('')
+    }
   }, [busyUserId])
 
   const updateStatus = async (event: FormEvent<HTMLFormElement>) => {
@@ -156,7 +173,7 @@ export function UserAccessPage() {
 
     const nextActive = !selected.active
     setBusyUserId(selected.userId)
-    setNotice('')
+    setNotice(null)
     setActionError('')
     setReasonError('')
     try {
@@ -166,10 +183,16 @@ export function UserAccessPage() {
       })
       setNotice(
         response.changed
-          ? nextActive
-            ? 'Account reactivated successfully.'
-            : 'Account suspended successfully.'
-          : 'Account status was already up to date. No changes were required.',
+          ? {
+              message: nextActive
+                ? 'Account reactivated successfully.'
+                : 'Account suspended successfully.',
+              tone: 'success',
+            }
+          : {
+              message: 'Account status was already up to date. No changes were required.',
+              tone: 'neutral',
+            },
       )
       setSelected(null)
       await load()
@@ -193,11 +216,7 @@ export function UserAccessPage() {
         </div>
       </header>
 
-      <form
-        className="filter-bar filter-bar--system"
-        aria-label="User account filters"
-        onSubmit={applyFilters}
-      >
+      <section className="filter-bar filter-bar--system" aria-label="User account filters">
         <div className="field-group field-group--search">
           <label htmlFor="user-search">Email search</label>
           <input
@@ -233,9 +252,6 @@ export function UserAccessPage() {
           </select>
         </div>
         <div className="filter-bar__actions">
-          <button className="button button--dark" type="submit">
-            Apply filters
-          </button>
           <button
             className="button button--secondary"
             type="button"
@@ -245,14 +261,23 @@ export function UserAccessPage() {
             Clear filters
           </button>
         </div>
-      </form>
+      </section>
 
-      <div className="sr-live" aria-live="polite">{notice}</div>
-      {actionError && (
-        <p className="form-message form-message--error" role="alert">
-          {actionError}
-        </p>
-      )}
+      {notice ? (
+        <div
+          className={`notice notice--${notice.tone} user-access-notice`}
+          role="status"
+        >
+          <p>{notice.message}</p>
+          <button
+            type="button"
+            className="user-access-notice__dismiss"
+            onClick={() => setNotice(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
 
       {loading ? (
         <LoadingState label="Loading user accounts…" />
@@ -314,7 +339,7 @@ export function UserAccessPage() {
                       </td>
                       <td>
                         <button
-                          className="text-button"
+                          className={`button button--small ${user.active ? 'button--danger' : 'button--success'}`}
                           type="button"
                           onClick={() => openStatusModal(user)}
                         >
@@ -327,8 +352,8 @@ export function UserAccessPage() {
               </tbody>
             </table>
           </div>
-          <div className="table-footer">
-            <div className="field-group table-footer__page-size">
+          <div className="table-footer table-footer--user-access">
+            <div className="table-footer__page-size">
               <label htmlFor="user-page-size">Rows per page</label>
               <select
                 id="user-page-size"
@@ -342,28 +367,44 @@ export function UserAccessPage() {
                 ))}
               </select>
             </div>
-            <nav className="analytics-pagination" aria-label="User account pages">
-              <button
-                type="button"
-                className="button button--secondary"
-                disabled={safePage === 0}
-                onClick={() => setPage(safePage - 1)}
-              >
-                Previous
-              </button>
-              <span>
-                Page {safePage + 1} of {totalPages}
-                {' · '}
-                {manageableUsers.length.toLocaleString()} accounts
-              </span>
-              <button
-                type="button"
-                className="button button--secondary"
-                disabled={safePage >= totalPages - 1}
-                onClick={() => setPage(safePage + 1)}
-              >
-                Next
-              </button>
+            <p className="table-footer__summary">
+              Page {safePage + 1} of {totalPages}
+              {' · '}
+              {manageableUsers.length.toLocaleString()} accounts
+            </p>
+            <nav className="table-footer__pager" aria-label="User account pages">
+              <div className="pagination-group">
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  disabled={safePage === 0}
+                  aria-label="Previous page"
+                  onClick={() => setPage(safePage - 1)}
+                >
+                  ‹
+                </button>
+                {pageIndexes.map((pageIndex) => (
+                  <button
+                    key={pageIndex}
+                    type="button"
+                    className={`button button--secondary${pageIndex === safePage ? ' is-active' : ''}`}
+                    aria-label={`Page ${pageIndex + 1}`}
+                    aria-current={pageIndex === safePage ? 'page' : undefined}
+                    onClick={() => setPage(pageIndex)}
+                  >
+                    {pageIndex + 1}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  disabled={safePage >= totalPages - 1}
+                  aria-label="Next page"
+                  onClick={() => setPage(safePage + 1)}
+                >
+                  ›
+                </button>
+              </div>
             </nav>
           </div>
         </section>
@@ -401,6 +442,11 @@ export function UserAccessPage() {
             {reasonError && (
               <p className="form-message form-message--error" role="alert">
                 {reasonError}
+              </p>
+            )}
+            {actionError && (
+              <p className="form-message form-message--error" role="alert">
+                {actionError}
               </p>
             )}
             <div className="button-row">

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EmptyState, ErrorState, LoadingState } from "../../shared/ui/PageState";
 import { HoverTip } from "../../shared/ui/HoverTip";
 import { consumerTrendsApiService } from "./consumerTrendsApiService";
@@ -139,37 +139,40 @@ export function ConsumerTrendsPage() {
   const [exporting, setExporting] = useState(false);
   const exportInProgress = useRef(false);
   const latestLoadRequest = useRef(0);
-
-  const load = useCallback(async () => {
-    const requestId = ++latestLoadRequest.current;
-    setLoading(true);
-    setError(null);
-    setExportError(null);
-    setExportSuccess(false);
-
-    try {
-      const response = await consumerTrendsApiService.getConsumerTrends({
-        ...query,
-        limit: INGREDIENT_RANKING_LIMIT,
-      });
-      if (requestId === latestLoadRequest.current) {
-        setData(prepareConsumerTrendsResponse(response));
-      }
-    } catch (caught) {
-      if (requestId === latestLoadRequest.current) {
-        setError(caught instanceof Error ? caught.message : "Unable to load consumer trends.");
-      }
-    } finally {
-      if (requestId === latestLoadRequest.current) {
-        setLoading(false);
-      }
-    }
-  }, [query]);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
-    const request = window.setTimeout(() => void load(), 0);
+    const requestId = ++latestLoadRequest.current;
+    const request = window.setTimeout(() => {
+      void (async () => {
+        setLoading(true);
+        setError(null);
+        setExportError(null);
+        setExportSuccess(false);
+
+        try {
+          const response = await consumerTrendsApiService.getConsumerTrends({
+            ...query,
+            limit: INGREDIENT_RANKING_LIMIT,
+          });
+          if (requestId === latestLoadRequest.current) {
+            setData(prepareConsumerTrendsResponse(response));
+          }
+        } catch (caught) {
+          if (requestId === latestLoadRequest.current) {
+            setError(caught instanceof Error ? caught.message : "Unable to load consumer trends.");
+          }
+        } finally {
+          if (requestId === latestLoadRequest.current) {
+            setLoading(false);
+          }
+        }
+      })();
+    }, 0);
     return () => window.clearTimeout(request);
-  }, [load]);
+  }, [query, reloadNonce]);
+
+  const load = () => setReloadNonce((nonce) => nonce + 1);
 
   const updatePeriod = (value: string) => {
     if (value === "custom") return;
@@ -240,7 +243,7 @@ export function ConsumerTrendsPage() {
     <div className="admin-page analytics-page">
       <header className="page-header page-header--split analytics-header">
         <div>
-          <p className="eyebrow">ADMIN ANALYTICS</p>
+          <p className="eyebrow">Consumer Analytics</p>
           <h1>Consumer Trends</h1>
           <p>
             Aggregated scan activity and dietary-concern insights. Scan activity indicates consumer interest,
@@ -642,9 +645,11 @@ function DailyActivityChart({ daily }: { daily: ConsumerTrendsResponse["dailyTre
 
 function usePagedItems<T>(items: T[], resetKey: string) {
   const [page, setPage] = useState(0);
-  useEffect(() => {
+  const [pageResetKey, setPageResetKey] = useState(resetKey);
+  if (pageResetKey !== resetKey) {
+    setPageResetKey(resetKey);
     setPage(0);
-  }, [resetKey]);
+  }
 
   const totalPages = Math.max(1, Math.ceil(items.length / ROWS_PER_PAGE));
   const safePage = Math.min(page, totalPages - 1);

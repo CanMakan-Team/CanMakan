@@ -215,6 +215,20 @@ p {
   background: var(--color-web-9f3c38);
 }
 
+.button--success {
+  color: var(--color-surface);
+  background: var(--safe);
+}
+
+.button--success:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--safe) 88%, white);
+}
+
+.button--success:active:not(:disabled) {
+  transform: translateY(0);
+  background: color-mix(in srgb, var(--safe) 88%, black);
+}
+
 .button--warning {
   color: var(--color-surface);
   background: var(--warning);
@@ -2466,6 +2480,7 @@ a.summary-card--link:focus-visible {
   flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: end;
+  margin-left: auto;
   gap: 0.5rem;
 }
 
@@ -4116,6 +4131,92 @@ caption,
   gap: 0.85rem;
 }
 
+.table-footer--user-access {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+}
+
+.table-footer--user-access .table-footer__page-size {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  justify-self: start;
+  min-width: 0;
+}
+
+.table-footer--user-access .table-footer__page-size label {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.table-footer--user-access .table-footer__page-size select {
+  width: 4.75rem;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.55rem;
+  border: 1.5px solid var(--color-web-91ada3);
+}
+
+.table-footer--user-access .table-footer__summary {
+  margin: 0;
+  justify-self: center;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.table-footer--user-access .table-footer__pager {
+  justify-self: end;
+}
+
+.pagination-group {
+  display: inline-flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: var(--color-surface);
+}
+
+.pagination-group .button {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0 0.7rem;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: 0.82rem;
+}
+
+.pagination-group .button + .button {
+  border-left: 1px solid var(--line);
+}
+
+.pagination-group .button:hover:not(:disabled) {
+  transform: none;
+  background: var(--color-web-f5f8f6);
+}
+
+.pagination-group .button.is-active {
+  color: var(--teal-800);
+  background: var(--teal-100);
+  font-weight: 800;
+}
+
+.pagination-group .button:disabled {
+  border-color: transparent;
+  color: var(--muted);
+  background: var(--color-web-f5f8f6);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
 .table-footer .analytics-pagination {
   flex: 1 1 220px;
   margin-top: 0;
@@ -4370,10 +4471,112 @@ caption,
   min-width: 760px;
 }
 
+.user-table th,
+.user-table td {
+  text-align: center;
+}
+
+.user-table tbody tr:nth-child(odd) th,
+.user-table tbody tr:nth-child(odd) td {
+  background: var(--color-web-f7faf8);
+}
+
+.user-table tbody tr:nth-child(even) th,
+.user-table tbody tr:nth-child(even) td {
+  background: var(--color-surface);
+}
+
+.user-table tbody tr:hover th,
+.user-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--teal-100) 72%, white);
+}
+
 .user-table td:last-child small {
   display: block;
   margin-top: 0.3rem;
   color: var(--muted);
+}
+
+.user-table .status-badge {
+  box-sizing: border-box;
+  display: inline-grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 0.45rem;
+  width: 6.75rem;
+  min-width: 6.75rem;
+  height: 1.625rem;
+  padding: 0.28rem 0.65rem;
+  border: 1px solid transparent;
+  text-align: center;
+}
+
+.user-table .status-badge::before {
+  grid-column: 1;
+  width: 0.5rem;
+  height: 0.5rem;
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 30%, transparent);
+}
+
+.user-table .status-badge--active {
+  border-color: color-mix(in srgb, var(--safe) 32%, white);
+}
+
+.user-table .status-badge--active::before {
+  background: var(--safe);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--safe) 30%, white);
+}
+
+.user-table .status-badge--suspended {
+  border-color: color-mix(in srgb, var(--avoid) 32%, white);
+}
+
+.user-table .status-badge--suspended::before {
+  background: var(--avoid);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--avoid) 30%, white);
+}
+
+.user-table td:last-child .button {
+  box-sizing: border-box;
+  width: 6.5rem;
+  min-width: 6.5rem;
+  height: 2.2rem;
+  min-height: 2.2rem;
+  padding: 0.45rem 0.6rem;
+}
+
+.user-access-notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin: 0 0 1rem;
+}
+
+.user-access-notice p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.user-access-notice__dismiss {
+  flex: 0 0 auto;
+  padding: 0.25rem 0.55rem;
+  border: 0;
+  border-radius: 0.45rem;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.user-access-notice__dismiss:hover,
+.user-access-notice__dismiss:focus-visible {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  outline: none;
 }
 
 .audit-panel {
