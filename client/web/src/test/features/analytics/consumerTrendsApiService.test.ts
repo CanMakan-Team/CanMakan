@@ -102,6 +102,6 @@ describe('consumerTrendsApiService transport selection', () => {
     expect(apiRequest).toHaveBeenCalledWith(
       '/api/admin/consumer-trends?from=2026-08-01&to=2026-08-07&limit=5&category=Pantry+%26+drinks',
     )
-    expect(response).toBe(liveResponse)
+    expect(response).toStrictEqual(liveResponse)
   })
 })

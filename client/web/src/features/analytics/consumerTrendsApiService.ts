@@ -4,6 +4,7 @@ import type {
   ConsumerTrendsQuery,
   ConsumerTrendsResponse,
 } from './consumerTrendsTypes'
+import { prepareConsumerTrendsResponse } from './consumerTrendsNormalize'
 
 export const consumerTrendsEndpoint = '/api/admin/consumer-trends'
 
@@ -21,10 +22,12 @@ function buildConsumerTrendsPath(query: ConsumerTrendsQuery): string {
 }
 
 export const consumerTrendsApiService = {
-  getConsumerTrends(
+  async getConsumerTrends(
     query: ConsumerTrendsQuery = {},
   ): Promise<ConsumerTrendsResponse> {
-    if (useMockApi) return mockAdminRepository.getConsumerTrends(query)
-    return apiRequest<ConsumerTrendsResponse>(buildConsumerTrendsPath(query))
+    const response = useMockApi
+      ? await mockAdminRepository.getConsumerTrends(query)
+      : await apiRequest<ConsumerTrendsResponse>(buildConsumerTrendsPath(query))
+    return prepareConsumerTrendsResponse(response)
   },
 }

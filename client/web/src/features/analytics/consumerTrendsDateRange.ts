@@ -24,6 +24,11 @@ export function singaporeToday(now = new Date()): string {
   return toSingaporeDate(now)
 }
 
+/** Calendar day key (YYYY-MM-DD) for an instant in Asia/Singapore. */
+export function singaporeDayKeyFromInstant(instantMs: number): string {
+  return toSingaporeDate(new Date(instantMs))
+}
+
 export function addCalendarDays(isoDate: string, days: number): string {
   const [year, month, day] = isoDate.split("-").map(Number)
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10)

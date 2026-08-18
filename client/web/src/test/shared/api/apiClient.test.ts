@@ -42,7 +42,19 @@ describe('apiRequest', () => {
     const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
     expect(headers.get('Authorization')).toBe('Bearer memory-token')
     expect(headers.get('Accept')).toBe('application/json')
+    expect(headers.get('ngrok-skip-browser-warning')).toBeNull()
+  })
+
+  it('sends the ngrok skip header when VITE_NGROK_SKIP_BROWSER_WARNING is true', async () => {
+    vi.stubEnv('VITE_NGROK_SKIP_BROWSER_WARNING', 'true')
+    accessToken = 'memory-token'
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, { familyId: 1 }))
+
+    await apiRequest('/api/families/me')
+
+    const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
     expect(headers.get('ngrok-skip-browser-warning')).toBe('true')
+    vi.unstubAllEnvs()
   })
 
   it('does not trust a token left in localStorage', async () => {

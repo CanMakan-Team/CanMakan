@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getErrorMessage } from '../../shared/api/apiErrors'
+import { downloadTextFile } from '../../shared/lib/downloadTextFile'
 import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
 import type { ScanRecord, ScanVerdict } from '../../shared/api/types'
 import { familyApiService } from '../family/api/familyApiService'
 import {
   VerdictTrendChart,
-  type VerdictTrendPoint,
   type VerdictTrendSeriesKey,
 } from './VerdictTrendChart'
+import { aggregateFamilyVerdictTrend } from './verdictTrendAggregate'
+import { formatPercentLabel, sharePercents } from './verdictTrendDisplay'
 
 /**
  * UC14 - View Scan Verdict Trend (family admin).
@@ -17,105 +19,22 @@ import {
  * with the app-user (family) role - it does not use the system-admin analytics endpoint.
  */
 
-const SAFE_COLOR = '#27875b'
-const WARNING_COLOR = '#d6a12b'
-const UNSAFE_COLOR = '#b24b44'
+const SAFE_COLOR = 'var(--safe)'
+const WARNING_COLOR = 'var(--warning)'
+const UNSAFE_COLOR = 'var(--avoid)'
 
 type PeriodDays = 7 | 30 | 90
 type VerdictFilter = 'ALL' | ScanVerdict
 
-interface VerdictSummary {
+function buildVerdictGradient(summary: {
   totalScans: number
   safeCount: number
   warningCount: number
-  unsafeCount: number
-}
-
-interface AggregatedTrend {
-  summary: VerdictSummary
-  dailyTrend: VerdictTrendPoint[]
-}
-
-function isoDate(date: Date): string {
-  return date.toISOString().slice(0, 10)
-}
-
-/**
- * Largest-remainder percentages so Safe / Warning / Unsafe always sum to 100
- * (avoids whole-number rounding that can produce 29+43+29 = 101).
- */
-export function sharePercents(counts: number[], total: number): number[] {
-  if (total === 0) return counts.map(() => 0)
-  const raw = counts.map((count) => (count / total) * 100)
-  const floors = raw.map((value) => Math.floor(value))
-  let remainder = 100 - floors.reduce((sum, value) => sum + value, 0)
-  const byFraction = raw
-    .map((value, index) => ({ index, fraction: value - floors[index] }))
-    .sort((left, right) => right.fraction - left.fraction)
-  const result = [...floors]
-  for (let step = 0; step < remainder; step += 1) {
-    result[byFraction[step].index] += 1
-  }
-  return result
-}
-
-export function formatPercentLabel(value: number): string {
-  return `${value}%`
-}
-
-function buildVerdictGradient(summary: VerdictSummary): string {
+}): string {
   if (summary.totalScans === 0) return '#e7eeea'
   const safeEnd = (summary.safeCount / summary.totalScans) * 100
   const warningEnd = safeEnd + (summary.warningCount / summary.totalScans) * 100
   return `conic-gradient(${SAFE_COLOR} 0 ${safeEnd}%, ${WARNING_COLOR} ${safeEnd}% ${warningEnd}%, ${UNSAFE_COLOR} ${warningEnd}% 100%)`
-}
-
-function aggregate(records: ScanRecord[], periodDays: number, nowMs: number): AggregatedTrend {
-  const startOfToday = new Date(nowMs)
-  startOfToday.setHours(0, 0, 0, 0)
-
-  const buckets = new Map<string, { safe: number; warning: number; unsafe: number }>()
-  for (let offset = periodDays - 1; offset >= 0; offset--) {
-    const day = new Date(startOfToday)
-    day.setDate(startOfToday.getDate() - offset)
-    buckets.set(isoDate(day), { safe: 0, warning: 0, unsafe: 0 })
-  }
-
-  let safe = 0
-  let warning = 0
-  let unsafe = 0
-  for (const record of records) {
-    const bucket = buckets.get(isoDate(new Date(record.scannedAt)))
-    if (!bucket) continue
-    if (record.verdict === 'SAFE') {
-      bucket.safe += 1
-      safe += 1
-    } else if (record.verdict === 'WARNING') {
-      bucket.warning += 1
-      warning += 1
-    } else if (record.verdict === 'UNSAFE') {
-      bucket.unsafe += 1
-      unsafe += 1
-    }
-  }
-
-  const dailyTrend: VerdictTrendPoint[] = Array.from(buckets.entries()).map(([date, counts]) => ({
-    date,
-    safeCount: counts.safe,
-    warningCount: counts.warning,
-    unsafeCount: counts.unsafe,
-    totalCount: counts.safe + counts.warning + counts.unsafe,
-  }))
-
-  return {
-    summary: {
-      totalScans: safe + warning + unsafe,
-      safeCount: safe,
-      warningCount: warning,
-      unsafeCount: unsafe,
-    },
-    dailyTrend,
-  }
 }
 
 function seriesForFilter(filter: VerdictFilter): VerdictTrendSeriesKey[] {
@@ -149,7 +68,8 @@ export function VerdictTrendsPage() {
   }, [])
 
   useEffect(() => {
-    void load()
+    const timeoutId = window.setTimeout(() => void load(), 0)
+    return () => window.clearTimeout(timeoutId)
   }, [load])
 
   useEffect(() => {
@@ -159,7 +79,7 @@ export function VerdictTrendsPage() {
   }, [exportNotice])
 
   const aggregated = useMemo(
-    () => (records ? aggregate(records, periodDays, nowMs) : null),
+    () => (records ? aggregateFamilyVerdictTrend(records, periodDays, nowMs) : null),
     [records, periodDays, nowMs],
   )
 
@@ -173,14 +93,11 @@ export function VerdictTrendsPage() {
         (point) =>
           `${point.date},${point.safeCount},${point.warningCount},${point.unsafeCount},${point.totalCount}`,
       )
-      const url = URL.createObjectURL(
-        new Blob([[header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8' }),
+      downloadTextFile(
+        `verdict-trend-${periodDays}d.csv`,
+        'text/csv;charset=utf-8',
+        [header, ...rows].join('\n'),
       )
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `verdict-trend-${periodDays}d.csv`
-      link.click()
-      URL.revokeObjectURL(url)
       setExportNotice('CSV download started.')
     } finally {
       setExporting(false)
@@ -255,7 +172,7 @@ function VerdictTrendsResult({
   verdictFilter,
   onToggleFilter,
 }: {
-  data: AggregatedTrend
+  data: ReturnType<typeof aggregateFamilyVerdictTrend>
   verdictFilter: VerdictFilter
   onToggleFilter: (filter: VerdictFilter) => void
 }) {

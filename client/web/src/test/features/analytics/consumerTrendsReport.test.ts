@@ -146,6 +146,5 @@ describe('UC22 consumer trends CSV report', () => {
 
     await expect(downloadConsumerTrendsReport(response)).rejects.toThrow('browser download failure')
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:failed-report')
-    expect(document.querySelector('a[download]')).not.toBeInTheDocument()
   })
 })

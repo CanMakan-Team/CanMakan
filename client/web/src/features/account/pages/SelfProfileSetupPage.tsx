@@ -11,6 +11,7 @@ import {
   type ProfileRestrictionSeverity,
   type SelfProfileResponse,
 } from '../api/selfProfileApiService'
+import { buildRestrictionPayload } from '../lib/buildRestrictionPayload'
 import {
   groupCatalogByCategory,
   restrictionCategoryLabel,
@@ -175,17 +176,11 @@ export function SelfProfileSetupPage() {
     // Resend the originally persisted severity for any restriction the user
     // never touched, matching mobile PUT /profiles/{id}/restrictions. Toggled
     // rows use STRICT_AVOID from this form.
-    const restrictionsToSave = Object.entries(selected).reduce<
-      Record<number, ProfileRestrictionSeverity>
-    >((accumulator, [restrictionId, severity]) => {
-      const id = Number(restrictionId)
-      const persistedSeverity = persistedSeverities[id]
-      accumulator[id] =
-        !touchedIds.has(id) && persistedSeverity
-          ? (persistedSeverity as ProfileRestrictionSeverity)
-          : severity
-      return accumulator
-    }, {})
+    const restrictionsToSave = buildRestrictionPayload(
+      selected,
+      persistedSeverities,
+      touchedIds,
+    )
     try {
       if (existingProfileId != null) {
         await selfProfileApiService.updateSelfProfile(normalizedProfileName, restrictionsToSave)

@@ -7,11 +7,14 @@ import {
   type DietaryRestrictionOption,
 } from '../family/api/selfProfileApiService'
 import { getErrorMessage } from '../../shared/api/apiErrors'
+import { useLatestRequest } from '../../shared/lib/useLatestRequest'
+import { useResetPage } from '../../shared/lib/useResetPage'
 import { HoverTip } from '../../shared/ui/HoverTip'
-import { Modal } from '../../shared/ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
 import { ThumbDownIcon, ThumbUpIcon } from '../../shared/ui/ThumbIcons'
 import { formatExactCreatedAt, formatRelativeCreatedAt } from './feedbackTimestamps'
+import { SEARCH_DEBOUNCE_MS } from './adminListHelpers'
+import { AdminScanFeedbackCommentModal } from './AdminScanFeedbackCommentModal'
 
 type FeedbackTypeFilter = 'ALL' | 'POSITIVE' | 'NEGATIVE'
 type ResolvedFilter = 'ALL' | 'RESOLVED' | 'UNRESOLVED'
@@ -27,7 +30,6 @@ const DEFAULT_PERIOD_DAYS = 30
 const COMMENT_PREVIEW_LENGTH = 60
 const FEEDBACK_ICON_SIZE = 16
 const PAGE_SIZE = 30
-const SEARCH_DEBOUNCE_MS = 300
 
 function filtersEqual(left: AdminScanFeedbackFilters, right: AdminScanFeedbackFilters): boolean {
   return left.keyword === right.keyword
@@ -86,7 +88,6 @@ export function AdminScanFeedbackPage() {
   const [savingId, setSavingId] = useState<number | null>(null)
   const [notice, setNotice] = useState('')
   const [actionError, setActionError] = useState('')
-  const [page, setPage] = useState(0)
   const paginationResetKey = [
     filters.keyword ?? '',
     filters.restrictionCode ?? '',
@@ -94,41 +95,49 @@ export function AdminScanFeedbackPage() {
     String(filters.isPositive),
     String(filters.resolved),
   ].join('|')
-  const [storedPaginationResetKey, setStoredPaginationResetKey] = useState(paginationResetKey)
+  const [page, setPage] = useResetPage(paginationResetKey)
 
-  if (storedPaginationResetKey !== paginationResetKey) {
-    setStoredPaginationResetKey(paginationResetKey)
-    setPage(0)
-  }
+  const { nextRequestId, isLatestRequest } = useLatestRequest()
+
+  useEffect(() => {
+    let active = true
+    selfProfileApiService.getCatalog().then(
+      (restrictionCatalog) => {
+        if (active) setRestrictions(restrictionCatalog)
+      },
+      () => undefined,
+    )
+    return () => {
+      active = false
+    }
+  }, [])
 
   const load = useCallback(async () => {
+    const requestId = nextRequestId()
     setLoading(true)
     setError('')
     try {
-      const [feedbackResponse, restrictionCatalog] = await Promise.all([
-        adminService.getScanFeedback({ ...filters, page, pageSize: PAGE_SIZE }),
-        selfProfileApiService.getCatalog(),
-      ])
+      const feedbackResponse = await adminService.getScanFeedback({
+        ...filters,
+        page,
+        pageSize: PAGE_SIZE,
+      })
 
-      // The current page can fall out of range without the filters changing
-      // (e.g. toggling a row's resolved status while filtered to just that
-      // status shrinks the total). Snap back to the last valid page instead
-      // of showing a stale empty page; the resulting refetch replaces this
-      // response.
       const lastValidPage = Math.max(0, feedbackResponse.pageInfo.totalPages - 1)
       if (page > lastValidPage) {
-        setPage(lastValidPage)
+        if (isLatestRequest(requestId)) setPage(lastValidPage)
         return
       }
 
+      if (!isLatestRequest(requestId)) return
       setData(feedbackResponse)
-      setRestrictions(restrictionCatalog)
     } catch (caughtError) {
+      if (!isLatestRequest(requestId)) return
       setError(getErrorMessage(caughtError))
     } finally {
-      setLoading(false)
+      if (isLatestRequest(requestId)) setLoading(false)
     }
-  }, [filters, page])
+  }, [filters, page, isLatestRequest, nextRequestId, setPage])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void load(), 0)
@@ -429,13 +438,10 @@ export function AdminScanFeedbackPage() {
       )}
 
       {selectedComment && selectedComment.userComments && (
-        <Modal
-          title="User Feedback"
-          description={`${selectedComment.userEmail ?? 'Unknown user'} · ${selectedComment.productName}`}
+        <AdminScanFeedbackCommentModal
+          item={selectedComment}
           onClose={() => setSelectedComment(null)}
-        >
-          <p>{selectedComment.userComments}</p>
-        </Modal>
+        />
       )}
     </>
   )

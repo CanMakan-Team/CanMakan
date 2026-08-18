@@ -2,57 +2,23 @@ import { mockFamilyRepository } from '../../../mocks/mockFamilyRepository'
 import { apiRequest, useMockApi } from '../../../shared/api/apiClient'
 import { ApiError } from '../../../shared/api/apiErrors'
 import type {
-  ActiveProfile,
-  DependantProfileResponse,
-  ExistingUserSearchResult,
   FamilyMe,
-  FamilyMember,
   FamilyProfileInput,
-  InvitationResponse,
-  InvitationPreviewResponse,
   Relationship,
-  ScanRecord,
-  FamilyRestrictionSumRes,
 } from '../../../shared/api/types'
+import { httpFamilyDataApi } from './familyApiHttp'
+import { familyEndpoints } from './familyEndpoints'
+import type { FamilyProfileSummary } from './familyTypes'
 
-export interface FamilyProfileSummary {
-  id: number
-  profileName: string
-  familyId: number | null
-  relationship: string
-  initials: string
-  isPrimary: boolean
-  active: boolean
-}
+export { familyEndpoints }
+export type { FamilyProfileSummary }
 
-/** Family service endpoints (UC8 / UC9 / UC6 / UC11 / UC12).
- *
- * @author Amelia
- * @author Khai
- */
-
-/** Family service endpoints. */
-export const familyEndpoints = {
-  families: '/api/families',
-  me: '/api/families/me',
-  members: '/api/families/me/members',
-  userSearch: '/api/families/me/user-search',
-  invitations: '/api/families/me/invitations',
-  claimInvitation: '/api/families/me/invitations/claim',
-  invitationPreview: (token: string) =>
-    `/api/invitations/${encodeURIComponent(token)}/preview`,
-  profiles: '/api/families/me/profiles',
-  activeProfile: '/api/families/me/active-profile',
-  restrictionSummary: '/api/families/me/restriction-summary',
-  scans: '/api/families/me/scans',
-} as const
+const familyDataApi = useMockApi ? mockFamilyRepository : httpFamilyDataApi
 
 /** Family service API. */
 export const familyApiService = {
-  /** Get the family of the current user. */
   getMyFamily: () => apiRequest<FamilyMe>(familyEndpoints.me),
 
-  /** Resolve optional membership without turning a normal 404 into a UI error. */
   async getMyFamilyOrNull(): Promise<FamilyMe | null> {
     try {
       return await apiRequest<FamilyMe>(familyEndpoints.me)
@@ -62,157 +28,51 @@ export const familyApiService = {
     }
   },
 
-  /** Create a new family. */
   createFamily: (familyName: string) =>
     apiRequest<FamilyMe>(familyEndpoints.families, {
       method: 'POST',
       body: JSON.stringify({ familyName }),
     }),
 
-  /** Get the members of the current family. */
-  getMembers: () =>
-    useMockApi
-      ? mockFamilyRepository.getMembers()
-      : apiRequest<FamilyMember[]>(familyEndpoints.members),
+  getMembers: () => familyDataApi.getMembers(),
 
-  /** Get the profiles of the current family. */
-  getProfiles: () =>
-    useMockApi
-      ? mockFamilyRepository.getProfiles()
-      : apiRequest<FamilyProfileSummary[]>(familyEndpoints.profiles),
+  getProfiles: () => familyDataApi.getProfiles(),
 
-  /** Account settings always uses server-authoritative profile data. */
   getAccountProfiles: () =>
     apiRequest<FamilyProfileSummary[]>(familyEndpoints.profiles),
 
-  /** Search for an existing user by email. */
-  searchExistingUser: (email: string) =>
-    useMockApi
-      ? mockFamilyRepository.searchExistingUser(email)
-      : apiRequest<ExistingUserSearchResult>(
-          `${familyEndpoints.userSearch}?email=${encodeURIComponent(email)}`,
-        ),
+  searchExistingUser: (email: string) => familyDataApi.searchExistingUser(email),
 
-  /** Create a new invitation. */
   createInvitation: (email: string, relationship: Exclude<Relationship, 'SELF'>) =>
-    useMockApi
-      ? mockFamilyRepository.createInvitation(email, relationship)
-      : apiRequest<InvitationResponse>(familyEndpoints.invitations, {
-          method: 'POST',
-          body: JSON.stringify({ email, relationship }),
-        }),
+    familyDataApi.createInvitation(email, relationship),
 
-  /**
-   * Claim an invitation. The auto-provisioned SELF profile uses a placeholder
-   * name until the caller sets Profile Name on dietary setup.
-   */
   claimInvitation: (invitationToken: string, profileName?: string) =>
-    useMockApi
-      ? mockFamilyRepository.claimInvitation(invitationToken, profileName)
-      : apiRequest<FamilyMe>(familyEndpoints.claimInvitation, {
-          method: 'POST',
-          body: JSON.stringify({ invitationToken, profileName }),
-        }),
+    familyDataApi.claimInvitation(invitationToken, profileName),
 
   previewInvitation: (invitationToken: string) =>
-    useMockApi
-      ? mockFamilyRepository.previewInvitation(invitationToken)
-      : apiRequest<InvitationPreviewResponse>(
-          familyEndpoints.invitationPreview(invitationToken),
-          { authentication: 'none' },
-        ),
+    familyDataApi.previewInvitation(invitationToken),
 
-  /** Create a new profile. */
-  createProfile: (input: FamilyProfileInput) =>
-    useMockApi
-      ? mockFamilyRepository.createProfile(input)
-      : apiRequest<DependantProfileResponse>(familyEndpoints.profiles, {
-          method: 'POST',
-          body: JSON.stringify({
-            profileName: input.profileName,
-            relationship: input.relationship,
-            commonRequirements: input.commonRequirements,
-            restrictions: input.restrictions,
-          }),
-        }),
+  createProfile: (input: FamilyProfileInput) => familyDataApi.createProfile(input),
 
-  /** Update a profile. */
   updateProfile: (
     profileId: number,
     input: FamilyProfileInput,
     options?: { includeRestrictions?: boolean },
-  ) =>
-    useMockApi
-      ? mockFamilyRepository.updateProfile(profileId, input)
-      : apiRequest<FamilyMember>(`${familyEndpoints.profiles}/${profileId}`, {
-          method: 'PUT',
-          body: JSON.stringify(
-            options?.includeRestrictions === false
-              ? {
-                  profileName: input.profileName,
-                  relationship: input.relationship,
-                }
-              : {
-                  profileName: input.profileName,
-                  relationship: input.relationship,
-                  commonRequirements: input.commonRequirements,
-                  restrictions: input.restrictions,
-                },
-          ),
-        }),
+  ) => familyDataApi.updateProfile(profileId, input, options),
 
-  /** Set the active status of a profile. */
   setProfileActive: (profileId: number, active: boolean) =>
-    useMockApi
-      ? mockFamilyRepository.setProfileActive(profileId, active)
-      : apiRequest<{ id: number; profileName: string; active: boolean }>(
-          `${familyEndpoints.profiles}/${profileId}`,
-          {
-            method: 'PATCH',
-            body: JSON.stringify({ active }),
-          },
-        ),
+    familyDataApi.setProfileActive(profileId, active),
 
-  /** Remove a family member. */
-  removeMember: (userId: number) =>
-    useMockApi
-      ? mockFamilyRepository.removeMember(userId)
-      : apiRequest<void>(`${familyEndpoints.members}/${userId}`, {
-          method: 'DELETE',
-        }),
+  removeMember: (userId: number) => familyDataApi.removeMember(userId),
 
-  /** Remove a dependant profile. */
   removeDependantProfile: (profileId: number) =>
-    useMockApi
-      ? mockFamilyRepository.removeDependantProfile(profileId)
-      : apiRequest<void>(`${familyEndpoints.profiles}/${profileId}`, {
-          method: 'DELETE',
-        }),
+    familyDataApi.removeDependantProfile(profileId),
 
-  /** Get the active profile. */
-  getActiveProfile: () =>
-    useMockApi
-      ? mockFamilyRepository.getActiveProfile()
-      : apiRequest<ActiveProfile>(familyEndpoints.activeProfile),
+  getActiveProfile: () => familyDataApi.getActiveProfile(),
 
-  /** Set the active profile. */
-  setActiveProfile: (profileId: number) =>
-    useMockApi
-      ? mockFamilyRepository.setActiveProfile(profileId)
-      : apiRequest<ActiveProfile>(familyEndpoints.activeProfile, {
-          method: 'PUT',
-          body: JSON.stringify({ profileId }),
-        }),
+  setActiveProfile: (profileId: number) => familyDataApi.setActiveProfile(profileId),
 
-  /** Get the restriction summary. */
-  getRestrictionSummary: () =>
-    useMockApi
-      ? mockFamilyRepository.getRestrictionSummary()
-      : apiRequest<FamilyRestrictionSumRes>(familyEndpoints.restrictionSummary),
+  getRestrictionSummary: () => familyDataApi.getRestrictionSummary(),
 
-  /** Get the scan history. */
-  getScanHistory: () =>
-    useMockApi
-      ? mockFamilyRepository.getScanHistory()
-      : apiRequest<ScanRecord[]>(familyEndpoints.scans),
+  getScanHistory: () => familyDataApi.getScanHistory(),
 }

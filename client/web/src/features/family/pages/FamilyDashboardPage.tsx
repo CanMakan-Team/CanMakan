@@ -7,6 +7,7 @@ import {
   FAMILY_VERDICT_TRENDS_PATH,
 } from '../../../app/userPortalPaths'
 import { getErrorMessage } from '../../../shared/api/apiErrors'
+import { useMockApi } from '../../../shared/api/apiClient'
 import { familyApiService } from '../api/familyApiService'
 import type { FamilyMember, ScanRecord } from '../../../shared/api/types'
 import { useFamilyMe } from '../useFamilyMe'
@@ -43,6 +44,9 @@ export function FamilyDashboardPage() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadDashboard(), 0)
+    if (!useMockApi) {
+      return () => window.clearTimeout(timeoutId)
+    }
     window.addEventListener('canmakan:family-data-changed', loadDashboard)
     return () => {
       window.clearTimeout(timeoutId)

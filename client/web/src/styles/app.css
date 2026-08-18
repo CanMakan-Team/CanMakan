@@ -1290,6 +1290,7 @@ a.summary-card--link:focus-visible {
   line-height: 1.35;
 }
 
+/* Personal home (user desk): greeting, setup cards, recent scans. */
 .personal-home {
   width: min(1080px, 100%);
   margin-inline: auto;
@@ -3478,6 +3479,7 @@ caption,
   white-space: nowrap;
 }
 
+/* Consumer Trends and other system-admin analytics pages. */
 .analytics-page {
   display: grid;
   gap: 0.75rem;
@@ -3569,6 +3571,7 @@ caption,
   overflow: visible;
 }
 
+/* UC15 usage statistics: KPIs, funnel, heatmap. */
 .usage-statistics-page {
   align-items: stretch;
 }
@@ -4646,6 +4649,7 @@ caption,
   outline: none;
 }
 
+/* UC16 system health: overall status, Actuator components, AI latency, audit. */
 .health-overall {
   display: flex;
   align-items: center;

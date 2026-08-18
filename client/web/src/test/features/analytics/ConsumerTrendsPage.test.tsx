@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConsumerTrendsPage } from '../../../features/analytics/ConsumerTrendsPage'
 import { consumerTrendsApiService } from '../../../features/analytics/consumerTrendsApiService'
 import { addCalendarDays, buildPeriodQuery } from '../../../features/analytics/consumerTrendsDateRange'
+import { prepareConsumerTrendsResponse } from '../../../features/analytics/consumerTrendsNormalize'
 import { downloadConsumerTrendsReport } from '../../../features/analytics/consumerTrendsReport'
+import { ApiError } from '../../../shared/api/apiErrors'
 import type {
   ConsumerTrendsQuery,
   ConsumerTrendsResponse,
@@ -350,15 +352,15 @@ describe('ConsumerTrendsPage', () => {
         from: query.from ?? populatedResponse.period.from,
         to: query.to ?? populatedResponse.period.to,
       },
+      dailyTrend: [],
+      mostScannedProducts: [],
+      categoryOverview: [],
+      topRestrictions: [],
+      topFlaggedIngredients: [],
     })
-    vi.mocked(consumerTrendsApiService.getConsumerTrends).mockImplementationOnce(async (query) => ({
-      ...queryPeriodResponse(query),
-      dailyTrend: undefined,
-      mostScannedProducts: undefined,
-      categoryOverview: undefined,
-      topRestrictions: undefined,
-      topFlaggedIngredients: undefined,
-    }) as unknown as ConsumerTrendsResponse)
+    vi.mocked(consumerTrendsApiService.getConsumerTrends).mockImplementationOnce(async (query) =>
+      prepareConsumerTrendsResponse(queryPeriodResponse(query)),
+    )
 
     const { unmount } = render(<ConsumerTrendsPage />)
     expect(await screen.findByRole('heading', { name: 'Daily Scan Activity' })).toBeInTheDocument()
@@ -366,10 +368,9 @@ describe('ConsumerTrendsPage', () => {
     expect(screen.getByRole('button', { name: 'Generate Report' })).toBeEnabled()
     unmount()
 
-    vi.mocked(consumerTrendsApiService.getConsumerTrends).mockImplementationOnce(async (query) => ({
-      ...queryPeriodResponse(query),
-      summary: { ...populatedResponse.summary, averageScansPerDay: undefined },
-    }) as unknown as ConsumerTrendsResponse)
+    vi.mocked(consumerTrendsApiService.getConsumerTrends).mockRejectedValueOnce(
+      new ApiError('The consumer trends data is incomplete. Please refresh and try again.'),
+    )
     render(<ConsumerTrendsPage />)
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'The consumer trends data is incomplete. Please refresh and try again.',

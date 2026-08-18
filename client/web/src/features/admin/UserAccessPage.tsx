@@ -3,17 +3,19 @@ import { useSearchParams } from 'react-router-dom'
 import { adminService } from './adminService'
 import type { AdminUser, AdminUserFilters, AdminUserRole } from './models'
 import { getErrorMessage } from '../../shared/api/apiErrors'
+import { useLatestRequest } from '../../shared/lib/useLatestRequest'
+import { useResetPage } from '../../shared/lib/useResetPage'
 import { useSession } from '../auth/useSession'
-import { Modal } from '../../shared/ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
 import { PortalIcon } from '../../shared/ui/PortalIcon'
 import { StatusBadge } from '../../shared/ui/StatusBadge'
+import { SEARCH_DEBOUNCE_MS } from './adminListHelpers'
+import { UserAccessStatusModal } from './UserAccessStatusModal'
 
 type RoleFilter = 'ALL' | AdminUserRole
 type StatusFilter = 'ALL' | 'ACTIVE' | 'SUSPENDED'
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
-const SEARCH_DEBOUNCE_MS = 300
 const NOTICE_DISMISS_MS = 5000
 
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
@@ -66,27 +68,27 @@ export function UserAccessPage() {
   const [actionError, setActionError] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState<PageSize>(10)
   const paginationResetKey = `${filters.query ?? ''}|${filters.role ?? ''}|${String(filters.active)}|${pageSize}`
-  const [storedPaginationResetKey, setStoredPaginationResetKey] = useState(paginationResetKey)
+  const [page, setPage] = useResetPage(paginationResetKey)
 
-  if (storedPaginationResetKey !== paginationResetKey) {
-    setStoredPaginationResetKey(paginationResetKey)
-    setPage(0)
-  }
+  const { nextRequestId, isLatestRequest } = useLatestRequest()
 
   const load = useCallback(async () => {
+    const requestId = nextRequestId()
     setLoading(true)
     setError('')
     try {
-      setUsers(await adminService.getUsers(filters))
+      const result = await adminService.getUsers(filters)
+      if (!isLatestRequest(requestId)) return
+      setUsers(result)
     } catch (caughtError) {
+      if (!isLatestRequest(requestId)) return
       setError(getErrorMessage(caughtError))
     } finally {
-      setLoading(false)
+      if (isLatestRequest(requestId)) setLoading(false)
     }
-  }, [filters])
+  }, [filters, isLatestRequest, nextRequestId])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void load(), 0)
@@ -411,67 +413,19 @@ export function UserAccessPage() {
       )}
 
       {selected && (
-        <Modal
-          title={`${selected.active ? 'Suspend' : 'Reactivate'} account`}
-          description={selected.email}
+        <UserAccessStatusModal
+          selected={selected}
+          reason={reason}
+          reasonError={reasonError}
+          actionError={actionError}
+          busyUserId={busyUserId}
+          onReasonChange={(value) => {
+            setReason(value)
+            setReasonError('')
+          }}
           onClose={closeStatusModal}
-        >
-          <dl className="detail-grid">
-            <div><dt>Role</dt><dd>{selected.role}</dd></div>
-            <div>
-              <dt>Current status</dt>
-              <dd>{selected.active ? 'Active' : 'Suspended'}</dd>
-            </div>
-          </dl>
-          <form className="access-actions" onSubmit={updateStatus}>
-            <div className="field-group">
-              <label htmlFor="status-reason">Reason</label>
-              <textarea
-                id="status-reason"
-                rows={4}
-                value={reason}
-                aria-describedby="status-reason-count"
-                aria-invalid={reasonError ? 'true' : undefined}
-                onChange={(event) => {
-                  setReason(event.target.value)
-                  setReasonError('')
-                }}
-              />
-              <small id="status-reason-count">{reason.length}/500 characters</small>
-            </div>
-            {reasonError && (
-              <p className="form-message form-message--error" role="alert">
-                {reasonError}
-              </p>
-            )}
-            {actionError && (
-              <p className="form-message form-message--error" role="alert">
-                {actionError}
-              </p>
-            )}
-            <div className="button-row">
-              <button
-                className={selected.active ? 'button button--danger' : 'button button--primary'}
-                type="submit"
-                disabled={busyUserId === selected.userId}
-              >
-                {busyUserId === selected.userId
-                  ? 'Saving…'
-                  : selected.active
-                    ? 'Suspend account'
-                    : 'Reactivate account'}
-              </button>
-              <button
-                className="button button--secondary"
-                type="button"
-                disabled={busyUserId === selected.userId}
-                onClick={closeStatusModal}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </Modal>
+          onSubmit={updateStatus}
+        />
       )}
     </>
   )

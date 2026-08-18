@@ -1,3 +1,4 @@
+import { downloadTextFile } from '../../shared/lib/downloadTextFile'
 import type { ConsumerTrendsResponse } from './consumerTrendsTypes'
 
 export const CONSUMER_TRENDS_REPORT_MIME_TYPE = 'text/csv;charset=utf-8'
@@ -152,21 +153,9 @@ export function buildConsumerTrendsFilename(data: ConsumerTrendsResponse): strin
 }
 
 export async function downloadConsumerTrendsReport(data: ConsumerTrendsResponse): Promise<void> {
-  const blob = new Blob([buildConsumerTrendsCsv(data)], {
-    type: CONSUMER_TRENDS_REPORT_MIME_TYPE,
-  })
-  const objectUrl = URL.createObjectURL(blob)
-  let link: HTMLAnchorElement | null = null
-
-  try {
-    link = document.createElement('a')
-    link.href = objectUrl
-    link.download = buildConsumerTrendsFilename(data)
-    link.hidden = true
-    document.body.append(link)
-    link.click()
-  } finally {
-    link?.remove()
-    URL.revokeObjectURL(objectUrl)
-  }
+  downloadTextFile(
+    buildConsumerTrendsFilename(data),
+    CONSUMER_TRENDS_REPORT_MIME_TYPE,
+    buildConsumerTrendsCsv(data),
+  )
 }
