@@ -13,6 +13,7 @@ import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
 import com.canmakan.backend.shared.security.SystemRole;
 import com.canmakan.backend.user.dto.NotificationPreferenceResponse;
+import com.canmakan.backend.user.service.UserPreferenceService;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

@@ -67,6 +67,9 @@ describe('PortalLayout navigation', () => {
 
     expect(screen.getByRole('navigation', { name: 'System Administration navigation' }))
       .toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Future Features/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'System Health' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Open navigation' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Hide navigation' }))
     expect(screen.getByRole('button', { name: 'Open navigation' })).toBeInTheDocument()

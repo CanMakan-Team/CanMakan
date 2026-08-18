@@ -151,7 +151,7 @@ export function ConsumerTrendsPage() {
     <div className="admin-page analytics-page">
       <header className="page-header page-header--split analytics-header">
         <div>
-          <p className="eyebrow">Consumer Analytics</p>
+          <p className="eyebrow">System Administration</p>
           <h1>Consumer Trends</h1>
           <p>
             Aggregated scan activity and dietary-concern insights. Scan activity indicates consumer interest,

@@ -117,7 +117,7 @@ export function AccountPage() {
     <>
       <header className="page-header">
         <div>
-          <p className="eyebrow">Account</p>
+          <p className="eyebrow">User Portal</p>
           <h1>Account Settings</h1>
           <p>Review the account linked to your sign-in.</p>
         </div>

@@ -4,6 +4,7 @@ import com.canmakan.backend.shared.security.AuthUserChecker;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.user.dto.NotificationPreferenceResponse;
 import com.canmakan.backend.user.dto.SetNotificationPreferenceRequest;
+import com.canmakan.backend.user.service.UserPreferenceService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

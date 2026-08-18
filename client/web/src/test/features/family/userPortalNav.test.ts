@@ -11,15 +11,15 @@ describe('userPortalSections', () => {
     expect(labels).not.toContain('Family Members')
   })
 
-  it('uses home, person, gear, and people icons for personal and create-circle links', () => {
+  it('uses home, profile, gear, and addPeople icons for personal and create-circle links', () => {
     const items = userPortalSections({ hasFamily: false, isPrimaryAdmin: false })
       .flatMap((section) => section.items)
     const byLabel = Object.fromEntries(items.map((item) => [item.label, item.icon]))
 
     expect(byLabel.Home).toBe('home')
-    expect(byLabel['Dietary Profile']).toBe('person')
+    expect(byLabel['Dietary Profile']).toBe('profile')
     expect(byLabel['Account Settings']).toBe('gear')
-    expect(byLabel['Create Family Circle']).toBe('people')
+    expect(byLabel['Create Family Circle']).toBe('addPeople')
   })
 
   it('hides create-circle while membership is still loading', () => {

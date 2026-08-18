@@ -22,7 +22,7 @@ import com.canmakan.backend.auth.repository.RefreshTokenRepository;
 import com.canmakan.backend.auth.service.RefreshTokenService;
 import com.canmakan.backend.shared.security.JwtService;
 import com.canmakan.backend.shared.security.JwtProperties;
-import com.canmakan.backend.user.AuthenticationAccountView;
+import com.canmakan.backend.user.repository.AuthenticationAccountView;
 import com.canmakan.backend.user.repository.UserAccountRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;

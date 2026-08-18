@@ -14,6 +14,7 @@ import {
 } from '../api/systemHealthApiService'
 import { usageStatisticsApiService } from '../../analytics/api/usageStatisticsApiService'
 import { ErrorState, LoadingState } from '../../../shared/ui/PageState'
+import { PortalIcon } from '../../../shared/ui/PortalIcon'
 import { StatusBadge } from '../../../shared/ui/StatusBadge'
 
 /** Compact SVG sparkline from daily scan totals. */
@@ -147,7 +148,7 @@ export function SystemDashboardPage() {
 
       <header className="page-header page-header--system">
         <div>
-          <p className="eyebrow">System overview</p>
+          <p className="eyebrow">System Administration</p>
           <h1>Administration Dashboard</h1>
           <p>
             Exception queues, platform health, usage, and anonymised consumer trends.
@@ -160,14 +161,18 @@ export function SystemDashboardPage() {
           className={`summary-card summary-card--link${statusIsUp ? '' : ' summary-card--alert'}`}
           to="/system/health"
         >
-          <span className="summary-card__icon" aria-hidden="true">●</span>
+          <span className="summary-card__icon" aria-hidden="true">
+            <PortalIcon name="activity" />
+          </span>
           <div>
             <span>System status</span>
             <strong>{overallStatus}</strong>
           </div>
         </Link>
         <Link className="summary-card summary-card--link" to="/system/usage">
-          <span className="summary-card__icon" aria-hidden="true">↗</span>
+          <span className="summary-card__icon" aria-hidden="true">
+            <PortalIcon name="people" />
+          </span>
           <div>
             <span>Daily active users</span>
             <strong>{dailyActiveUsers.toLocaleString()}</strong>
@@ -177,7 +182,9 @@ export function SystemDashboardPage() {
           className="summary-card summary-card--link"
           to="/system/users?status=SUSPENDED"
         >
-          <span className="summary-card__icon" aria-hidden="true">!</span>
+          <span className="summary-card__icon" aria-hidden="true">
+            <PortalIcon name="ban" />
+          </span>
           <div>
             <span>Suspended accounts</span>
             <strong>{suspendedCount}</strong>
@@ -187,7 +194,9 @@ export function SystemDashboardPage() {
           className="summary-card summary-card--link"
           to="/system/feedback?resolved=UNRESOLVED"
         >
-          <span className="summary-card__icon" aria-hidden="true">◫</span>
+          <span className="summary-card__icon" aria-hidden="true">
+            <PortalIcon name="message" />
+          </span>
           <div>
             <span>Open scan feedback</span>
             <strong>{openFeedbackCount.toLocaleString()}</strong>

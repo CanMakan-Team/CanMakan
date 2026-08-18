@@ -13,6 +13,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import com.canmakan.backend.auth.service.RefreshCookieService;
+import com.canmakan.backend.auth.config.RefreshTokenProperties;
 
 class RefreshCookieServiceTest {
 

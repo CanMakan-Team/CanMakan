@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Service;
 
-import com.canmakan.backend.auth.RefreshTokenProperties;
+import com.canmakan.backend.auth.config.RefreshTokenProperties;
 
 /** Creates and reads the narrowly scoped UC19 refresh credential cookie. */
 @Service

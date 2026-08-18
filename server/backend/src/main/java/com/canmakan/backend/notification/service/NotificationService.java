@@ -1,9 +1,10 @@
-package com.canmakan.backend.notification;
+package com.canmakan.backend.notification.service;
 
 import com.canmakan.backend.notification.dto.UserNotificationResponse;
 import com.canmakan.backend.notification.exception.NotificationNotFoundException;
 import com.canmakan.backend.notification.model.NotificationType;
 import com.canmakan.backend.notification.model.UserNotification;
+import com.canmakan.backend.notification.repository.UserNotificationRepository;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.user.repository.UserAccountRepository;
 import java.time.Instant;

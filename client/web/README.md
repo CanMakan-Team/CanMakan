@@ -39,10 +39,9 @@ The primary information architecture implements the latest selected scope:
 | 11 | Update an existing family dietary profile |
 | 13 | User Accounts & Access with live status-only Suspend/Reactivate controls |
 
-Earlier Figma concepts such as assessment review queues, product data issues,
-ingredient aliases, logs, system health, AI reasoning review and application
-usage statistics are retained only under **Future Features**. They are not
-represented as completed Sprint 1 functions.
+System Health, Usage Statistics, and Handle User Feedback are live System
+Administration pages. Unused Figma concepts such as assessment review queues
+and ingredient alias governance are not exposed in the web navigation.
 
 ## Routes and role rules
 
@@ -80,10 +79,12 @@ Legacy `/family/personal`, `/family/setup-profile`, and `/family/account` redire
 
 Protected System Admin routes:
 
-- `/system` — selected-feature dashboard
+- `/system` — administration dashboard
 - `/system/trends` — anonymised Consumer Trends
+- `/system/usage` — application usage statistics
 - `/system/users` — User Accounts & Access
-- `/system/future` — clearly labelled future/prototype-only concepts
+- `/system/feedback` — scan verdict feedback
+- `/system/health` — system health
 
 `ROLE_APP_USER` cannot navigate to System pages and
 `ROLE_SYSTEM_ADMIN` cannot use USER routes. There is no

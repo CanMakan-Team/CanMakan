@@ -10,12 +10,11 @@ Owns the `users` / `user_preferences` persistence used by auth, family, admin, a
 ```
 user/
   UserPreferenceController.java
-  UserPreferenceService.java
-  AuthenticationAccountView.java   # Projection for auth lookups
-  AdminUserSummaryView.java        # Projection for admin listing
+  README.md
+  service/                         # UserPreferenceService
   model/                           # UserAccount, UserPreference
-  repository/                      # Matching Spring Data repos
+  repository/                      # Repos + AdminUserSummaryView + AuthenticationAccountView
   dto/                             # Notification preference request/response
 ```
 
-Controllers and application services stay at the root; JPA types live under `model/` / `repository/`.
+Controllers stay at the root; application services, JPA types, and query projections are nested.

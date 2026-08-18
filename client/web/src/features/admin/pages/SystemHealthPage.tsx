@@ -55,7 +55,7 @@ export function SystemHealthPage() {
     <>
       <header className="page-header page-header--system">
         <div>
-          <p className="eyebrow">Feature 16 - system admin</p>
+          <p className="eyebrow">System Administration</p>
           <h1>System Health</h1>
           <p>
             Component status, AI execution monitoring, the admin activity trail, and scan data

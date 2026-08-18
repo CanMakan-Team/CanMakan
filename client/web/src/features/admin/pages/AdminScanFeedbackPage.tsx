@@ -198,7 +198,7 @@ export function AdminScanFeedbackPage() {
     <>
       <header className="page-header page-header--system">
         <div>
-          <p className="eyebrow">Scan Verdict Feedback</p>
+          <p className="eyebrow">System Administration</p>
           <h1>Handle User Feedback</h1>
           <p>
             Review thumbs up/down feedback reported against scan verdicts, and

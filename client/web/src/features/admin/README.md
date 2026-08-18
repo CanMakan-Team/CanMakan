@@ -15,7 +15,6 @@ admin/
     AdminScanFeedbackPage.tsx
     SystemHealthPage.tsx
     SystemDashboardPage.tsx
-    FutureFeaturesPage.tsx
   components/
     UserAccessStatusModal.tsx
     AdminScanFeedbackCommentModal.tsx
@@ -32,7 +31,6 @@ admin/
 ## Contains
 - User accounts and access management
 - System dashboard
-- Future features / placeholders
 - Related admin UI and logic
 
 ## Notes

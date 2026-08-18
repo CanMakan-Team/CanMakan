@@ -1,6 +1,6 @@
 package com.canmakan.backend.shared.security;
 
-import com.canmakan.backend.auth.RefreshTokenProperties;
+import com.canmakan.backend.auth.config.RefreshTokenProperties;
 import com.canmakan.backend.family.config.InviteProperties;
 import com.canmakan.backend.family.config.ResendProperties;
 import jakarta.servlet.DispatcherType;

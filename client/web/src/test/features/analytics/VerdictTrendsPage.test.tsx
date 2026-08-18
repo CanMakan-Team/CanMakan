@@ -73,7 +73,7 @@ describe('VerdictTrendsPage', () => {
     expect(screen.getByText('Loading verdict trend...')).toBeInTheDocument()
     expect(await screen.findByLabelText('Verdict trend summary')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Verdict Trends' })).toBeInTheDocument()
-    expect(screen.getByText('Analytics & insights')).toBeInTheDocument()
+    expect(screen.getByText('Family Circle')).toBeInTheDocument()
     expect(familyApiService.getScanHistory).toHaveBeenCalledTimes(1)
 
     expect(screen.getByLabelText('Reporting period')).toHaveValue('7')
