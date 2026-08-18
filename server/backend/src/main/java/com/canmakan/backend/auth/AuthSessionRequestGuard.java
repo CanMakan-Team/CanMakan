@@ -2,6 +2,7 @@ package com.canmakan.backend.auth;
 
 import com.canmakan.backend.auth.exception.AuthSessionRequestRejectedException;
 import com.canmakan.backend.shared.security.CorsProperties;
+import com.canmakan.backend.auth.config.RefreshTokenProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.List;

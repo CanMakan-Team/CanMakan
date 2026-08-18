@@ -1,4 +1,4 @@
-package com.canmakan.backend.user;
+package com.canmakan.backend.user.repository;
 
 import java.time.LocalDateTime;
 

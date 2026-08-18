@@ -1,6 +1,6 @@
 package com.canmakan.backend.family.dto;
 
-import com.canmakan.backend.family.FamilyRelationshipToAdmin;
+import com.canmakan.backend.family.model.FamilyRelationshipToAdmin;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;

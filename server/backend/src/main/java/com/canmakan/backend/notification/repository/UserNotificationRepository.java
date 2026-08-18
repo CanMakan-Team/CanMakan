@@ -1,4 +1,4 @@
-package com.canmakan.backend.notification;
+package com.canmakan.backend.notification.repository;
 
 import java.time.Instant;
 import java.util.List;

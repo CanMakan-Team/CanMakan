@@ -1,4 +1,4 @@
-package com.canmakan.backend.auth;
+package com.canmakan.backend.auth.config;
 
 import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
