@@ -124,6 +124,7 @@ describe('UserAccessPage UC13 account status management', () => {
     renderPage()
 
     expect(await screen.findByText('No accounts match')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeDisabled()
   })
 
   it('surfaces an account-list API error', async () => {
@@ -320,7 +321,7 @@ describe('UserAccessPage UC13 account status management', () => {
       const matchingCalls = vi.mocked(adminService.getUsers).mock.calls.filter(
         ([filters]) => JSON.stringify(filters) === JSON.stringify(appliedFilters),
       )
-      expect(matchingCalls).toHaveLength(2)
+      expect(matchingCalls.length).toBeGreaterThanOrEqual(2)
     })
   })
 
@@ -367,14 +368,96 @@ describe('UserAccessPage UC13 account status management', () => {
     expect(auditReadSpy).not.toHaveBeenCalled()
   })
 
-  it('disables status action for the current session administrator', async () => {
+  it('hides the current session administrator from the account list', async () => {
+    vi.mocked(adminService.getUsers).mockResolvedValue([
+      { ...activeUser, userId: 1, email: 'me@example.test' },
+      suspendedAdmin,
+    ])
+
+    renderPage(1)
+
+    expect(await screen.findByText(suspendedAdmin.email)).toBeInTheDocument()
+    expect(screen.queryByText('me@example.test')).not.toBeInTheDocument()
+    expect(screen.queryByText('Current admin')).not.toBeInTheDocument()
+  })
+
+  it('shows the empty state when the only matching account is the current administrator', async () => {
     vi.mocked(adminService.getUsers).mockResolvedValue([
       { ...activeUser, userId: 1 },
     ])
 
     renderPage(1)
 
-    expect(await screen.findByText('Current admin')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Suspend' })).toBeDisabled()
+    expect(await screen.findByText('No accounts match')).toBeInTheDocument()
+    expect(screen.queryByText(activeUser.email)).not.toBeInTheDocument()
+  })
+
+  it('clears email, role and status filters in one action', async () => {
+    vi.mocked(adminService.getUsers).mockResolvedValue([activeUser])
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText(activeUser.email)
+    await user.type(screen.getByLabelText('Email search'), 'user21')
+    await user.selectOptions(screen.getByLabelText('Role'), 'USER')
+    await user.selectOptions(screen.getByLabelText('Status'), 'ACTIVE')
+    await user.click(screen.getByRole('button', { name: 'Apply filters' }))
+    await waitFor(() => {
+      expect(adminService.getUsers).toHaveBeenCalledWith({
+        query: 'user21',
+        role: 'USER',
+        active: true,
+      })
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }))
+
+    await waitFor(() => {
+      expect(adminService.getUsers).toHaveBeenLastCalledWith({})
+    })
+    expect(screen.getByLabelText('Email search')).toHaveValue('')
+    expect(screen.getByLabelText('Role')).toHaveValue('ALL')
+    expect(screen.getByLabelText('Status')).toHaveValue('ALL')
+  })
+
+  it('applies the email search after a short pause', async () => {
+    vi.mocked(adminService.getUsers).mockResolvedValue([activeUser])
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText(activeUser.email)
+
+    await user.type(screen.getByLabelText('Email search'), 'alice@example.test')
+
+    await waitFor(() => {
+      expect(adminService.getUsers).toHaveBeenLastCalledWith({
+        query: 'alice@example.test',
+      })
+    })
+  })
+
+  it('pages the account list and changes the page size', async () => {
+    const accounts = Array.from({ length: 12 }, (_, index) => ({
+      userId: 100 + index,
+      email: `user${index}@example.test`,
+      role: 'USER' as const,
+      active: true,
+      updatedAt: '2026-08-10T09:30:00',
+    }))
+    vi.mocked(adminService.getUsers).mockResolvedValue(accounts)
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByText('user0@example.test')
+    expect(screen.getByText('user9@example.test')).toBeInTheDocument()
+    expect(screen.queryByText('user10@example.test')).not.toBeInTheDocument()
+    expect(screen.getByText(/Page 1 of 2/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Next' }))
+    expect(await screen.findByText('user10@example.test')).toBeInTheDocument()
+    expect(screen.queryByText('user0@example.test')).not.toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Rows per page'), '25')
+    expect(await screen.findByText('user0@example.test')).toBeInTheDocument()
+    expect(screen.getByText('user11@example.test')).toBeInTheDocument()
+    expect(screen.getByText(/Page 1 of 1/)).toBeInTheDocument()
   })
 })

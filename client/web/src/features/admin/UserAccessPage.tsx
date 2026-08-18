@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { adminService } from './adminService'
 import type { AdminUser, AdminUserFilters, AdminUserRole } from './models'
@@ -6,10 +6,22 @@ import { getErrorMessage } from '../../shared/api/apiErrors'
 import { useSession } from '../auth/useSession'
 import { Modal } from '../../shared/ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
+import { PortalIcon } from '../../shared/ui/PortalIcon'
 import { StatusBadge } from '../../shared/ui/StatusBadge'
 
 type RoleFilter = 'ALL' | AdminUserRole
 type StatusFilter = 'ALL' | 'ACTIVE' | 'SUSPENDED'
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
+const SEARCH_DEBOUNCE_MS = 300
+
+type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
+
+function filtersEqual(left: AdminUserFilters, right: AdminUserFilters): boolean {
+  return left.query === right.query
+    && left.role === right.role
+    && left.active === right.active
+}
 
 function toFilters(
   query: string,
@@ -48,6 +60,8 @@ export function UserAccessPage() {
   const [actionError, setActionError] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState<PageSize>(10)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -66,12 +80,54 @@ export function UserAccessPage() {
     return () => window.clearTimeout(timeoutId)
   }, [load])
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      const next = toFilters(query, roleFilter, statusFilter)
+      setFilters((current) => (filtersEqual(current, next) ? current : next))
+    }, SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timeoutId)
+  }, [query, roleFilter, statusFilter])
+
+  useEffect(() => {
+    setPage(0)
+  }, [filters, pageSize])
+
   const applyFilters = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setNotice('')
     setActionError('')
     setFilters(toFilters(query, roleFilter, statusFilter))
   }
+
+  const clearFilters = () => {
+    setQuery('')
+    setRoleFilter('ALL')
+    setStatusFilter('ALL')
+    setNotice('')
+    setActionError('')
+    setFilters({})
+  }
+
+  const manageableUsers = useMemo(
+    () => users.filter((user) => user.userId !== session?.userId),
+    [users, session?.userId],
+  )
+
+  const hasActiveFilters = Boolean(
+    query.trim()
+      || roleFilter !== 'ALL'
+      || statusFilter !== 'ALL'
+      || filters.query
+      || filters.role
+      || filters.active !== undefined,
+  )
+
+  const totalPages = Math.max(1, Math.ceil(manageableUsers.length / pageSize))
+  const safePage = Math.min(page, totalPages - 1)
+  const visibleUsers = useMemo(() => {
+    const start = safePage * pageSize
+    return manageableUsers.slice(start, start + pageSize)
+  }, [manageableUsers, safePage, pageSize])
 
   const openStatusModal = (user: AdminUser) => {
     setSelected(user)
@@ -176,9 +232,19 @@ export function UserAccessPage() {
             <option value="SUSPENDED">Suspended</option>
           </select>
         </div>
-        <button className="button button--dark" type="submit">
-          Apply filters
-        </button>
+        <div className="filter-bar__actions">
+          <button className="button button--dark" type="submit">
+            Apply filters
+          </button>
+          <button
+            className="button button--secondary"
+            type="button"
+            disabled={!hasActiveFilters}
+            onClick={clearFilters}
+          >
+            Clear filters
+          </button>
+        </div>
       </form>
 
       <div className="sr-live" aria-live="polite">{notice}</div>
@@ -192,11 +258,27 @@ export function UserAccessPage() {
         <LoadingState label="Loading user accounts…" />
       ) : error ? (
         <ErrorState message={error} onRetry={load} />
-      ) : users.length === 0 ? (
+      ) : manageableUsers.length === 0 ? (
         <EmptyState
           title="No accounts match"
           description="Change the email, role or status filters and try again."
           showMascot={false}
+          icon={
+            <span className="page-state__icon" aria-hidden="true">
+              <PortalIcon name="person" />
+            </span>
+          }
+          action={
+            hasActiveFilters ? (
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={clearFilters}
+              >
+                Clear filters
+              </button>
+            ) : null
+          }
         />
       ) : (
         <section className="panel panel--table">
@@ -213,8 +295,7 @@ export function UserAccessPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => {
-                  const currentAdmin = user.userId === session?.userId
+                {visibleUsers.map((user) => {
                   const action = user.active ? 'Suspend' : 'Reactivate'
                   return (
                     <tr key={user.userId}>
@@ -235,18 +316,55 @@ export function UserAccessPage() {
                         <button
                           className="text-button"
                           type="button"
-                          disabled={currentAdmin}
                           onClick={() => openStatusModal(user)}
                         >
                           {action}
                         </button>
-                        {currentAdmin && <small>Current admin</small>}
                       </td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="table-footer">
+            <div className="field-group table-footer__page-size">
+              <label htmlFor="user-page-size">Rows per page</label>
+              <select
+                id="user-page-size"
+                value={pageSize}
+                onChange={(event) => setPageSize(Number(event.target.value) as PageSize)}
+              >
+                {PAGE_SIZE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <nav className="analytics-pagination" aria-label="User account pages">
+              <button
+                type="button"
+                className="button button--secondary"
+                disabled={safePage === 0}
+                onClick={() => setPage(safePage - 1)}
+              >
+                Previous
+              </button>
+              <span>
+                Page {safePage + 1} of {totalPages}
+                {' · '}
+                {manageableUsers.length.toLocaleString()} accounts
+              </span>
+              <button
+                type="button"
+                className="button button--secondary"
+                disabled={safePage >= totalPages - 1}
+                onClick={() => setPage(safePage + 1)}
+              >
+                Next
+              </button>
+            </nav>
           </div>
         </section>
       )}

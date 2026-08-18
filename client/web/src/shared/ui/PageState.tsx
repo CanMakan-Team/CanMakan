@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { CanMakanMascot, type CanMakanMascotPose } from './CanMakanMascot'
 
 export function LoadingState({ label = 'Loading information…' }: { label?: string }) {
@@ -34,17 +35,22 @@ export function EmptyState({
   description,
   pose = 'wave',
   showMascot = true,
+  icon,
+  action,
 }: {
   title: string
   description: string
   pose?: CanMakanMascotPose
   showMascot?: boolean
+  icon?: ReactNode
+  action?: ReactNode
 }) {
   return (
     <div className="page-state">
-      {showMascot ? <CanMakanMascot pose={pose} size="large" /> : null}
+      {showMascot ? <CanMakanMascot pose={pose} size="large" /> : icon}
       <strong>{title}</strong>
       <p>{description}</p>
+      {action}
     </div>
   )
 }
