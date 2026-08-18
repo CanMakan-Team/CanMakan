@@ -30,7 +30,7 @@ MILLILITRE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 LITRE_PATTERN = re.compile(
-    rf"{_VOLUME_AMOUNT}\s*+(?:litres|liters|litre|liter|l(?![a-z]))",
+    rf"{_VOLUME_AMOUNT}\s*+(?:litres|liters|litre|liter|l)(?![a-z])",
     re.IGNORECASE,
 )
 CENTILITRE_PATTERN = re.compile(rf"{_VOLUME_AMOUNT}\s*+cl\b", re.IGNORECASE)
