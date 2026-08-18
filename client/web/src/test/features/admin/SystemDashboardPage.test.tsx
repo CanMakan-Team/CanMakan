@@ -1,32 +1,32 @@
 import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
-import { SystemDashboardPage } from '../../../features/admin/SystemDashboardPage'
-import { adminService } from '../../../features/admin/adminService'
-import { consumerTrendsApiService } from '../../../features/analytics/consumerTrendsApiService'
-import { systemHealthApiService } from '../../../features/admin/systemHealthApiService'
-import { usageStatisticsApiService } from '../../../features/analytics/usageStatisticsApiService'
+import { SystemDashboardPage } from '../../../features/admin/pages/SystemDashboardPage'
+import { adminService } from '../../../features/admin/api/adminService'
+import { consumerTrendsApiService } from '../../../features/analytics/api/consumerTrendsApiService'
+import { systemHealthApiService } from '../../../features/admin/api/systemHealthApiService'
+import { usageStatisticsApiService } from '../../../features/analytics/api/usageStatisticsApiService'
 
-vi.mock('../../../features/admin/adminService', () => ({
+vi.mock('../../../features/admin/api/adminService', () => ({
   adminService: {
     getUsers: vi.fn(),
     getScanFeedback: vi.fn(),
   },
 }))
 
-vi.mock('../../../features/analytics/consumerTrendsApiService', () => ({
+vi.mock('../../../features/analytics/api/consumerTrendsApiService', () => ({
   consumerTrendsApiService: {
     getConsumerTrends: vi.fn(),
   },
 }))
 
-vi.mock('../../../features/admin/systemHealthApiService', () => ({
+vi.mock('../../../features/admin/api/systemHealthApiService', () => ({
   systemHealthApiService: {
     getSystemHealth: vi.fn(),
   },
 }))
 
-vi.mock('../../../features/analytics/usageStatisticsApiService', () => ({
+vi.mock('../../../features/analytics/api/usageStatisticsApiService', () => ({
   usageStatisticsApiService: {
     getUsageStatistics: vi.fn(),
   },

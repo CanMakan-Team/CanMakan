@@ -2,9 +2,9 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
-import { UserAccessPage } from '../../../features/admin/UserAccessPage'
-import { adminService } from '../../../features/admin/adminService'
-import type { AdminUser } from '../../../features/admin/models'
+import { UserAccessPage } from '../../../features/admin/pages/UserAccessPage'
+import { adminService } from '../../../features/admin/api/adminService'
+import type { AdminUser } from '../../../features/admin/api/models'
 import {
   SessionContext,
   type SessionContextValue,
@@ -14,7 +14,7 @@ import { systemAdminSession } from '../../testUtils'
 
 const auditReadSpy = vi.hoisted(() => vi.fn())
 
-vi.mock('../../../features/admin/adminService', () => ({
+vi.mock('../../../features/admin/api/adminService', () => ({
   adminService: {
     getConsumerTrends: vi.fn(),
     getUsers: vi.fn(),

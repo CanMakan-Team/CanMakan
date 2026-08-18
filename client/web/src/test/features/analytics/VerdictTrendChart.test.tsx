@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { VerdictTrendChart, type VerdictTrendPoint } from '../../../features/analytics/VerdictTrendChart'
+import { VerdictTrendChart, type VerdictTrendPoint } from '../../../features/analytics/components/VerdictTrendChart'
 
 const twoDays: VerdictTrendPoint[] = [
   { date: '2026-08-15', safeCount: 2, warningCount: 1, unsafeCount: 0, totalCount: 3 },

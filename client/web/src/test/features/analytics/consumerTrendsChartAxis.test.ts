@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   chartEndLabelIndexes,
   consumerTrendsChartAxis,
-} from '../../../features/analytics/consumerTrendsChartAxis'
+} from '../../../features/analytics/lib/consumerTrendsChartAxis'
 
 describe('consumerTrendsChartAxis', () => {
   it('keeps a minimum ceiling so small daily counts do not fill the panel', () => {

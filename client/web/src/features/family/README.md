@@ -14,13 +14,23 @@ family/
   FamilyMeGate.tsx      # PRIMARY_ADMIN only; others go to /me
   FamilyMeContext.tsx   # Provider for GET /families/me (USER portal nav)
   useFamilyMe.ts        # Hook for membership in layout and personal home
+  familyMeState.ts
   README.md
   api/
     familyApiService.ts
+    familyApiHttp.ts
+    familyEndpoints.ts
+    familyTypes.ts
+    selfProfileApiService.ts
   lib/
     familyRoles.ts
     userPortalNav.ts
     profileOptions.ts
+    profileDisplay.ts
+    greeting.ts
+    restrictionMatrix.ts
+    scanHistoryDisplay.ts
+    inviteAppHandoff.ts
   pages/
     CreateFamilyCirclePage.tsx
     FamilyCirclePage.tsx
@@ -29,6 +39,10 @@ family/
     FamilyRestrictionSummaryPage.tsx
     FamilyScanHistoryPage.tsx
     UserLandingPage.tsx
+    InviteLandingPage.tsx
+    PersonalHomePage.tsx
+    SelfProfileSetupPage.tsx
+    FamilyAccountPage.tsx
   components/
     CreateFamilyProfileModal.tsx
     ScanEligibilityCard.tsx

@@ -5,6 +5,35 @@ Trends and usage insights.
 ## Purpose
 Displays aggregated analytics for administrators.
 
+## Layout
+
+```
+analytics/
+  README.md
+  pages/
+    ConsumerTrendsPage.tsx
+    UsageStatisticsPage.tsx
+    VerdictTrendsPage.tsx
+  components/
+    ConsumerTrendsCharts.tsx
+    UsageStatisticsResult.tsx
+    VerdictTrendChart.tsx
+  api/
+    consumerTrendsApiService.ts
+    consumerTrendsTypes.ts
+    usageStatisticsApiService.ts
+  lib/
+    consumerTrendsDateRange.ts
+    consumerTrendsNormalize.ts
+    consumerTrendsReport.ts
+    consumerTrendsPaging.ts
+    consumerTrendsFormat.ts
+    consumerTrendsChartAxis.ts
+    verdictTrendAggregate.ts
+    verdictTrendDisplay.ts
+    adminAnalyticsPalette.ts
+```
+
 ## Contains
 - Consumer trends
 - Related charts and summary views

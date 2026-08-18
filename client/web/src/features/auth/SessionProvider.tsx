@@ -7,12 +7,12 @@ import {
 import { ApiError, getErrorMessage } from '../../shared/api/apiErrors'
 import { configureApiAuthBridge } from '../../shared/api/apiClient'
 import type { AuthenticatedSession } from '../../shared/api/types'
-import { authService } from './authService'
-import type { CredentialLoginInput, RegisterInput } from './authService'
-import { authSessionStore } from './authSessionStore'
+import { authService } from './api/authService'
+import type { CredentialLoginInput, RegisterInput } from './api/authService'
+import { authSessionStore } from './lib/authSessionStore'
 import { SessionContext } from './SessionContext'
 import type { RegisterAndLoginResult } from './SessionContext'
-import { withSessionMutationLock } from './sessionMutationCoordinator'
+import { withSessionMutationLock } from './lib/sessionMutationCoordinator'
 
 let refreshInFlight: Promise<AuthenticatedSession | null> | null = null
 

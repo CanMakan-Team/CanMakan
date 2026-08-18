@@ -1,13 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { UsageStatisticsPage } from '../../../features/analytics/UsageStatisticsPage'
+import { UsageStatisticsPage } from '../../../features/analytics/pages/UsageStatisticsPage'
 import {
   usageStatisticsApiService,
   type UsageStatistics,
-} from '../../../features/analytics/usageStatisticsApiService'
+} from '../../../features/analytics/api/usageStatisticsApiService'
 
-vi.mock('../../../features/analytics/usageStatisticsApiService', () => ({
+vi.mock('../../../features/analytics/api/usageStatisticsApiService', () => ({
   usageStatisticsApiService: {
     getUsageStatistics: vi.fn(),
   },

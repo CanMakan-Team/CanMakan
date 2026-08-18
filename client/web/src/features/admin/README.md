@@ -5,6 +5,30 @@ System administration features.
 ## Purpose
 Supports administrative management of the platform (web-only).
 
+## Layout
+
+```
+admin/
+  README.md
+  pages/
+    UserAccessPage.tsx
+    AdminScanFeedbackPage.tsx
+    SystemHealthPage.tsx
+    SystemDashboardPage.tsx
+    FutureFeaturesPage.tsx
+  components/
+    UserAccessStatusModal.tsx
+    AdminScanFeedbackCommentModal.tsx
+    SystemHealthResult.tsx
+  api/
+    adminService.ts
+    systemHealthApiService.ts
+    models.ts
+  lib/
+    feedbackTimestamps.ts
+    adminListHelpers.ts
+```
+
 ## Contains
 - User accounts and access management
 - System dashboard
