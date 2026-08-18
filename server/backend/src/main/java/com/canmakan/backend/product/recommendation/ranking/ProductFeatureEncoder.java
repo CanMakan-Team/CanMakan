@@ -67,12 +67,8 @@ public class ProductFeatureEncoder {
         Map<String, Double> query = new HashMap<>(encoded);
         for (String token : ALLERGEN_QUERY_TOKENS) {
             String normalized = normalizeTag(token);
-            if (query.containsKey(normalized)) {
-                query.put(normalized, query.get(normalized) * ALLERGEN_QUERY_SCALE);
-            }
-            if (query.containsKey(token)) {
-                query.put(token, query.get(token) * ALLERGEN_QUERY_SCALE);
-            }
+            query.computeIfPresent(normalized, (key, weight) -> weight * ALLERGEN_QUERY_SCALE);
+            query.computeIfPresent(token, (key, weight) -> weight * ALLERGEN_QUERY_SCALE);
         }
         return query;
     }
@@ -107,7 +103,6 @@ public class ProductFeatureEncoder {
      * Inferred substitute tags when curated profiles miss or Tier A returns nothing.
      */
     public List<String> inferSubstituteTags(CatalogProduct source) {
-        Set<String> tags = new LinkedHashSet<>();
         if (source == null) {
             return List.of();
         }
@@ -121,26 +116,48 @@ public class ProductFeatureEncoder {
         boolean isIceCreamProduct = isIceCreamProduct(haystack);
         boolean isBreadProduct = SubstituteDiscoveryProfiles.isBreadSource(source);
         boolean isBreakfastCerealProduct = SubstituteDiscoveryProfiles.isBreakfastCerealSource(source);
+
+        Set<String> tags = new LinkedHashSet<>();
+        addDairySubstituteTags(tags, haystack, isIceCreamProduct, isBreadProduct);
+        addBreadAndCerealTags(tags, haystack);
+        addFlourTags(tags, haystack, isBreakfastCerealProduct);
+        addSauceTags(tags, haystack);
+        addIceCreamTags(tags, haystack, isIceCreamProduct);
+        addPeanutButterTags(tags, haystack);
+
+        return List.copyOf(tags);
+    }
+
+    private static void addDairySubstituteTags(
+            Set<String> tags, String haystack, boolean isIceCreamProduct, boolean isBreadProduct) {
         if (!isIceCreamProduct && !isBreadProduct && containsAny(haystack, "milk", "dairy", "uht")) {
             tags.add("en:milk-substitutes");
             tags.add("en:dairy-substitutes");
             tags.add("en:plant-based-milk-alternatives");
         }
+    }
+
+    private static void addBreadAndCerealTags(Set<String> tags, String haystack) {
         if (containsAny(haystack, "bread", "bun", "roll")) {
             tags.add("Gluten free bread");
         }
-        if (containsAny(haystack, "cereal")) {
-            if (!containsAny(haystack, "spread", "tahini")
-                    && (containsAny(haystack, "breakfast cereal", "breakfast-cereal")
-                            || haystack.contains("en:breakfast-cereals"))) {
-                tags.add("Gluten free Breakfast cereals");
-            }
+        if (containsAny(haystack, "cereal")
+                && !containsAny(haystack, "spread", "tahini")
+                && (containsAny(haystack, "breakfast cereal", "breakfast-cereal")
+                        || haystack.contains("en:breakfast-cereals"))) {
+            tags.add("Gluten free Breakfast cereals");
         }
+    }
+
+    private static void addFlourTags(Set<String> tags, String haystack, boolean isBreakfastCerealProduct) {
         if (!isBreakfastCerealProduct && containsAny(haystack, "flour", "wheat")) {
             tags.add("en:gluten-free-flour");
             tags.add("Gluten free flour");
             tags.add("Gluten-free flour");
         }
+    }
+
+    private static void addSauceTags(Set<String> tags, String haystack) {
         if (containsAny(haystack, "soy sauce", "soya sauce")) {
             tags.add("Gluten Free sauces");
         }
@@ -148,17 +165,21 @@ public class ProductFeatureEncoder {
             tags.add("Low sodium sauces");
             tags.add("Low sodium sauce");
         }
+    }
+
+    private static void addIceCreamTags(Set<String> tags, String haystack, boolean isIceCreamProduct) {
         if (isIceCreamProduct || containsAny(haystack, "ice cream", "ice-cream", "sorbet")) {
             tags.add("ice-creams-and-sorbets");
             tags.add("en:ice-creams-and-sorbets");
         }
+    }
+
+    private static void addPeanutButterTags(Set<String> tags, String haystack) {
         if (containsAny(haystack, "peanut butter", "peanut-butters")) {
             tags.add("en:nut-butters");
             tags.add("en:tahini");
             tags.add("en:cereal-butters");
         }
-
-        return List.copyOf(tags);
     }
 
     private static boolean isIceCreamProduct(String haystack) {

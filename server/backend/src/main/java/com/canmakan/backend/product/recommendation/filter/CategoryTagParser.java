@@ -21,7 +21,7 @@ public final class CategoryTagParser {
             return Collections.emptySet();
         }
         return Arrays.stream(categoryTags.split(","))
-                .map(tag -> tag.trim())
+                .map(String::trim)
                 .filter(tag -> !tag.isEmpty())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
@@ -81,8 +81,16 @@ public final class CategoryTagParser {
     }
 
     public static String toCategoryTag(String mainCategoryEn) {
+        // Any run of non-alphanumeric characters collapses to a single dash, so the result
+        // can never contain consecutive dashes; stripping at most one from each end (instead
+        // of a "-+" regex trim) is equivalent and avoids a super-linear regex pattern.
         String slug = mainCategoryEn.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-");
-        slug = slug.replaceAll("^-+", "").replaceAll("-+$", "");
+        if (slug.startsWith("-")) {
+            slug = slug.substring(1);
+        }
+        if (slug.endsWith("-")) {
+            slug = slug.substring(0, slug.length() - 1);
+        }
         return "en:" + slug;
     }
 }

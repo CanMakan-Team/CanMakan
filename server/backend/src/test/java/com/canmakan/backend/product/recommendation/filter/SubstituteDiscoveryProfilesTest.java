@@ -1,8 +1,6 @@
 package com.canmakan.backend.product.recommendation.filter;
 
 import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
-import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfile;
-import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfiles;
 import com.canmakan.backend.product.recommendation.ranking.ProductFeatureEncoder;
 import com.canmakan.backend.product.recommendation.ranking.ProductFeatureVectorStore;
 import static org.junit.jupiter.api.Assertions.assertEquals;

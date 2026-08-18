@@ -195,7 +195,7 @@ class UserAccountRepositoryTest {
 
         assertThat(repository.findByIdForUpdate(activeUserId))
                 .get()
-                .extracting(account -> account.getId())
+                .extracting(UserAccount::getId)
                 .isEqualTo(activeUserId);
         assertThat(repository.findByIdForUpdate(Long.MAX_VALUE)).isEmpty();
     }
@@ -212,17 +212,17 @@ class UserAccountRepositoryTest {
         List<UserAccount> admins = repository.findAllAdminsForUpdate();
 
         assertThat(admins).allMatch(account -> account.getRoleId().equals(adminRoleId));
-        assertThat(admins).extracting(account -> account.getId()).isSorted();
-        assertThat(admins).extracting(account -> account.getId())
+        assertThat(admins).extracting(UserAccount::getId).isSorted();
+        assertThat(admins).extracting(UserAccount::getId)
                 .contains(adminId, inactiveAdminId)
                 .doesNotContain(activeUserId, inactiveUserId);
         assertThat(admins).filteredOn(account -> account.getId().equals(adminId))
                 .singleElement()
-                .extracting(account -> account.isActive())
+                .extracting(UserAccount::isActive)
                 .isEqualTo(true);
         assertThat(admins).filteredOn(account -> account.getId().equals(inactiveAdminId))
                 .singleElement()
-                .extracting(account -> account.isActive())
+                .extracting(UserAccount::isActive)
                 .isEqualTo(false);
     }
 

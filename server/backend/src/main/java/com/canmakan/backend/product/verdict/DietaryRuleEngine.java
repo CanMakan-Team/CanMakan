@@ -5,6 +5,7 @@ import com.canmakan.backend.knowledgebase.mcp.contract.DietaryRuleResult;
 import com.canmakan.backend.knowledgebase.mcp.server.CrossContaminationTool;
 import com.canmakan.backend.knowledgebase.mcp.server.DietaryRuleTool;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
+import com.canmakan.backend.knowledgebase.model.RestrictionCategory;
 
 import lombok.RequiredArgsConstructor;
 
@@ -71,8 +72,7 @@ public class DietaryRuleEngine {
      * @return the resulting {@link SafetyVerdict}
      */
     public SafetyVerdict assess(List<RestrictionRule> rules, ProductData product) {
-        if (product == null || !product.dataComplete()
-                || product.ingredients() == null || product.ingredients().isEmpty()) {
+        if (!hasUsableIngredientData(product)) {
             Finding f = new Finding(
                     INCOMPLETE_DATA,
                     Finding.SUBJECT_UNKNOWN,
@@ -83,13 +83,35 @@ public class DietaryRuleEngine {
 
         List<RestrictionRule> activeRules = filterKnownRules(rules);
 
-        // Resolve unknown ingredients via the knowledge boundary.
-        // Catalog hits with no root allergen are known-safe (not UNRESOLVED).
-        // Resolve unknown ingredients in a single batch call so the resolver can share
-        // expensive lookups instead of one round trip per item.
+        IngredientResolutionOutcome outcome = resolveIngredients(product.ingredients());
+        ProductData enriched = new ProductData(product.barcode(), outcome.resolved(),
+                product.ingredientsText(), product.labelTags(), product.tracesTags(),
+                product.nutrition(), true);
+
+        List<Finding> findings = runCheckers(activeRules, enriched);
+        findings.addAll(crossContaminationFindings(activeRules, enriched));
+
+        return decide(activeRules, findings, outcome.unresolvedNames());
+    }
+
+    private static boolean hasUsableIngredientData(ProductData product) {
+        return product != null && product.dataComplete()
+                && product.ingredients() != null && !product.ingredients().isEmpty();
+    }
+
+    /** Ingredients enriched with resolved root allergens, and the names that stayed unresolved. */
+    private record IngredientResolutionOutcome(List<Ingredient> resolved, List<String> unresolvedNames) {
+    }
+
+    /**
+     * Resolves unknown ingredients via the knowledge boundary. Catalog hits with no root
+     * allergen are known-safe (not UNRESOLVED). Resolution runs in a single batch call so the
+     * resolver can share expensive lookups instead of one round trip per item.
+     */
+    private IngredientResolutionOutcome resolveIngredients(List<Ingredient> ingredients) {
         List<String> namesToResolve = new ArrayList<>();
-        for (Ingredient ing : product.ingredients()) {
-            if (ing.rootAllergen() == null || ing.rootAllergen().isBlank()) {
+        for (Ingredient ing : ingredients) {
+            if (isUnresolvedRoot(ing)) {
                 namesToResolve.add(ing.ingredientName());
             }
         }
@@ -97,60 +119,64 @@ public class DietaryRuleEngine {
 
         List<String> unresolvedNames = new ArrayList<>();
         List<Ingredient> resolved = new ArrayList<>();
-        for (Ingredient ing : product.ingredients()) {
-            if (ing.rootAllergen() != null && !ing.rootAllergen().isBlank()) {
+        for (Ingredient ing : ingredients) {
+            if (!isUnresolvedRoot(ing)) {
                 resolved.add(ing);
                 continue;
             }
-
             IngredientResolution resolution =
                     resolutions.getOrDefault(ing.ingredientName(), IngredientResolution.unknown());
-            switch (resolution.kind()) {
-                case RESOLVED -> {
-                    String name = resolution.canonicalName() != null && !resolution.canonicalName().isBlank()
-                        ? resolution.canonicalName().trim()
-                        : ing.ingredientName();
-                    boolean chemicalAlias = resolution.chemicalAlias() || ing.chemicalAlias();
-                    resolved.add(new Ingredient(
-                        name,
-                        ing.parentAllergen(),
-                        resolution.rootAllergen(),
-                        chemicalAlias));
-                }
-                case KNOWN_SAFE -> resolved.add(ing);
-                case UNKNOWN -> {
-                    // Deterministic keyword fallback for verbose labels the catalog missed (e.g.
-                    // "Enriched High Protein Wheat Flour" -> GLUTEN). Catching a real allergen here
-                    // decides the product at Tier 1 instead of escalating to the LLM, which would
-                    // otherwise mis-tag every unresolved ingredient with the restriction.
-                    String keywordRoot = AllergenKeywords.matchRoot(ing.ingredientName());
-                    if (keywordRoot != null) {
-                        resolved.add(new Ingredient(ing.ingredientName(), ing.parentAllergen(),
-                                keywordRoot, ing.chemicalAlias()));
-                    } else {
-                        unresolvedNames.add(displayIngredientName(ing.ingredientName()));
-                        resolved.add(ing);
-                    }
-                }
-            }
+            resolved.add(resolveOne(ing, resolution, unresolvedNames));
         }
+        return new IngredientResolutionOutcome(resolved, unresolvedNames);
+    }
 
-        ProductData enriched = new ProductData(product.barcode(), resolved,
-                product.ingredientsText(), product.labelTags(), product.tracesTags(),
-                product.nutrition(), true);
+    private static boolean isUnresolvedRoot(Ingredient ing) {
+        return ing.rootAllergen() == null || ing.rootAllergen().isBlank();
+    }
 
+    /** Resolves one already-unresolved ingredient, recording its name if it stays unresolved. */
+    private static Ingredient resolveOne(
+            Ingredient ing, IngredientResolution resolution, List<String> unresolvedNames) {
+        return switch (resolution.kind()) {
+            case RESOLVED -> {
+                String name = resolution.canonicalName() != null && !resolution.canonicalName().isBlank()
+                    ? resolution.canonicalName().trim()
+                    : ing.ingredientName();
+                boolean chemicalAlias = resolution.chemicalAlias() || ing.chemicalAlias();
+                yield new Ingredient(name, ing.parentAllergen(), resolution.rootAllergen(), chemicalAlias);
+            }
+            case KNOWN_SAFE -> ing;
+            case UNKNOWN -> resolveViaKeywordFallback(ing, unresolvedNames);
+        };
+    }
+
+    /**
+     * Deterministic keyword fallback for verbose labels the catalog missed (e.g.
+     * "Enriched High Protein Wheat Flour" -> GLUTEN). Catching a real allergen here decides the
+     * product at Tier 1 instead of escalating to the LLM, which would otherwise mis-tag every
+     * unresolved ingredient with the restriction.
+     */
+    private static Ingredient resolveViaKeywordFallback(Ingredient ing, List<String> unresolvedNames) {
+        String keywordRoot = AllergenKeywords.matchRoot(ing.ingredientName());
+        if (keywordRoot != null) {
+            return new Ingredient(ing.ingredientName(), ing.parentAllergen(), keywordRoot, ing.chemicalAlias());
+        }
+        unresolvedNames.add(displayIngredientName(ing.ingredientName()));
+        return ing;
+    }
+
+    /** Runs every checker that supports each active rule's category, collecting all findings. */
+    private List<Finding> runCheckers(List<RestrictionRule> activeRules, ProductData product) {
         List<Finding> findings = new ArrayList<>();
         for (RestrictionRule rule : activeRules) {
             for (RestrictionChecker checker : checkers) {
                 if (checker.supports(rule.category())) {
-                    checker.check(rule, enriched, findings);
+                    checker.check(rule, product, findings);
                 }
             }
         }
-
-        findings.addAll(crossContaminationFindings(activeRules, enriched));
-
-        return decide(activeRules, findings, unresolvedNames);
+        return findings;
     }
 
     /**
@@ -184,14 +210,7 @@ public class DietaryRuleEngine {
                 product.nutrition(),
                 true);
 
-        List<Finding> findings = new ArrayList<>();
-        for (RestrictionRule rule : activeRules) {
-            for (RestrictionChecker checker : checkers) {
-                if (checker.supports(rule.category())) {
-                    checker.check(rule, sparseProduct, findings);
-                }
-            }
-        }
+        List<Finding> findings = runCheckers(activeRules, sparseProduct);
         findings.addAll(crossContaminationFindings(activeRules, sparseProduct));
         return decide(activeRules, findings, List.of());
     }
@@ -231,10 +250,28 @@ public class DietaryRuleEngine {
         List<RestrictionRule> activeRules,
         ProductData product
     ) {
+        CrossContaminationResult result = analyseCrossContamination(product);
+        if (result == null) {
+            return List.of();
+        }
+
+        Set<String> profileAllergenCodes = collectProfileAllergenCodes(activeRules);
+        if (profileAllergenCodes.isEmpty()) {
+            return List.of();
+        }
+
+        return buildCrossContaminationFindings(result, profileAllergenCodes);
+    }
+
+    /**
+     * Runs the cross-contamination tool over label text and traces_tags, returning {@code null}
+     * when there is nothing to analyse or no usable signal came back.
+     */
+    private CrossContaminationResult analyseCrossContamination(ProductData product) {
         boolean blankText = product.ingredientsText() == null || product.ingredientsText().isBlank();
         boolean blankTraces = product.tracesTags() == null || product.tracesTags().isEmpty();
         if (blankText && blankTraces) {
-            return List.of();
+            return null;
         }
 
         CrossContaminationResult result = crossContaminationTool.analyse(
@@ -242,20 +279,22 @@ public class DietaryRuleEngine {
             blankTraces ? List.of() : product.tracesTags());
         if (result == null || !result.mayContain()
                 || result.allergens() == null || result.allergens().isEmpty()) {
-            return List.of();
+            return null;
         }
+        return result;
+    }
 
-        Set<String> profileAllergenCodes = activeRules.stream()
-            .filter(rule -> rule.category() == com.canmakan.backend.knowledgebase.model.RestrictionCategory.ALLERGEN)
-            .map(rule -> rule.code())
+    private static Set<String> collectProfileAllergenCodes(List<RestrictionRule> activeRules) {
+        return activeRules.stream()
+            .filter(rule -> rule.category() == RestrictionCategory.ALLERGEN)
+            .map(RestrictionRule::code)
             .filter(code -> code != null && !code.isBlank())
             .map(code -> code.trim().toUpperCase(Locale.ROOT))
             .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
 
-        if (profileAllergenCodes.isEmpty()) {
-            return List.of();
-        }
-
+    private static List<Finding> buildCrossContaminationFindings(
+            CrossContaminationResult result, Set<String> profileAllergenCodes) {
         String phrase = result.phrase() == null || result.phrase().isBlank()
             ? "cross-contamination signal"
             : result.phrase();
@@ -267,8 +306,7 @@ public class DietaryRuleEngine {
                 continue;
             }
             String normalized = allergen.trim().toUpperCase(Locale.ROOT);
-            Set<String> candidates = expandAllergenAliases(normalized);
-            for (String candidate : candidates) {
+            for (String candidate : expandAllergenAliases(normalized)) {
                 if (profileAllergenCodes.contains(candidate) && emitted.add(candidate)) {
                     hits.add(new Finding(
                             CROSS_CONTAMINATION,
@@ -343,7 +381,7 @@ public class DietaryRuleEngine {
         SafetyVerdict.Level level, List<Finding> findings, List<String> unresolved) {
         List<String> parts = new ArrayList<>();
         if (!findings.isEmpty()) {
-            parts.add(findings.stream().map(finding -> finding.reason()).collect(Collectors.joining("; ")));
+            parts.add(findings.stream().map(Finding::reason).collect(Collectors.joining("; ")));
         }
         if (!unresolved.isEmpty()) {
             String noun = unresolved.size() == 1 ? "ingredient" : "ingredients";

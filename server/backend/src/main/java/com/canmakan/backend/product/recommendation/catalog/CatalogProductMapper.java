@@ -49,7 +49,7 @@ public class CatalogProductMapper {
             return List.of();
         }
         return Arrays.stream(tags.split(","))
-            .map(tag -> tag.trim())
+            .map(String::trim)
             .filter(tag -> !tag.isEmpty())
             .distinct()
             .toList();
