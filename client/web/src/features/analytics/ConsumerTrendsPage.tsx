@@ -1,7 +1,18 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EmptyState, ErrorState, LoadingState } from "../../shared/ui/PageState";
+import { HoverTip } from "../../shared/ui/HoverTip";
 import { consumerTrendsApiService } from "./consumerTrendsApiService";
-import { buildPeriodQuery } from "./consumerTrendsDateRange";
+import {
+  chartEndLabelIndexes,
+  consumerTrendsChartAxis,
+} from "./consumerTrendsChartAxis";
+import {
+  PERIOD_OPTIONS,
+  buildPeriodQuery,
+  describeRangeError,
+  matchingPresetDays,
+  singaporeToday,
+} from "./consumerTrendsDateRange";
 import { downloadConsumerTrendsReport } from "./consumerTrendsReport";
 import type {
   CategoryScanTrend,
@@ -10,8 +21,15 @@ import type {
   ProductScanTrend,
 } from "./consumerTrendsTypes";
 
-const PERIOD_OPTIONS = [7, 30, 90] as const;
-const PRODUCTS_PER_PAGE = 5;
+const ROWS_PER_PAGE = 10;
+const INGREDIENT_RANKING_LIMIT = 20;
+
+const SUMMARY_HELP = {
+  totalScans: "All product scans recorded in the selected period, including repeats of the same product.",
+  uniqueProducts: "Distinct products that were scanned at least once in the selected period.",
+  averageScansPerDay: "Total scans divided by the number of days in the selected period.",
+  peakScanDay: "The calendar day with the most scans in the selected period.",
+};
 
 function isCalendarDate(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false;
@@ -108,61 +126,87 @@ function formatNumber(value: number): string {
 }
 
 export function ConsumerTrendsPage() {
-  const [periodDays, setPeriodDays] = useState<(typeof PERIOD_OPTIONS)[number]>(30);
+  const today = singaporeToday();
   const [query, setQuery] = useState<ConsumerTrendsQuery>(() => buildPeriodQuery(30));
+  const [fromInput, setFromInput] = useState(() => query.from ?? "");
+  const [toInput, setToInput] = useState(() => query.to ?? "");
+  const [rangeError, setRangeError] = useState<string | null>(null);
   const [data, setData] = useState<ConsumerTrendsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [productPage, setProductPage] = useState(0);
   const exportInProgress = useRef(false);
   const latestLoadRequest = useRef(0);
-
-  const load = useCallback(async () => {
-    const requestId = ++latestLoadRequest.current;
-    setLoading(true);
-    setError(null);
-    setExportError(null);
-    setExportSuccess(false);
-
-    try {
-      const response = await consumerTrendsApiService.getConsumerTrends(query);
-      if (requestId === latestLoadRequest.current) {
-        setData(prepareConsumerTrendsResponse(response));
-      }
-    } catch (caught) {
-      if (requestId === latestLoadRequest.current) {
-        setError(caught instanceof Error ? caught.message : "Unable to load consumer trends.");
-      }
-    } finally {
-      if (requestId === latestLoadRequest.current) {
-        setLoading(false);
-      }
-    }
-  }, [query]);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
-    const request = window.setTimeout(() => void load(), 0);
+    const requestId = ++latestLoadRequest.current;
+    const request = window.setTimeout(() => {
+      void (async () => {
+        setLoading(true);
+        setError(null);
+        setExportError(null);
+        setExportSuccess(false);
+
+        try {
+          const response = await consumerTrendsApiService.getConsumerTrends({
+            ...query,
+            limit: INGREDIENT_RANKING_LIMIT,
+          });
+          if (requestId === latestLoadRequest.current) {
+            setData(prepareConsumerTrendsResponse(response));
+          }
+        } catch (caught) {
+          if (requestId === latestLoadRequest.current) {
+            setError(caught instanceof Error ? caught.message : "Unable to load consumer trends.");
+          }
+        } finally {
+          if (requestId === latestLoadRequest.current) {
+            setLoading(false);
+          }
+        }
+      })();
+    }, 0);
     return () => window.clearTimeout(request);
-  }, [load]);
+  }, [query, reloadNonce]);
+
+  const load = () => setReloadNonce((nonce) => nonce + 1);
 
   const updatePeriod = (value: string) => {
+    if (value === "custom") return;
     const days = Number(value) as (typeof PERIOD_OPTIONS)[number];
-    if (!PERIOD_OPTIONS.includes(days)) {
+    if (!PERIOD_OPTIONS.includes(days)) return;
+    const nextQuery = buildPeriodQuery(days, query.category);
+    setRangeError(null);
+    setFromInput(nextQuery.from ?? "");
+    setToInput(nextQuery.to ?? "");
+    setQuery(nextQuery);
+  };
+
+  const applyCustomRange = (from: string, to: string) => {
+    const message = describeRangeError(from, to, today);
+    if (message) {
+      setRangeError(message);
       return;
     }
-
-    setPeriodDays(days);
-    setProductPage(0);
-    setQuery(buildPeriodQuery(days, query.category));
+    setRangeError(null);
+    setQuery({
+      from,
+      to,
+      category: query.category,
+    });
   };
 
   const updateCategory = (category: string) => {
-    setProductPage(0);
-    setQuery(buildPeriodQuery(periodDays, category || undefined));
+    setQuery({
+      ...query,
+      category: category || undefined,
+    });
   };
+
+  const presetDays = matchingPresetDays(query.from, query.to, today);
 
   const categoryOptions = data?.categoryOverview.map((item) => item.category) ?? [];
   const selectedCategory = query.category ?? "";
@@ -197,9 +241,9 @@ export function ConsumerTrendsPage() {
 
   return (
     <div className="admin-page analytics-page">
-      <header className="page-header analytics-header">
+      <header className="page-header page-header--split analytics-header">
         <div>
-          <p className="eyebrow">ADMIN ANALYTICS</p>
+          <p className="eyebrow">Consumer Analytics</p>
           <h1>Consumer Trends</h1>
           <p>
             Aggregated scan activity and dietary-concern insights. Scan activity indicates consumer interest,
@@ -207,47 +251,90 @@ export function ConsumerTrendsPage() {
           </p>
         </div>
 
-        <div className="analytics-controls" aria-label="Consumer trends filters">
-          <label>
-            Period
-            <select value={periodDays} onChange={(event) => updatePeriod(event.target.value)} disabled={loading}>
-              {PERIOD_OPTIONS.map((days) => (
-                <option key={days} value={days}>
-                  Last {days} Days
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="analytics-toolbar">
+          <div className="analytics-controls" aria-label="Consumer trends filters">
+            <label>
+              Period
+              <select
+                value={presetDays ?? "custom"}
+                onChange={(event) => updatePeriod(event.target.value)}
+                disabled={loading}
+              >
+                {PERIOD_OPTIONS.map((days) => (
+                  <option key={days} value={days}>
+                    Last {days} Days
+                  </option>
+                ))}
+                <option value="custom">Custom range</option>
+              </select>
+            </label>
 
-          <label>
-            Product Category
-            <select
-              value={selectedCategory}
-              onChange={(event) => updateCategory(event.target.value)}
+            <label>
+              From
+              <input
+                type="date"
+                value={fromInput}
+                max={today}
+                disabled={loading}
+                onChange={(event) => {
+                  const nextFrom = event.target.value;
+                  setFromInput(nextFrom);
+                  applyCustomRange(nextFrom, toInput);
+                }}
+              />
+            </label>
+
+            <label>
+              To
+              <input
+                type="date"
+                value={toInput}
+                max={today}
+                disabled={loading}
+                onChange={(event) => {
+                  const nextTo = event.target.value;
+                  setToInput(nextTo);
+                  applyCustomRange(fromInput, nextTo);
+                }}
+              />
+            </label>
+
+            <label>
+              Product Category
+              <select
+                value={selectedCategory}
+                onChange={(event) => updateCategory(event.target.value)}
+                disabled={loading}
+              >
+                <option value="">All Categories</option>
+                {categoryOptions.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="analytics-toolbar-actions">
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={() => void load()}
               disabled={loading}
             >
-              <option value="">All Categories</option>
-              {categoryOptions.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button type="button" className="button button-secondary" onClick={() => void load()} disabled={loading}>
-            {loading ? "Refreshing…" : "Refresh"}
-          </button>
-
-          <button
-            type="button"
-            className="button button--primary"
-            onClick={() => void generateReport()}
-            disabled={!canExport}
-            aria-describedby="consumer-trends-export-help"
-          >
-            {exporting ? "Generating…" : "Generate CSV Report"}
-          </button>
+              {loading ? "Refreshing…" : "Refresh"}
+            </button>
+            <button
+              type="button"
+              className="button button--primary"
+              onClick={() => void generateReport()}
+              disabled={!canExport}
+              aria-describedby="consumer-trends-export-help"
+            >
+              {exporting ? "Generating…" : "Generate Report"}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -255,6 +342,7 @@ export function ConsumerTrendsPage() {
         Exports the currently loaded anonymous aggregate data only. Raw scans and personal information are excluded.
       </p>
 
+      {rangeError ? <p className="form-message form-message--error" role="alert">{rangeError}</p> : null}
       {exportError ? <p className="form-message form-message--error" role="alert">{exportError}</p> : null}
       {exportSuccess ? (
         <p className="form-message form-message--success" role="status">Consumer trends report downloaded.</p>
@@ -266,8 +354,6 @@ export function ConsumerTrendsPage() {
       {!error && data ? (
         <ConsumerTrendsResult
           data={data}
-          productPage={productPage}
-          onProductPageChange={setProductPage}
           selectedCategory={selectedCategory}
           onCategoryChange={updateCategory}
         />
@@ -278,33 +364,40 @@ export function ConsumerTrendsPage() {
 
 function ConsumerTrendsResult({
   data,
-  productPage,
-  onProductPageChange,
   selectedCategory,
   onCategoryChange,
 }: {
   data: ConsumerTrendsResponse;
-  productPage: number;
-  onProductPageChange: (page: number) => void;
   selectedCategory: string;
   onCategoryChange: (category: string) => void;
 }) {
-  useEffect(() => {
-    onProductPageChange(0);
-  }, [data.period.from, data.period.to, data.appliedFilters.category, onProductPageChange]);
-
   const noActivity = data.summary.totalScans === 0;
+  const listResetKey = `${data.period.from}|${data.period.to}|${data.appliedFilters.category ?? ""}`;
+  const periodLabel = `${formatDate(data.period.from)} – ${formatDate(data.period.to)}`;
 
   return (
     <>
       <section className="analytics-summary-grid" aria-label="Consumer trends summary">
-        <SummaryCard label="Total Scans" value={formatNumber(data.summary.totalScans)} />
-        <SummaryCard label="Unique Products Scanned" value={formatNumber(data.summary.uniqueProducts)} />
-        <SummaryCard label="Average Scans per Day" value={data.summary.averageScansPerDay.toFixed(2)} />
+        <SummaryCard
+          label="Total Scans"
+          value={formatNumber(data.summary.totalScans)}
+          title={SUMMARY_HELP.totalScans}
+        />
+        <SummaryCard
+          label="Unique Products Scanned"
+          value={formatNumber(data.summary.uniqueProducts)}
+          title={SUMMARY_HELP.uniqueProducts}
+        />
+        <SummaryCard
+          label="Average Scans per Day"
+          value={data.summary.averageScansPerDay.toFixed(2)}
+          title={SUMMARY_HELP.averageScansPerDay}
+        />
         <SummaryCard
           label="Peak Scan Day"
           value={data.summary.peakScanDay ? formatDate(data.summary.peakScanDay.date) : "No activity"}
           detail={data.summary.peakScanDay ? `${formatNumber(data.summary.peakScanDay.scanCount)} scans` : undefined}
+          title={SUMMARY_HELP.peakScanDay}
         />
       </section>
 
@@ -323,67 +416,110 @@ function ConsumerTrendsResult({
       ) : null}
 
       <DailyActivityChart daily={data.dailyTrend} />
+      <OutcomeMix data={data} />
 
       <div className="analytics-two-column">
         <ProductRankingChart
           products={data.mostScannedProducts}
-          page={productPage}
-          onPageChange={onProductPageChange}
+          resetKey={listResetKey}
+          periodLabel={periodLabel}
         />
         <CategoryOverviewChart
           categories={data.categoryOverview}
           selectedCategory={selectedCategory}
           onCategoryChange={onCategoryChange}
+          resetKey={listResetKey}
+          periodLabel={periodLabel}
         />
       </div>
 
       <div className="analytics-two-column">
         <ConcernBars
+          eyebrow="Dietary concerns"
           title="Most Frequently Triggered Dietary Restrictions"
           description="Counts show scan-triggered dietary-concern signals, not population prevalence."
           items={data.topRestrictions.map((item) => ({ label: item.restrictionCode, count: item.flaggedCount }))}
           emptyMessage="No dietary restrictions were triggered in the selected period."
+          paginationLabel="Dietary restriction ranking pages"
+          resetKey={listResetKey}
+          periodLabel={periodLabel}
         />
         <ConcernBars
+          eyebrow="Ingredient flags"
           title="Top Flagged Ingredients"
           description="Counts show ingredients flagged in scan findings, not population prevalence."
           items={data.topFlaggedIngredients.map((item) => ({ label: item.ingredientName, count: item.flaggedCount }))}
           emptyMessage="No ingredients were flagged in the selected period."
+          paginationLabel="Flagged ingredient ranking pages"
+          resetKey={listResetKey}
+          periodLabel={periodLabel}
         />
       </div>
-
-      <OutcomeMix data={data} />
     </>
   );
 }
 
-function SummaryCard({ label, value, detail }: { label: string; value: ReactNode; detail?: string }) {
+function SummaryCard({
+  label,
+  value,
+  detail,
+  title,
+}: {
+  label: string;
+  value: ReactNode;
+  detail?: string;
+  title: string;
+}) {
   return (
-    <article className="analytics-card summary-card">
-      <p className="analytics-label">{label}</p>
-      <strong>{value}</strong>
-      {detail ? <span>{detail}</span> : null}
-    </article>
+    <HoverTip text={title} className="hover-tip--block">
+      <article className="analytics-card summary-card">
+        <p className="analytics-label">{label}</p>
+        <strong>{value}</strong>
+        {detail ? <span>{detail}</span> : null}
+      </article>
+    </HoverTip>
   );
 }
 
 function DailyActivityChart({ daily }: { daily: ConsumerTrendsResponse["dailyTrend"] }) {
-  const width = 760;
-  const height = 260;
-  const padding = 42;
-  const plotWidth = width - padding * 2;
-  const plotHeight = height - padding * 2;
-  const maxValue = Math.max(1, ...daily.map((item) => item.totalCount));
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const width = 720
+  const height = 220
+  const padLeft = 48
+  const padRight = 16
+  const padTop = 12
+  const padBottom = 32
+  const plotWidth = width - padLeft - padRight
+  const plotHeight = height - padTop - padBottom
+  const dataMax = Math.max(0, ...daily.map((item) => item.totalCount))
+  const { axisMax, ticks } = consumerTrendsChartAxis(dataMax)
+  const baseline = height - padBottom
   const pointFor = (index: number, value: number) => {
-    const x = daily.length <= 1 ? width / 2 : padding + (index / (daily.length - 1)) * plotWidth;
-    const y = height - padding - (value / maxValue) * plotHeight;
-    return { x, y };
-  };
-  const points = daily.map((item, index) => {
-    const point = pointFor(index, item.totalCount);
-    return `${point.x},${point.y}`;
-  });
-  const labelInterval = daily.length <= 7 ? 1 : daily.length <= 30 ? 5 : 15;
+    const x = daily.length <= 1 ? padLeft + plotWidth / 2 : padLeft + (index / (daily.length - 1)) * plotWidth
+    const y = baseline - (value / axisMax) * plotHeight
+    return { x, y }
+  }
+  const linePoints = daily.map((item, index) => {
+    const point = pointFor(index, item.totalCount)
+    return `${point.x},${point.y}`
+  })
+  const areaPoints = daily.length > 0
+    ? `${pointFor(0, 0).x},${baseline} ${linePoints.join(" ")} ${pointFor(daily.length - 1, 0).x},${baseline}`
+    : ""
+  const xLabelIndexes = chartEndLabelIndexes(daily.length)
+  const hovered = hoveredIndex === null ? undefined : daily[hoveredIndex]
+  const hoveredPoint = hovered && hoveredIndex !== null
+    ? pointFor(hoveredIndex, hovered.totalCount)
+    : null
+  const dailyResetKey = `${daily[0]?.date ?? ""}|${daily[daily.length - 1]?.date ?? ""}|${daily.length}`
+  const {
+    page: dailyPage,
+    setPage: setDailyPage,
+    start: dailyStart,
+    visible: visibleDays,
+    rangeEnd: dailyRangeEnd,
+    total: dailyTotal,
+  } = usePagedItems(daily, dailyResetKey)
 
   return (
     <section className="analytics-panel analytics-line-panel" aria-labelledby="daily-activity-title">
@@ -399,58 +535,87 @@ function DailyActivityChart({ daily }: { daily: ConsumerTrendsResponse["dailyTre
         <svg
           className="analytics-line-chart"
           viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="xMidYMid meet"
           role="img"
           aria-label="Line chart of total scans for every day in the selected period"
         >
-          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} className="chart-axis" />
-          <line x1={padding} y1={padding} x2={padding} y2={height - padding} className="chart-axis" />
-          <line x1={padding} y1={padding} x2={width - padding} y2={padding} className="chart-grid-line" />
-          <text x={padding - 10} y={padding + 4} textAnchor="end" className="chart-axis-label">
-            {maxValue}
-          </text>
-          <text x={padding - 10} y={height - padding + 4} textAnchor="end" className="chart-axis-label">
-            0
-          </text>
-          <text
-            x={14}
-            y={height / 2}
-            textAnchor="middle"
-            className="chart-axis-label"
-            transform={`rotate(-90 14 ${height / 2})`}
-          >
-            Scans
-          </text>
-          {points.length > 1 ? <polyline points={points.join(" ")} className="chart-line" /> : null}
+          {ticks.map((tick) => {
+            const y = pointFor(0, tick).y
+            return (
+              <g key={tick}>
+                <line x1={padLeft} y1={y} x2={width - padRight} y2={y} className="chart-grid-line" />
+                <text x={padLeft - 8} y={y + 3} textAnchor="end" className="chart-axis-label">
+                  {tick}
+                </text>
+              </g>
+            )
+          })}
+          {areaPoints ? <polygon points={areaPoints} className="chart-area" /> : null}
+          {linePoints.length > 1 ? <polyline points={linePoints.join(" ")} className="chart-line" /> : null}
           {daily.map((item, index) => {
-            const point = pointFor(index, item.totalCount);
-            const showLabel = index % labelInterval === 0 || index === daily.length - 1;
+            if (item.totalCount <= 0) return null
+            const point = pointFor(index, item.totalCount)
             return (
               <g key={item.date}>
                 <circle
                   cx={point.x}
                   cy={point.y}
-                  r="5"
-                  className="chart-point"
-                  tabIndex={0}
-                  aria-label={`${formatDate(item.date)}: ${item.totalCount} total scans, ${item.safeCount} safe, ${item.warningCount} warning, ${item.unsafeCount} unsafe`}
-                >
-                  <title>{`${formatDate(item.date)} — ${item.totalCount} scans`}</title>
-                </circle>
-                {showLabel ? (
-                  <text x={point.x} y={height - 14} textAnchor="middle" className="chart-axis-label">
-                    {formatShortDate(item.date)}
-                  </text>
-                ) : null}
+                  r="9"
+                  className="chart-point-hit"
+                  onMouseEnter={() => setHoveredIndex(index)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                />
+                <circle cx={point.x} cy={point.y} r="2" className="chart-point" />
               </g>
-            );
+            )
+          })}
+          {xLabelIndexes.map((index) => {
+            const item = daily[index]
+            const x = pointFor(index, item.totalCount).x
+            const textAnchor = index === 0 ? "start" : index === daily.length - 1 ? "end" : "middle"
+            return (
+              <text key={item.date} x={x} y={height - 8} textAnchor={textAnchor} className="chart-axis-label">
+                {formatShortDate(item.date)}
+              </text>
+            )
           })}
         </svg>
+        {hovered && hoveredPoint ? (
+          <div
+            className="chart-tooltip"
+            role="tooltip"
+            style={{
+              left: `${(hoveredPoint.x / width) * 100}%`,
+              top: `${(hoveredPoint.y / height) * 100}%`,
+            }}
+          >
+            <strong>{formatDate(hovered.date)}</strong>
+            <span>{hovered.totalCount} scans</span>
+            <span>
+              {hovered.safeCount} safe · {hovered.warningCount} warning · {hovered.unsafeCount} unsafe
+            </span>
+          </div>
+        ) : null}
       </div>
 
       <details className="analytics-data-table">
         <summary>View daily values</summary>
+        <div className="analytics-data-table-toolbar">
+          <ListPageNav
+            label="Daily values pages"
+            page={dailyPage}
+            total={dailyTotal}
+            start={dailyStart}
+            rangeEnd={dailyRangeEnd}
+            onPageChange={setDailyPage}
+          />
+        </div>
         <div className="table-scroll">
-          <table>
+          <table aria-label="Daily scan counts for the selected period">
+            <colgroup>
+              <col className="daily-col-date" />
+              <col className="daily-col-metric" span={4} />
+            </colgroup>
             <thead>
               <tr>
                 <th scope="col">Date</th>
@@ -461,7 +626,7 @@ function DailyActivityChart({ daily }: { daily: ConsumerTrendsResponse["dailyTre
               </tr>
             </thead>
             <tbody>
-              {daily.map((item) => (
+              {visibleDays.map((item) => (
                 <tr key={item.date}>
                   <th scope="row">{formatDate(item.date)}</th>
                   <td>{item.totalCount}</td>
@@ -478,35 +643,104 @@ function DailyActivityChart({ daily }: { daily: ConsumerTrendsResponse["dailyTre
   );
 }
 
-function ProductRankingChart({
-  products,
+function usePagedItems<T>(items: T[], resetKey: string) {
+  const [page, setPage] = useState(0);
+  const [pageResetKey, setPageResetKey] = useState(resetKey);
+  if (pageResetKey !== resetKey) {
+    setPageResetKey(resetKey);
+    setPage(0);
+  }
+
+  const totalPages = Math.max(1, Math.ceil(items.length / ROWS_PER_PAGE));
+  const safePage = Math.min(page, totalPages - 1);
+  const start = safePage * ROWS_PER_PAGE;
+  return {
+    page: safePage,
+    setPage,
+    start,
+    visible: items.slice(start, start + ROWS_PER_PAGE),
+    rangeEnd: Math.min(start + ROWS_PER_PAGE, items.length),
+    total: items.length,
+  };
+}
+
+function ListPageNav({
+  label,
   page,
+  total,
+  start,
+  rangeEnd,
   onPageChange,
 }: {
-  products: ProductScanTrend[];
+  label: string;
   page: number;
+  total: number;
+  start: number;
+  rangeEnd: number;
   onPageChange: (page: number) => void;
 }) {
-  const totalPages = Math.max(1, Math.ceil(products.length / PRODUCTS_PER_PAGE));
-  const safePage = Math.min(page, totalPages - 1);
-  const start = safePage * PRODUCTS_PER_PAGE;
-  const visibleProducts = products.slice(start, start + PRODUCTS_PER_PAGE);
+  if (total === 0) return null;
+  const totalPages = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
+  const rangeText = `${start + 1}–${rangeEnd} of ${total}`;
+  if (total <= ROWS_PER_PAGE) return <span>{rangeText}</span>;
+  return (
+    <nav className="analytics-pagination analytics-pagination--inline" aria-label={label}>
+      <span>{rangeText}</span>
+      <button
+        type="button"
+        className="button button--secondary"
+        disabled={page === 0}
+        onClick={() => onPageChange(page - 1)}
+      >
+        Previous
+      </button>
+      <button
+        type="button"
+        className="button button--secondary"
+        disabled={page >= totalPages - 1}
+        onClick={() => onPageChange(page + 1)}
+      >
+        Next
+      </button>
+    </nav>
+  );
+}
+
+function ProductRankingChart({
+  products,
+  resetKey,
+  periodLabel,
+}: {
+  products: ProductScanTrend[];
+  resetKey: string;
+  periodLabel: string;
+}) {
+  const { page, setPage, start, visible, rangeEnd, total } = usePagedItems(products, resetKey);
   const maxCount = Math.max(1, ...products.map((item) => item.scanCount));
-  const rangeEnd = Math.min(start + PRODUCTS_PER_PAGE, products.length);
 
   return (
     <section className="analytics-panel" aria-labelledby="products-title">
       <div className="analytics-panel-heading">
         <div>
-          <p className="eyebrow">PRODUCT INTEREST</p>
+          <p className="eyebrow">Product interest</p>
           <h2 id="products-title">Most Scanned Products</h2>
         </div>
-        {products.length ? <span>{start + 1}–{rangeEnd} of {products.length}</span> : null}
+        <div className="analytics-panel-heading-meta">
+          <span>{periodLabel}</span>
+          <ListPageNav
+            label="Product ranking pages"
+            page={page}
+            total={total}
+            start={start}
+            rangeEnd={rangeEnd}
+            onPageChange={setPage}
+          />
+        </div>
       </div>
 
-      {visibleProducts.length ? (
+      {visible.length ? (
         <ol className="horizontal-bar-list product-bar-list" start={start + 1}>
-          {visibleProducts.map((product) => (
+          {visible.map((product) => (
             <li key={`${product.rank}-${product.productName}`}>
               <div className="horizontal-bar-label">
                 <span title={product.productName}>{product.productName}</span>
@@ -525,23 +759,6 @@ function ProductRankingChart({
         <p className="empty-copy">No products were resolved for this period.</p>
       )}
 
-      {products.length > PRODUCTS_PER_PAGE ? (
-        <nav className="analytics-pagination" aria-label="Product ranking pages">
-          <button type="button" className="button button-secondary" disabled={safePage === 0} onClick={() => onPageChange(safePage - 1)}>
-            Previous
-          </button>
-          <span>Page {safePage + 1} of {totalPages}</span>
-          <button
-            type="button"
-            className="button button-secondary"
-            disabled={safePage >= totalPages - 1}
-            onClick={() => onPageChange(safePage + 1)}
-          >
-            Next
-          </button>
-        </nav>
-      ) : null}
-
       <p className="analytics-note">
         Percentages use all filtered scans as the denominator, including scans without a resolved product barcode.
       </p>
@@ -553,30 +770,46 @@ function CategoryOverviewChart({
   categories,
   selectedCategory,
   onCategoryChange,
+  resetKey,
+  periodLabel,
 }: {
   categories: CategoryScanTrend[];
   selectedCategory: string;
   onCategoryChange: (category: string) => void;
+  resetKey: string;
+  periodLabel: string;
 }) {
+  const { page, setPage, start, visible, rangeEnd, total } = usePagedItems(categories, resetKey);
   const maxCount = Math.max(1, ...categories.map((item) => item.scanCount));
 
   return (
     <section className="analytics-panel" aria-labelledby="categories-title">
       <div className="analytics-panel-heading">
         <div>
-          <p className="eyebrow">FULL-PERIOD MIX</p>
+          <p className="eyebrow">Category mix</p>
           <h2 id="categories-title">Scan Activity by Category</h2>
         </div>
-        {selectedCategory ? (
-          <button type="button" className="text-button" onClick={() => onCategoryChange("")}>
-            Show all
-          </button>
-        ) : null}
+        <div className="analytics-panel-heading-meta">
+          <span>{periodLabel}</span>
+          {selectedCategory ? (
+            <button type="button" className="text-button" onClick={() => onCategoryChange("")}>
+              Show all
+            </button>
+          ) : null}
+          <ListPageNav
+            label="Category ranking pages"
+            page={page}
+            total={total}
+            start={start}
+            rangeEnd={rangeEnd}
+            onPageChange={setPage}
+          />
+        </div>
       </div>
 
-      {categories.length ? (
+      {visible.length ? (
         <div className="category-bar-list">
-          {categories.map((item) => {
+          {visible.map((item) => {
             const selected = selectedCategory === item.category;
             return (
               <button
@@ -600,37 +833,64 @@ function CategoryOverviewChart({
       ) : (
         <p className="empty-copy">No category activity is available for this period.</p>
       )}
-      <p className="analytics-note">Select a category to apply it to every chart and summary above.</p>
+      <p className="analytics-note">
+        This mix uses the selected dates. Choosing a category still leaves this mix unchanged and applies the filter to the other charts.
+      </p>
     </section>
   );
 }
 
 function ConcernBars({
+  eyebrow,
   title,
   description,
   items,
   emptyMessage,
+  paginationLabel,
+  resetKey,
+  periodLabel,
 }: {
+  eyebrow: string;
   title: string;
   description: string;
   items: Array<{ label: string; count: number }>;
   emptyMessage: string;
+  paginationLabel: string;
+  resetKey: string;
+  periodLabel: string;
 }) {
+  const { page, setPage, start, visible, rangeEnd, total } = usePagedItems(items, resetKey);
   const maxCount = Math.max(1, ...items.map((item) => item.count));
 
   return (
     <section className="analytics-panel" aria-labelledby={`${title.replaceAll(" ", "-").toLowerCase()}-title`}>
       <div className="analytics-panel-heading">
-        <h2 id={`${title.replaceAll(" ", "-").toLowerCase()}-title`}>{title}</h2>
+        <div>
+          <p className="eyebrow">{eyebrow}</p>
+          <h2 id={`${title.replaceAll(" ", "-").toLowerCase()}-title`}>{title}</h2>
+        </div>
+        <div className="analytics-panel-heading-meta">
+          <span>{periodLabel}</span>
+          <ListPageNav
+            label={paginationLabel}
+            page={page}
+            total={total}
+            start={start}
+            rangeEnd={rangeEnd}
+            onPageChange={setPage}
+          />
+        </div>
       </div>
       <p className="analytics-note analytics-note-leading">{description}</p>
-      {items.length ? (
+      {visible.length ? (
         <ul className="horizontal-bar-list concern-bar-list">
-          {items.map((item) => (
+          {visible.map((item) => (
             <li key={item.label}>
               <div className="horizontal-bar-label">
                 <span>{item.label}</span>
-                <strong>{formatNumber(item.count)} scans</strong>
+                <strong>
+                  {formatNumber(item.count)} scans · {((item.count / maxCount) * 100).toFixed(0)}%
+                </strong>
               </div>
               <div className="horizontal-bar-track" aria-hidden="true">
                 <span style={{ width: `${(item.count / maxCount) * 100}%` }} />
@@ -653,14 +913,17 @@ function OutcomeMix({ data }: { data: ConsumerTrendsResponse }) {
   const warningEnd = Math.min(100, safePercent + warningPercent);
 
   return (
-    <section className="analytics-panel outcome-panel" aria-labelledby="outcome-title">
-      <div className="analytics-panel-heading">
+    <details className="analytics-panel outcome-panel">
+      <summary className="analytics-panel-heading">
         <div>
-          <p className="eyebrow">SUPPORTING VIEW</p>
+          <p className="eyebrow">Scan outcomes</p>
           <h2 id="outcome-title">Scan Verdict Mix</h2>
         </div>
-        <span>{formatDate(data.period.from)} – {formatDate(data.period.to)}</span>
-      </div>
+        <div className="analytics-panel-heading-meta">
+          <span>{formatDate(data.period.from)} – {formatDate(data.period.to)}</span>
+          <span className="outcome-panel-toggle">mix</span>
+        </div>
+      </summary>
       <div className="outcome-content">
         <div
           className="outcome-donut"
@@ -691,7 +954,7 @@ function OutcomeMix({ data }: { data: ConsumerTrendsResponse }) {
           </tbody>
         </table>
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -706,11 +969,12 @@ function OutcomeLegendRow({
   total: number;
   className: string;
 }) {
+  const share = total === 0 ? "0.0" : ((value / total) * 100).toFixed(1);
   return (
-    <tr>
+    <tr className={`outcome-tile ${className}`}>
       <th scope="row"><span className={`legend-dot ${className}`} aria-hidden="true" />{label}</th>
       <td>{formatNumber(value)}</td>
-      <td>{total === 0 ? "0.0" : ((value / total) * 100).toFixed(1)}%</td>
+      <td>{share}%</td>
     </tr>
   );
 }

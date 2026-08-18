@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConsumerTrendsPage } from '../../../features/analytics/ConsumerTrendsPage'
 import { consumerTrendsApiService } from '../../../features/analytics/consumerTrendsApiService'
-import { buildPeriodQuery } from '../../../features/analytics/consumerTrendsDateRange'
+import { addCalendarDays, buildPeriodQuery } from '../../../features/analytics/consumerTrendsDateRange'
 import { downloadConsumerTrendsReport } from '../../../features/analytics/consumerTrendsReport'
 import type {
   ConsumerTrendsQuery,
@@ -28,6 +28,21 @@ const dailyTrend = Array.from({ length: 7 }, (_, index) => ({
   unsafeCount: 0,
 }))
 
+const productNames = [
+  'Product one',
+  'Product two',
+  'Product three',
+  'Product four',
+  'Product five',
+  'Product six with a deliberately long accessible name',
+  'Product seven',
+  'Product eight',
+  'Product nine',
+  'Product ten',
+  'Product eleven',
+  'Product twelve',
+]
+
 const populatedResponse: ConsumerTrendsResponse = {
   period: { from: '2026-08-01', to: '2026-08-07', timezone: 'Asia/Singapore' },
   appliedFilters: { category: null },
@@ -36,29 +51,39 @@ const populatedResponse: ConsumerTrendsResponse = {
     safeCount: 24,
     warningCount: 6,
     unsafeCount: 0,
-    uniqueProducts: 7,
+    uniqueProducts: 12,
     averageScansPerDay: 4.29,
     peakScanDay: { date: '2026-08-07', scanCount: 8 },
   },
   dailyTrend,
-  mostScannedProducts: [
-    { rank: 1, productName: 'Product one', scanCount: 10, percentage: 33.33 },
-    { rank: 2, productName: 'Product two', scanCount: 9, percentage: 30 },
-    { rank: 3, productName: 'Product three', scanCount: 8, percentage: 26.67 },
-    { rank: 4, productName: 'Product four', scanCount: 7, percentage: 23.33 },
-    { rank: 5, productName: 'Product five', scanCount: 6, percentage: 20 },
-    { rank: 6, productName: 'Product six with a deliberately long accessible name', scanCount: 5, percentage: 16.67 },
-    { rank: 7, productName: 'Product seven', scanCount: 4, percentage: 13.33 },
-  ],
+  mostScannedProducts: productNames.map((productName, index) => ({
+    rank: index + 1,
+    productName,
+    scanCount: index < 7 ? 10 - index : Math.max(1, 4 - (index - 7)),
+    percentage: index < 7 ? Number(((10 - index) * 3.333).toFixed(2)) : 6.67,
+  })),
   categoryOverview: [
     { category: 'Snacks', scanCount: 18, percentage: 60 },
     { category: 'Uncategorised', scanCount: 12, percentage: 40 },
+    ...Array.from({ length: 10 }, (_, index) => ({
+      category: `Category ${index + 3}`,
+      scanCount: 10 - index,
+      percentage: 2,
+    })),
   ],
   topRestrictions: [
-    { restrictionCode: 'PEANUT_ALLERGY', flaggedCount: 5 },
+    { restrictionCode: 'PEANUT_ALLERGY', flaggedCount: 12 },
+    ...Array.from({ length: 11 }, (_, index) => ({
+      restrictionCode: `RESTRICTION_${index + 2}`,
+      flaggedCount: 11 - index,
+    })),
   ],
   topFlaggedIngredients: [
-    { ingredientName: 'Peanut', flaggedCount: 5 },
+    { ingredientName: 'Peanut', flaggedCount: 12 },
+    ...Array.from({ length: 11 }, (_, index) => ({
+      ingredientName: `Ingredient ${index + 2}`,
+      flaggedCount: 11 - index,
+    })),
   ],
   dataQuality: { partial: false, skippedMalformedFindings: 0 },
   generatedAt: '2026-08-07T12:00:00+08:00',
@@ -112,12 +137,14 @@ describe('ConsumerTrendsPage', () => {
   })
 
   it('loads 30 days initially and renders the complete accessible UC7 dashboard', async () => {
+    const user = userEvent.setup()
     render(<ConsumerTrendsPage />)
 
     await screen.findByRole('heading', { name: 'Daily Scan Activity' })
     expect(consumerTrendsApiService.getConsumerTrends).toHaveBeenCalledTimes(1)
     const initialQuery = vi.mocked(consumerTrendsApiService.getConsumerTrends).mock.calls[0][0]
     expect(daysInQuery(initialQuery ?? {})).toBe(30)
+    expect(initialQuery?.limit).toBe(20)
 
     expect(screen.getByText(
       'Aggregated scan activity and dietary-concern insights. Scan activity indicates consumer interest, not actual sales.',
@@ -129,62 +156,116 @@ describe('ConsumerTrendsPage', () => {
     expect(screen.getByText('4.29')).toBeInTheDocument()
     expect(screen.getByText('8 scans')).toBeInTheDocument()
 
+    await user.hover(screen.getByText('Total Scans'))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('All product scans recorded in the selected period')
+    await user.unhover(screen.getByText('Total Scans'))
+
     expect(screen.getByRole('img', { name: /Line chart of total scans/ })).toBeInTheDocument()
-    expect(document.querySelectorAll('.chart-point')).toHaveLength(7)
-    expect(document.querySelector('.chart-point')?.getAttribute('aria-label')).toContain(
-      '2 total scans, 1 safe, 1 warning, 0 unsafe',
-    )
+    expect(document.querySelector('.chart-area')).toBeInTheDocument()
+    expect(document.querySelectorAll('.chart-point')).toHaveLength(6)
     expect(screen.getByText('View daily values')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Most Scanned Products' })).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Daily scan counts for the selected period' })).toBeInTheDocument()
+    expect(screen.getByText('Product interest')).toBeInTheDocument()
+    expect(screen.getByText('Category mix')).toBeInTheDocument()
+    expect(screen.getByText('Dietary concerns')).toBeInTheDocument()
+    expect(screen.getByText('Ingredient flags')).toBeInTheDocument()
+    expect(screen.getByText('Scan outcomes')).toBeInTheDocument()
+    const productPanel = screen.getByRole('heading', { name: 'Most Scanned Products' }).closest('section') as HTMLElement
+    expect(within(productPanel).getAllByRole('listitem')).toHaveLength(10)
+    expect(productPanel.querySelector('.analytics-panel-heading-meta span')?.textContent).toMatch(/–/)
+    const restrictionPanel = screen.getByRole('heading', { name: 'Most Frequently Triggered Dietary Restrictions' }).closest('section') as HTMLElement
+    expect(within(restrictionPanel).getAllByRole('listitem')).toHaveLength(10)
     expect(screen.getByRole('heading', { name: 'Scan Activity by Category' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Most Frequently Triggered Dietary Restrictions' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Top Flagged Ingredients' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Scan Verdict Mix' })).toBeInTheDocument()
     expect(screen.getByText('PEANUT_ALLERGY')).toBeInTheDocument()
     expect(screen.getByText('Counts show scan-triggered dietary-concern signals, not population prevalence.')).toBeInTheDocument()
+    const outcomePanel = screen.getByText('Scan outcomes').closest('details')
+    expect(outcomePanel).not.toBeNull()
+    expect(outcomePanel).not.toHaveAttribute('open')
+    await user.click(screen.getByRole('heading', { name: 'Scan Verdict Mix' }))
+    expect(outcomePanel).toHaveAttribute('open')
     expect(screen.getByRole('img', { name: '80% safe, 20% warning, 0% unsafe' })).toBeInTheDocument()
     const outcomeTable = screen.getByRole('table', { name: 'Exact scan verdict counts and percentages' })
     expect(within(outcomeTable).getByRole('rowheader', { name: 'UNSAFE' })).toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/)
-    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Generate Report' })).toBeEnabled()
     expect(screen.getByText(/Raw scans and personal information are excluded/)).toBeInTheDocument()
   })
 
-  it('paginates five products on a common scale and resets pagination for filter changes', async () => {
+  it('marks only days with scans and shows a tooltip on hover', async () => {
+    const user = userEvent.setup()
+    const longTrend = Array.from({ length: 90 }, (_, index) => ({
+      date: addCalendarDays('2026-05-21', index),
+      totalCount: index === 2 || index === 50 ? 0 : index + 1,
+      safeCount: index === 2 || index === 50 ? 0 : index + 1,
+      warningCount: 0,
+      unsafeCount: 0,
+    }))
+    vi.mocked(consumerTrendsApiService.getConsumerTrends).mockResolvedValue({
+      ...populatedResponse,
+      period: { from: '2026-05-21', to: '2026-08-18', timezone: 'Asia/Singapore' },
+      dailyTrend: longTrend,
+    })
+
+    render(<ConsumerTrendsPage />)
+    await screen.findByRole('heading', { name: 'Daily Scan Activity' })
+
+    expect(document.querySelectorAll('.chart-point')).toHaveLength(88)
+    expect(document.querySelector('.chart-line')?.getAttribute('points')?.split(' ')).toHaveLength(90)
+
+    await user.hover(document.querySelector('.chart-point-hit') as Element)
+    const tooltip = await screen.findByRole('tooltip')
+    expect(tooltip).toHaveTextContent(/scans/)
+    expect(tooltip).toHaveTextContent('safe')
+
+    await user.click(screen.getByText('View daily values'))
+    const dailyTable = screen.getByRole('table', { name: 'Daily scan counts for the selected period' })
+    expect(within(dailyTable).getAllByRole('row')).toHaveLength(11)
+    const dailyPanel = screen.getByRole('heading', { name: 'Daily Scan Activity' }).closest('section') as HTMLElement
+    expect(within(dailyPanel).getByText('1–10 of 90')).toBeInTheDocument()
+    await user.click(within(dailyPanel).getByRole('button', { name: 'Next' }))
+    expect(within(dailyPanel).getByText('11–20 of 90')).toBeInTheDocument()
+  })
+
+  it('paginates ten ranking rows on a common scale and resets pagination for filter changes', async () => {
     const user = userEvent.setup()
     render(<ConsumerTrendsPage />)
     await screen.findByText('Product one')
 
     const productPanel = screen.getByRole('heading', { name: 'Most Scanned Products' }).closest('section')
     expect(productPanel).not.toBeNull()
-    expect(within(productPanel as HTMLElement).getAllByRole('listitem')).toHaveLength(5)
-    expect(screen.getByText('1–5 of 7')).toBeInTheDocument()
+    const products = within(productPanel as HTMLElement)
+    expect(products.getAllByRole('listitem')).toHaveLength(10)
+    expect(products.getByText('1–10 of 12')).toBeInTheDocument()
     expect(screen.getByTestId('product-bar-1')).toHaveStyle({ width: '100%' })
-    expect(screen.queryByText(/Product six with/)).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
+    expect(products.getByText(/Product six with/)).toBeInTheDocument()
+    expect(products.queryByText('Product eleven')).not.toBeInTheDocument()
+    expect(products.getByRole('button', { name: 'Previous' })).toBeDisabled()
 
-    await user.click(screen.getByRole('button', { name: 'Next' }))
-    expect(screen.getByText('6–7 of 7')).toBeInTheDocument()
-    expect(screen.getByText(/Product six with/)).toBeInTheDocument()
-    expect(screen.getByTestId('product-bar-6')).toHaveStyle({ width: '50%' })
-    expect(within(productPanel as HTMLElement).getAllByRole('listitem')).toHaveLength(2)
-    expect(screen.getByRole('button', { name: 'Previous' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+    await user.click(products.getByRole('button', { name: 'Next' }))
+    expect(products.getByText('11–12 of 12')).toBeInTheDocument()
+    expect(products.getByText('Product eleven')).toBeInTheDocument()
+    expect(products.getAllByRole('listitem')).toHaveLength(2)
+    expect(products.getByRole('button', { name: 'Previous' })).toBeEnabled()
+    expect(products.getByRole('button', { name: 'Next' })).toBeDisabled()
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Product Category' }), 'Snacks')
     await waitFor(() => expect(consumerTrendsApiService.getConsumerTrends).toHaveBeenLastCalledWith(
-      expect.objectContaining({ category: 'Snacks' }),
+      expect.objectContaining({ category: 'Snacks', limit: 20 }),
     ))
-    expect(screen.getByText('1–5 of 7')).toBeInTheDocument()
+    expect(products.getByText('1–10 of 12')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Snacks.*18 scans/i })).toHaveAttribute('aria-pressed', 'true')
 
-    await user.click(screen.getByRole('button', { name: 'Next' }))
+    await user.click(products.getByRole('button', { name: 'Next' }))
     await user.selectOptions(screen.getByRole('combobox', { name: 'Period' }), '7')
     await waitFor(() => {
       const lastQuery = vi.mocked(consumerTrendsApiService.getConsumerTrends).mock.calls.at(-1)?.[0]
       expect(daysInQuery(lastQuery ?? {})).toBe(7)
+      expect(lastQuery?.limit).toBe(20)
     })
-    expect(screen.getByText('1–5 of 7')).toBeInTheDocument()
+    expect(products.getByText('1–10 of 12')).toBeInTheDocument()
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Period' }), '90')
     await waitFor(() => {
@@ -225,7 +306,7 @@ describe('ConsumerTrendsPage', () => {
     expect(screen.getByText(/2 scan finding records could not be read/)).toBeInTheDocument()
     expect(screen.getByText('No activity')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: /Line chart of total scans/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Generate Report' })).toBeDisabled()
 
     const categoryPanel = screen.getByRole('heading', { name: 'Scan Activity by Category' }).closest('section')
     expect(categoryPanel).not.toBeNull()
@@ -250,7 +331,7 @@ describe('ConsumerTrendsPage', () => {
 
     render(<ConsumerTrendsPage />)
     expect(screen.getByText('Loading consumer trends…')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Generate Report' })).toBeDisabled()
     await waitFor(() => expect(consumerTrendsApiService.getConsumerTrends).toHaveBeenCalledTimes(1))
 
     await act(async () => rejectRequest(new Error('Synthetic analytics outage')))
@@ -282,7 +363,7 @@ describe('ConsumerTrendsPage', () => {
     const { unmount } = render(<ConsumerTrendsPage />)
     expect(await screen.findByRole('heading', { name: 'Daily Scan Activity' })).toBeInTheDocument()
     expect(screen.getByText('No products were resolved for this period.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Generate Report' })).toBeEnabled()
     unmount()
 
     vi.mocked(consumerTrendsApiService.getConsumerTrends).mockImplementationOnce(async (query) => ({
@@ -293,7 +374,7 @@ describe('ConsumerTrendsPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'The consumer trends data is incomplete. Please refresh and try again.',
     )
-    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Generate Report' })).toBeDisabled()
   })
 
   it('disables export as soon as the selected filter no longer matches the loaded response', async () => {
@@ -308,7 +389,7 @@ describe('ConsumerTrendsPage', () => {
       }),
     )
     await user.selectOptions(screen.getByRole('combobox', { name: 'Product Category' }), 'Snacks')
-    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Generate Report' })).toBeDisabled()
     expect(downloadConsumerTrendsReport).not.toHaveBeenCalled()
 
     const latestQuery = vi.mocked(consumerTrendsApiService.getConsumerTrends).mock.calls.at(-1)?.[0]
@@ -321,7 +402,7 @@ describe('ConsumerTrendsPage', () => {
       },
       appliedFilters: { category: 'Snacks' },
     }))
-    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Generate Report' })).toBeEnabled()
   })
 
   it('generates a report from the loaded filtered response without another analytics request', async () => {
@@ -335,7 +416,7 @@ describe('ConsumerTrendsPage', () => {
     ))
     const requestCount = vi.mocked(consumerTrendsApiService.getConsumerTrends).mock.calls.length
 
-    await user.click(screen.getByRole('button', { name: 'Generate CSV Report' }))
+    await user.click(screen.getByRole('button', { name: 'Generate Report' }))
 
     expect(downloadConsumerTrendsReport).toHaveBeenCalledTimes(1)
     expect(downloadConsumerTrendsReport).toHaveBeenCalledWith(expect.objectContaining({
@@ -357,7 +438,7 @@ describe('ConsumerTrendsPage', () => {
     render(<ConsumerTrendsPage />)
     await screen.findByRole('heading', { name: 'Daily Scan Activity' })
 
-    await user.click(screen.getByRole('button', { name: 'Generate CSV Report' }))
+    await user.click(screen.getByRole('button', { name: 'Generate Report' }))
     const generatingButton = screen.getByRole('button', { name: 'Generating…' })
     expect(generatingButton).toBeDisabled()
     await user.click(generatingButton)
@@ -375,11 +456,28 @@ describe('ConsumerTrendsPage', () => {
     render(<ConsumerTrendsPage />)
     await screen.findByRole('heading', { name: 'Daily Scan Activity' })
 
-    await user.click(screen.getByRole('button', { name: 'Generate CSV Report' }))
+    await user.click(screen.getByRole('button', { name: 'Generate Report' }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('The report could not be downloaded. No file was saved. Please try again.')
     expect(alert).not.toHaveTextContent('Bearer secret')
-    expect(screen.getByRole('button', { name: 'Generate CSV Report' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Generate Report' })).toBeEnabled()
+  })
+
+  it('validates a custom date range against the live API window', async () => {
+    const user = userEvent.setup()
+    render(<ConsumerTrendsPage />)
+    await screen.findByRole('heading', { name: 'Daily Scan Activity' })
+
+    const from = screen.getByLabelText('From')
+    const to = screen.getByLabelText('To')
+    await user.clear(from)
+    await user.type(from, '2026-01-01')
+    await user.clear(to)
+    await user.type(to, '2026-08-18')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The reporting period must not exceed 90 days.',
+    )
   })
 })

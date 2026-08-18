@@ -74,6 +74,16 @@ describe('UsageStatisticsPage', () => {
 
     expect(usageStatisticsApiService.getUsageStatistics).toHaveBeenCalledWith(7)
     expect(screen.getByText('New sign-ups')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /Daily new registrations over 7 days/ })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'New 37%, returning 63%' })).toBeInTheDocument()
+    await user.hover(screen.getByText('New sign-ups'))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('New accounts created during the selected reporting period.')
+    await user.hover(screen.getByText('Stickiness (DAU/MAU)'))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/DAU ÷ MAU/)
+    await user.hover(screen.getByText('D1 retention'))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('scanned again at least one day after signing up')
+    await user.hover(screen.getByText('Sessions / user'))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Average number of sessions per active user')
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Reporting period' }), '30')
     await waitFor(() => expect(usageStatisticsApiService.getUsageStatistics).toHaveBeenLastCalledWith(30))

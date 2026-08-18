@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { adminService } from './adminService'
 import type { AdminScanFeedbackFilters, AdminScanFeedbackItem, AdminScanFeedbackListResponse } from './models'
 import {
@@ -6,9 +7,11 @@ import {
   type DietaryRestrictionOption,
 } from '../family/api/selfProfileApiService'
 import { getErrorMessage } from '../../shared/api/apiErrors'
+import { HoverTip } from '../../shared/ui/HoverTip'
 import { Modal } from '../../shared/ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
 import { ThumbDownIcon, ThumbUpIcon } from '../../shared/ui/ThumbIcons'
+import { formatExactCreatedAt, formatRelativeCreatedAt } from './feedbackTimestamps'
 
 type FeedbackTypeFilter = 'ALL' | 'POSITIVE' | 'NEGATIVE'
 type ResolvedFilter = 'ALL' | 'RESOLVED' | 'UNRESOLVED'
@@ -24,6 +27,15 @@ const DEFAULT_PERIOD_DAYS = 30
 const COMMENT_PREVIEW_LENGTH = 60
 const FEEDBACK_ICON_SIZE = 16
 const PAGE_SIZE = 30
+const SEARCH_DEBOUNCE_MS = 300
+
+function filtersEqual(left: AdminScanFeedbackFilters, right: AdminScanFeedbackFilters): boolean {
+  return left.keyword === right.keyword
+    && left.restrictionCode === right.restrictionCode
+    && left.periodDays === right.periodDays
+    && left.isPositive === right.isPositive
+    && left.resolved === right.resolved
+}
 
 function toFilters(
   keyword: string,
@@ -41,8 +53,9 @@ function toFilters(
   return filters
 }
 
-function formatCreatedAt(value: string): string {
-  return new Date(value).toLocaleString('en-SG')
+function parseResolvedFilter(value: string | null): ResolvedFilter {
+  if (value === 'RESOLVED' || value === 'UNRESOLVED') return value
+  return 'ALL'
 }
 
 function previewComment(comment: string): string {
@@ -53,14 +66,16 @@ function previewComment(comment: string): string {
 }
 
 export function AdminScanFeedbackPage() {
+  const [searchParams] = useSearchParams()
+  const initialResolved = parseResolvedFilter(searchParams.get('resolved'))
   const [keyword, setKeyword] = useState('')
   const [restrictionCode, setRestrictionCode] = useState('')
   const [periodDays, setPeriodDays] = useState(DEFAULT_PERIOD_DAYS)
   const [typeFilter, setTypeFilter] = useState<FeedbackTypeFilter>('ALL')
-  const [resolvedFilter, setResolvedFilter] = useState<ResolvedFilter>('ALL')
-  const [filters, setFilters] = useState<AdminScanFeedbackFilters>({
-    periodDays: DEFAULT_PERIOD_DAYS,
-  })
+  const [resolvedFilter, setResolvedFilter] = useState<ResolvedFilter>(initialResolved)
+  const [filters, setFilters] = useState<AdminScanFeedbackFilters>(() =>
+    toFilters('', '', DEFAULT_PERIOD_DAYS, 'ALL', initialResolved),
+  )
 
   const [data, setData] = useState<AdminScanFeedbackListResponse | null>(null)
   const [restrictions, setRestrictions] = useState<DietaryRestrictionOption[]>([])
@@ -72,6 +87,19 @@ export function AdminScanFeedbackPage() {
   const [notice, setNotice] = useState('')
   const [actionError, setActionError] = useState('')
   const [page, setPage] = useState(0)
+  const paginationResetKey = [
+    filters.keyword ?? '',
+    filters.restrictionCode ?? '',
+    String(filters.periodDays),
+    String(filters.isPositive),
+    String(filters.resolved),
+  ].join('|')
+  const [storedPaginationResetKey, setStoredPaginationResetKey] = useState(paginationResetKey)
+
+  if (storedPaginationResetKey !== paginationResetKey) {
+    setStoredPaginationResetKey(paginationResetKey)
+    setPage(0)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -107,13 +135,37 @@ export function AdminScanFeedbackPage() {
     return () => window.clearTimeout(timeoutId)
   }, [load])
 
-  const applyFilters = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      const next = toFilters(keyword, restrictionCode, periodDays, typeFilter, resolvedFilter)
+      setFilters((current) => (filtersEqual(current, next) ? current : next))
+    }, SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timeoutId)
+  }, [keyword, restrictionCode, periodDays, typeFilter, resolvedFilter])
+
+  const resetFilters = () => {
+    setKeyword('')
+    setRestrictionCode('')
+    setPeriodDays(DEFAULT_PERIOD_DAYS)
+    setTypeFilter('ALL')
+    setResolvedFilter('ALL')
     setNotice('')
     setActionError('')
-    setPage(0)
-    setFilters(toFilters(keyword, restrictionCode, periodDays, typeFilter, resolvedFilter))
+    setFilters(toFilters('', '', DEFAULT_PERIOD_DAYS, 'ALL', 'ALL'))
   }
+
+  const hasActiveFilters = Boolean(
+    keyword.trim()
+      || restrictionCode
+      || periodDays !== DEFAULT_PERIOD_DAYS
+      || typeFilter !== 'ALL'
+      || resolvedFilter !== 'ALL'
+      || filters.keyword
+      || filters.restrictionCode
+      || filters.periodDays !== DEFAULT_PERIOD_DAYS
+      || filters.isPositive !== undefined
+      || filters.resolved !== undefined,
+  )
 
   const changeResolved = async (item: AdminScanFeedbackItem, resolved: boolean) => {
     setNotice('')
@@ -137,7 +189,7 @@ export function AdminScanFeedbackPage() {
     <>
       <header className="page-header page-header--system">
         <div>
-          <p className="eyebrow">System administrators only</p>
+          <p className="eyebrow">Scan Verdict Feedback</p>
           <h1>Handle User Feedback</h1>
           <p>
             Review thumbs up/down feedback reported against scan verdicts, and
@@ -146,7 +198,7 @@ export function AdminScanFeedbackPage() {
         </div>
       </header>
 
-      <section className="summary-grid" aria-label="Feedback summary">
+      <section className="summary-grid summary-grid--feedback" aria-label="Feedback summary">
         <article className="summary-card">
           <span className="summary-card__icon" aria-hidden="true">Σ</span>
           <div>
@@ -177,11 +229,7 @@ export function AdminScanFeedbackPage() {
         </article>
       </section>
 
-      <form
-        className="filter-bar filter-bar--feedback"
-        aria-label="Scan feedback filters"
-        onSubmit={applyFilters}
-      >
+      <section className="filter-bar filter-bar--feedback" aria-label="Scan feedback filters">
         <div className="field-group field-group--search">
           <label htmlFor="feedback-keyword">Keyword</label>
           <input
@@ -245,10 +293,17 @@ export function AdminScanFeedbackPage() {
             <option value="UNRESOLVED">Not resolved</option>
           </select>
         </div>
-        <button className="button button--dark" type="submit">
-          Apply filters
-        </button>
-      </form>
+        <div className="filter-bar__actions">
+          <button
+            className="button button--secondary"
+            type="button"
+            disabled={!hasActiveFilters}
+            onClick={resetFilters}
+          >
+            Clear filters
+          </button>
+        </div>
+      </section>
 
       <div className="sr-live" aria-live="polite">{notice}</div>
       {actionError && (
@@ -270,7 +325,7 @@ export function AdminScanFeedbackPage() {
       ) : (
         <section className="panel panel--table">
           <div className="responsive-table">
-            <table className="data-table">
+            <table className="data-table feedback-table">
               <caption>User feedback reported against scan verdicts</caption>
               <thead>
                 <tr>
@@ -304,31 +359,44 @@ export function AdminScanFeedbackPage() {
                     </td>
                     <td>
                       {item.userComments ? (
-                        <button
-                          className="text-button"
-                          type="button"
-                          onClick={() => setSelectedComment(item)}
-                        >
-                          {previewComment(item.userComments)}
-                        </button>
+                        <HoverTip text={item.userComments.trim()} className="hover-tip--block" interactiveChild>
+                          <button
+                            className="text-button feedback-comment-preview"
+                            type="button"
+                            onClick={() => setSelectedComment(item)}
+                          >
+                            {previewComment(item.userComments)}
+                          </button>
+                        </HoverTip>
                       ) : (
-                        <span>—</span>
+                        <span className="feedback-comment--empty">No comment</span>
                       )}
                     </td>
                     <td>
-                      <time dateTime={item.createdAt}>{formatCreatedAt(item.createdAt)}</time>
+                      <HoverTip text={formatExactCreatedAt(item.createdAt)}>
+                        <time dateTime={item.createdAt}>
+                          {formatRelativeCreatedAt(item.createdAt)}
+                        </time>
+                      </HoverTip>
                     </td>
                     <td>
-                      <select
-                        className="table-select"
-                        aria-label={`Resolved status for ${item.userEmail ?? 'this'} feedback`}
-                        value={item.resolved ? 'RESOLVED' : 'UNRESOLVED'}
+                      <button
+                        type="button"
+                        className={`button button--small ${item.resolved ? 'button--warning' : 'button--success'}`}
+                        aria-label={
+                          item.resolved
+                            ? `Mark ${item.userEmail ?? 'this'} feedback as not resolved`
+                            : `Mark ${item.userEmail ?? 'this'} feedback as resolved`
+                        }
                         disabled={savingId === item.id}
-                        onChange={(event) => void changeResolved(item, event.target.value === 'RESOLVED')}
+                        onClick={() => void changeResolved(item, !item.resolved)}
                       >
-                        <option value="RESOLVED">Resolved</option>
-                        <option value="UNRESOLVED">Not resolved</option>
-                      </select>
+                        {savingId === item.id
+                          ? 'Saving…'
+                          : item.resolved
+                            ? 'Unresolve'
+                            : 'Resolve'}
+                      </button>
                     </td>
                   </tr>
                 ))}

@@ -25,7 +25,7 @@ interface NavigationSection {
 }
 
 const NAV_OPEN_STORAGE_KEY = 'canmakan.portal.nav-open'
-const COMPACT_NAV_QUERY = '(max-width: 850px)'
+const COMPACT_NAV_QUERY = '(max-width: 1100px)'
 
 function isCompactNavViewport() {
   return (
