@@ -122,7 +122,8 @@ Staging and production API runtime is Docker on EC2 (see `CICD-PIPELINE.md` and 
     |   |-- dast.yml               # Nightly cron (18:00 UTC) + workflow_dispatch:
     |   |                          #   OWASP ZAP baseline vs staging web + authenticated API
     |   |-- load-test.yml          # Weekly Sunday cron (19:00 UTC) + dispatch:
-    |   |                          #   Grafana k6 vs staging API (P95 target 500ms)
+    |   |                          #   Grafana k6 scan journey vs staging API
+    |   |                          #   (reads P95 500ms; assess/recs have higher SLOs)
     |   |-- sync-branches.yml      # Push to main: open PR main → develop (hotfixes back)
     |   `-- triage.yml             # Issues opened/edited: keyword labels
     |-- scripts/
