@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { adminService } from './adminService'
 import type { AdminUser, AdminUserFilters, AdminUserRole } from './models'
 import { getErrorMessage } from '../../shared/api/apiErrors'
@@ -23,13 +24,22 @@ function toFilters(
   return filters
 }
 
+function parseStatusFilter(value: string | null): StatusFilter {
+  if (value === 'ACTIVE' || value === 'SUSPENDED') return value
+  return 'ALL'
+}
+
 export function UserAccessPage() {
   const { session } = useSession()
+  const [searchParams] = useSearchParams()
+  const initialStatus = parseStatusFilter(searchParams.get('status'))
   const [users, setUsers] = useState<AdminUser[]>([])
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
-  const [filters, setFilters] = useState<AdminUserFilters>({})
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatus)
+  const [filters, setFilters] = useState<AdminUserFilters>(() =>
+    toFilters('', 'ALL', initialStatus),
+  )
   const [selected, setSelected] = useState<AdminUser | null>(null)
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState('')

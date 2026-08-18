@@ -197,7 +197,7 @@ export function ConsumerTrendsPage() {
 
   return (
     <div className="admin-page analytics-page">
-      <header className="page-header analytics-header">
+      <header className="page-header page-header--split analytics-header">
         <div>
           <p className="eyebrow">ADMIN ANALYTICS</p>
           <h1>Consumer Trends</h1>
@@ -207,37 +207,44 @@ export function ConsumerTrendsPage() {
           </p>
         </div>
 
-        <div className="analytics-controls" aria-label="Consumer trends filters">
-          <label>
-            Period
-            <select value={periodDays} onChange={(event) => updatePeriod(event.target.value)} disabled={loading}>
-              {PERIOD_OPTIONS.map((days) => (
-                <option key={days} value={days}>
-                  Last {days} Days
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="analytics-toolbar">
+          <div className="analytics-controls" aria-label="Consumer trends filters">
+            <label>
+              Period
+              <select value={periodDays} onChange={(event) => updatePeriod(event.target.value)} disabled={loading}>
+                {PERIOD_OPTIONS.map((days) => (
+                  <option key={days} value={days}>
+                    Last {days} Days
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <label>
-            Product Category
-            <select
-              value={selectedCategory}
-              onChange={(event) => updateCategory(event.target.value)}
+            <label>
+              Product Category
+              <select
+                value={selectedCategory}
+                onChange={(event) => updateCategory(event.target.value)}
+                disabled={loading}
+              >
+                <option value="">All Categories</option>
+                {categoryOptions.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={() => void load()}
               disabled={loading}
             >
-              <option value="">All Categories</option>
-              {categoryOptions.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button type="button" className="button button-secondary" onClick={() => void load()} disabled={loading}>
-            {loading ? "Refreshing…" : "Refresh"}
-          </button>
+              {loading ? "Refreshing…" : "Refresh"}
+            </button>
+          </div>
 
           <button
             type="button"
@@ -368,22 +375,31 @@ function SummaryCard({ label, value, detail }: { label: string; value: ReactNode
 }
 
 function DailyActivityChart({ daily }: { daily: ConsumerTrendsResponse["dailyTrend"] }) {
-  const width = 760;
-  const height = 260;
-  const padding = 42;
-  const plotWidth = width - padding * 2;
-  const plotHeight = height - padding * 2;
-  const maxValue = Math.max(1, ...daily.map((item) => item.totalCount));
+  const width = 720
+  const height = 220
+  const padLeft = 48
+  const padRight = 12
+  const padTop = 12
+  const padBottom = 32
+  const plotWidth = width - padLeft - padRight
+  const plotHeight = height - padTop - padBottom
+  const maxValue = Math.max(1, ...daily.map((item) => item.totalCount))
   const pointFor = (index: number, value: number) => {
-    const x = daily.length <= 1 ? width / 2 : padding + (index / (daily.length - 1)) * plotWidth;
-    const y = height - padding - (value / maxValue) * plotHeight;
-    return { x, y };
-  };
+    const x = daily.length <= 1 ? width / 2 : padLeft + (index / (daily.length - 1)) * plotWidth
+    const y = padTop + plotHeight - (value / maxValue) * plotHeight
+    return { x, y }
+  }
   const points = daily.map((item, index) => {
-    const point = pointFor(index, item.totalCount);
-    return `${point.x},${point.y}`;
-  });
-  const labelInterval = daily.length <= 7 ? 1 : daily.length <= 30 ? 5 : 15;
+    const point = pointFor(index, item.totalCount)
+    return `${point.x},${point.y}`
+  })
+  const tickIndexes = new Set<number>()
+  if (daily.length > 0) {
+    const tickCount = Math.min(6, daily.length)
+    for (let step = 0; step < tickCount; step += 1) {
+      tickIndexes.add(Math.round((step / Math.max(1, tickCount - 1)) * (daily.length - 1)))
+    }
+  }
 
   return (
     <section className="analytics-panel analytics-line-panel" aria-labelledby="daily-activity-title">
@@ -399,37 +415,29 @@ function DailyActivityChart({ daily }: { daily: ConsumerTrendsResponse["dailyTre
         <svg
           className="analytics-line-chart"
           viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="xMidYMid meet"
           role="img"
           aria-label="Line chart of total scans for every day in the selected period"
         >
-          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} className="chart-axis" />
-          <line x1={padding} y1={padding} x2={padding} y2={height - padding} className="chart-axis" />
-          <line x1={padding} y1={padding} x2={width - padding} y2={padding} className="chart-grid-line" />
-          <text x={padding - 10} y={padding + 4} textAnchor="end" className="chart-axis-label">
+          <line x1={padLeft} y1={height - padBottom} x2={width - padRight} y2={height - padBottom} className="chart-axis" />
+          <line x1={padLeft} y1={padTop} x2={padLeft} y2={height - padBottom} className="chart-axis" />
+          <line x1={padLeft} y1={padTop} x2={width - padRight} y2={padTop} className="chart-grid-line" />
+          <text x={padLeft - 8} y={padTop + 4} textAnchor="end" className="chart-axis-label">
             {maxValue}
           </text>
-          <text x={padding - 10} y={height - padding + 4} textAnchor="end" className="chart-axis-label">
+          <text x={padLeft - 8} y={height - padBottom + 4} textAnchor="end" className="chart-axis-label">
             0
-          </text>
-          <text
-            x={14}
-            y={height / 2}
-            textAnchor="middle"
-            className="chart-axis-label"
-            transform={`rotate(-90 14 ${height / 2})`}
-          >
-            Scans
           </text>
           {points.length > 1 ? <polyline points={points.join(" ")} className="chart-line" /> : null}
           {daily.map((item, index) => {
-            const point = pointFor(index, item.totalCount);
-            const showLabel = index % labelInterval === 0 || index === daily.length - 1;
+            const point = pointFor(index, item.totalCount)
+            const showLabel = tickIndexes.has(index)
             return (
               <g key={item.date}>
                 <circle
                   cx={point.x}
                   cy={point.y}
-                  r="5"
+                  r="3.5"
                   className="chart-point"
                   tabIndex={0}
                   aria-label={`${formatDate(item.date)}: ${item.totalCount} total scans, ${item.safeCount} safe, ${item.warningCount} warning, ${item.unsafeCount} unsafe`}
@@ -437,12 +445,12 @@ function DailyActivityChart({ daily }: { daily: ConsumerTrendsResponse["dailyTre
                   <title>{`${formatDate(item.date)} — ${item.totalCount} scans`}</title>
                 </circle>
                 {showLabel ? (
-                  <text x={point.x} y={height - 14} textAnchor="middle" className="chart-axis-label">
+                  <text x={point.x} y={height - 8} textAnchor="middle" className="chart-axis-label">
                     {formatShortDate(item.date)}
                   </text>
                 ) : null}
               </g>
-            );
+            )
           })}
         </svg>
       </div>
@@ -501,7 +509,29 @@ function ProductRankingChart({
           <p className="eyebrow">PRODUCT INTEREST</p>
           <h2 id="products-title">Most Scanned Products</h2>
         </div>
-        {products.length ? <span>{start + 1}–{rangeEnd} of {products.length}</span> : null}
+        {products.length > PRODUCTS_PER_PAGE ? (
+          <nav className="analytics-pagination analytics-pagination--inline" aria-label="Product ranking pages">
+            <span>{start + 1}–{rangeEnd} of {products.length}</span>
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={safePage === 0}
+              onClick={() => onPageChange(safePage - 1)}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={safePage >= totalPages - 1}
+              onClick={() => onPageChange(safePage + 1)}
+            >
+              Next
+            </button>
+          </nav>
+        ) : products.length ? (
+          <span>{start + 1}–{rangeEnd} of {products.length}</span>
+        ) : null}
       </div>
 
       {visibleProducts.length ? (
@@ -524,23 +554,6 @@ function ProductRankingChart({
       ) : (
         <p className="empty-copy">No products were resolved for this period.</p>
       )}
-
-      {products.length > PRODUCTS_PER_PAGE ? (
-        <nav className="analytics-pagination" aria-label="Product ranking pages">
-          <button type="button" className="button button-secondary" disabled={safePage === 0} onClick={() => onPageChange(safePage - 1)}>
-            Previous
-          </button>
-          <span>Page {safePage + 1} of {totalPages}</span>
-          <button
-            type="button"
-            className="button button-secondary"
-            disabled={safePage >= totalPages - 1}
-            onClick={() => onPageChange(safePage + 1)}
-          >
-            Next
-          </button>
-        </nav>
-      ) : null}
 
       <p className="analytics-note">
         Percentages use all filtered scans as the denominator, including scans without a resolved product barcode.
@@ -630,7 +643,9 @@ function ConcernBars({
             <li key={item.label}>
               <div className="horizontal-bar-label">
                 <span>{item.label}</span>
-                <strong>{formatNumber(item.count)} scans</strong>
+                <strong>
+                  {formatNumber(item.count)} scans · {((item.count / maxCount) * 100).toFixed(0)}%
+                </strong>
               </div>
               <div className="horizontal-bar-track" aria-hidden="true">
                 <span style={{ width: `${(item.count / maxCount) * 100}%` }} />

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { adminService } from './adminService'
 import type { AdminScanFeedbackFilters, AdminScanFeedbackItem, AdminScanFeedbackListResponse } from './models'
 import {
@@ -41,6 +42,11 @@ function toFilters(
   return filters
 }
 
+function parseResolvedFilter(value: string | null): ResolvedFilter {
+  if (value === 'RESOLVED' || value === 'UNRESOLVED') return value
+  return 'ALL'
+}
+
 function formatCreatedAt(value: string): string {
   return new Date(value).toLocaleString('en-SG')
 }
@@ -53,14 +59,16 @@ function previewComment(comment: string): string {
 }
 
 export function AdminScanFeedbackPage() {
+  const [searchParams] = useSearchParams()
+  const initialResolved = parseResolvedFilter(searchParams.get('resolved'))
   const [keyword, setKeyword] = useState('')
   const [restrictionCode, setRestrictionCode] = useState('')
   const [periodDays, setPeriodDays] = useState(DEFAULT_PERIOD_DAYS)
   const [typeFilter, setTypeFilter] = useState<FeedbackTypeFilter>('ALL')
-  const [resolvedFilter, setResolvedFilter] = useState<ResolvedFilter>('ALL')
-  const [filters, setFilters] = useState<AdminScanFeedbackFilters>({
-    periodDays: DEFAULT_PERIOD_DAYS,
-  })
+  const [resolvedFilter, setResolvedFilter] = useState<ResolvedFilter>(initialResolved)
+  const [filters, setFilters] = useState<AdminScanFeedbackFilters>(() =>
+    toFilters('', '', DEFAULT_PERIOD_DAYS, 'ALL', initialResolved),
+  )
 
   const [data, setData] = useState<AdminScanFeedbackListResponse | null>(null)
   const [restrictions, setRestrictions] = useState<DietaryRestrictionOption[]>([])

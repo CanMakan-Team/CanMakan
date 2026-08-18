@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import { AdminScanFeedbackPage } from '../../../features/admin/AdminScanFeedbackPage'
 import { adminService } from '../../../features/admin/adminService'
 import type { AdminScanFeedbackItem, AdminScanFeedbackListResponse } from '../../../features/admin/models'
@@ -93,6 +94,14 @@ function buildPageResponse(totalCount: number, page: number, pageSize = 30): Adm
   }
 }
 
+function renderPage(initialEntries: string[] = ['/system/feedback']) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <AdminScanFeedbackPage />
+    </MemoryRouter>,
+  )
+}
+
 describe('AdminScanFeedbackPage UC20 admin review', () => {
   beforeEach(() => {
     vi.mocked(adminService.getScanFeedback).mockReset()
@@ -104,7 +113,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
   it('shows the loading state', () => {
     vi.mocked(adminService.getScanFeedback).mockImplementation(() => new Promise(() => {}))
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     expect(screen.getByText('Loading user feedback…')).toBeInTheDocument()
   })
@@ -112,7 +121,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
   it('renders the four summary cards from the API response', async () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse())
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     const summary = screen.getByRole('region', { name: 'Feedback summary' })
     expect(await within(summary).findByText('2')).toBeInTheDocument()
@@ -128,7 +137,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
   it('renders a row per feedback item with thumbs icons for type', async () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse())
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     await screen.findByText('sarah@example.test')
     expect(screen.getByText('Oat Milk')).toBeInTheDocument()
@@ -141,7 +150,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
   it('shows a dash instead of a comment button when there is no user feedback', async () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse())
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     await screen.findByText('sarah@example.test')
     const row = screen.getByText('sarah@example.test').closest('tr')
@@ -152,7 +161,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
   it('truncates a long comment to a short preview', async () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse())
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     const preview = await screen.findByRole('button', { name: /trans fat free/ })
     expect(preview.textContent).not.toEqual(negativeItem.userComments)
@@ -163,7 +172,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse())
     const user = userEvent.setup()
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     const preview = await screen.findByRole('button', { name: /trans fat free/ })
     await user.click(preview)
@@ -175,7 +184,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
   it('pre-selects the resolved dropdown from the saved status', async () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse())
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     await screen.findByText('sarah@example.test')
     expect(
@@ -191,7 +200,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
     vi.mocked(adminService.updateScanFeedbackResolved).mockResolvedValue({ id: 15, resolved: true })
     const user = userEvent.setup()
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     await screen.findByText('sarah@example.test')
     await user.selectOptions(
@@ -209,7 +218,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
   it('renders the empty state when no feedback matches', async () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse([]))
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     expect(await screen.findByText('No feedback matches')).toBeInTheDocument()
   })
@@ -219,7 +228,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
       new ApiError('Feedback listing is unavailable.', 500),
     )
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     expect(await screen.findByText('Feedback listing is unavailable.')).toBeInTheDocument()
   })
@@ -227,7 +236,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
   it('lists dietary restriction options from the shared catalog', async () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse())
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     await screen.findByText('sarah@example.test')
     expect(
@@ -239,7 +248,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse())
     const user = userEvent.setup()
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
     await screen.findByText('sarah@example.test')
 
     await user.type(screen.getByLabelText('Keyword'), '  biryani  ')
@@ -265,7 +274,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
   it('defaults to a 30-day period, page 0 and a 30-row page size on first load', async () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse())
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     await waitFor(() => {
       expect(adminService.getScanFeedback).toHaveBeenCalledWith({
@@ -276,10 +285,26 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
     })
   })
 
+  it('applies an unresolved filter from the URL', async () => {
+    vi.mocked(adminService.getScanFeedback).mockResolvedValue(sampleResponse())
+
+    renderPage(['/system/feedback?resolved=UNRESOLVED'])
+
+    await waitFor(() => {
+      expect(adminService.getScanFeedback).toHaveBeenCalledWith({
+        periodDays: 30,
+        resolved: false,
+        page: 0,
+        pageSize: 30,
+      })
+    })
+    expect(screen.getByLabelText('Resolved')).toHaveValue('UNRESOLVED')
+  })
+
   it('does not show pagination controls when the backend reports a single page', async () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(buildPageResponse(30, 0))
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     await screen.findByText('user1@example.test')
     expect(screen.queryByRole('navigation', { name: 'Feedback pages' })).not.toBeInTheDocument()
@@ -288,7 +313,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
   it('shows pagination controls and only this page\'s rows when the backend reports more than one page', async () => {
     vi.mocked(adminService.getScanFeedback).mockResolvedValue(buildPageResponse(34, 0))
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     await screen.findByText('user1@example.test')
     expect(screen.getByText('user30@example.test')).toBeInTheDocument()
@@ -304,7 +329,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
       .mockResolvedValueOnce(buildPageResponse(34, 1))
     const user = userEvent.setup()
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
 
     await screen.findByText('user1@example.test')
     await user.click(screen.getByRole('button', { name: 'Next' }))
@@ -326,7 +351,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
       .mockResolvedValueOnce(buildPageResponse(34, 0))
     const user = userEvent.setup()
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
     await screen.findByText('user1@example.test')
     await user.click(screen.getByRole('button', { name: 'Next' }))
     expect(await screen.findByText('Page 2 of 2')).toBeInTheDocument()
@@ -356,7 +381,7 @@ describe('AdminScanFeedbackPage UC20 admin review', () => {
     vi.mocked(adminService.updateScanFeedbackResolved).mockResolvedValue({ id: 31, resolved: true })
     const user = userEvent.setup()
 
-    render(<AdminScanFeedbackPage />)
+    renderPage()
     await screen.findByText('user1@example.test')
     await user.click(screen.getByRole('button', { name: 'Next' }))
     await screen.findByText('user31@example.test')

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import { UserAccessPage } from '../../../features/admin/UserAccessPage'
 import { adminService } from '../../../features/admin/adminService'
 import type { AdminUser } from '../../../features/admin/models'
@@ -38,7 +39,7 @@ const suspendedAdmin: AdminUser = {
   updatedAt: '2026-08-10T09:35:00',
 }
 
-function renderPage(currentUserId = 1) {
+function renderPage(currentUserId = 1, initialEntries: string[] = ['/system/users']) {
   const baseSession = systemAdminSession()
   const value: SessionContextValue = {
     session: {
@@ -63,9 +64,11 @@ function renderPage(currentUserId = 1) {
   }
 
   return render(
-    <SessionContext.Provider value={value}>
-      <UserAccessPage />
-    </SessionContext.Provider>,
+    <MemoryRouter initialEntries={initialEntries}>
+      <SessionContext.Provider value={value}>
+        <UserAccessPage />
+      </SessionContext.Provider>
+    </MemoryRouter>,
   )
 }
 
@@ -103,6 +106,16 @@ describe('UserAccessPage UC13 account status management', () => {
     renderPage()
 
     expect(await screen.findByText(activeUser.email)).toBeInTheDocument()
+  })
+
+  it('applies a suspended status filter from the URL', async () => {
+    vi.mocked(adminService.getUsers).mockResolvedValue([suspendedAdmin])
+
+    renderPage(1, ['/system/users?status=SUSPENDED'])
+
+    expect(await screen.findByText(suspendedAdmin.email)).toBeInTheDocument()
+    expect(adminService.getUsers).toHaveBeenCalledWith({ active: false })
+    expect(screen.getByLabelText('Status')).toHaveValue('SUSPENDED')
   })
 
   it('renders the empty state', async () => {
