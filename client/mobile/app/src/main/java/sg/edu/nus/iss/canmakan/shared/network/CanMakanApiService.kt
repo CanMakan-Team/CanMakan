@@ -3,6 +3,7 @@ package sg.edu.nus.iss.canmakan.shared.network
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -82,6 +83,7 @@ interface CanMakanApiService {
         @Query("scanId") scanId: Long? = null
     ): Response<RecommendationResponse>
 
+    @Headers("X-CanMakan-No-Retry: true")
     @POST("scan/{scanId}/feedback")
     suspend fun submitScanFeedback(
         @Path("scanId") scanId: Long,
