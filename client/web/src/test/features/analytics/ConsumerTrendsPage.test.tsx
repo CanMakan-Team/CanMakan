@@ -156,6 +156,10 @@ describe('ConsumerTrendsPage', () => {
     expect(screen.getByText('4.29')).toBeInTheDocument()
     expect(screen.getByText('8 scans')).toBeInTheDocument()
 
+    await user.hover(screen.getByText('Total Scans'))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('All product scans recorded in the selected period')
+    await user.unhover(screen.getByText('Total Scans'))
+
     expect(screen.getByRole('img', { name: /Line chart of total scans/ })).toBeInTheDocument()
     expect(document.querySelector('.chart-area')).toBeInTheDocument()
     expect(document.querySelectorAll('.chart-point')).toHaveLength(6)

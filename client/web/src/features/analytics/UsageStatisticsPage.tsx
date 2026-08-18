@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { HoverTip } from '../../shared/ui/HoverTip'
 import { EmptyState, ErrorState, LoadingState } from '../../shared/ui/PageState'
+import { chartEndLabelIndexes } from './consumerTrendsChartAxis'
 import {
   usageStatisticsApiService,
   type UsagePeriodDays,
@@ -16,6 +18,23 @@ import {
  */
 
 const PERIOD_OPTIONS = [7, 30, 90] as const
+
+const KPI_HELP = {
+  newSignups: 'New accounts created during the selected reporting period.',
+  dailyActiveUsers: 'Distinct users who scanned in the last 24 hours.',
+  weeklyActiveUsers: 'Distinct users who scanned in the last 7 days.',
+  monthlyActiveUsers: 'Distinct users who scanned in the last 30 days.',
+  stickiness: 'How many monthly users also used the app in the last 24 hours: daily active users ÷ monthly active users (DAU ÷ MAU).',
+  averageSession: 'Average time a user spends in one session during the selected period.',
+  day1: 'Share of accounts that scanned again at least one day after signing up.',
+  day7: 'Share of accounts that scanned again at least seven days after signing up.',
+  day30: 'Share of accounts that scanned again at least 30 days after signing up.',
+  resurrected: 'Users who scanned in this period after 30 or more days without a scan.',
+  churn: 'Share of users who scanned in the previous period but not in this one.',
+  inactive30d: 'Accounts with no scan in the last 30 days.',
+  sessionsPerUser: 'Average number of sessions per active user in the selected period.',
+  activeDaysPerWeek: 'Average distinct days per week that an active user scanned.',
+}
 
 // Section colours. Reuse the verdict palette (green/amber/red) and add a blue accent so the four
 // groups read distinctly while staying within the admin theme.
@@ -86,7 +105,7 @@ export function UsageStatisticsPage() {
   }, [data, periodDays])
 
   return (
-    <>
+    <div className="analytics-page usage-statistics-page">
       <header className="page-header page-header--system">
         <div>
           <p className="eyebrow">Feature 15 - application usage</p>
@@ -99,9 +118,8 @@ export function UsageStatisticsPage() {
       </header>
 
       <section
-        className="filter-bar filter-bar--system filter-bar--analytics"
+        className="filter-bar filter-bar--system filter-bar--analytics usage-toolbar"
         aria-label="Usage statistics controls"
-        style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap' }}
       >
         <div className="field-group">
           <label htmlFor="usage-period">Reporting period</label>
@@ -120,20 +138,9 @@ export function UsageStatisticsPage() {
         </div>
         <button
           type="button"
+          className="button button--primary"
           onClick={handleExport}
           disabled={!data || loading}
-          style={{
-            marginLeft: 'auto',
-            background: '#16202e',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 9,
-            padding: '10px 18px',
-            fontWeight: 600,
-            fontSize: '0.85rem',
-            cursor: !data || loading ? 'not-allowed' : 'pointer',
-            opacity: !data || loading ? 0.5 : 1,
-          }}
         >
           Export CSV
         </button>
@@ -152,7 +159,7 @@ export function UsageStatisticsPage() {
           showMascot={false}
         />
       )}
-    </>
+    </div>
   )
 }
 
@@ -160,37 +167,58 @@ function UsageStatisticsResult({ data }: { data: UsageStatistics }) {
   const { kpis, acquisition, activity, retention, engagement } = data
   return (
     <>
-      <section className="summary-grid" aria-label="Usage statistics summary">
-        <StatCard label="New sign-ups" value={formatNumber(kpis.newSignups)} color={BLUE} background={BLUE_BG} />
-        <StatCard label="Daily active users" value={formatNumber(kpis.dailyActiveUsers)} color={GREEN} background={GREEN_BG} />
-        <StatCard label="Stickiness (DAU/MAU)" value={`${kpis.stickinessPct}%`} color={AMBER} background={AMBER_BG} />
-        <StatCard label="Avg session" value={formatDuration(kpis.averageSessionSeconds)} color={RED} background={RED_BG} />
+      <section className="analytics-summary-grid usage-summary-grid" aria-label="Usage statistics summary">
+        <StatCard
+          label="New sign-ups"
+          value={formatNumber(kpis.newSignups)}
+          color={BLUE}
+          background={BLUE_BG}
+          title={KPI_HELP.newSignups}
+        />
+        <StatCard
+          label="Daily active users"
+          value={formatNumber(kpis.dailyActiveUsers)}
+          color={GREEN}
+          background={GREEN_BG}
+          title={KPI_HELP.dailyActiveUsers}
+        />
+        <StatCard
+          label="Stickiness (DAU/MAU)"
+          value={`${kpis.stickinessPct}%`}
+          color={AMBER}
+          background={AMBER_BG}
+          title={KPI_HELP.stickiness}
+        />
+        <StatCard
+          label="Avg session"
+          value={formatDuration(kpis.averageSessionSeconds)}
+          color={RED}
+          background={RED_BG}
+          title={
+            kpis.averageSessionSeconds === 0
+              ? `${KPI_HELP.averageSession} No sessions were recorded in this period.`
+              : KPI_HELP.averageSession
+          }
+        />
       </section>
 
       <SectionPanel accent={BLUE} eyebrow="Acquisition" title="Acquisition & conversion">
-        <div className="usage-two-col" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
+        <div className="usage-two-col">
           <div>
             <p className="usage-caption">Daily new registrations</p>
             <MiniBarChart values={acquisition.dailyNewRegistrations} color={BLUE} />
           </div>
           <div>
             <p className="usage-caption">Activation funnel</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="usage-funnel">
               {acquisition.activationFunnel.map((step) => (
-                <div
-                  key={step.label}
-                  style={{
-                    background: BLUE_BG,
-                    color: BLUE,
-                    borderRadius: 8,
-                    padding: '5px 10px',
-                    width: `${step.percent}%`,
-                    minWidth: 120,
-                    fontSize: '0.82rem',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {step.label} · {step.percent}%
+                <div key={step.label} className="usage-funnel-row">
+                  <p className="usage-funnel-label">
+                    {step.label} · {step.percent}%
+                  </p>
+                  <div className="usage-funnel-track">
+                    <span style={{ width: `${step.percent}%`, background: BLUE }} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -199,30 +227,89 @@ function UsageStatisticsResult({ data }: { data: UsageStatistics }) {
       </SectionPanel>
 
       <SectionPanel accent={GREEN} eyebrow="Activity" title="Activity & stickiness">
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Chip label="DAU" value={formatNumber(activity.dailyActiveUsers)} color={GREEN} background={GREEN_BG} />
-          <Chip label="WAU" value={formatNumber(activity.weeklyActiveUsers)} color={GREEN} background={GREEN_BG} />
-          <Chip label="MAU" value={formatNumber(activity.monthlyActiveUsers)} color={GREEN} background={GREEN_BG} />
-          <Chip label="Stickiness" value={`${activity.stickinessPct}%`} color={AMBER} background={AMBER_BG} />
+        <div className="usage-chip-row">
+          <Chip
+            label="DAU"
+            value={formatNumber(activity.dailyActiveUsers)}
+            color={GREEN}
+            background={GREEN_BG}
+            title={KPI_HELP.dailyActiveUsers}
+          />
+          <Chip
+            label="WAU"
+            value={formatNumber(activity.weeklyActiveUsers)}
+            color={GREEN}
+            background={GREEN_BG}
+            title={KPI_HELP.weeklyActiveUsers}
+          />
+          <Chip
+            label="MAU"
+            value={formatNumber(activity.monthlyActiveUsers)}
+            color={GREEN}
+            background={GREEN_BG}
+            title={KPI_HELP.monthlyActiveUsers}
+          />
+          <Chip
+            label="Stickiness"
+            value={`${activity.stickinessPct}%`}
+            color={AMBER}
+            background={AMBER_BG}
+            title={KPI_HELP.stickiness}
+          />
         </div>
-        <p className="usage-caption" style={{ marginTop: '1rem' }}>New vs returning users</p>
-        <div style={{ display: 'flex', height: 16, borderRadius: 8, overflow: 'hidden' }}>
+        <p className="usage-caption usage-caption--spaced">New vs returning users</p>
+        <div className="usage-split-bar" role="img" aria-label={`New ${activity.newUsersPct}%, returning ${activity.returningUsersPct}%`}>
           <span style={{ width: `${activity.newUsersPct}%`, background: BLUE }} />
           <span style={{ width: `${activity.returningUsersPct}%`, background: GREEN }} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginTop: 4 }}>
+        <div className="usage-split-legend">
           <span style={{ color: BLUE }}>New {activity.newUsersPct}%</span>
           <span style={{ color: GREEN }}>Returning {activity.returningUsersPct}%</span>
         </div>
       </SectionPanel>
 
       <SectionPanel accent={AMBER} eyebrow="Retention" title="Retention & churn">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
-          <Chip label="D1 retention" value={`${retention.day1Pct}%`} color={AMBER} background={AMBER_BG} block />
-          <Chip label="D7 retention" value={`${retention.day7Pct}%`} color={AMBER} background={AMBER_BG} block />
-          <Chip label="D30 retention" value={`${retention.day30Pct}%`} color={AMBER} background={AMBER_BG} block />
-          <Chip label="Resurrected" value={formatNumber(retention.resurrectedUsers)} color={GREEN} background={GREEN_BG} block />
-          <Chip label="Churn rate" value={`${retention.churnPct}%`} color={RED} background={RED_BG} block />
+        <div className="usage-retention-grid">
+          <Chip
+            label="D1 retention"
+            value={`${retention.day1Pct}%`}
+            color={AMBER}
+            background={AMBER_BG}
+            block
+            title={KPI_HELP.day1}
+          />
+          <Chip
+            label="D7 retention"
+            value={`${retention.day7Pct}%`}
+            color={AMBER}
+            background={AMBER_BG}
+            block
+            title={KPI_HELP.day7}
+          />
+          <Chip
+            label="D30 retention"
+            value={`${retention.day30Pct}%`}
+            color={AMBER}
+            background={AMBER_BG}
+            block
+            title={KPI_HELP.day30}
+          />
+          <Chip
+            label="Resurrected"
+            value={formatNumber(retention.resurrectedUsers)}
+            color={GREEN}
+            background={GREEN_BG}
+            block
+            title={KPI_HELP.resurrected}
+          />
+          <Chip
+            label="Churn rate"
+            value={`${retention.churnPct}%`}
+            color={RED}
+            background={RED_BG}
+            block
+            title={KPI_HELP.churn}
+          />
           <Chip
             label="Inactive 30d"
             value={formatNumber(retention.inactive30d)}
@@ -230,19 +317,42 @@ function UsageStatisticsResult({ data }: { data: UsageStatistics }) {
             color={RED}
             background={RED_BG}
             block
+            title={KPI_HELP.inactive30d}
           />
         </div>
       </SectionPanel>
 
       <SectionPanel accent={BLUE} eyebrow="Engagement" title="Engagement & sessions">
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: '1rem' }}>
-          <Chip label="Avg session" value={formatDuration(engagement.averageSessionSeconds)} color={BLUE} background={BLUE_BG} />
-          <Chip label="Sessions / user" value={String(engagement.sessionsPerUser)} color={BLUE} background={BLUE_BG} />
-          <Chip label="Active days / week" value={String(engagement.activeDaysPerWeek)} color={BLUE} background={BLUE_BG} />
+        <div className="usage-chip-row usage-chip-row--tight">
+          <Chip
+            label="Avg session"
+            value={formatDuration(engagement.averageSessionSeconds)}
+            color={BLUE}
+            background={BLUE_BG}
+            title={
+              engagement.averageSessionSeconds === 0
+                ? `${KPI_HELP.averageSession} No sessions were recorded in this period.`
+                : KPI_HELP.averageSession
+            }
+          />
+          <Chip
+            label="Sessions / user"
+            value={String(engagement.sessionsPerUser)}
+            color={BLUE}
+            background={BLUE_BG}
+            title={KPI_HELP.sessionsPerUser}
+          />
+          <Chip
+            label="Active days / week"
+            value={String(engagement.activeDaysPerWeek)}
+            color={BLUE}
+            background={BLUE_BG}
+            title={KPI_HELP.activeDaysPerWeek}
+          />
         </div>
         <p className="usage-caption">Activity heatmap · weekday × hour</p>
         <ActivityHeatmap heatmap={engagement.heatmap} />
-        <div style={{ display: 'flex', gap: 14, fontSize: '0.76rem', color: '#6b7772', marginTop: 6 }}>
+        <div className="usage-heatmap-legend">
           <LegendDot color={BLUE} label="low" />
           <LegendDot color={AMBER} label="medium" />
           <LegendDot color={RED} label="peak" />
@@ -264,10 +374,10 @@ function SectionPanel({
   children: ReactNode
 }) {
   return (
-    <section className="panel" style={{ borderTop: `3px solid ${accent}` }}>
+    <section className="panel usage-section-panel" style={{ borderTop: `3px solid ${accent}` }}>
       <div className="panel__header">
         <div>
-          <p className="eyebrow" style={{ color: accent }}>{eyebrow}</p>
+          <p className="eyebrow usage-section-eyebrow" style={{ color: accent }}>{eyebrow}</p>
           <h2>{title}</h2>
         </div>
       </div>
@@ -281,17 +391,21 @@ function StatCard({
   value,
   color,
   background,
+  title,
 }: {
   label: string
   value: string
   color: string
   background: string
+  title: string
 }) {
   return (
-    <article style={{ background, borderRadius: 14, padding: '16px 18px' }}>
-      <div style={{ fontSize: '0.8rem', color }}>{label}</div>
-      <div style={{ fontSize: '1.9rem', fontWeight: 800, color, marginTop: 4 }}>{value}</div>
-    </article>
+    <HoverTip text={title} className="hover-tip--block">
+      <article className="usage-stat-card" style={{ background }}>
+        <p className="usage-stat-card__label">{label}</p>
+        <strong className="usage-stat-card__value" style={{ color }}>{value}</strong>
+      </article>
+    </HoverTip>
   )
 }
 
@@ -302,6 +416,7 @@ function Chip({
   color,
   background,
   block,
+  title,
 }: {
   label: string
   value: string
@@ -309,41 +424,66 @@ function Chip({
   color: string
   background: string
   block?: boolean
+  title: string
 }) {
   return (
-    <div
-      style={{
-        flex: block ? undefined : '1 1 90px',
-        textAlign: 'center',
-        background,
-        borderRadius: 10,
-        padding: '10px 6px',
-        minWidth: 90,
-      }}
-    >
-      <div style={{ fontSize: '0.72rem', color }}>{label}</div>
-      <div style={{ fontSize: '1.25rem', fontWeight: 700, color, marginTop: 2 }}>{value}</div>
-      {hint && <div style={{ fontSize: '0.7rem', color: '#6b7772', marginTop: 2 }}>{hint}</div>}
-    </div>
+    <HoverTip text={title} className={block ? 'hover-tip--block' : 'hover-tip--chip'}>
+      <div className={`usage-chip${block ? ' usage-chip--block' : ''}`} style={{ background }}>
+        <p className="usage-chip__label">{label}</p>
+        <strong className="usage-chip__value" style={{ color }}>{value}</strong>
+        {hint ? <span className="usage-chip__hint">{hint}</span> : null}
+      </div>
+    </HoverTip>
   )
 }
 
 function MiniBarChart({ values, color }: { values: number[]; color: string }) {
   const max = Math.max(1, ...values)
+  const labelIndexes = new Set(chartEndLabelIndexes(values.length))
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 64 }} aria-hidden="true">
-      {values.map((value, index) => (
-        <span
-          key={index}
-          title={String(value)}
-          style={{
-            flex: 1,
-            height: `${Math.max(6, (value / max) * 100)}%`,
-            background: color,
-            borderRadius: '3px 3px 0 0',
-          }}
-        />
-      ))}
+    <div className="usage-bar-chart">
+      <div className="usage-bar-chart__y" aria-hidden="true">
+        <span>{max}</span>
+        <span>{Math.round(max / 2)}</span>
+        <span>0</span>
+      </div>
+      <div className="usage-bar-chart__plot">
+        <div className="usage-bar-chart__grid" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div
+          className="usage-bar-chart__bars"
+          role="img"
+          aria-label={`Daily new registrations over ${values.length} days. Peak ${max}.`}
+        >
+          {values.map((value, index) => (
+            <span
+              key={index}
+              className="usage-bar-chart__col"
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+            >
+              <span
+                className="usage-bar-chart__bar"
+                style={{ height: `${Math.max(4, (value / max) * 100)}%`, background: color }}
+              />
+            </span>
+          ))}
+        </div>
+        {hoveredIndex !== null ? (
+          <span className="hover-tip__bubble hover-tip__bubble--chart" role="tooltip">
+            Day {hoveredIndex + 1}: {values[hoveredIndex]} registrations
+          </span>
+        ) : null}
+        <div className="usage-bar-chart__x" aria-hidden="true">
+          {values.map((_, index) => (
+            <span key={index}>{labelIndexes.has(index) ? String(index + 1) : ''}</span>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -352,7 +492,8 @@ function ActivityHeatmap({ heatmap }: { heatmap: number[][] }) {
   const columns = heatmap[0]?.length ?? 12
   return (
     <div
-      style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: 3 }}
+      className="usage-heatmap"
+      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
       role="img"
       aria-label="Activity heatmap by weekday and hour of day."
     >

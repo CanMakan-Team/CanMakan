@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { EmptyState, ErrorState, LoadingState } from "../../shared/ui/PageState";
+import { HoverTip } from "../../shared/ui/HoverTip";
 import { consumerTrendsApiService } from "./consumerTrendsApiService";
 import {
   chartEndLabelIndexes,
@@ -22,6 +23,13 @@ import type {
 
 const ROWS_PER_PAGE = 10;
 const INGREDIENT_RANKING_LIMIT = 20;
+
+const SUMMARY_HELP = {
+  totalScans: "All product scans recorded in the selected period, including repeats of the same product.",
+  uniqueProducts: "Distinct products that were scanned at least once in the selected period.",
+  averageScansPerDay: "Total scans divided by the number of days in the selected period.",
+  peakScanDay: "The calendar day with the most scans in the selected period.",
+};
 
 function isCalendarDate(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false;
@@ -367,13 +375,26 @@ function ConsumerTrendsResult({
   return (
     <>
       <section className="analytics-summary-grid" aria-label="Consumer trends summary">
-        <SummaryCard label="Total Scans" value={formatNumber(data.summary.totalScans)} />
-        <SummaryCard label="Unique Products Scanned" value={formatNumber(data.summary.uniqueProducts)} />
-        <SummaryCard label="Average Scans per Day" value={data.summary.averageScansPerDay.toFixed(2)} />
+        <SummaryCard
+          label="Total Scans"
+          value={formatNumber(data.summary.totalScans)}
+          title={SUMMARY_HELP.totalScans}
+        />
+        <SummaryCard
+          label="Unique Products Scanned"
+          value={formatNumber(data.summary.uniqueProducts)}
+          title={SUMMARY_HELP.uniqueProducts}
+        />
+        <SummaryCard
+          label="Average Scans per Day"
+          value={data.summary.averageScansPerDay.toFixed(2)}
+          title={SUMMARY_HELP.averageScansPerDay}
+        />
         <SummaryCard
           label="Peak Scan Day"
           value={data.summary.peakScanDay ? formatDate(data.summary.peakScanDay.date) : "No activity"}
           detail={data.summary.peakScanDay ? `${formatNumber(data.summary.peakScanDay.scanCount)} scans` : undefined}
+          title={SUMMARY_HELP.peakScanDay}
         />
       </section>
 
@@ -435,13 +456,25 @@ function ConsumerTrendsResult({
   );
 }
 
-function SummaryCard({ label, value, detail }: { label: string; value: ReactNode; detail?: string }) {
+function SummaryCard({
+  label,
+  value,
+  detail,
+  title,
+}: {
+  label: string;
+  value: ReactNode;
+  detail?: string;
+  title: string;
+}) {
   return (
-    <article className="analytics-card summary-card">
-      <p className="analytics-label">{label}</p>
-      <strong>{value}</strong>
-      {detail ? <span>{detail}</span> : null}
-    </article>
+    <HoverTip text={title} className="hover-tip--block">
+      <article className="analytics-card summary-card">
+        <p className="analytics-label">{label}</p>
+        <strong>{value}</strong>
+        {detail ? <span>{detail}</span> : null}
+      </article>
+    </HoverTip>
   );
 }
 
