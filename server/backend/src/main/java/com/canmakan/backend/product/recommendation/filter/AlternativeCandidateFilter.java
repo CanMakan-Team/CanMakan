@@ -34,6 +34,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class AlternativeCandidateFilter {
 
+    private static final String RESTRICTION_CODE_GLUTEN = "GLUTEN";
+    private static final String RESTRICTION_CODE_PEANUT = "PEANUT";
+    private static final String ALLERGEN_TAG_MILK = "en:milk";
+
     private static final List<String> DAIRY_FREE_LABEL_TAGS = List.of(
             "en:vegan",
             "en:without-addition-of-dairy-products"
@@ -225,51 +229,58 @@ public class AlternativeCandidateFilter {
             List<RestrictionRule> rules,
             SafetyVerdict verdict,
             CatalogProduct candidate) {
-        if (verdict == null) {
+        if (verdict == null || verdict.level() == SafetyVerdict.Level.UNSAFE) {
             return false;
         }
-        if (verdict.level() == SafetyVerdict.Level.UNSAFE) {
-            return false;
-        }
-
         if (candidate != null && violatesCatalogSignals(rules, candidate)) {
             return false;
         }
 
         Set<String> intoleranceCodes = intoleranceRuleCodes(rules);
         if (intoleranceCodes.isEmpty()) {
-            if (verdict.level() == SafetyVerdict.Level.SAFE) {
-                return true;
-            }
-            if (hasGlutenAvoidanceRule(rules)
-                    && isGlutenFreeFlourSubstitute(candidate)
-                    && !hasRestrictionFinding(verdict, "GLUTEN")) {
-                return true;
-            }
-            if (hasGlutenAvoidanceRule(rules)
-                    && isGlutenFreeBreakfastCerealSubstitute(candidate)
-                    && !hasRestrictionFinding(verdict, "GLUTEN")) {
-                return true;
-            }
-            if (hasGlutenAvoidanceRule(rules)
-                    && isGlutenFreeBreadSubstitute(candidate)
-                    && !hasRestrictionFinding(verdict, "GLUTEN")) {
-                return true;
-            }
-            if (hasLowSodiumPreference(rules) && isLowSodiumSauceSubstitute(candidate)) {
-                return true;
-            }
-            return hasPeanutAvoidanceRule(rules)
-                    && isPeanutFreeSpreadSubstitute(candidate)
-                    && !hasRestrictionFinding(verdict, "PEANUT");
+            return isAcceptableWithoutIntoleranceRules(rules, verdict, candidate);
         }
+        return !hasIntoleranceFinding(verdict, intoleranceCodes);
+    }
 
+    /**
+     * Profiles with no INTOLERANCE-severity rules only accept SAFE candidates, plus a set of
+     * curated WARNING substitutes (gluten-free flour/cereal/bread, low-sodium sauce, peanut-free
+     * spread) that avoid the specific restriction they were suggested for.
+     */
+    private boolean isAcceptableWithoutIntoleranceRules(
+            List<RestrictionRule> rules, SafetyVerdict verdict, CatalogProduct candidate) {
+        if (verdict.level() == SafetyVerdict.Level.SAFE) {
+            return true;
+        }
+        if (isAcceptableGlutenSubstitute(rules, verdict, candidate)) {
+            return true;
+        }
+        if (hasLowSodiumPreference(rules) && isLowSodiumSauceSubstitute(candidate)) {
+            return true;
+        }
+        return hasPeanutAvoidanceRule(rules)
+                && isPeanutFreeSpreadSubstitute(candidate)
+                && !hasRestrictionFinding(verdict, RESTRICTION_CODE_PEANUT);
+    }
+
+    private static boolean isAcceptableGlutenSubstitute(
+            List<RestrictionRule> rules, SafetyVerdict verdict, CatalogProduct candidate) {
+        if (!hasGlutenAvoidanceRule(rules) || hasRestrictionFinding(verdict, RESTRICTION_CODE_GLUTEN)) {
+            return false;
+        }
+        return isGlutenFreeFlourSubstitute(candidate)
+                || isGlutenFreeBreakfastCerealSubstitute(candidate)
+                || isGlutenFreeBreadSubstitute(candidate);
+    }
+
+    private static boolean hasIntoleranceFinding(SafetyVerdict verdict, Set<String> intoleranceCodes) {
         for (Finding finding : verdict.findings()) {
             if (finding.restrictionCode() != null && intoleranceCodes.contains(finding.restrictionCode())) {
-                return false;
+                return true;
             }
         }
-        return true;
+        return false;
     }
 
     private static boolean violatesCatalogSignals(
@@ -285,7 +296,7 @@ public class AlternativeCandidateFilter {
     }
 
     public static boolean isCowMilkCatalogProduct(CatalogProduct candidate) {
-        if (isPlantMilkSubstituteCandidate(candidate)) {
+        if (candidate == null || isPlantMilkSubstituteCandidate(candidate)) {
             return false;
         }
         if (candidate.getMainCategoryEn() != null
@@ -296,8 +307,8 @@ public class AlternativeCandidateFilter {
         if (CategoryTagParser.containsAny(categoryTags, DAIRY_MILK_CATEGORY_TAGS)) {
             return true;
         }
-        return CategoryTagParser.containsTag(candidate.getAllergens(), "en:milk")
-                || CategoryTagParser.containsTag(candidate.getTracesTags(), "en:milk");
+        return CategoryTagParser.containsTag(candidate.getAllergens(), ALLERGEN_TAG_MILK)
+                || CategoryTagParser.containsTag(candidate.getTracesTags(), ALLERGEN_TAG_MILK);
     }
 
     /**
@@ -568,8 +579,8 @@ public class AlternativeCandidateFilter {
     }
 
     private static boolean hasDeclaredMilkAllergenOrTrace(CatalogProduct candidate) {
-        return CategoryTagParser.containsTag(candidate.getAllergens(), "en:milk")
-                || CategoryTagParser.containsTag(candidate.getTracesTags(), "en:milk");
+        return CategoryTagParser.containsTag(candidate.getAllergens(), ALLERGEN_TAG_MILK)
+                || CategoryTagParser.containsTag(candidate.getTracesTags(), ALLERGEN_TAG_MILK);
     }
 
     private static boolean containsCowDairyIngredientHaystack(CatalogProduct candidate) {
@@ -583,7 +594,7 @@ public class AlternativeCandidateFilter {
         if (containsAnyPhrase(haystack, PLANT_MILK_NAME_PHRASES)) {
             haystack = haystack.replace("coconut milk", " ");
         }
-        if (haystack.contains("en:milk")) {
+        if (haystack.contains(ALLERGEN_TAG_MILK)) {
             return true;
         }
         return containsAnyPhrase(haystack, COW_DAIRY_INGREDIENT_PHRASES)
@@ -627,7 +638,7 @@ public class AlternativeCandidateFilter {
             return false;
         }
         return rules.stream().anyMatch(rule ->
-                "GLUTEN".equals(rule.code())
+                RESTRICTION_CODE_GLUTEN.equals(rule.code())
                         && (rule.severity() == RestrictionSeverity.STRICT_AVOID
                                 || rule.severity() == RestrictionSeverity.INTOLERANCE));
     }
@@ -637,7 +648,7 @@ public class AlternativeCandidateFilter {
             return false;
         }
         return rules.stream().anyMatch(rule ->
-                "PEANUT".equals(rule.code())
+                RESTRICTION_CODE_PEANUT.equals(rule.code())
                         && (rule.severity() == RestrictionSeverity.STRICT_AVOID
                                 || rule.severity() == RestrictionSeverity.INTOLERANCE));
     }
