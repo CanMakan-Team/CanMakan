@@ -21,10 +21,9 @@ Update the **Changes checklist** when work lands; keep findings status notes cur
 | Account | `features/account/` |
 | Dietary profile | `features/dietaryprofile/` (onboarding, restriction sheet, dairy presentation) |
 | Family | `features/family/` (drawer, create/invite/dependant, restriction matrix) |
-| Product | `features/product/` (scan, verdict, history, recommendation; reporting README-only) |
+| Product | `features/product/` (scan, verdict, history, recommendation) |
 | Notifications / session heartbeat | `features/notifications/`, `features/session/` |
 | Shared | `shared/di`, `shared/network`, `shared/ui`, `shared/model`, `shared/util`, `shared/notifications` |
-| Placeholders | `features/analytics/`, `workers/`, `features/product/reporting/` (README only) |
 | Tests | `app/src/test/` (unit only; **no** `androidTest`) |
 
 Largest production files (approximate total lines at review time):
