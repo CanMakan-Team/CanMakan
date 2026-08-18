@@ -1,6 +1,6 @@
 package com.canmakan.backend.auth.service;
 
-import com.canmakan.backend.auth.RefreshTokenProperties;
+import com.canmakan.backend.auth.config.RefreshTokenProperties;
 import com.canmakan.backend.auth.exception.RefreshAuthenticationException;
 import com.canmakan.backend.auth.model.IssuedRefreshToken;
 import com.canmakan.backend.auth.model.RefreshToken;

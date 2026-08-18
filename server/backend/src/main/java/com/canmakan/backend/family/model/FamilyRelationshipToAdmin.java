@@ -1,4 +1,4 @@
-package com.canmakan.backend.family;
+package com.canmakan.backend.family.model;
 
 /**
  * Relationship of a dependant or invited member to the family PRIMARY_ADMIN.

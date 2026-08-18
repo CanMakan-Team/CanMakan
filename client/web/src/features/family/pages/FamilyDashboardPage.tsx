@@ -76,7 +76,7 @@ export function FamilyDashboardPage() {
   return (
     <>
       <header className="page-header page-header--split">
-        <p className="eyebrow">Family overview</p>
+        <p className="eyebrow">Family Circle</p>
         <div className="page-header__title-row">
           <h1>Manage {family?.familyName ?? 'your family circle'}</h1>
           <Link className="button button--primary" to={FAMILY_MEMBERS_PATH}>

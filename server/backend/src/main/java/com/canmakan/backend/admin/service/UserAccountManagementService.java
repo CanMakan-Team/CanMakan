@@ -10,7 +10,7 @@ import com.canmakan.backend.admin.model.AdminAuditLog;
 import com.canmakan.backend.admin.repository.AdminAuditLogRepository;
 import com.canmakan.backend.auth.service.RefreshTokenService;
 import com.canmakan.backend.shared.security.SystemRole;
-import com.canmakan.backend.user.AdminUserSummaryView;
+import com.canmakan.backend.user.repository.AdminUserSummaryView;
 import com.canmakan.backend.user.model.UserAccount;
 import com.canmakan.backend.user.repository.UserAccountRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;

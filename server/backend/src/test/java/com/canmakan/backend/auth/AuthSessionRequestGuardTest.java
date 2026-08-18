@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.canmakan.backend.auth.exception.AuthSessionRequestRejectedException;
+import com.canmakan.backend.auth.config.RefreshTokenProperties;
 import com.canmakan.backend.shared.security.CorsProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;

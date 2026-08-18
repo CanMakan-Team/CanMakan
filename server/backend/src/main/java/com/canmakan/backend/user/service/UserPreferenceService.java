@@ -1,4 +1,4 @@
-package com.canmakan.backend.user;
+package com.canmakan.backend.user.service;
 
 import com.canmakan.backend.user.dto.NotificationPreferenceResponse;
 import com.canmakan.backend.user.model.UserPreference;

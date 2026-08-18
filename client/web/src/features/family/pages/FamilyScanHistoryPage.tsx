@@ -113,7 +113,7 @@ export function FamilyScanHistoryPage() {
     <>
       <header className="page-header page-header--scan-history">
         <div>
-          <p className="eyebrow">Scan Records</p>
+          <p className="eyebrow">Family Circle</p>
           <h1>Family Scan History</h1>
           <p>
             Review past scan verdicts supplied by CanMakan.

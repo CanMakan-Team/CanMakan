@@ -15,7 +15,7 @@ import com.canmakan.backend.family.model.FamilyInvitation;
 import com.canmakan.backend.family.model.InvitationStatus;
 import com.canmakan.backend.family.repository.FamilyInvitationRepository;
 import com.canmakan.backend.family.repository.FamilyRepository;
-import com.canmakan.backend.notification.NotificationService;
+import com.canmakan.backend.notification.service.NotificationService;
 import com.canmakan.backend.notification.model.NotificationType;
 import com.canmakan.backend.user.model.UserAccount;
 import com.canmakan.backend.user.repository.UserAccountRepository;

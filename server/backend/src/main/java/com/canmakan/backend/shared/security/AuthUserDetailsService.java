@@ -1,6 +1,6 @@
 package com.canmakan.backend.shared.security;
 
-import com.canmakan.backend.user.AuthenticationAccountView;
+import com.canmakan.backend.user.repository.AuthenticationAccountView;
 import com.canmakan.backend.user.repository.UserAccountRepository;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;

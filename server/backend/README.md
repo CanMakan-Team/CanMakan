@@ -35,7 +35,7 @@ Each top-level package represents a cohesive business capability. This makes the
 | Multi-capability domain (`product`) | Keep capability sub-slices (`scan/`, `recommendation/`, …); co-locate DTO/service/repo inside each slice |
 | Small (`notification`, `session`, `integration`) | Flat OK until ~8–10 types; then add `dto/` + `exception/` first |
 
-See [Backend Code Quality](../../docs/code-quality/BACKEND-CODE-QUALITY.md) (F19) for packaging history and non-goals (no mass `product` DTO re-package; dual `ScanProduct` / `CatalogProduct` read models stay intentional).
+See [Backend Code Quality](../../docs/code-quality/BACKEND-CODE-QUALITY.md) (F19, F20) for packaging history and non-goals (no mass `product` DTO re-package; dual `ScanProduct` / `CatalogProduct` read models stay intentional).
 
 ## Package Overview
 
@@ -66,12 +66,12 @@ This repository uses feature-first package boundaries even though implementation
 |------------------|--------------------|------------------------------------------------------------------|
 | `dietaryprofile` |     Implemented    | Nested model/repository/dto/service; active API                  |
 | `family`         |     Implemented    | Thin root (controllers + facade); collaborators in `service/`    |
-| `user`           |     Implemented    | Nested `model/` + `repository/`; preferences API                 |
-| `notification`   |     Implemented    | Inbox API; `dto/` + `exception/` nested                          |
+| `user`           |     Implemented    | Nested `model/` `repository/` `service/` `dto/`; controller at root     |
+| `notification`   |     Implemented    | Nested `model/` `repository/` `service/` `dto/` `exception/`; controller at root |
 | `session`        |     Implemented    | Small flat package (under type-count threshold)                  |
 | `knowledgebase`  |     Foundation     | Domain models available; service APIs in progress                |
 | `product`        |     Implemented    | Slice layout (`scan`, `recommendation`, …); dual product entities |
-| `auth`           |     Implemented    | Register + JWT login/refresh/logout/me                           |
+| `auth`           |     Implemented    | Thin root (`AuthController` + session guard); `service/` `config/` `dto/` `model/` `repository/` `exception/` |
 | `admin`          |     Implemented    | Nested admin layout; account + health APIs                       |
 | `analytics`      |    Planned/partial | Package scaffolded; implementation to expand                     |
 | `integration`    |     Implemented    | External clients for OFF / OpenRouter / search                   |

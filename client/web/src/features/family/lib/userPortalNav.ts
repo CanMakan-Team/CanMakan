@@ -31,7 +31,7 @@ export function userPortalSections(options: {
     label: 'Personal',
     items: [
       { label: 'Home', to: ME_PATH, icon: 'home' },
-      { label: 'Dietary Profile', to: ME_SETUP_PROFILE_PATH, icon: 'person' },
+      { label: 'Dietary Profile', to: ME_SETUP_PROFILE_PATH, icon: 'profile' },
       { label: 'Account Settings', to: ME_ACCOUNT_PATH, icon: 'gear' },
     ],
   }
@@ -60,7 +60,7 @@ export function userPortalSections(options: {
       personal,
       {
         label: 'Family',
-        items: [{ label: 'Create Family Circle', to: FAMILY_CIRCLE_PATH, icon: 'people' }],
+        items: [{ label: 'Create Family Circle', to: FAMILY_CIRCLE_PATH, icon: 'addPeople' }],
       },
     ]
   }

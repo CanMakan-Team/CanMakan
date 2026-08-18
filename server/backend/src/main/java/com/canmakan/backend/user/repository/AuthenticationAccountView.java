@@ -1,4 +1,4 @@
-package com.canmakan.backend.user;
+package com.canmakan.backend.user.repository;
 
 /** Account fields required to construct a Spring Security user in one query. */
 public interface AuthenticationAccountView {

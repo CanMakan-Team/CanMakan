@@ -1,7 +1,5 @@
 package com.canmakan.backend.user.repository;
 
-import com.canmakan.backend.user.AdminUserSummaryView;
-import com.canmakan.backend.user.AuthenticationAccountView;
 import com.canmakan.backend.user.model.UserAccount;
 import java.util.List;
 import java.util.Optional;

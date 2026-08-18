@@ -15,7 +15,6 @@ import { ConsumerTrendsPage } from '../../features/analytics/pages/ConsumerTrend
 import { VerdictTrendsPage } from '../../features/analytics/pages/VerdictTrendsPage'
 import { UsageStatisticsPage } from '../../features/analytics/pages/UsageStatisticsPage'
 import { AdminScanFeedbackPage } from '../../features/admin/pages/AdminScanFeedbackPage'
-import { FutureFeaturesPage } from '../../features/admin/pages/FutureFeaturesPage'
 import { SystemDashboardPage } from '../../features/admin/pages/SystemDashboardPage'
 import { UserAccessPage } from '../../features/admin/pages/UserAccessPage'
 import { SystemHealthPage } from '../../features/admin/pages/SystemHealthPage'
@@ -98,7 +97,6 @@ export function AppRoutes() {
           <Route path="users" element={<UserAccessPage />} />
           <Route path="feedback" element={<AdminScanFeedbackPage />} />
           <Route path="health" element={<SystemHealthPage />} />
-          <Route path="future" element={<FutureFeaturesPage />} />
         </Route>
       </Route>
 

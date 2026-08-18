@@ -3,6 +3,7 @@ package com.canmakan.backend.user;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.canmakan.backend.user.model.UserAccount;
+import com.canmakan.backend.user.repository.AdminUserSummaryView;
 import com.canmakan.backend.user.repository.UserAccountRepository;
 import java.sql.PreparedStatement;
 import java.sql.Statement;

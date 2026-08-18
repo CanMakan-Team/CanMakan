@@ -16,6 +16,12 @@ describe('PortalIcon', () => {
         <PortalIcon name="trends" />
         <PortalIcon name="info" />
         <PortalIcon name="clock" />
+        <PortalIcon name="activity" />
+        <PortalIcon name="chart" />
+        <PortalIcon name="message" />
+        <PortalIcon name="ban" />
+        <PortalIcon name="profile" />
+        <PortalIcon name="addPeople" />
       </>,
     )
 
@@ -29,6 +35,12 @@ describe('PortalIcon', () => {
     expect(container.querySelector('[data-icon="trends"]')).toBeTruthy()
     expect(container.querySelector('[data-icon="info"]')).toBeTruthy()
     expect(container.querySelector('[data-icon="clock"]')).toBeTruthy()
+    expect(container.querySelector('[data-icon="activity"]')).toBeTruthy()
+    expect(container.querySelector('[data-icon="chart"]')).toBeTruthy()
+    expect(container.querySelector('[data-icon="message"]')).toBeTruthy()
+    expect(container.querySelector('[data-icon="ban"]')).toBeTruthy()
+    expect(container.querySelector('[data-icon="profile"]')).toBeTruthy()
+    expect(container.querySelector('[data-icon="addPeople"]')).toBeTruthy()
   })
 
   it('keeps unknown names as text glyphs', () => {
