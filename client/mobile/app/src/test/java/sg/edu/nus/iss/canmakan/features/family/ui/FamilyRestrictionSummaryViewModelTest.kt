@@ -136,6 +136,39 @@ class FamilyRestrictionSummaryViewModelTest {
         assertEquals(1, familyApi.summaryCalls)
     }
 
+    @Test
+    fun apiFailureShowsServerMessage() {
+        familyApi.summaryResponse = Response.error(
+            500,
+            """{"message":"summary unavailable"}""".toResponseBody("application/json".toMediaType()),
+        )
+        assertTrue(sessionStore.saveSession(validSession()))
+
+        viewModel.fetchSummary()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val error = assertInstanceOf(
+            FamilyRestrictionSummaryUiState.Error::class.java,
+            viewModel.uiState.value,
+        )
+        assertEquals("summary unavailable", error.message)
+    }
+
+    @Test
+    fun thrownExceptionWithoutMessageUsesFallback() {
+        familyApi.throwOnSummary = true
+        assertTrue(sessionStore.saveSession(validSession()))
+
+        viewModel.fetchSummary()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val error = assertInstanceOf(
+            FamilyRestrictionSummaryUiState.Error::class.java,
+            viewModel.uiState.value,
+        )
+        assertEquals("Unknown Error Occurred", error.message)
+    }
+
     private fun validSession(): AuthenticatedSession {
         return AuthenticatedSession(
             accessToken = "access-token",
@@ -167,6 +200,7 @@ class FamilyRestrictionSummaryViewModelTest {
             "{}".toResponseBody("application/json".toMediaType()),
         )
         var summaryCalls = 0
+        var throwOnSummary = false
 
         override suspend fun getMyFamily(): Response<FamilyMeResponse> =
             Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
@@ -200,6 +234,7 @@ class FamilyRestrictionSummaryViewModelTest {
 
         override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> {
             summaryCalls++
+            if (throwOnSummary) throw RuntimeException()
             return summaryResponse
         }
 

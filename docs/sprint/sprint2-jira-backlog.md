@@ -272,7 +272,7 @@ Missing: recommendations API; admin list/PATCH APIs.
 | UC17 | Enhanced | **Not started** |
 | UC18 | Enhanced | **Mostly complete** — register API + web/mobile UI; no auto-login |
 | UC19 | Enhanced | **Complete** — JWT login/refresh/logout + mobile/web clients; suspended-login 403; explicit public allow-list and authenticated business APIs |
-| UC20 | Nice-to-Have | **Not started** / reporting README |
+| UC20 | Nice-to-Have | **Not started** |
 | UC21 | Nice-to-Have | **Partial** — `AiExecutionLogService` write path (flag default off) + seeds; no admin dashboard |
 | UC22–UC24 | Nice-to-Have | **Not started** |
 

@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthAccountKey
-import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyApiException
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
 
 sealed interface PostLoginContinuationState {
@@ -119,7 +119,7 @@ class PostLoginContinuationViewModel @Inject constructor(
                 }
             } catch (exception: CancellationException) {
                 throw exception
-            } catch (exception: CreateFamilyException) {
+            } catch (exception: FamilyApiException) {
                 if (!isCurrentAccount(initiatingUser)) return@launch
                 _state.value = PostLoginContinuationState.Ready(
                     invitationError(exception.statusCode),

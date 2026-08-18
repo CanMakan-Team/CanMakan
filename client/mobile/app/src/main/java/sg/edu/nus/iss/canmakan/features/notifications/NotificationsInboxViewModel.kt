@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthAccountKey
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
-import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyApiException
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
 import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsRepository
 import sg.edu.nus.iss.canmakan.features.notifications.data.UserNotificationResponse
@@ -121,7 +121,7 @@ class NotificationsInboxViewModel @Inject constructor(
                 onAccepted()
             } catch (exception: CancellationException) {
                 throw exception
-            } catch (exception: CreateFamilyException) {
+            } catch (exception: FamilyApiException) {
                 if (!isCurrentAccount(accountKey)) return@launch
                 _uiState.value = _uiState.value.copy(
                     actingToken = null,

@@ -122,6 +122,23 @@ class NotificationsInboxViewModelTest {
     }
 
     @Test
+    fun familyApiFailureOnAcceptKeepsInviteeCard() = runTest {
+        notificationsApi.notifications = listOf(inviteePendingCard())
+        familyApi.acceptResponse = Response.error(
+            409,
+            """{"message":"already a member"}""".toResponseBody("application/json".toMediaType()),
+        )
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.accept("tok") {}
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.notifications.size)
+        assertEquals("already a member", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
     fun declineRemovesInviteeCard() = runTest {
         notificationsApi.notifications = listOf(inviteePendingCard())
         familyApi.declineResponse = Response.success(Unit)

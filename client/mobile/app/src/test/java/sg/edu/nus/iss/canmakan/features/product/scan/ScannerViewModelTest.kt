@@ -23,6 +23,11 @@ import retrofit2.Response
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
+import sg.edu.nus.iss.canmakan.features.product.scan.data.BarcodeValidation
+import sg.edu.nus.iss.canmakan.features.product.scan.data.ScanAlternatives
+import sg.edu.nus.iss.canmakan.features.product.scan.data.ScanAssessment
+import sg.edu.nus.iss.canmakan.features.product.scan.data.ScanRepository
+import sg.edu.nus.iss.canmakan.features.product.scan.data.ServerScanRepository
 import sg.edu.nus.iss.canmakan.shared.network.AlternativeProductDto
 import sg.edu.nus.iss.canmakan.shared.network.AssessmentFinding
 import sg.edu.nus.iss.canmakan.shared.network.AssessmentRequest
@@ -59,7 +64,7 @@ class ScannerViewModelTest {
         activeProfileManager = ActiveProfileManager().also {
             it.switchProfile(requireNotNull(sessionStore.accountKey.value), 1L)
         }
-        viewModel = ScannerViewModel(api, sessionStore, activeProfileManager)
+        viewModel = ScannerViewModel(ServerScanRepository(api), sessionStore, activeProfileManager)
     }
 
     @AfterEach
@@ -272,6 +277,29 @@ class ScannerViewModelTest {
     }
 
     @Test
+    @DisplayName("UC3: unknown verdict string becomes ERROR")
+    fun unknownVerdictBecomesError() = runTest {
+        api.validation = Response.success(ValidationResponse(true, "food", "ok"))
+        api.assessment = Response.success(
+            AssessmentResponse(
+                verdict = "MAYBE",
+                explanation = "Unexpected",
+                findings = emptyList(),
+                productName = "Snack",
+                barcode = "333",
+            )
+        )
+
+        viewModel.processBarcode("333", profileId = 1L)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(ScanProcessState.ERROR, viewModel.processState.value)
+        assertEquals("Could not generate a safety verdict", viewModel.errorMessage.value)
+        assertNull(viewModel.verdictDetail.value)
+        assertFalse(api.recommendationsCalled)
+    }
+
+    @Test
     fun profilelessScanDoesNotCallValidationOrAssessment() = runTest {
         activeProfileManager.reset()
         viewModel.processBarcode("3017620422003", profileId = 0L)
@@ -370,6 +398,38 @@ class ScannerViewModelTest {
         assertEquals(ScanProcessState.IDLE, viewModel.processState.value)
         assertNull(viewModel.verdictDetail.value)
         assertNull(viewModel.errorMessage.value)
+    }
+
+    @Test
+    fun repositoryExceptionWithNullMessageUsesFallback() = runTest {
+        val throwingRepository = object : ScanRepository {
+            override suspend fun validateBarcode(barcode: String): BarcodeValidation {
+                throw RuntimeException()
+            }
+            override suspend fun assessBarcode(barcode: String, profileId: Long) = error("unused")
+            override suspend fun loadAlternatives(
+                profileId: Long,
+                barcode: String,
+                scanId: Long?,
+            ) = error("unused")
+            override fun toVerdictDetail(
+                assessment: ScanAssessment.Success,
+                fallbackBarcode: String,
+                alternatives: ScanAlternatives,
+            ) = error("unused")
+            override suspend fun submitFeedback(
+                scanId: Long,
+                isPositive: Boolean,
+                comment: String?,
+            ) = error("unused")
+        }
+        viewModel = ScannerViewModel(throwingRepository, sessionStore, activeProfileManager)
+
+        viewModel.processBarcode("111", profileId = 1L)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(ScanProcessState.ERROR, viewModel.processState.value)
+        assertEquals("Product not found or network error", viewModel.errorMessage.value)
     }
 
     private class FakeCanMakanApiService : CanMakanApiService {

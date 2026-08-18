@@ -1062,7 +1062,7 @@ None · **Unblocks** production use of protected Core APIs
 
 **Owner:** *Unassigned* · **Package:** Nice-to-Have · **Architecture:** Shared Client  
 **Tech:** Android; React Admin; Reporting API; RDS  
-**Current code state:** Not started — mobile `product/reporting` README only; Future Features “Product Data Issues” disabled; no report API
+**Current code state:** Not started — Future Features “Product Data Issues” disabled; no report API
 
 ### User story
 

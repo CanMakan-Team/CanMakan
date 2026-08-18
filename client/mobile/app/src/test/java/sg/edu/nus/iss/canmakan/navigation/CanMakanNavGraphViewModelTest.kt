@@ -27,7 +27,10 @@ import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionPersistence
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestriction
+import sg.edu.nus.iss.canmakan.features.family.FamilyContextLoader
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
+import sg.edu.nus.iss.canmakan.features.notifications.NotificationBadgeCoordinator
+import sg.edu.nus.iss.canmakan.features.product.PendingVerdictHolder
 import sg.edu.nus.iss.canmakan.features.family.data.ActiveProfileResponse
 import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyMeResponse
@@ -50,6 +53,9 @@ import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationResponse
 import sg.edu.nus.iss.canmakan.features.family.data.SetActiveProfileRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.SetNotificationPreferenceRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.UserSearchResponse
+import sg.edu.nus.iss.canmakan.features.product.model.Product
+import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
+import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.shared.notifications.SystemNotifier
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -72,12 +78,11 @@ class CanMakanNavGraphViewModelTest {
         familyApi = RecordingFamilyProfileApiService()
         notificationsApi = FakeNotificationsApiService()
         systemNotifier = RecordingSystemNotifier()
-        viewModel = CanMakanNavGraphViewModel(
+        viewModel = createViewModel(
+            sessionStore = sessionStore,
             activeProfileManager = activeProfileManager,
-            dietaryRestrictionRepo = FakeDietaryRestrictionRepository(),
-            familyProfileRepository = FamilyProfileRepository(familyApi),
-            notificationsRepository = NotificationsRepository(notificationsApi),
-            authSessionStore = sessionStore,
+            familyApi = familyApi,
+            notificationsApi = notificationsApi,
             systemNotifier = systemNotifier,
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -86,6 +91,31 @@ class CanMakanNavGraphViewModelTest {
     @AfterEach
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    private fun createViewModel(
+        sessionStore: AuthSessionStore,
+        activeProfileManager: ActiveProfileManager,
+        familyApi: RecordingFamilyProfileApiService,
+        notificationsApi: FakeNotificationsApiService,
+        systemNotifier: RecordingSystemNotifier,
+        dietaryRestrictionRepo: DietaryRestrictionRepository = FakeDietaryRestrictionRepository(),
+    ): CanMakanNavGraphViewModel {
+        val familyRepo = FamilyProfileRepository(familyApi)
+        return CanMakanNavGraphViewModel(
+            activeProfileManager = activeProfileManager,
+            dietaryRestrictionRepo = dietaryRestrictionRepo,
+            familyProfileRepository = familyRepo,
+            familyContextLoader = FamilyContextLoader(familyRepo, activeProfileManager),
+            notificationBadge = NotificationBadgeCoordinator(
+                familyProfileRepository = familyRepo,
+                notificationsRepository = NotificationsRepository(notificationsApi),
+                authSessionStore = sessionStore,
+                systemNotifier = systemNotifier,
+            ),
+            pendingVerdictHolder = PendingVerdictHolder(),
+            authSessionStore = sessionStore,
+        )
     }
 
     @Test
@@ -475,12 +505,11 @@ class CanMakanNavGraphViewModelTest {
                 "{}".toResponseBody("application/json".toMediaType()),
             )
         }
-        val restoredViewModel = CanMakanNavGraphViewModel(
+        val restoredViewModel = createViewModel(
+            sessionStore = restoredStore,
             activeProfileManager = restoredManager,
-            dietaryRestrictionRepo = FakeDietaryRestrictionRepository(),
-            familyProfileRepository = FamilyProfileRepository(restoredApi),
-            notificationsRepository = NotificationsRepository(FakeNotificationsApiService()),
-            authSessionStore = restoredStore,
+            familyApi = restoredApi,
+            notificationsApi = FakeNotificationsApiService(),
             systemNotifier = RecordingSystemNotifier(),
         )
 
@@ -632,6 +661,59 @@ class CanMakanNavGraphViewModelTest {
     }
 
     @Test
+    fun setPendingVerdictKeepsCurrentProfilePayloadUntilLogout() {
+        familyApi.meResponse = Response.success(FAMILY_ME)
+        familyApi.profiles = listOf(
+            FamilyProfileResponse(77L, "Wong", 50L, "Self", "W", true),
+        )
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val detail = VerdictDetail(
+            product = Product(productName = "Rice", barcode = "111"),
+            verdict = ScanVerdict.SAFE,
+        )
+        viewModel.setPendingVerdict(77L, detail)
+        assertEquals(detail, viewModel.pendingVerdict.value)
+
+        viewModel.setPendingVerdict(
+            88L,
+            detail.copy(explanation = "stale"),
+        )
+        assertEquals(detail, viewModel.pendingVerdict.value)
+
+        viewModel.clearNotificationsEnabledError()
+        sessionStore.clearSession()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertNull(viewModel.pendingVerdict.value)
+    }
+
+    @Test
+    fun restrictionLoadTimeoutSurfacesNetworkUserMessage() {
+        familyApi.meResponse = Response.success(FAMILY_ME)
+        familyApi.profiles = listOf(
+            FamilyProfileResponse(77L, "Wong", 50L, "Self", "W", true),
+        )
+        viewModel = createViewModel(
+            sessionStore = sessionStore,
+            activeProfileManager = activeProfileManager,
+            familyApi = familyApi,
+            notificationsApi = notificationsApi,
+            systemNotifier = systemNotifier,
+            dietaryRestrictionRepo = FakeDietaryRestrictionRepository(
+                java.net.SocketTimeoutException("timed out"),
+            ),
+        )
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            "Connection timed out. Please check the configured backend connection.",
+            viewModel.error.value,
+        )
+    }
+
+    @Test
     fun notificationsDisabledIsPassedThroughToSystemNotifier() {
         familyApi.notificationPreferenceResponse =
             Response.success(NotificationPreferenceResponse(notificationsEnabled = false))
@@ -731,8 +813,13 @@ class CanMakanNavGraphViewModelTest {
         }
     }
 
-    private class FakeDietaryRestrictionRepository : DietaryRestrictionRepository {
-        override suspend fun getAllDietaryRestrictions(): List<DietaryRestriction> = emptyList()
+    private class FakeDietaryRestrictionRepository(
+        private val failure: Exception? = null,
+    ) : DietaryRestrictionRepository {
+        override suspend fun getAllDietaryRestrictions(): List<DietaryRestriction> {
+            failure?.let { throw it }
+            return emptyList()
+        }
 
         override suspend fun getDietaryRestrictionsForProfile(profileId: Long): Map<Long, String> =
             emptyMap()
