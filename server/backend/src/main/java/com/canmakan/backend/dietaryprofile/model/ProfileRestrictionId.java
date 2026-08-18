@@ -2,6 +2,7 @@ package com.canmakan.backend.dietaryprofile.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
+import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -17,6 +18,7 @@ import java.io.Serializable;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
 @EqualsAndHashCode
 @Embeddable
 public class ProfileRestrictionId implements Serializable {
@@ -26,9 +28,4 @@ public class ProfileRestrictionId implements Serializable {
 
     @Column(name = "dietary_restriction_id")
     private Long dietaryRestrictionId;
-
-    public ProfileRestrictionId(Long dietaryProfileId, Long dietaryRestrictionId) {
-        this.dietaryProfileId = dietaryProfileId;
-        this.dietaryRestrictionId = dietaryRestrictionId;
-    }
 }

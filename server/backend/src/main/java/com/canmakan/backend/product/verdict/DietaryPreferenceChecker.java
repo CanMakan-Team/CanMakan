@@ -6,6 +6,7 @@ import com.canmakan.backend.knowledgebase.restriction.IngredientRestrictionLooku
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
@@ -15,15 +16,12 @@ import org.springframework.stereotype.Component;
  * @author Amelia Wong
  */
 @Component
+@RequiredArgsConstructor
 public final class DietaryPreferenceChecker implements RestrictionChecker {
 
     private static final Set<String> SUPPORTED_CODES = Set.of("VEGETARIAN", "VEGAN");
 
     private final IngredientRestrictionLookup restrictionLookup;
-
-    public DietaryPreferenceChecker(IngredientRestrictionLookup restrictionLookup) {
-        this.restrictionLookup = restrictionLookup;
-    }
 
     @Override
     public boolean supports(RestrictionCategory category) {

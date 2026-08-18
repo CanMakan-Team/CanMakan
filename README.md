@@ -83,6 +83,7 @@ remain pending.
 |   |-- requirements/
 |   |-- api/
 |   |-- database/
+|   |-- code-quality/
 |   `-- sprint/
 `-- .github/                       # Pull request and issue templates
 ```

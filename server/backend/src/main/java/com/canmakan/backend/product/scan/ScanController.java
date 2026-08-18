@@ -1,13 +1,13 @@
 package com.canmakan.backend.product.scan;
 
-import com.canmakan.backend.family.FamilyAuthorizationService;
+import com.canmakan.backend.family.service.FamilyAuthorizationService;
 import com.canmakan.backend.integration.BarcodeValidationClient;
 import com.canmakan.backend.product.assessment.AssessmentOrchestrator;
-import com.canmakan.backend.product.assessment.AssessmentRequest;
+import com.canmakan.backend.product.assessment.dto.AssessmentRequest;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthUserChecker;
+import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -52,16 +52,7 @@ public class ScanController {
     @PostMapping("/assess")
     public ResponseEntity<?> scan(
             @AuthenticationPrincipal AuthUserDetails userDetails,
-            @RequestBody AssessmentRequest request) {
-        if (request == null || request.barcode() == null || request.barcode().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Product Barcode is required"));
-        }
-        if (request.profileId() == null) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "message",
-                    "Profile ID is required"
-            ));
-        }
+            @Valid @RequestBody AssessmentRequest request) {
         Long userId = AuthUserChecker.requireUserId(userDetails);
         return ResponseEntity.ok(orchestrator.assess(userId, request));
     }
@@ -71,7 +62,7 @@ public class ScanController {
      * combined scan path.
      */
     @PostMapping("/validate")
-    public ResponseEntity<ValidationResponse> validateBarcode(@RequestBody ScanRequest request) {
+    public ResponseEntity<ValidationResponse> validateBarcode(@Valid @RequestBody ScanRequest request) {
         ValidationResponse response = validationClient.validateProduct(request.barcode());
         return ResponseEntity.ok(response);
     }
@@ -102,10 +93,7 @@ public class ScanController {
     public ResponseEntity<?> submitScanFeedback(
             @AuthenticationPrincipal AuthUserDetails userDetails,
             @PathVariable Long scanId,
-            @RequestBody(required = false) ScanFeedbackRequest request) {
-        if (request == null || request.isPositive() == null) {
-            return ResponseEntity.badRequest().body(Map.of("message", "isPositive is required"));
-        }
+            @Valid @RequestBody ScanFeedbackRequest request) {
         long userId = AuthUserChecker.requireUserId(userDetails);
         ScanFeedbackResponse response = scanFeedbackService.submitFeedback(
                 userId, scanId, request.isPositive(), request.userComments());

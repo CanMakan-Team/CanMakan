@@ -47,7 +47,7 @@ public class InvitationController {
             @PathVariable("token") String token) {
         long userId = AuthUserChecker.requireUserId(userDetails);
         FamilyMeResponse joined = familyService.acceptInvitation(userId, token);
-        log.info("POST /invitations/{}/accept → 200 familyId={}", token, joined.familyId());
+        log.info("POST /invitations/accept → 200 familyId={}", joined.familyId());
         return joined;
     }
 
@@ -58,14 +58,14 @@ public class InvitationController {
             @PathVariable("token") String token) {
         long userId = AuthUserChecker.requireUserId(userDetails);
         familyService.declineInvitation(userId, token);
-        log.info("POST /invitations/{}/decline → 204", token);
+        log.info("POST /invitations/decline → 204");
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
     @GetMapping("/{token}/preview")
     public InvitationPreviewResponse previewInvitation(@PathVariable("token") String token) {
         InvitationPreviewResponse preview = familyService.previewInvitation(token);
-        log.info("GET /invitations/{}/preview → 200", token);
+        log.info("GET /invitations/preview → 200 familyName={}", preview.familyName());
         return preview;
     }
 }

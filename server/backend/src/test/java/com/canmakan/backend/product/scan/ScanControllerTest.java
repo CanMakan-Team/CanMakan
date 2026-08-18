@@ -13,13 +13,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.canmakan.backend.family.FamilyAuthorizationService;
+import com.canmakan.backend.family.service.FamilyAuthorizationService;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.integration.BarcodeValidationClient;
 import com.canmakan.backend.product.assessment.AssessmentOrchestrator;
-import com.canmakan.backend.product.assessment.AssessmentRequest;
-import com.canmakan.backend.product.assessment.AssessmentResponse;
 import com.canmakan.backend.product.assessment.ExecutionTier;
+import com.canmakan.backend.product.assessment.dto.AssessmentRequest;
+import com.canmakan.backend.product.assessment.dto.AssessmentResponse;
 import com.canmakan.backend.shared.exception.GlobalExceptionHandler;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
@@ -35,6 +35,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 /**
  * HTTP contract tests for the two-step scan APIs on {@link ScanController}.
@@ -58,12 +59,15 @@ class ScanControllerTest {
         scanHistoryService = mock(ScanHistoryService.class);
         familyAuthorization = mock(FamilyAuthorizationService.class);
         scanFeedbackService = mock(ScanFeedbackService.class);
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders.standaloneSetup(
                 new ScanController(
                     validationClient, orchestrator, scanHistoryService, familyAuthorization,
                     scanFeedbackService))
             .setControllerAdvice(new GlobalExceptionHandler(), new ScanExceptionHandler())
             .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+            .setValidator(validator)
             .build();
     }
 

@@ -2,7 +2,9 @@
 
 An individual’s dietary needs and restrictions.
 
-## Package layout
+## Package layout (large feature)
+
+Matches the size-based convention in `server/backend/README.md` (F19):
 
 | Subpackage | Contents |
 | --- | --- |
@@ -10,6 +12,7 @@ An individual’s dietary needs and restrictions.
 | `repository/` | Spring Data repos — one per entity |
 | `dto/` | API request/response records |
 | `service/` | `DietaryProfileService`, `RestrictionRuleLoader` |
+| `exception/` | Feature-local exceptions / handlers |
 | *(root)* | `DietaryProfileController` |
 
 ## Purpose

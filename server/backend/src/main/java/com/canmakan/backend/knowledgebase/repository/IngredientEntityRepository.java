@@ -1,8 +1,8 @@
 package com.canmakan.backend.knowledgebase.repository;
 
+import com.canmakan.backend.knowledgebase.model.IngredientEntity;
 import java.util.List;
 import java.util.Optional;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface IngredientEntityRepository extends JpaRepository<IngredientEntity, Long> {

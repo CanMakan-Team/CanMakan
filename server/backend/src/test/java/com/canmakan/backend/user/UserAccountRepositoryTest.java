@@ -2,6 +2,8 @@ package com.canmakan.backend.user;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.canmakan.backend.user.model.UserAccount;
+import com.canmakan.backend.user.repository.UserAccountRepository;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.List;
@@ -66,8 +68,8 @@ class UserAccountRepositoryTest {
                 null
         );
 
-        assertThat(accounts).extracting(AdminUserSummaryView::getUserId).isSorted();
-        assertThat(accounts).extracting(AdminUserSummaryView::getUserId)
+        assertThat(accounts).extracting(account -> account.getUserId()).isSorted();
+        assertThat(accounts).extracting(account -> account.getUserId())
                 .contains(adminId, inactiveAdminId, activeUserId, inactiveUserId);
         assertThat(accounts).filteredOn(account -> account.getUserId().equals(adminId))
                 .singleElement()
@@ -86,7 +88,7 @@ class UserAccountRepositoryTest {
                 null
         );
 
-        assertThat(accounts).extracting(AdminUserSummaryView::getUserId)
+        assertThat(accounts).extracting(account -> account.getUserId())
                 .containsExactly(adminId);
     }
 
@@ -100,7 +102,7 @@ class UserAccountRepositoryTest {
         );
 
         assertThat(accounts).isNotEmpty().allMatch(account -> "USER".equals(account.getRole()));
-        assertThat(accounts).extracting(AdminUserSummaryView::getUserId)
+        assertThat(accounts).extracting(account -> account.getUserId())
                 .contains(activeUserId, inactiveUserId)
                 .doesNotContain(adminId, inactiveAdminId);
     }
@@ -115,7 +117,7 @@ class UserAccountRepositoryTest {
         );
 
         assertThat(accounts).isNotEmpty().allMatch(account -> "ADMIN".equals(account.getRole()));
-        assertThat(accounts).extracting(AdminUserSummaryView::getUserId)
+        assertThat(accounts).extracting(account -> account.getUserId())
                 .contains(adminId, inactiveAdminId)
                 .doesNotContain(activeUserId, inactiveUserId);
     }
@@ -134,13 +136,13 @@ class UserAccountRepositoryTest {
                 false
         );
 
-        assertThat(activeAccounts).isNotEmpty().allMatch(AdminUserSummaryView::getActive);
-        assertThat(activeAccounts).extracting(AdminUserSummaryView::getUserId)
+        assertThat(activeAccounts).isNotEmpty().allMatch(account -> account.getActive());
+        assertThat(activeAccounts).extracting(account -> account.getUserId())
                 .contains(adminId, activeUserId)
                 .doesNotContain(inactiveAdminId, inactiveUserId);
         assertThat(suspendedAccounts).isNotEmpty()
                 .allMatch(account -> !account.getActive());
-        assertThat(suspendedAccounts).extracting(AdminUserSummaryView::getUserId)
+        assertThat(suspendedAccounts).extracting(account -> account.getUserId())
                 .contains(inactiveAdminId, inactiveUserId)
                 .doesNotContain(adminId, activeUserId);
     }
@@ -154,7 +156,7 @@ class UserAccountRepositoryTest {
                 false
         );
 
-        assertThat(accounts).extracting(AdminUserSummaryView::getUserId)
+        assertThat(accounts).extracting(account -> account.getUserId())
                 .containsExactly(inactiveUserId);
     }
 
@@ -193,7 +195,7 @@ class UserAccountRepositoryTest {
 
         assertThat(repository.findByIdForUpdate(activeUserId))
                 .get()
-                .extracting(UserAccount::getId)
+                .extracting(account -> account.getId())
                 .isEqualTo(activeUserId);
         assertThat(repository.findByIdForUpdate(Long.MAX_VALUE)).isEmpty();
     }
@@ -210,17 +212,17 @@ class UserAccountRepositoryTest {
         List<UserAccount> admins = repository.findAllAdminsForUpdate();
 
         assertThat(admins).allMatch(account -> account.getRoleId().equals(adminRoleId));
-        assertThat(admins).extracting(UserAccount::getId).isSorted();
-        assertThat(admins).extracting(UserAccount::getId)
+        assertThat(admins).extracting(account -> account.getId()).isSorted();
+        assertThat(admins).extracting(account -> account.getId())
                 .contains(adminId, inactiveAdminId)
                 .doesNotContain(activeUserId, inactiveUserId);
         assertThat(admins).filteredOn(account -> account.getId().equals(adminId))
                 .singleElement()
-                .extracting(UserAccount::isActive)
+                .extracting(account -> account.isActive())
                 .isEqualTo(true);
         assertThat(admins).filteredOn(account -> account.getId().equals(inactiveAdminId))
                 .singleElement()
-                .extracting(UserAccount::isActive)
+                .extracting(account -> account.isActive())
                 .isEqualTo(false);
     }
 

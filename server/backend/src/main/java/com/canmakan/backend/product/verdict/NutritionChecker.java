@@ -43,11 +43,11 @@ public final class NutritionChecker implements RestrictionChecker {
 
         switch (rule.code()) {
             case "LOW_SUGAR" -> checkMaximum(
-                    rule.code(), product.nutrition(), Nutrition::sugarsPer100g,
+                    rule.code(), product.nutrition(), nutrition -> nutrition.sugarsPer100g(),
                     "Sugar", LOW_SUGAR_LIMIT, hits
             );
             case "LOW_FAT" -> checkMaximum(
-                    rule.code(), product.nutrition(), Nutrition::fatPer100g,
+                    rule.code(), product.nutrition(), nutrition -> nutrition.fatPer100g(),
                     "Total fat", LOW_FAT_LIMIT, hits
             );
             case "LOW_TRANS_FAT" -> checkTransFat(product.nutrition(), hits);
@@ -70,7 +70,7 @@ public final class NutritionChecker implements RestrictionChecker {
             return;
         }
 
-        if (value.compareTo(limit) > 0) {
+        if (value != null && value.compareTo(limit) > 0) {
             hits.add(new Finding(
                     code,
                     Finding.SUBJECT_NUTRITION,
@@ -88,7 +88,7 @@ public final class NutritionChecker implements RestrictionChecker {
             return;
         }
 
-        if (value.compareTo(BigDecimal.ZERO) > 0) {
+        if (value != null && value.compareTo(BigDecimal.ZERO) > 0) {
             hits.add(new Finding(
                     code,
                     Finding.SUBJECT_NUTRITION,
@@ -106,7 +106,7 @@ public final class NutritionChecker implements RestrictionChecker {
             return;
         }
 
-        if (value.compareTo(LOW_SODIUM_LIMIT) > 0) {
+        if (value != null && value.compareTo(LOW_SODIUM_LIMIT) > 0) {
             // Reported in grams for consistency with the other nutrient messages (sugar, fat),
             // rather than converting to milligrams which reads awkwardly for large values.
             hits.add(new Finding(
