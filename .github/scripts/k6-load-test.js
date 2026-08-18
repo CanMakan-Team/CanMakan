@@ -71,6 +71,12 @@ function jsonField(response, path) {
   }
 }
 
+/** Stagger think-time from VU id and iteration; not used for secrets or tokens. */
+function thinkSeconds(minSeconds, extraSeconds) {
+  const mix = exec.vu.idInTest * 31 + exec.scenario.iterationInInstance;
+  return minSeconds + extraSeconds * ((mix % 1000) / 1000);
+}
+
 /* 1. Login POST request */
 function login() {
   return http.post(
@@ -150,7 +156,7 @@ export default function scanJourney(data) {
     });
   });
 
-  sleep(0.5 + Math.random());
+  sleep(thinkSeconds(0.5, 1));
 
   group("scan product", function () {
     const assessRes = http.post(
@@ -197,7 +203,7 @@ export default function scanJourney(data) {
     });
   });
 
-  sleep(1 + Math.random() * 2);
+  sleep(thinkSeconds(1, 2));
 }
 
 /* 4. Handle summary */
