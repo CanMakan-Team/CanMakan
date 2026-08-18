@@ -1,12 +1,10 @@
 package sg.edu.nus.iss.canmakan.shared.di
 
-import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
 import com.google.gson.JsonPrimitive
 import com.google.gson.JsonSerializer
-import com.google.gson.Strictness
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -44,6 +42,8 @@ import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryApiServi
 import sg.edu.nus.iss.canmakan.features.product.recommendation.data.RecommendationHistoryApiService
 import sg.edu.nus.iss.canmakan.features.session.data.SessionApiService
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
+import sg.edu.nus.iss.canmakan.shared.network.RequestHeadersInterceptor
+import sg.edu.nus.iss.canmakan.shared.network.RetryPolicyInterceptor
 import sg.edu.nus.iss.canmakan.shared.util.BACKEND_LOCAL_DATE_TIME_FORMATTER
 import timber.log.Timber
 import java.net.Proxy
@@ -56,10 +56,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    private const val DEFAULT_BASE_URL = "https://equal-street-angelfish.ngrok-free.dev"
-    private const val NO_RETRY_HEADER = "X-CanMakan-No-Retry"
     private const val AUTH_REFRESH_NETWORK = "AuthRefreshNetwork"
-    private val HTTP_CLIENT_ERROR_RANGE = 400..499
 
     // The backend sends scan timestamps (e.g. Scan.scannedAt) as a fixed-shape ISO-8601
     // string ("yyyy-MM-ddTHH:mm:ss") rather than an epoch/millis value, so the field
@@ -69,7 +66,6 @@ object NetworkModule {
     @Singleton
     fun provideGson(): Gson {
         return GsonBuilder()
-            .setStrictness(Strictness.LENIENT)
             .registerTypeAdapter(
                 LocalDateTime::class.java,
                 JsonSerializer<LocalDateTime> { src, _, _ ->
@@ -224,50 +220,8 @@ object NetworkModule {
         }
 
         return builder
-            .addInterceptor { chain ->
-                val originalRequest = chain.request()
-                val skipRetries = originalRequest.header(NO_RETRY_HEADER)
-                    .equals("true", ignoreCase = true)
-                val request = originalRequest.newBuilder()
-                    .removeHeader(NO_RETRY_HEADER)
-                    .header(
-                        "User-Agent",
-                        "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
-                    )
-                    .header("ngrok-skip-browser-warning", "true")
-                    .build()
-
-                var response: okhttp3.Response? = null
-                var tryCount = 0
-                val maxLimit = if (skipRetries) 0 else 2 // Total 3 attempts by default.
-                var lastException: java.io.IOException? = null
-
-                while (tryCount <= maxLimit) {
-                    try {
-                        response?.close()
-                        response = chain.proceed(request)
-                        if (response.isSuccessful ||
-                            response.code in HTTP_CLIENT_ERROR_RANGE ||
-                            response.priorResponse != null
-                        ) {
-                            return@addInterceptor response
-                        }
-                    } catch (e: java.io.IOException) {
-                        lastException = e
-                        Timber.tag("NetworkModule").w("Request failed on attempt ${tryCount + 1}")
-                    }
-
-                    if (tryCount < maxLimit) {
-                        tryCount++
-                        // Backoff: 1s, 2s
-                        Thread.sleep(1000L * tryCount)
-                    } else {
-                        break
-                    }
-                }
-
-                response ?: throw lastException ?: java.io.IOException("Network request failed after retries")
-            }
+            .addInterceptor(RequestHeadersInterceptor())
+            .addInterceptor(RetryPolicyInterceptor())
             .addInterceptor(loggingInterceptor)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)

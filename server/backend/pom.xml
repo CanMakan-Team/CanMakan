@@ -19,6 +19,8 @@
 
     <properties>
         <java.version>21</java.version>
+        <!-- CVE-2026-54515: ignored properties can be rebound under case-insensitive JSON. -->
+        <jackson-2-bom.version>2.21.5</jackson-2-bom.version>
         <spring-ai.version>2.0.0</spring-ai.version>
         <jacoco.version>0.8.15</jacoco.version>
         <sonar.projectKey>canmakan-backend</sonar.projectKey>
@@ -80,6 +82,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+            <version>2.21.5</version>
         </dependency>
 
         <!-- Source: https://mvnrepository.com/artifact/org.projectlombok/lombok -->

@@ -11,22 +11,22 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthAccountKey
+import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.DietaryRestrictionRepository
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
-import sg.edu.nus.iss.canmakan.features.family.data.ActiveProfileResponse
-import sg.edu.nus.iss.canmakan.features.family.data.CreateFamilyException
+import sg.edu.nus.iss.canmakan.features.family.FamilyContextLoader
+import sg.edu.nus.iss.canmakan.features.family.FamilyShellSnapshot
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyApiException
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
-import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsRepository
-import sg.edu.nus.iss.canmakan.features.notifications.data.UserNotificationResponse
+import sg.edu.nus.iss.canmakan.features.notifications.NotificationBadgeCoordinator
+import sg.edu.nus.iss.canmakan.features.product.PendingVerdictHolder
 import sg.edu.nus.iss.canmakan.features.product.model.VerdictDetail
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
-import sg.edu.nus.iss.canmakan.shared.notifications.SystemNotifier
+import sg.edu.nus.iss.canmakan.shared.util.userMessageForNetworkFailure
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -42,9 +42,10 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val activeProfileManager: ActiveProfileManager,
     private val dietaryRestrictionRepo: DietaryRestrictionRepository,
     private val familyProfileRepository: FamilyProfileRepository,
-    private val notificationsRepository: NotificationsRepository,
+    private val familyContextLoader: FamilyContextLoader,
+    private val notificationBadge: NotificationBadgeCoordinator,
+    private val pendingVerdictHolder: PendingVerdictHolder,
     private val authSessionStore: AuthSessionStore,
-    private val systemNotifier: SystemNotifier,
 ) : ViewModel() {
 
     val currentProfileId: StateFlow<Long> = activeProfileManager.currentProfileId
@@ -70,8 +71,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val _pendingVerdict = MutableStateFlow<VerdictDetail?>(null)
-    val pendingVerdict: StateFlow<VerdictDetail?> = _pendingVerdict.asStateFlow()
+    val pendingVerdict: StateFlow<VerdictDetail?> = pendingVerdictHolder.pendingVerdict
 
     private val _isCreatingFamily = MutableStateFlow(false)
     val isCreatingFamily: StateFlow<Boolean> = _isCreatingFamily.asStateFlow()
@@ -82,7 +82,6 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val _showManageFamilyActions = MutableStateFlow(false)
     val showManageFamilyActions: StateFlow<Boolean> = _showManageFamilyActions.asStateFlow()
 
-    /** Linked SELF profile for the signed-in account; null when no family membership. */
     private val _selfProfileId = MutableStateFlow<Long?>(null)
     val selfProfileId: StateFlow<Long?> = _selfProfileId.asStateFlow()
 
@@ -95,23 +94,9 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private val _isSwitchingProfile = MutableStateFlow(false)
     val isSwitchingProfile: StateFlow<Boolean> = _isSwitchingProfile.asStateFlow()
 
-    // Drives the notification-bell badge. True only while the account has at least one
-    // unread, non-expired notification in its inbox.
-    private val _hasUnreadNotifications = MutableStateFlow(false)
-    val hasUnreadNotifications: StateFlow<Boolean> = _hasUnreadNotifications.asStateFlow()
-
-    // Backs the Settings screen's ON/OFF toggle. Defaults to disabled, matching the
-    // server-side default for a user with no stored preference yet -- a user must
-    // explicitly opt in, which is what triggers the OS permission prompt.
-    private val _notificationsEnabled = MutableStateFlow(false)
-    val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
-
-    private val _notificationsEnabledError = MutableStateFlow<String?>(null)
-    val notificationsEnabledError: StateFlow<String?> = _notificationsEnabledError.asStateFlow()
-
-    // Ids of unread notifications already posted to the system tray, so a later refresh
-    // of the same still-unread item does not notify twice.
-    private val notifiedNotificationIds = mutableSetOf<Long>()
+    val hasUnreadNotifications: StateFlow<Boolean> = notificationBadge.hasUnreadNotifications
+    val notificationsEnabled: StateFlow<Boolean> = notificationBadge.notificationsEnabled
+    val notificationsEnabledError: StateFlow<String?> = notificationBadge.notificationsEnabledError
 
     private val reloadMutex = Mutex()
     private var observedAccount = false
@@ -121,11 +106,8 @@ class CanMakanNavGraphViewModel @Inject constructor(
     private var refreshJob: Job? = null
     private var accountReloadJob: Job? = null
     private var restrictionJob: Job? = null
-    private var notificationsJob: Job? = null
-    private var notificationsEnabledJob: Job? = null
     private var switchGeneration = 0L
     private var createFamilyGeneration = 0L
-    private var notificationsEnabledGeneration = 0L
 
     init {
         viewModelScope.launch {
@@ -165,17 +147,10 @@ class CanMakanNavGraphViewModel @Inject constructor(
         refreshJob?.cancel()
         accountReloadJob?.cancel()
         restrictionJob?.cancel()
-        notificationsJob?.cancel()
-        notificationsEnabledJob?.cancel()
-        notificationsEnabledGeneration++
         clearAccountScopedState(hasSession = accountKey != null)
 
         if (accountKey != null) {
             accountReloadJob = viewModelScope.launch { reloadFamilyContext(accountKey) }
-            notificationsJob = viewModelScope.launch {
-                loadNotificationPreference(accountKey)
-                refreshNotifications(accountKey)
-            }
         } else {
             _isLoading.value = false
         }
@@ -190,69 +165,21 @@ class CanMakanNavGraphViewModel @Inject constructor(
         _showManageFamilyActions.value = false
         _selfProfileId.value = null
         _memberRole.value = null
-        _pendingVerdict.value = null
+        pendingVerdictHolder.clear()
         _error.value = null
         _createFamilyError.value = null
         _switchProfileError.value = null
         _isCreatingFamily.value = false
         _isSwitchingProfile.value = false
-        _hasUnreadNotifications.value = false
-        _notificationsEnabled.value = false
-        _notificationsEnabledError.value = null
-        notifiedNotificationIds.clear()
         _isLoading.value = hasSession
     }
 
     fun clearNotificationsEnabledError() {
-        _notificationsEnabledError.value = null
+        notificationBadge.clearNotificationsEnabledError()
     }
 
-    /**
-     * Sets whether CanMakan may post system notifications. Optimistic: the toggle flips
-     * immediately and rolls back only if the PUT to persist it fails.
-     */
     fun setNotificationsEnabled(enabled: Boolean) {
-        val accountKey = authSessionStore.accountKey.value
-        if (accountKey == null) {
-            _notificationsEnabledError.value = "Sign in before changing notification settings."
-            return
-        }
-        if (_notificationsEnabled.value == enabled) return
-
-        val previous = _notificationsEnabled.value
-        notificationsEnabledJob?.cancel()
-        val generation = ++notificationsEnabledGeneration
-        _notificationsEnabledError.value = null
-        _notificationsEnabled.value = enabled
-        notificationsEnabledJob = viewModelScope.launch {
-            try {
-                val saved = familyProfileRepository.setNotificationPreference(enabled)
-                if (!isCurrentAccount(accountKey) || generation != notificationsEnabledGeneration) return@launch
-                _notificationsEnabled.value = saved
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                if (!isCurrentAccount(accountKey) || generation != notificationsEnabledGeneration) return@launch
-                Timber.w(exception, "Failed to save notification preference")
-                _notificationsEnabled.value = previous
-                _notificationsEnabledError.value =
-                    "Could not save notification setting. Check your connection and try again."
-            }
-        }
-    }
-
-    private suspend fun loadNotificationPreference(accountKey: AuthAccountKey) {
-        val generation = notificationsEnabledGeneration
-        try {
-            val enabled = familyProfileRepository.getNotificationPreference()
-            if (!isCurrentAccount(accountKey) || generation != notificationsEnabledGeneration) return
-            _notificationsEnabled.value = enabled
-        } catch (exception: CancellationException) {
-            throw exception
-        } catch (exception: Exception) {
-            // Non-fatal: keep the last known value (defaults to disabled) until next refresh.
-            Timber.w(exception, "Error loading notification preference")
-        }
+        notificationBadge.setNotificationsEnabled(enabled)
     }
 
     fun clearSwitchProfileError() {
@@ -265,59 +192,11 @@ class CanMakanNavGraphViewModel @Inject constructor(
             _isLoading.value = true
             _error.value = null
             try {
-                val me = familyProfileRepository.getMyFamily()
+                val snapshot = familyContextLoader.load(accountKey) { isCurrentAccount(accountKey) }
+                    ?: return
                 if (!isCurrentAccount(accountKey)) return
-
-                val loadedProfiles = if (me != null) {
-                    familyProfileRepository.getProfilesForFamily(me.familyId)
-                } else {
-                    emptyList()
-                }
-                if (!isCurrentAccount(accountKey)) return
-
-                val activeFromServer = try {
-                    familyProfileRepository.getActiveProfile()
-                } catch (exception: CreateFamilyException) {
-                    if (exception.statusCode == 404) null else throw exception
-                }
-                if (!isCurrentAccount(accountKey)) return
-
-                _hasFamily.value = me != null
-                _familyName.value = me?.familyName
-                _showManageFamilyActions.value = me?.memberRole == "PRIMARY_ADMIN"
-                _selfProfileId.value = me?.selfProfileId
-                _memberRole.value = me?.memberRole
-
-                if (activeFromServer == null) {
-                    activeProfileManager.selection.value
-                        ?.takeIf { it.accountKey == accountKey }
-                        ?.let { activeProfileManager.reset() }
-                    _profiles.value = emptyList()
-                    return
-                }
-
-                require(activeFromServer.profileId > 0) {
-                    "Active-profile response must contain a positive profile id."
-                }
-                val resolvedProfileId = if (me == null) {
-                    activeFromServer.profileId
-                } else {
-                    resolveActiveProfileId(
-                        serverProfileId = activeFromServer.profileId,
-                        loadedProfiles = loadedProfiles,
-                        selfProfileId = me.selfProfileId,
-                    )
-                }
-                require(resolvedProfileId > 0) { "Resolved active profile id must be positive." }
-                if (!isCurrentAccount(accountKey)) return
-
-                val activeProfile = profileFromActiveResponse(activeFromServer)
-                _profiles.value = if (me == null) {
-                    listOf(activeProfile)
-                } else {
-                    loadedProfiles.ifEmpty { listOf(activeProfile) }
-                }
-                applyActiveProfileId(accountKey, resolvedProfileId)
+                applyFamilySnapshot(snapshot)
+                snapshot.resolvedProfileId?.let { applyActiveProfileId(accountKey, it) }
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
@@ -325,16 +204,20 @@ class CanMakanNavGraphViewModel @Inject constructor(
                 Timber.e(exception, "Error loading family membership / profiles")
                 _error.value =
                     "Unable to connect to the server. Please check your network and try again."
-                _hasFamily.value = false
-                _familyName.value = null
-                _showManageFamilyActions.value = false
-                _selfProfileId.value = null
-                _memberRole.value = null
-                _profiles.value = emptyList()
+                applyFamilySnapshot(FamilyShellSnapshot.empty())
             } finally {
                 if (isCurrentAccount(accountKey)) _isLoading.value = false
             }
         }
+    }
+
+    private fun applyFamilySnapshot(snapshot: FamilyShellSnapshot) {
+        _hasFamily.value = snapshot.hasFamily
+        _familyName.value = snapshot.familyName
+        _showManageFamilyActions.value = snapshot.showManageFamilyActions
+        _selfProfileId.value = snapshot.selfProfileId
+        _memberRole.value = snapshot.memberRole
+        _profiles.value = snapshot.profiles
     }
 
     private suspend fun loadRestrictions(owner: ActiveProfileManager.Selection) {
@@ -355,13 +238,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
         } catch (exception: Exception) {
             if (!isCurrentOwner(owner)) return
             Timber.e(exception, "Error loading restrictions for active profile")
-            _error.value = when (exception) {
-                is java.net.SocketTimeoutException ->
-                    "Connection timed out. Check your firewall settings and server connectivity."
-                is java.net.ConnectException ->
-                    "Could not connect to the server. Please verify the backend is running."
-                else -> "Unable to connect to the server. Please check your network and try again."
-            }
+            _error.value = userMessageForNetworkFailure(exception)
             _activeRestrictions.value = emptyList()
         }
     }
@@ -372,36 +249,6 @@ class CanMakanNavGraphViewModel @Inject constructor(
         if (!activeProfileManager.isCurrent(accountKey, profileId)) {
             activeProfileManager.switchProfile(accountKey, profileId)
         }
-    }
-
-    private fun resolveActiveProfileId(
-        serverProfileId: Long,
-        loadedProfiles: List<DietaryProfile>,
-        selfProfileId: Long?,
-    ): Long {
-        if (loadedProfiles.any { it.id == serverProfileId }) return serverProfileId
-        if (selfProfileId != null && loadedProfiles.any { it.id == selfProfileId }) {
-            return selfProfileId
-        }
-        return loadedProfiles.firstOrNull()?.id ?: serverProfileId
-    }
-
-    private fun profileFromActiveResponse(active: ActiveProfileResponse): DietaryProfile {
-        val trimmedName = active.profileName.trim()
-        val words = trimmedName.split("\\s+".toRegex()).filter { it.isNotBlank() }
-        val initials = if (words.size >= 2) {
-            (words.first().take(1) + words.last().take(1)).uppercase()
-        } else {
-            trimmedName.take(minOf(2, trimmedName.length)).uppercase()
-        }
-        return DietaryProfile(
-            id = active.profileId,
-            familyId = active.familyId ?: 0L,
-            profileName = active.profileName,
-            relationship = active.relationship.orEmpty(),
-            initials = initials.ifEmpty { "?" },
-            isPrimary = active.isPrimary ?: false,
-        )
     }
 
     fun switchProfile(profileId: Long) {
@@ -421,7 +268,6 @@ class CanMakanNavGraphViewModel @Inject constructor(
         switchJob?.cancel()
         val generation = ++switchGeneration
         _switchProfileError.value = null
-        // Optimistic highlight; roll back only if this attempt's PUT fails while still selected.
         applyActiveProfileId(accountKey, profileId)
         switchJob = viewModelScope.launch {
             _isSwitchingProfile.value = true
@@ -434,7 +280,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
                 applyActiveProfileId(accountKey, selected.profileId)
             } catch (exception: CancellationException) {
                 throw exception
-            } catch (exception: CreateFamilyException) {
+            } catch (exception: FamilyApiException) {
                 if (!isCurrentAccount(accountKey) || generation != switchGeneration) return@launch
                 Timber.w(exception, "Switch profile failed")
                 rollbackOptimisticSwitch(accountKey, profileId, previousProfileId)
@@ -471,7 +317,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
     fun setPendingVerdict(profileId: Long, detail: VerdictDetail) {
         val accountKey = authSessionStore.accountKey.value ?: return
         if (activeProfileManager.isCurrent(accountKey, profileId)) {
-            _pendingVerdict.value = detail
+            pendingVerdictHolder.set(detail)
         }
     }
 
@@ -486,52 +332,8 @@ class CanMakanNavGraphViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Re-checks the notification inbox for unread cards, refreshing the bell badge.
-     * Called on account load and whenever the Notifications screen is left, since opening
-     * it marks every card read on the backend.
-     */
     fun refreshNotifications() {
-        val accountKey = authSessionStore.accountKey.value ?: return
-        notificationsJob?.cancel()
-        notificationsJob = viewModelScope.launch { refreshNotifications(accountKey) }
-    }
-
-    private suspend fun refreshNotifications(accountKey: AuthAccountKey) {
-        try {
-            val notifications = notificationsRepository.listMine()
-            if (!isCurrentAccount(accountKey)) return
-            val unread = notifications.filter { !it.read && !it.expired }
-            _hasUnreadNotifications.value = unread.isNotEmpty()
-            notifyNewlyUnread(unread)
-        } catch (exception: CancellationException) {
-            throw exception
-        } catch (exception: Exception) {
-            // Non-fatal: the bell badge simply keeps its last known state until the next refresh.
-            Timber.w(exception, "Error refreshing notification badge state")
-        }
-    }
-
-    /**
-     * Posts a system notification for each unread inbox item not already posted, then
-     * updates the seen set so the next refresh only reports genuinely new arrivals.
-     * [SystemNotifier] itself decides whether the post is actually shown (the user's
-     * toggle, the OS permission); this only decides which items are candidates.
-     */
-    private fun notifyNewlyUnread(unread: List<UserNotificationResponse>) {
-        val newlyUnread = unread.filter { it.id !in notifiedNotificationIds }
-        newlyUnread.forEach { notification ->
-            systemNotifier.notify(
-                id = notification.id.toInt(),
-                title = notification.title,
-                body = notification.body?.takeIf { it.isNotBlank() }
-                    ?: "You have a new update in CanMakan.",
-                notificationsEnabled = _notificationsEnabled.value,
-            )
-        }
-        notifiedNotificationIds += newlyUnread.map { it.id }
-        // Drop ids that are no longer unread, so a later re-arrival notifies again.
-        notifiedNotificationIds.retainAll(unread.map { it.id }.toSet())
+        notificationBadge.refreshNotifications()
     }
 
     fun clearCreateFamilyError() {
@@ -570,7 +372,7 @@ class CanMakanNavGraphViewModel @Inject constructor(
                 }
             } catch (exception: CancellationException) {
                 throw exception
-            } catch (exception: CreateFamilyException) {
+            } catch (exception: FamilyApiException) {
                 if (!isCurrentAccount(accountKey) || generation != createFamilyGeneration) return@launch
                 Timber.e(exception, "Create family failed")
                 _createFamilyError.value = exception.message

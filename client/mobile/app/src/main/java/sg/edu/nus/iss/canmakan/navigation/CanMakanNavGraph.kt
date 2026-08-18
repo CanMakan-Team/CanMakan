@@ -19,7 +19,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,15 +59,15 @@ import sg.edu.nus.iss.canmakan.features.notifications.NotificationsInboxScreen
 import sg.edu.nus.iss.canmakan.features.account.SettingsScreen
 import sg.edu.nus.iss.canmakan.features.account.SettingsViewModel
 
-private const val ROUTE_SCANNER = "scanner"
-private const val ROUTE_HISTORY = "history"
-private const val ROUTE_PRODUCT_DETAIL = "product_detail"
-private const val ROUTE_CREATE_FAMILY = "create_family"
-private const val ROUTE_MANAGE_FAMILY = "family/manage"
-private const val ROUTE_INVITE_MEMBER = "family/invite"
-private const val ROUTE_DEPENDANT_PROFILE = "family/dependant"
-private const val ROUTE_NOTIFICATIONS = "notifications"
-private const val ROUTE_SETTINGS = "settings"
+private const val ROUTE_SCANNER = AuthenticatedRoutes.SCANNER
+private const val ROUTE_HISTORY = AuthenticatedRoutes.HISTORY
+private const val ROUTE_PRODUCT_DETAIL = AuthenticatedRoutes.PRODUCT_DETAIL
+private const val ROUTE_CREATE_FAMILY = AuthenticatedRoutes.CREATE_FAMILY
+private const val ROUTE_MANAGE_FAMILY = AuthenticatedRoutes.MANAGE_FAMILY
+private const val ROUTE_INVITE_MEMBER = AuthenticatedRoutes.INVITE_MEMBER
+private const val ROUTE_DEPENDANT_PROFILE = AuthenticatedRoutes.DEPENDANT_PROFILE
+private const val ROUTE_NOTIFICATIONS = AuthenticatedRoutes.NOTIFICATIONS
+private const val ROUTE_SETTINGS = AuthenticatedRoutes.SETTINGS
 
 /* The top-level screen. It wires together the navigation between the
  * three screens, the side drawer, and the edit dietary requirements sheet.
@@ -108,8 +107,6 @@ fun CanMakanNavGraph(
     val switchProfileError by navGraphViewModel.switchProfileError.collectAsStateWithLifecycle()
     val isSwitchingProfile by navGraphViewModel.isSwitchingProfile.collectAsStateWithLifecycle()
     val hasUnreadNotifications by navGraphViewModel.hasUnreadNotifications.collectAsStateWithLifecycle()
-    val notificationsEnabled by navGraphViewModel.notificationsEnabled.collectAsStateWithLifecycle()
-    val notificationsEnabledError by navGraphViewModel.notificationsEnabledError.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -212,7 +209,7 @@ fun CanMakanNavGraph(
                     },
                     onFamilyAllergySummaryClick = {
                         closeDrawer()
-                        navController.navigate("family/restrictions")
+                        navController.navigate(AuthenticatedRoutes.FAMILY_RESTRICTIONS)
                     },
                     onHistoryClick = {
                         closeDrawer()
@@ -253,6 +250,14 @@ fun CanMakanNavGraph(
                 showEditDietarySheet = true
             }
         }
+
+        val chrome = AuthenticatedChromeCallbacks(
+            onMenuClick = { openDrawer() },
+            onNotificationsClick = { openNotifications() },
+            hasUnreadNotifications = hasUnreadNotifications,
+            onScanClick = { navController.navigate(ROUTE_SCANNER) },
+            onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+        )
 
         Column {
             invitationClaimError?.let { message ->
@@ -298,17 +303,11 @@ fun CanMakanNavGraph(
                 ScannerScreen(
                     activeProfile = activeProfile,
                     activeRestrictions = activeRestrictions,
-
-                    // Open the drawer when the menu button is clicked
-                    onMenuClick = { openDrawer() },
-                    onNotificationsClick = { openNotifications() },
-                    hasUnreadNotifications = hasUnreadNotifications,
-
-                    // Navigate to the history screen when the history button is clicked
-                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
-
-                    // Navigate to the history screen when the history button is clicked
-                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onMenuClick = chrome.onMenuClick,
+                    onNotificationsClick = chrome.onNotificationsClick,
+                    hasUnreadNotifications = chrome.hasUnreadNotifications,
+                    onScanClick = chrome.onScanClick,
+                    onHistoryClick = chrome.onHistoryClick,
                     onSetUpProfile = onRequestSelfProfileSetup,
                     onActiveProfileClick = { openActiveProfileDietary() },
 
@@ -324,12 +323,9 @@ fun CanMakanNavGraph(
             /**
              * (UC6) Navigate to the Family Allergy Matrix Screen
              */
-            composable("family/restrictions") {
-                // 1. Instantiate the ViewModel at the NavGraph level
+            composable(AuthenticatedRoutes.FAMILY_RESTRICTIONS) {
                 val viewModel: FamilyRestrictionSummaryViewModel = hiltViewModel()
-
-                // 2. Collect the state safely
-                val uiState by viewModel.uiState.collectAsState()
+                val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
                 // 3. Pass the stateless UI state and navigation callbacks down
                 LaunchedEffect(Unit) {
@@ -340,9 +336,9 @@ fun CanMakanNavGraph(
                     profiles = profiles,
                     selfProfileId = selfProfileId,
                     memberRole = memberRole,
-                    onMenuClick = { openDrawer() },
-                    onNotificationsClick = { openNotifications() },
-                    hasUnreadNotifications = hasUnreadNotifications,
+                    onMenuClick = chrome.onMenuClick,
+                    onNotificationsClick = chrome.onNotificationsClick,
+                    hasUnreadNotifications = chrome.hasUnreadNotifications,
                     onNavigateToEditMembers = {
                         navController.navigate(ROUTE_MANAGE_FAMILY)
                     },
@@ -358,10 +354,10 @@ fun CanMakanNavGraph(
                     isLoading = scanHistoryUiState.isLoading,
                     requiresProfileSetup = scanHistoryUiState.requiresProfileSetup,
                     errorMessage = scanHistoryUiState.errorMessage,
-                    onMenuClick = { openDrawer() },
-                    onNotificationsClick = { openNotifications() },
-                    hasUnreadNotifications = hasUnreadNotifications,
-                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
+                    onMenuClick = chrome.onMenuClick,
+                    onNotificationsClick = chrome.onNotificationsClick,
+                    hasUnreadNotifications = chrome.hasUnreadNotifications,
+                    onScanClick = chrome.onScanClick,
                     onHistoryClick = { },
                     onSetUpProfile = onRequestSelfProfileSetup,
                     onActiveProfileClick = { openActiveProfileDietary() },
@@ -405,8 +401,8 @@ fun CanMakanNavGraph(
                         explanation = detail.explanation,
                         alternativesError = detail.alternativesError,
                         onBackClick = { navController.popBackStack() },
-                        onScanClick = { navController.navigate(ROUTE_SCANNER) },
-                        onHistoryClick = { navController.navigate(ROUTE_HISTORY) }
+                        onScanClick = chrome.onScanClick,
+                        onHistoryClick = chrome.onHistoryClick,
                     )
                 }
             }
@@ -424,8 +420,8 @@ fun CanMakanNavGraph(
                         onMenuClick = { openDrawer() },
                         onNotificationsClick = { openNotifications() },
                         hasUnreadNotifications = hasUnreadNotifications,
-                        onScanClick = { navController.navigate(ROUTE_SCANNER) },
-                        onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                        onScanClick = chrome.onScanClick,
+                        onHistoryClick = chrome.onHistoryClick,
                         onBackClick = { navController.popBackStack() },
                         onCreateClick = { name ->
                             navGraphViewModel.createFamilyCircle(name) {
@@ -445,11 +441,11 @@ fun CanMakanNavGraph(
             composable(ROUTE_MANAGE_FAMILY) {
                 ManageFamilyScreen(
                     familyName = familyName,
-                    onMenuClick = { openDrawer() },
-                    onNotificationsClick = { openNotifications() },
-                    hasUnreadNotifications = hasUnreadNotifications,
-                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
-                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onMenuClick = chrome.onMenuClick,
+                    onNotificationsClick = chrome.onNotificationsClick,
+                    hasUnreadNotifications = chrome.hasUnreadNotifications,
+                    onScanClick = chrome.onScanClick,
+                    onHistoryClick = chrome.onHistoryClick,
                     onBackClick = { navController.popBackStack() },
                     onInviteClick = { navController.navigate(ROUTE_INVITE_MEMBER) },
                     onDependantClick = { navController.navigate(ROUTE_DEPENDANT_PROFILE) },
@@ -457,11 +453,11 @@ fun CanMakanNavGraph(
             }
             composable(ROUTE_DEPENDANT_PROFILE) {
                 CreateDependantProfileScreen(
-                    onMenuClick = { openDrawer() },
-                    onNotificationsClick = { openNotifications() },
-                    hasUnreadNotifications = hasUnreadNotifications,
-                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
-                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onMenuClick = chrome.onMenuClick,
+                    onNotificationsClick = chrome.onNotificationsClick,
+                    hasUnreadNotifications = chrome.hasUnreadNotifications,
+                    onScanClick = chrome.onScanClick,
+                    onHistoryClick = chrome.onHistoryClick,
                     onBackClick = { navController.popBackStack() },
                     onCancelClick = { navController.popBackStack() },
                     onCreated = {
@@ -472,11 +468,11 @@ fun CanMakanNavGraph(
             }
             composable(ROUTE_INVITE_MEMBER) {
                 InviteFamilyMemberScreen(
-                    onMenuClick = { openDrawer() },
-                    onNotificationsClick = { openNotifications() },
-                    hasUnreadNotifications = hasUnreadNotifications,
-                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
-                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onMenuClick = chrome.onMenuClick,
+                    onNotificationsClick = chrome.onNotificationsClick,
+                    hasUnreadNotifications = chrome.hasUnreadNotifications,
+                    onScanClick = chrome.onScanClick,
+                    onHistoryClick = chrome.onHistoryClick,
                     onBackClick = { navController.popBackStack() },
                     onCancelClick = { navController.popBackStack() },
                     onInviteCreated = {
@@ -486,17 +482,17 @@ fun CanMakanNavGraph(
                 )
             }
             composable(ROUTE_NOTIFICATIONS) {
-                // Opening this screen marks every card read on the backend. Refresh the bell
-                // badge when the screen closes so it clears wherever AppTopBar is shown next.
+                // Listing notifications does not mark them read. Refresh the bell badge when
+                // leaving so it matches unread flags after accept/decline/mark-all-read.
                 DisposableEffect(Unit) {
                     onDispose { navGraphViewModel.refreshNotifications() }
                 }
                 NotificationsInboxScreen(
-                    onMenuClick = { openDrawer() },
-                    onNotificationsClick = { openNotifications() },
-                    hasUnreadNotifications = hasUnreadNotifications,
-                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
-                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onMenuClick = chrome.onMenuClick,
+                    onNotificationsClick = chrome.onNotificationsClick,
+                    hasUnreadNotifications = chrome.hasUnreadNotifications,
+                    onScanClick = chrome.onScanClick,
+                    onHistoryClick = chrome.onHistoryClick,
                     onBackClick = { navController.popBackStack() },
                     onAccepted = {
                         navGraphViewModel.refreshRestrictions()
@@ -509,15 +505,17 @@ fun CanMakanNavGraph(
                 val settingsViewModel: SettingsViewModel = hiltViewModel()
                 val isDeletingAccount by settingsViewModel.isDeletingAccount.collectAsStateWithLifecycle()
                 val deleteAccountError by settingsViewModel.deleteAccountError.collectAsStateWithLifecycle()
+                val notificationsEnabled by settingsViewModel.notificationsEnabled.collectAsStateWithLifecycle()
+                val notificationsEnabledError by settingsViewModel.notificationsEnabledError.collectAsStateWithLifecycle()
                 SettingsScreen(
-                    onMenuClick = { openDrawer() },
-                    onNotificationsClick = { openNotifications() },
-                    hasUnreadNotifications = hasUnreadNotifications,
+                    onMenuClick = chrome.onMenuClick,
+                    onNotificationsClick = chrome.onNotificationsClick,
+                    hasUnreadNotifications = chrome.hasUnreadNotifications,
                     onBackClick = { navController.popBackStack() },
-                    onScanClick = { navController.navigate(ROUTE_SCANNER) },
-                    onHistoryClick = { navController.navigate(ROUTE_HISTORY) },
+                    onScanClick = chrome.onScanClick,
+                    onHistoryClick = chrome.onHistoryClick,
                     notificationsEnabled = notificationsEnabled,
-                    onNotificationsEnabledChanged = navGraphViewModel::setNotificationsEnabled,
+                    onNotificationsEnabledChanged = settingsViewModel::setNotificationsEnabled,
                     notificationsEnabledError = notificationsEnabledError,
                     isDeletingAccount = isDeletingAccount,
                     deleteAccountError = deleteAccountError,

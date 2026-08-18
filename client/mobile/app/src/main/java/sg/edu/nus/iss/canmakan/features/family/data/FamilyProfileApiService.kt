@@ -93,6 +93,7 @@ interface FamilyProfileApiService {
     @GET("families/me/members")
     suspend fun getFamilyMembers(): Response<List<FamilyMemberRosterItem>>
 
+    @Headers("X-CanMakan-No-Retry: true")
     @POST("families")
     suspend fun createFamily(
         @Body request: CreateFamilyRequestBody,
@@ -153,6 +154,7 @@ interface FamilyProfileApiService {
         @Path("token") token: String,
     ): Response<Unit>
 
+    @Headers("X-CanMakan-No-Retry: true")
     @POST("families/me/profiles")
     suspend fun createDependantProfile(
         @Body request: CreateDependantProfileRequestBody,

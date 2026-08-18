@@ -3,6 +3,7 @@ package sg.edu.nus.iss.canmakan.shared.network
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -67,10 +68,10 @@ data class ScanFeedbackResponse(
 )
 
 interface CanMakanApiService {
-    @POST("/api/scan/validate")
+    @POST("scan/validate")
     suspend fun validateBarcode(@Body request: ScanRequest): Response<ValidationResponse>
 
-    @POST("/api/scan/assess")
+    @POST("scan/assess")
     suspend fun assessBarcode(
         @Body request: AssessmentRequest
     ): Response<AssessmentResponse>
@@ -82,7 +83,8 @@ interface CanMakanApiService {
         @Query("scanId") scanId: Long? = null
     ): Response<RecommendationResponse>
 
-    @POST("/api/scan/{scanId}/feedback")
+    @Headers("X-CanMakan-No-Retry: true")
+    @POST("scan/{scanId}/feedback")
     suspend fun submitScanFeedback(
         @Path("scanId") scanId: Long,
         @Body request: ScanFeedbackRequest

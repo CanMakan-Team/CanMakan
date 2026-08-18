@@ -21,6 +21,7 @@ import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedSession
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthenticatedUser
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionPersistence
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
+import sg.edu.nus.iss.canmakan.features.family.data.FamilyApiException
 import sg.edu.nus.iss.canmakan.features.family.data.PendingInvitationStore
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -124,6 +125,19 @@ class PostLoginContinuationViewModelTest {
         assertNull(pendingInvitationStore.peek())
         assertEquals(PostLoginContinuationState.Ready(), viewModel.state.value)
         assertEquals("access-token", sessionStore.currentAccessToken())
+    }
+
+    @Test
+    fun familyApiClaimFailureMapsStatusToInvitationError() {
+        pendingInvitationStore.offer("invite-token")
+        claimer.failure = FamilyApiException("mismatch", 403)
+
+        viewModel.begin()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val failedState = viewModel.state.value as PostLoginContinuationState.Ready
+        assertEquals("This invitation does not match the signed-in account.", failedState.invitationError)
+        assertEquals("invite-token", pendingInvitationStore.peek())
     }
 
     @Test
