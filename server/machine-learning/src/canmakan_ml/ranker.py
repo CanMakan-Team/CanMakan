@@ -131,7 +131,7 @@ def cosine_sparse(left: sparse.csr_matrix, right: sparse.csr_matrix) -> float:
     dot = float(left.multiply(right).sum())
     left_norm = math.sqrt(float(left.multiply(left).sum()))
     right_norm = math.sqrt(float(right.multiply(right).sum()))
-    if left_norm == 0.0 or right_norm == 0.0:
+    if left_norm < 1e-12 or right_norm < 1e-12:
         return 0.0
     return dot / (left_norm * right_norm)
 

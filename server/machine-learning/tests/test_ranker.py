@@ -1,7 +1,15 @@
 """Tests for ranker train/save/load."""
 
-from canmakan_ml.ranker import ProductTfidfModel, rank_products
+from scipy import sparse
+
+from canmakan_ml.ranker import ProductTfidfModel, cosine_sparse, rank_products
 from canmakan_ml.domain import ProfileHints
+
+
+def test_cosine_sparse_zero_vector_is_zero() -> None:
+    left = sparse.csr_matrix([[1.0, 0.0]])
+    right = sparse.csr_matrix([[0.0, 0.0]])
+    assert cosine_sparse(left, right) == 0.0
 
 
 def test_train_save_load_round_trip(tiny_products, tiny_ranker_path) -> None:
