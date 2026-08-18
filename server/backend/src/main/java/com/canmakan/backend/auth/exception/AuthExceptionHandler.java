@@ -25,6 +25,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 @RestControllerAdvice(assignableTypes = AuthController.class)
 public class AuthExceptionHandler {
 
+    private static final String MESSAGE_KEY = "message";
+
     static final String AUTHENTICATION_FAILURE_MESSAGE =
         "Invalid credentials or account unavailable.";
     static final String ACCOUNT_SUSPENDED_MESSAGE =
@@ -42,61 +44,61 @@ public class AuthExceptionHandler {
     @ExceptionHandler(DuplicateEmailException.class)
     public ResponseEntity<Map<String, String>> handleDuplicateEmail() {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-            .body(Map.of("message", "An account with this email already exists."));
+            .body(Map.of(MESSAGE_KEY, "An account with this email already exists."));
     }
 
     @ExceptionHandler(InvitationEmailMismatchException.class)
     public ResponseEntity<Map<String, String>> handleInvitationEmailMismatch(
             InvitationEmailMismatchException ex) {
         return ResponseEntity.badRequest()
-            .body(Map.of("message", ex.getMessage()));
+            .body(Map.of(MESSAGE_KEY, ex.getMessage()));
     }
 
     // Handle invalid request exception
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
     public ResponseEntity<Map<String, String>> handleInvalidRequest() {
         return ResponseEntity.badRequest()
-            .body(Map.of("message", validationMessageForCurrentRequest()));
+            .body(Map.of(MESSAGE_KEY, validationMessageForCurrentRequest()));
     }
 
     // Handle illegal argument exception
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument() {
         return ResponseEntity.badRequest()
-            .body(Map.of("message", validationMessageForCurrentRequest()));
+            .body(Map.of(MESSAGE_KEY, validationMessageForCurrentRequest()));
     }
 
     // Handle authentication failure exception
     @ExceptionHandler(AuthenticationFailedException.class)
     public ResponseEntity<Map<String, String>> handleAuthenticationFailure() {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-            .body(Map.of("message", AUTHENTICATION_FAILURE_MESSAGE));
+            .body(Map.of(MESSAGE_KEY, AUTHENTICATION_FAILURE_MESSAGE));
     }
 
     @ExceptionHandler(AccountSuspendedException.class)
     public ResponseEntity<Map<String, String>> handleAccountSuspended() {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-            .body(Map.of("message", ACCOUNT_SUSPENDED_MESSAGE));
+            .body(Map.of(MESSAGE_KEY, ACCOUNT_SUSPENDED_MESSAGE));
     }
 
     // Handle refresh authentication exception
     @ExceptionHandler(RefreshAuthenticationException.class)
     public ResponseEntity<Map<String, String>> handleRefreshFailure() {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-            .body(Map.of("message", REFRESH_FAILURE_MESSAGE));
+            .body(Map.of(MESSAGE_KEY, REFRESH_FAILURE_MESSAGE));
     }
 
     @ExceptionHandler(AuthSessionRequestRejectedException.class)
     public ResponseEntity<Map<String, String>> handleUntrustedSessionRequest() {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-            .body(Map.of("message", UNTRUSTED_SESSION_REQUEST_MESSAGE));
+            .body(Map.of(MESSAGE_KEY, UNTRUSTED_SESSION_REQUEST_MESSAGE));
     }
 
     // Handle registration failure exception
     @ExceptionHandler(RegistrationFailedException.class)
     public ResponseEntity<Map<String, String>> handleRegistrationFailure() {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(Map.of("message", REGISTRATION_FAILED_MESSAGE));
+            .body(Map.of(MESSAGE_KEY, REGISTRATION_FAILED_MESSAGE));
     }
 
     // Handle invitation conflict exception
@@ -108,7 +110,7 @@ public class AuthExceptionHandler {
     })
     public ResponseEntity<Map<String, String>> handleInviteClaimConflict(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-            .body(Map.of("message", ex.getMessage()));
+            .body(Map.of(MESSAGE_KEY, ex.getMessage()));
     }
 
     // Handle unexpected failure exception
@@ -118,7 +120,7 @@ public class AuthExceptionHandler {
             ? REGISTRATION_FAILED_MESSAGE
             : AUTH_OPERATION_FAILURE_MESSAGE;
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(Map.of("message", message));
+            .body(Map.of(MESSAGE_KEY, message));
     }
 
     // --- Helper methods ---

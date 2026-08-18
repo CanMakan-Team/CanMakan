@@ -46,10 +46,12 @@ class AiExecutionLogServiceTest {
     @Test
     void recordsRulesOnlyTierScanLatencyAndTimestampOnce() {
         AiExecutionLogService service = service(true, false, false);
-        LocalDateTime before = LocalDateTime.now();
+        // Compared in the same zone the service stamps createdAt with (Asia/Singapore), so this
+        // assertion is not sensitive to whatever zone the JVM running the test defaults to.
+        LocalDateTime before = LocalDateTime.now(AiExecutionLogService.BUSINESS_ZONE);
 
         AiExecutionLog saved = service.recordRulesOnly(42L, 17L);
-        LocalDateTime after = LocalDateTime.now();
+        LocalDateTime after = LocalDateTime.now(AiExecutionLogService.BUSINESS_ZONE);
 
         ArgumentCaptor<AiExecutionLog> captor = ArgumentCaptor.forClass(AiExecutionLog.class);
         verify(repository).save(captor.capture());
@@ -72,7 +74,7 @@ class AiExecutionLogServiceTest {
         LlmAssessmentResult llm = llmResult("prompt", "response");
         LlmAssessmentResult original = llm;
 
-        AiExecutionLog saved = service.record(42L, ExecutionTier.TIER_3_LLM, llm);
+        AiExecutionLog saved = service.recordLlmExecution(42L, ExecutionTier.TIER_3_LLM, llm);
 
         assertEquals(ExecutionTier.TIER_3_LLM.name(), saved.getExecutionTier());
         assertEquals("test-model", saved.getModelId());
@@ -97,7 +99,7 @@ class AiExecutionLogServiceTest {
             "response"
         );
 
-        AiExecutionLog saved = service.record(42L, ExecutionTier.TIER_3_LLM, llm);
+        AiExecutionLog saved = service.recordLlmExecution(42L, ExecutionTier.TIER_3_LLM, llm);
 
         assertNull(saved.getPromptTokens());
         assertNull(saved.getCompletionTokens());
@@ -108,7 +110,7 @@ class AiExecutionLogServiceTest {
     void omitsRawPromptAndResponseWhenSwitchesAreDisabled() {
         AiExecutionLogService service = service(true, false, false);
 
-        AiExecutionLog saved = service.record(
+        AiExecutionLog saved = service.recordLlmExecution(
             42L,
             ExecutionTier.TIER_3_LLM,
             llmResult("private prompt", "private response")
@@ -126,7 +128,7 @@ class AiExecutionLogServiceTest {
             "{\"token\":\"response-secret\",\"evidence\":\"ok\"}"
         );
 
-        AiExecutionLog saved = service.record(42L, ExecutionTier.TIER_3_LLM, llm);
+        AiExecutionLog saved = service.recordLlmExecution(42L, ExecutionTier.TIER_3_LLM, llm);
 
         assertTrue(saved.getCompiledPrompt().contains("[REDACTED]"));
         assertTrue(saved.getRawLlmResponse().contains("[REDACTED]"));
@@ -140,7 +142,7 @@ class AiExecutionLogServiceTest {
     void preservesEnabledRawFieldsWhenTheyContainNoSecrets() {
         AiExecutionLogService service = service(true, true, true);
 
-        AiExecutionLog saved = service.record(
+        AiExecutionLog saved = service.recordLlmExecution(
             42L,
             ExecutionTier.TIER_3_LLM,
             llmResult("evidence prompt", "{\"evidence\":\"uncertain\"}")
@@ -154,7 +156,7 @@ class AiExecutionLogServiceTest {
     void storesOnlyPromptWhenOnlyPromptSwitchIsEnabled() {
         AiExecutionLogService service = service(true, true, false);
 
-        AiExecutionLog saved = service.record(
+        AiExecutionLog saved = service.recordLlmExecution(
             42L,
             ExecutionTier.TIER_3_LLM,
             llmResult("evidence prompt", "evidence response")
@@ -168,7 +170,7 @@ class AiExecutionLogServiceTest {
     void storesOnlyResponseWhenOnlyResponseSwitchIsEnabled() {
         AiExecutionLogService service = service(true, false, true);
 
-        AiExecutionLog saved = service.record(
+        AiExecutionLog saved = service.recordLlmExecution(
             42L,
             ExecutionTier.TIER_3_LLM,
             llmResult("evidence prompt", "evidence response")
@@ -182,7 +184,7 @@ class AiExecutionLogServiceTest {
     void preservesNullRawFieldsWhenStorageSwitchesAreEnabled() {
         AiExecutionLogService service = service(true, true, true);
 
-        AiExecutionLog saved = service.record(
+        AiExecutionLog saved = service.recordLlmExecution(
             42L,
             ExecutionTier.TIER_3_LLM,
             llmResult(null, null)
@@ -218,7 +220,7 @@ class AiExecutionLogServiceTest {
     void skipsLlmPersistenceWhenAuditIsDisabledEvenIfRawSwitchesAreEnabled() {
         AiExecutionLogService service = service(false, true, true);
 
-        assertNull(service.record(42L, ExecutionTier.TIER_3_LLM, llmResult("p", "r")));
+        assertNull(service.recordLlmExecution(42L, ExecutionTier.TIER_3_LLM, llmResult("p", "r")));
         verifyNoInteractions(repository);
     }
 
@@ -227,7 +229,7 @@ class AiExecutionLogServiceTest {
         AiExecutionLogService service = new AiExecutionLogService(repository);
 
         assertNull(service.recordRulesOnly(42L, 17L));
-        assertNull(service.record(42L, ExecutionTier.TIER_3_LLM, llmResult("p", "r")));
+        assertNull(service.recordLlmExecution(42L, ExecutionTier.TIER_3_LLM, llmResult("p", "r")));
         verifyNoInteractions(repository);
     }
 
@@ -237,9 +239,9 @@ class AiExecutionLogServiceTest {
 
         assertNull(service.recordRulesOnly(null, 17L));
         assertNull(service.recordRulesOnly(42L, -1L));
-        assertNull(service.record(42L, null, llmResult("p", "r")));
-        assertNull(service.record(42L, ExecutionTier.TIER_3_LLM, null));
-        assertNull(service.record(
+        assertNull(service.recordLlmExecution(42L, null, llmResult("p", "r")));
+        assertNull(service.recordLlmExecution(42L, ExecutionTier.TIER_3_LLM, null));
+        assertNull(service.recordLlmExecution(
             42L,
             ExecutionTier.TIER_3_LLM,
             new LlmAssessmentResult(
@@ -271,7 +273,7 @@ class AiExecutionLogServiceTest {
             "response"
         );
 
-        AiExecutionLog saved = service.record(42L, ExecutionTier.TIER_3_LLM, llm);
+        AiExecutionLog saved = service.recordLlmExecution(42L, ExecutionTier.TIER_3_LLM, llm);
 
         assertEquals(ExecutionTier.TIER_3_LLM.name(), saved.getExecutionTier());
         assertEquals("test-model", saved.getModelId());

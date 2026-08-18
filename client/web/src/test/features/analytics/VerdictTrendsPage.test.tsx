@@ -1,10 +1,9 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  sharePercents,
-  VerdictTrendsPage,
-} from '../../../features/analytics/VerdictTrendsPage'
+import { sharePercents } from '../../../features/analytics/lib/verdictTrendDisplay'
+import { VerdictTrendsPage } from '../../../features/analytics/pages/VerdictTrendsPage'
+import { addCalendarDays, singaporeToday } from '../../../features/analytics/lib/consumerTrendsDateRange'
 import { familyApiService } from '../../../features/family/api/familyApiService'
 import type { ScanRecord } from '../../../shared/api/types'
 
@@ -14,16 +13,15 @@ vi.mock('../../../features/family/api/familyApiService', () => ({
   },
 }))
 
-/** Matches VerdictTrendsPage bucket keys (`toISOString` of local midnight). */
+const FIXED_NOW = new Date('2026-03-15T10:00:00+08:00')
+
+/** Singapore calendar day key for a scan bucket (matches verdictTrendAggregate). */
 function bucketIso(daysAgo: number): string {
-  const startOfToday = new Date()
-  startOfToday.setHours(0, 0, 0, 0)
-  const day = new Date(startOfToday)
-  day.setDate(startOfToday.getDate() - daysAgo)
-  return day.toISOString().slice(0, 10)
+  return addCalendarDays(singaporeToday(FIXED_NOW), -daysAgo)
 }
 
 function scanOnBucket(daysAgo: number, verdict: ScanRecord['verdict'], scanId: number): ScanRecord {
+  const day = bucketIso(daysAgo)
   return {
     scanId,
     product: `Product ${scanId}`,
@@ -37,7 +35,7 @@ function scanOnBucket(daysAgo: number, verdict: ScanRecord['verdict'], scanId: n
     explanation: 'test',
     dataCompleteness: 'COMPLETE',
     dataSource: 'OFF',
-    scannedAt: `${bucketIso(daysAgo)}T12:00:00.000Z`,
+    scannedAt: `${day}T12:00:00+08:00`,
   }
 }
 
@@ -59,11 +57,13 @@ describe('sharePercents', () => {
 
 describe('VerdictTrendsPage', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ now: FIXED_NOW, shouldAdvanceTime: true })
     vi.mocked(familyApiService.getScanHistory).mockReset()
     vi.mocked(familyApiService.getScanHistory).mockResolvedValue(populatedScans)
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
@@ -71,7 +71,8 @@ describe('VerdictTrendsPage', () => {
     render(<VerdictTrendsPage />)
 
     expect(screen.getByText('Loading verdict trend...')).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: 'Verdict Trends' })).toBeInTheDocument()
+    expect(await screen.findByLabelText('Verdict trend summary')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Verdict Trends' })).toBeInTheDocument()
     expect(screen.getByText('Analytics & insights')).toBeInTheDocument()
     expect(familyApiService.getScanHistory).toHaveBeenCalledTimes(1)
 

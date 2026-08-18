@@ -5,6 +5,7 @@ import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionReposito
 import com.canmakan.backend.knowledgebase.model.DietaryRule;
 import com.canmakan.backend.knowledgebase.model.ENumber;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
+import com.canmakan.backend.knowledgebase.model.IngredientEntity;
 import com.canmakan.backend.knowledgebase.mcp.contract.CrossContaminationResult;
 
 import jakarta.annotation.PostConstruct;
@@ -59,8 +60,20 @@ public class DietaryKnowledgeRepository {
         "^E\\d+[A-Z]*(?:\\([^)]*\\))?", // pattern: E followed by digits, optional uppercase letters, optional parentheses
         Pattern.CASE_INSENSITIVE);
 
+    // Allergen root codes referenced from multiple lookup tables below.
+    private static final String ALLERGEN_DAIRY = "DAIRY";
+    private static final String ALLERGEN_PEANUT = "PEANUT";
+    private static final String ALLERGEN_SESAME = "SESAME";
+    private static final String ALLERGEN_SHELLFISH = "SHELLFISH";
+    private static final String ALLERGEN_GLUTEN = "GLUTEN";
+
+    // Canonical ingredient names referenced by multiple synonym registrations below.
+    private static final String CANONICAL_MILK_SOLIDS = "Milk Solids";
+    private static final String CANONICAL_MSG = "E621 (Monosodium Glutamate)";
+    private static final String CANONICAL_POTATO_STARCH = "Potato Starch / Flakes";
+
     private static final Set<String> ANIMAL_ROOT_ALLERGENS = Set.of(
-        "EGG", "DAIRY", "MILK", "FISH", "SHELLFISH", "PEANUT", "NUTS", "SESAME");
+        "EGG", ALLERGEN_DAIRY, "MILK", "FISH", ALLERGEN_SHELLFISH, ALLERGEN_PEANUT, "NUTS", ALLERGEN_SESAME);
 
     // Find the ingredient alias by normalized name (exact catalog name, synonym, or E-code).
     public Optional<Ingredient> findIngredientAlias(String ingredientName) {
@@ -132,87 +145,106 @@ public class DietaryKnowledgeRepository {
     public Optional<CrossContaminationResult> analyseCrossContamination(
         String labelText, List<String> tracesTags
     ) {
-
         List<String> foundAllergens = new ArrayList<>();
-        String matchedPhrase = null;
-
-        // 1. Structured traces_tags from OFF (most reliable but data is sparse)
-        List<String> normalizedTags = normalizeTracesTags(tracesTags);
-        if (!normalizedTags.isEmpty()) {
-            Map<String, String> tagMapping = Map.ofEntries(
-                Map.entry("en:milk", "MILK"),
-                Map.entry("en:dairy", "DAIRY"),
-                Map.entry("en:nuts", "NUTS"),
-                Map.entry("en:tree-nuts", "NUTS"),
-                Map.entry("en:peanuts", "PEANUT"),
-                Map.entry("en:soybeans", "SOY"),
-                Map.entry("en:soy", "SOY"),
-                Map.entry("en:sesame-seeds", "SESAME"),
-                Map.entry("en:sesame", "SESAME"),
-                Map.entry("en:gluten", "GLUTEN"),
-                Map.entry("en:wheat", "GLUTEN"),
-                Map.entry("en:eggs", "EGG"),
-                Map.entry("en:egg", "EGG"),
-                Map.entry("en:fish", "FISH"),
-                Map.entry("en:crustaceans", "SHELLFISH"),
-                Map.entry("en:molluscs", "SHELLFISH"),
-                Map.entry("en:shellfish", "SHELLFISH")
-            );
-
-            // Iterate over the normalized tags and add the allergens to the found allergens list
-            for (String cleanTag : normalizedTags) {
-                String allergen = tagMapping.get(cleanTag);
-                if (allergen != null) {
-                    addAllergenCodes(foundAllergens, allergen);
-                }
-            }
-
-            // If found allergens are not empty, set the matched phrase to the normalized tags
-            if (!foundAllergens.isEmpty()) {
-                matchedPhrase = "traces_tags: " + String.join(",", normalizedTags);
-            }
-        }
-
-        // 2. Free-text phrase detection (fallback / additional signal)
-        if (labelText != null && !labelText.isBlank()) {
-            String normalized = normalize(labelText);
-
-            for (String keyword : crossContaminationKeywords) {
-                if (normalized.contains(keyword)) {
-                    if (matchedPhrase == null) {
-                        matchedPhrase = extractMatchedPhrase(labelText, keyword);
-                    }
-
-                    // Longer tokens first so "peanut" wins before "nut"
-                    Map<String, String> textKeywords = new LinkedHashMap<>();
-                    textKeywords.put("peanut", "PEANUT");
-                    textKeywords.put("shellfish", "SHELLFISH");
-                    textKeywords.put("crustacean", "SHELLFISH");
-                    textKeywords.put("sesame", "SESAME");
-                    textKeywords.put("gluten", "GLUTEN");
-                    textKeywords.put("wheat", "GLUTEN");
-                    textKeywords.put("dairy", "DAIRY");
-                    textKeywords.put("milk", "MILK");
-                    textKeywords.put("soy", "SOY");
-                    textKeywords.put("fish", "FISH");
-                    textKeywords.put("egg", "EGG");
-                    textKeywords.put("nut", "NUTS");
-
-                    for (Map.Entry<String, String> entry : textKeywords.entrySet()) {
-                        if (containsAllergenToken(normalized, entry.getKey())) {
-                            addAllergenCodes(foundAllergens, entry.getValue());
-                        }
-                    }
-                    break;
-                }
-            }
-        }
+        String tagsPhrase = detectFromTracesTags(tracesTags, foundAllergens);
+        String textPhrase = detectFromLabelText(labelText, foundAllergens);
+        String matchedPhrase = tagsPhrase != null ? tagsPhrase : textPhrase;
 
         if (foundAllergens.isEmpty()) {
             return Optional.empty();
         }
 
         return Optional.of(new CrossContaminationResult(true, foundAllergens, matchedPhrase != null ? matchedPhrase : ""));
+    }
+
+    // Maps OFF traces_tags entries onto CanMakan allergen root codes.
+    private static final Map<String, String> TRACES_TAG_TO_ALLERGEN = Map.ofEntries(
+        Map.entry("en:milk", "MILK"),
+        Map.entry("en:dairy", ALLERGEN_DAIRY),
+        Map.entry("en:nuts", "NUTS"),
+        Map.entry("en:tree-nuts", "NUTS"),
+        Map.entry("en:peanuts", ALLERGEN_PEANUT),
+        Map.entry("en:soybeans", "SOY"),
+        Map.entry("en:soy", "SOY"),
+        Map.entry("en:sesame-seeds", ALLERGEN_SESAME),
+        Map.entry("en:sesame", ALLERGEN_SESAME),
+        Map.entry("en:gluten", ALLERGEN_GLUTEN),
+        Map.entry("en:wheat", ALLERGEN_GLUTEN),
+        Map.entry("en:eggs", "EGG"),
+        Map.entry("en:egg", "EGG"),
+        Map.entry("en:fish", "FISH"),
+        Map.entry("en:crustaceans", ALLERGEN_SHELLFISH),
+        Map.entry("en:molluscs", ALLERGEN_SHELLFISH),
+        Map.entry("en:shellfish", ALLERGEN_SHELLFISH)
+    );
+
+    // Free-text allergen keywords, longer tokens first so "peanut" wins before "nut".
+    private static final Map<String, String> TEXT_KEYWORD_TO_ALLERGEN = buildTextKeywordMap();
+
+    private static Map<String, String> buildTextKeywordMap() {
+        Map<String, String> keywords = new LinkedHashMap<>();
+        keywords.put("peanut", ALLERGEN_PEANUT);
+        keywords.put("shellfish", ALLERGEN_SHELLFISH);
+        keywords.put("crustacean", ALLERGEN_SHELLFISH);
+        keywords.put("sesame", ALLERGEN_SESAME);
+        keywords.put("gluten", ALLERGEN_GLUTEN);
+        keywords.put("wheat", ALLERGEN_GLUTEN);
+        keywords.put("dairy", ALLERGEN_DAIRY);
+        keywords.put("milk", "MILK");
+        keywords.put("soy", "SOY");
+        keywords.put("fish", "FISH");
+        keywords.put("egg", "EGG");
+        keywords.put("nut", "NUTS");
+        return keywords;
+    }
+
+    /**
+     * Phase 1: structured traces_tags from OFF (most reliable but data is sparse). Adds any
+     * matched allergens into {@code foundAllergens}.
+     *
+     * @return the matched-phrase summary, or {@code null} when nothing matched
+     */
+    private String detectFromTracesTags(List<String> tracesTags, List<String> foundAllergens) {
+        List<String> normalizedTags = normalizeTracesTags(tracesTags);
+        if (normalizedTags.isEmpty()) {
+            return null;
+        }
+        for (String cleanTag : normalizedTags) {
+            String allergen = TRACES_TAG_TO_ALLERGEN.get(cleanTag);
+            if (allergen != null) {
+                addAllergenCodes(foundAllergens, allergen);
+            }
+        }
+        return foundAllergens.isEmpty() ? null : "traces_tags: " + String.join(",", normalizedTags);
+    }
+
+    /**
+     * Phase 2: free-text phrase detection (fallback / additional signal). Stops at the first
+     * cross-contamination keyword found, then scans it for allergen tokens.
+     *
+     * @return a short phrase around the matched keyword, or {@code null} when nothing matched
+     */
+    private String detectFromLabelText(String labelText, List<String> foundAllergens) {
+        if (labelText == null || labelText.isBlank()) {
+            return null;
+        }
+        String normalized = normalize(labelText);
+        for (String keyword : crossContaminationKeywords) {
+            if (!normalized.contains(keyword)) {
+                continue;
+            }
+            collectTextKeywordAllergens(normalized, foundAllergens);
+            return extractMatchedPhrase(labelText, keyword);
+        }
+        return null;
+    }
+
+    private void collectTextKeywordAllergens(String normalizedText, List<String> foundAllergens) {
+        for (Map.Entry<String, String> entry : TEXT_KEYWORD_TO_ALLERGEN.entrySet()) {
+            if (containsAllergenToken(normalizedText, entry.getKey())) {
+                addAllergenCodes(foundAllergens, entry.getValue());
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -229,10 +261,10 @@ public class DietaryKnowledgeRepository {
         if (!foundAllergens.contains(allergen)) {
             foundAllergens.add(allergen);
         }
-        if ("MILK".equals(allergen) && !foundAllergens.contains("DAIRY")) {
-            foundAllergens.add("DAIRY");
+        if ("MILK".equals(allergen) && !foundAllergens.contains(ALLERGEN_DAIRY)) {
+            foundAllergens.add(ALLERGEN_DAIRY);
         }
-        if ("DAIRY".equals(allergen) && !foundAllergens.contains("MILK")) {
+        if (ALLERGEN_DAIRY.equals(allergen) && !foundAllergens.contains("MILK")) {
             foundAllergens.add("MILK");
         }
     }
@@ -321,20 +353,20 @@ public class DietaryKnowledgeRepository {
         registerSynonym("skim milk powder", "Skimmed Milk Powder");
         registerSynonym("skimmed milk powder", "Skimmed Milk Powder");
         registerSynonym("whole milk powder", "Whole Milk Powder");
-        registerSynonym("milk solids", "Milk Solids");
-        registerSynonym("milk solid", "Milk Solids");
-        registerSynonym("milk soild", "Milk Solids"); // common OFF OCR/typo
-        registerSynonym("msg", "E621 (Monosodium Glutamate)");
-        registerSynonym("monosodium glutamate", "E621 (Monosodium Glutamate)");
-        registerSynonym("contains monosodium glutamate", "E621 (Monosodium Glutamate)");
+        registerSynonym("milk solids", CANONICAL_MILK_SOLIDS);
+        registerSynonym("milk solid", CANONICAL_MILK_SOLIDS);
+        registerSynonym("milk soild", CANONICAL_MILK_SOLIDS); // common OFF OCR/typo
+        registerSynonym("msg", CANONICAL_MSG);
+        registerSynonym("monosodium glutamate", CANONICAL_MSG);
+        registerSynonym("contains monosodium glutamate", CANONICAL_MSG);
         registerSynonym("tartrazine", "E102 (Tartrazine)");
         registerSynonym("carrageenan", "E407 (Carrageenan)");
         registerSynonym("lysozyme", "E1105 (Lysozyme from eggs)");
         registerSynonym("oat flour", "Whole Grain Oat Flour");
         registerSynonym("wholegrain oat flour", "Whole Grain Oat Flour");
-        registerSynonym("potato", "Potato Starch / Flakes");
-        registerSynonym("potato starch", "Potato Starch / Flakes");
-        registerSynonym("potato flakes", "Potato Starch / Flakes");
+        registerSynonym("potato", CANONICAL_POTATO_STARCH);
+        registerSynonym("potato starch", CANONICAL_POTATO_STARCH);
+        registerSynonym("potato flakes", CANONICAL_POTATO_STARCH);
         registerSynonym("vegetable oil", "Palm Oil");
         registerSynonym("silicon dioxide", "E551 (Silicon Dioxide / Anticaking Agent)");
         registerSynonym("e551", "E551 (Silicon Dioxide / Anticaking Agent)");

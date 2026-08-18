@@ -44,7 +44,9 @@ public class Family extends AuditableEntity {
     @Column(name = "created_by_user_id", nullable = false)
     private Long createdByUserId;
 
-    // Use hash set to ensure unique dietary profiles
-    @OneToMany(mappedBy = "family", cascade = CascadeType.ALL, orphanRemoval = true)
+    // Persist/merge children with the family aggregate; do not cascade REMOVE.
+    @OneToMany(
+            mappedBy = "family",
+            cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private Set<DietaryProfile> dietaryProfiles = new HashSet<>();
 }

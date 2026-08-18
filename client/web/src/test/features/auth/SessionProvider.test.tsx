@@ -5,12 +5,12 @@ import { ApiError } from '../../../shared/api/apiErrors'
 import { apiRequest } from '../../../shared/api/apiClient'
 import { SessionProvider } from '../../../features/auth/SessionProvider'
 import { useSession } from '../../../features/auth/useSession'
-import { authService } from '../../../features/auth/authService'
-import { authSessionStore } from '../../../features/auth/authSessionStore'
+import { authService } from '../../../features/auth/api/authService'
+import { authSessionStore } from '../../../features/auth/lib/authSessionStore'
 import { appUserSession, SESSION_KEY } from '../../testUtils'
 import { jsonResponse } from '../../testUtils'
 
-vi.mock('../../../features/auth/authService', () => ({
+vi.mock('../../../features/auth/api/authService', () => ({
   authService: {
     loginWithCredentials: vi.fn(),
     register: vi.fn(),

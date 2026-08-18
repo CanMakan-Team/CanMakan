@@ -16,9 +16,14 @@ import com.canmakan.backend.ai.llm.LlmAssessmentResult;
 import com.canmakan.backend.ai.llm.ResolvedIngredient;
 import com.canmakan.backend.ai.log.AiExecutionLogService;
 import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
-import com.canmakan.backend.family.FamilyAuthorizationService;
+import com.canmakan.backend.family.service.FamilyAuthorizationService;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
+import com.canmakan.backend.product.assessment.dto.AssessmentRequest;
+import com.canmakan.backend.product.assessment.dto.AssessmentResponse;
+import com.canmakan.backend.product.assessment.dto.TieredOutcome;
+import com.canmakan.backend.product.assessment.service.LlmEscalationService;
+import com.canmakan.backend.product.assessment.service.ProductNameAllergenLookup;
 import com.canmakan.backend.product.model.ProductLookupResult;
 import com.canmakan.backend.product.scan.Scan;
 import com.canmakan.backend.product.scan.ScanService;
@@ -91,7 +96,7 @@ class AssessmentOrchestratorTest {
         assertEquals(ExecutionTier.TIER_1_RULES, response.tier());
         assertEquals(100L, response.scanId());
         verify(aiExecutionLogService).recordRulesOnly(eq(100L), anyLong());
-        verify(aiExecutionLogService, never()).record(anyLong(), any(), any());
+        verify(aiExecutionLogService, never()).recordLlmExecution(anyLong(), any(), any());
     }
 
     @Test
@@ -109,7 +114,7 @@ class AssessmentOrchestratorTest {
 
         assertEquals("UNSAFE", response.verdict());
         assertEquals(ExecutionTier.TIER_3_LLM, response.tier());
-        verify(aiExecutionLogService).record(eq(100L), eq(ExecutionTier.TIER_3_LLM), any(LlmAssessmentResult.class));
+        verify(aiExecutionLogService).recordLlmExecution(eq(100L), eq(ExecutionTier.TIER_3_LLM), any(LlmAssessmentResult.class));
         verify(aiExecutionLogService, never()).recordRulesOnly(anyLong(), anyLong());
     }
 
@@ -130,7 +135,7 @@ class AssessmentOrchestratorTest {
         assertEquals("Test Product", response.productName());
         assertEquals("123", response.barcode());
         verify(aiExecutionLogService).recordRulesOnly(eq(100L), anyLong());
-        verify(aiExecutionLogService, never()).record(anyLong(), any(), any());
+        verify(aiExecutionLogService, never()).recordLlmExecution(anyLong(), any(), any());
     }
 
     @Test

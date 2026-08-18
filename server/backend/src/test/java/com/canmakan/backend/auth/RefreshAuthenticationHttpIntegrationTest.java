@@ -19,10 +19,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.canmakan.backend.auth.model.RefreshToken;
 import com.canmakan.backend.auth.repository.RefreshTokenRepository;
+import com.canmakan.backend.auth.service.RefreshTokenService;
 import com.canmakan.backend.shared.security.JwtService;
 import com.canmakan.backend.shared.security.JwtProperties;
 import com.canmakan.backend.user.AuthenticationAccountView;
-import com.canmakan.backend.user.UserAccountRepository;
+import com.canmakan.backend.user.repository.UserAccountRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import jakarta.servlet.http.Cookie;

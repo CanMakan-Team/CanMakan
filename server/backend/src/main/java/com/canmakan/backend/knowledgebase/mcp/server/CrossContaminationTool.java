@@ -49,6 +49,7 @@ public class CrossContaminationTool {
         }
 
         // Normalize the label text by trimming and replacing multiple spaces with a single space
+        @SuppressWarnings("null")
         String normalizedLabel = blankLabel ? null : labelText.trim().replaceAll("\\s+", " ");
 
         return repository.analyseCrossContamination(normalizedLabel, tracesTags)

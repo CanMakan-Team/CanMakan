@@ -8,6 +8,8 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import com.canmakan.backend.admin.dto.SystemHealthResponse;
+import com.canmakan.backend.admin.repository.SystemHealthRepository;
+import com.canmakan.backend.admin.service.SystemHealthService;
 
 import java.sql.Connection;
 import java.sql.SQLException;

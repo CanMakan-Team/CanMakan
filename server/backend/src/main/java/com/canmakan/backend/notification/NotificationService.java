@@ -1,7 +1,11 @@
 package com.canmakan.backend.notification;
 
+import com.canmakan.backend.notification.dto.UserNotificationResponse;
+import com.canmakan.backend.notification.exception.NotificationNotFoundException;
+import com.canmakan.backend.notification.model.NotificationType;
+import com.canmakan.backend.notification.model.UserNotification;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
-import com.canmakan.backend.user.UserAccountRepository;
+import com.canmakan.backend.user.repository.UserAccountRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,8 +29,7 @@ public class NotificationService {
     public void upsert(
             long userId,
             NotificationType type,
-            String referenceType,
-            Long referenceId,
+            NotificationReference reference,
             String title,
             String body,
             String actionToken,
@@ -34,12 +37,12 @@ public class NotificationService {
         Instant now = Instant.now();
         UserNotification row = userNotificationRepository
             .findByUserIdAndTypeAndReferenceTypeAndReferenceId(
-                userId, type, referenceType, referenceId)
+                userId, type, reference.referenceType(), reference.referenceId())
             .orElseGet(UserNotification::new);
         row.setUserId(userId);
         row.setType(type);
-        row.setReferenceType(referenceType);
-        row.setReferenceId(referenceId);
+        row.setReferenceType(reference.referenceType());
+        row.setReferenceId(reference.referenceId());
         row.setTitle(title);
         row.setBody(body);
         row.setActionToken(actionToken);
@@ -50,6 +53,10 @@ public class NotificationService {
             row.setCreatedAt(now);
         }
         userNotificationRepository.saveAndFlush(row);
+    }
+
+    /** The polymorphic (type, id) pointer a notification refers back to, e.g. an invitation. */
+    public record NotificationReference(String referenceType, Long referenceId) {
     }
 
     @Transactional

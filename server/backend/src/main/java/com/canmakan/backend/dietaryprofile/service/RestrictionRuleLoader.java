@@ -8,6 +8,7 @@ import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.RestrictionSeverity;
 import java.util.List;
 import java.util.Objects;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
@@ -16,13 +17,10 @@ import org.springframework.stereotype.Service;
  * @author Amelia Wong
  */
 @Service
+@RequiredArgsConstructor
 public class RestrictionRuleLoader {
 
     private final ProfileRestrictionRepository profileRestrictionRepository;
-
-    public RestrictionRuleLoader(ProfileRestrictionRepository profileRestrictionRepository) {
-        this.profileRestrictionRepository = profileRestrictionRepository;
-    }
 
     public List<RestrictionRule> load(Long profileId) {
         if (profileId == null) {

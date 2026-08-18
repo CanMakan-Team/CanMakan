@@ -22,6 +22,7 @@ import com.canmakan.backend.family.exception.AlreadyInFamilyException;
 import com.canmakan.backend.family.exception.FamilyExceptionHandler;
 import com.canmakan.backend.family.exception.FamilyForbiddenException;
 import com.canmakan.backend.family.exception.FamilyNotFoundException;
+import com.canmakan.backend.family.service.FamilyAuthorizationService;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.shared.exception.GlobalExceptionHandler;
 import com.canmakan.backend.shared.security.AuthUserDetails;
@@ -164,6 +165,56 @@ class FamilyControllerTest {
         mockMvc.perform(get("/api/families/me/user-search").param("email", "new@example.com"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.accountStatus").value("NOT_REGISTERED"));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/me/user-search with an invalid email returns 400")
+    void userSearchInvalidEmailReturnsBadRequest() throws Exception {
+        authenticateAs(10L);
+
+        mockMvc.perform(get("/api/families/me/user-search").param("email", "not-an-email"))
+            .andExpect(status().isBadRequest());
+
+        verify(familyService, never()).searchUserByEmail(any(Long.class), any(String.class));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/me/user-search with a blank email returns 400")
+    void userSearchBlankEmailReturnsBadRequest() throws Exception {
+        authenticateAs(10L);
+
+        mockMvc.perform(get("/api/families/me/user-search").param("email", "   "))
+            .andExpect(status().isBadRequest());
+
+        verify(familyService, never()).searchUserByEmail(any(Long.class), any(String.class));
+    }
+
+    @Test
+    @DisplayName("GET /api/families/me/restriction-summary returns 200")
+    void getRestrictionSummaryOk() throws Exception {
+        authenticateAs(10L);
+        when(familyService.getFamilyRestrictionSummary(10L))
+            .thenReturn(new com.canmakan.backend.family.dto.FamilyRestrictionSumRes(List.of()));
+
+        mockMvc.perform(get("/api/families/me/restriction-summary"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.familyMembers").isArray());
+    }
+
+    @Test
+    @DisplayName("POST /api/families/me/invitations/claim returns 200")
+    void claimInvitationOk() throws Exception {
+        authenticateAs(30L);
+        when(familyService.claimInvitation(
+                eq(30L), any(com.canmakan.backend.family.dto.ClaimInvitationRequest.class)))
+            .thenReturn(new FamilyMeResponse(1L, "Wong Family", "MEMBER", 77L, 10L));
+
+        mockMvc.perform(post("/api/families/me/invitations/claim")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"invitationToken\":\"tok\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.familyId").value(1))
+            .andExpect(jsonPath("$.memberRole").value("MEMBER"));
     }
 
     @Test

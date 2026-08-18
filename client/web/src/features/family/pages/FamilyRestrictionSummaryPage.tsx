@@ -1,99 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getErrorMessage } from '../../../shared/api/apiErrors'
+import { useMockApi } from '../../../shared/api/apiClient'
 import { familyApiService } from '../api/familyApiService'
-import { restrictionGroups } from '../lib/profileOptions'
-import type {
-  FamilyMeRestrictionDetail,
-  FamilyRestrictionSumRes,
-} from '../../../shared/api/types'
+import {
+  MATRIX_FILTER_OPTIONS,
+  REFERENCE_GROUPS,
+  buildHouseholdCodes,
+  buildRestrictionMatrixRows,
+  defaultOpenReferenceGroups,
+  filterMatrixRows,
+  isHouseholdRestriction,
+  matchingRestriction,
+  selectionTone,
+  type MatrixFilter,
+} from '../lib/restrictionMatrix'
+import type { FamilyRestrictionSumRes } from '../../../shared/api/types'
 import { EmptyState, ErrorState, LoadingState } from '../../../shared/ui/PageState'
 import { StatusBadge } from '../../../shared/ui/StatusBadge'
-
-type RestrictionGroupKey = 'religious' | 'allergy' | 'diet' | 'other'
-type MatrixFilter = 'all' | RestrictionGroupKey
-type SelectionTone = 'severe' | 'caution' | 'preference'
-
-// Map each restriction code to the index of the group it belongs to in
-// restrictionGroups, which is already ordered Religious requirements ->
-// Allergies and intolerances -> Specific diets and health preferences. The
-// grid rows below are sorted by this group index, then alphabetically by
-// label within a group, so the layout stays consistent regardless of which
-// member happens to introduce a code first.
-const restrictionGroupIndex = new Map<string, number>()
-const restrictionGroupKey = new Map<string, RestrictionGroupKey>()
-restrictionGroups.forEach((group, groupIndex) => {
-  const key: RestrictionGroupKey =
-    groupIndex === 0 ? 'religious' : groupIndex === 1 ? 'allergy' : 'diet'
-  for (const option of group.options) {
-    restrictionGroupIndex.set(option.value, groupIndex)
-    restrictionGroupKey.set(option.value, key)
-  }
-})
-
-function groupKeyForCode(code: string): RestrictionGroupKey {
-  return restrictionGroupKey.get(code) ?? 'other'
-}
-
-/** Maps a profile restriction severity to a badge tone for visual hierarchy. */
-function selectionTone(
-  severity: string | undefined,
-  groupKey: RestrictionGroupKey,
-): SelectionTone {
-  const normalized = (severity ?? '').trim().toUpperCase()
-  if (normalized === 'STRICT_AVOID' || normalized === 'AVOID') return 'severe'
-  if (normalized === 'INTOLERANCE') return 'caution'
-  if (normalized === 'PREFERENCE') return 'preference'
-  if (groupKey === 'allergy') return 'severe'
-  if (groupKey === 'religious') return 'caution'
-  return 'preference'
-}
-
-function matchingRestriction(
-  restrictions: FamilyMeRestrictionDetail[],
-  matchCodes: Set<string>,
-) {
-  return restrictions.find((restriction) =>
-    matchCodes.has(restriction.code.trim().toUpperCase()),
-  )
-}
-
-const FILTER_OPTIONS: Array<{ value: MatrixFilter; label: string }> = [
-  { value: 'all', label: 'All' },
-  { value: 'allergy', label: 'Allergies' },
-  { value: 'religious', label: 'Religious' },
-  { value: 'diet', label: 'Diets & preferences' },
-  { value: 'other', label: 'Other' },
-]
-
-const DAIRY_FAMILY_CODES = new Set([
-  'DAIRY',
-  'LACTOSE_INTOLERANT',
-  'DAIRY_FREE',
-  'LACTOSE',
-])
-
-const REFERENCE_GROUPS = restrictionGroups.map((group, groupIndex) => ({
-  ...group,
-  groupKey: (groupIndex === 0
-    ? 'religious'
-    : groupIndex === 1
-      ? 'allergy'
-      : 'diet') as RestrictionGroupKey,
-}))
-
-function isHouseholdRestriction(
-  optionCode: string,
-  householdCodes: Set<string>,
-): boolean {
-  const code = optionCode.trim().toUpperCase()
-  if (householdCodes.has(code)) return true
-  if (code === 'DAIRY') {
-    for (const dairyCode of DAIRY_FAMILY_CODES) {
-      if (householdCodes.has(dairyCode)) return true
-    }
-  }
-  return false
-}
 
 export function FamilyRestrictionSummaryPage() {
   const [data, setData] = useState<FamilyRestrictionSumRes | null>(null)
@@ -119,6 +42,9 @@ export function FamilyRestrictionSummaryPage() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadSummary(), 0)
+    if (!useMockApi) {
+      return () => window.clearTimeout(timeoutId)
+    }
     window.addEventListener('canmakan:family-data-changed', loadSummary)
     return () => {
       window.clearTimeout(timeoutId)
@@ -126,99 +52,41 @@ export function FamilyRestrictionSummaryPage() {
     }
   }, [loadSummary])
 
-  // Dynamically extract active members and unique restriction rows
-  const activeMembers = useMemo(() => {
-    return data?.familyMembers.filter((m) => m.isActive) || []
-  }, [data])
+  const activeMembers = useMemo(
+    () => data?.familyMembers.filter((member) => member.isActive) || [],
+    [data],
+  )
 
-  const restrictionRows = useMemo(() => {
-    const seen = new Set<string>()
-    const result: Array<{
-      key: string
-      label: string
-      matchCodes: Set<string>
-      groupKey: RestrictionGroupKey
-    }> = []
+  const restrictionRows = useMemo(
+    () => buildRestrictionMatrixRows(activeMembers),
+    [activeMembers],
+  )
 
-    for (const member of activeMembers) {
-      for (const restriction of member.restrictions) {
-        const code = restriction.code.trim().toUpperCase()
-        if (DAIRY_FAMILY_CODES.has(code)) {
-          if (seen.has('DAIRY_FAMILY')) continue
-          seen.add('DAIRY_FAMILY')
-          result.push({
-            key: 'DAIRY_FAMILY',
-            label: 'Lactose Intolerance',
-            matchCodes: DAIRY_FAMILY_CODES,
-            groupKey: 'allergy',
-          })
-          continue
-        }
-        if (seen.has(code)) continue
-        seen.add(code)
-        result.push({
-          key: code,
-          label: restriction.displayName,
-          matchCodes: new Set([code]),
-          groupKey: groupKeyForCode(code),
-        })
-      }
-    }
+  const householdCodes = useMemo(
+    () => buildHouseholdCodes(activeMembers),
+    [activeMembers],
+  )
 
-    // Order rows as Religious requirements, then Allergies and
-    // intolerances, then Specific diets and health preferences, following
-    // restrictionGroups, and alphabetically by label within each group. The
-    // dairy-family alias groups with DAIRY. Any code absent from
-    // restrictionGroups sorts to the end.
-    return result.sort((a, b) => {
-      const groupKeyA = a.key === 'DAIRY_FAMILY' ? 'DAIRY' : a.key
-      const groupKeyB = b.key === 'DAIRY_FAMILY' ? 'DAIRY' : b.key
-      const groupIndexA = restrictionGroupIndex.get(groupKeyA) ?? Number.MAX_SAFE_INTEGER
-      const groupIndexB = restrictionGroupIndex.get(groupKeyB) ?? Number.MAX_SAFE_INTEGER
-      if (groupIndexA !== groupIndexB) return groupIndexA - groupIndexB
-      return a.label.localeCompare(b.label)
-    })
-  }, [activeMembers])
+  const defaultOpenReferenceGroupsValue = useMemo(
+    () => defaultOpenReferenceGroups(householdCodes),
+    [householdCodes],
+  )
 
-  const householdCodes = useMemo(() => {
-    const codes = new Set<string>()
-    for (const member of activeMembers) {
-      for (const restriction of member.restrictions) {
-        codes.add(restriction.code.trim().toUpperCase())
-      }
-    }
-    return codes
-  }, [activeMembers])
-
-  const defaultOpenReferenceGroups = useMemo(() => {
-    const open = new Set<string>()
-    for (const group of REFERENCE_GROUPS) {
-      const usedInFamily = group.options.some((option) =>
-        isHouseholdRestriction(option.value, householdCodes),
-      )
-      if (usedInFamily) open.add(group.label)
-    }
-    if (open.size === 0) {
-      open.add('Allergies and intolerances')
-    }
-    return open
-  }, [householdCodes])
-
-  const openGroups = openReferenceGroups ?? defaultOpenReferenceGroups
+  const openGroups = openReferenceGroups ?? defaultOpenReferenceGroupsValue
 
   const toggleReferenceGroup = (label: string) => {
     setOpenReferenceGroups((current) => {
-      const next = new Set(current ?? defaultOpenReferenceGroups)
+      const next = new Set(current ?? defaultOpenReferenceGroupsValue)
       if (next.has(label)) next.delete(label)
       else next.add(label)
       return next
     })
   }
 
-  const visibleRows = useMemo(() => {
-    if (matrixFilter === 'all') return restrictionRows
-    return restrictionRows.filter((row) => row.groupKey === matrixFilter)
-  }, [matrixFilter, restrictionRows])
+  const visibleRows = useMemo(
+    () => filterMatrixRows(restrictionRows, matrixFilter),
+    [matrixFilter, restrictionRows],
+  )
 
   return (
     <>
@@ -277,7 +145,7 @@ export function FamilyRestrictionSummaryPage() {
                   role="group"
                   aria-label="Filter dietary restriction rows"
                 >
-                  {FILTER_OPTIONS.map((option) => (
+                  {MATRIX_FILTER_OPTIONS.map((option) => (
                     <button
                       key={option.value}
                       type="button"
@@ -320,10 +188,6 @@ export function FamilyRestrictionSummaryPage() {
                           <tr key={row.key}>
                             <th scope="row">{row.label}</th>
                             {activeMembers.map((member) => {
-                              // Lactose-family codes share one row so that any
-                              // legacy or alternate spelling of the dairy
-                              // restriction still displays together. Badge tone
-                              // follows that member's recorded severity.
                               const matched = matchingRestriction(
                                 member.restrictions,
                                 row.matchCodes,

@@ -75,14 +75,12 @@ public class AllergenRelationshipTool {
 
             String trimmed = ingredient.trim();
             String key = normalize(trimmed);
-            if (!seen.add(key)) {
-                continue;
+            if (seen.add(key)) {
+                // If the allergen relationship is found, add it to the local matches
+                // If the allergen relationship is not found, add it to the unresolved ingredients
+                repository.findAllergenRelationship(trimmed)
+                    .ifPresentOrElse(localMatches::add, () -> unresolvedIngredients.add(trimmed));
             }
-
-            // If the allergen relationship is found, add it to the local matches
-            // If the allergen relationship is not found, add it to the unresolved ingredients
-            repository.findAllergenRelationship(trimmed)
-                .ifPresentOrElse(localMatches::add, () -> unresolvedIngredients.add(trimmed));
         }
 
         // Open Food Facts has already been consulted upstream during product lookup.
@@ -121,35 +119,48 @@ public class AllergenRelationshipTool {
             if (ingredient == null) {
                 continue;
             }
-
-            // Find the allergen relationship in the local matches or external matches
-            Ingredient match = result.localMatches().stream()
-                .filter(entry -> entry != null && normalize(entry.ingredientName()).equals(normalize(ingredient.ingredientName())))
-                .findFirst()
-                .orElseGet(() -> result.externalMatches() == null ? null : result.externalMatches().stream()
-                        .filter(entry -> entry != null
-                                && normalize(entry.ingredientName()).equals(normalize(ingredient.ingredientName())))
-                        .findFirst()
-                        .orElse(null));
-
-            // If the allergen relationship is found, add it to the enriched list
-            // If the allergen relationship is not found, add the ingredient to the enriched list
-            if (match != null) {
-                String root = match.rootAllergen();
-                if (root != null && "NONE".equalsIgnoreCase(root)) {
-                    root = null;
-                }
-                enriched.add(new Ingredient(
-                        ingredient.ingredientName(),
-                        match.parentAllergen(),
-                        root,
-                        ingredient.chemicalAlias()));
-            } else {
-                enriched.add(ingredient);
-            }
+            // Find the allergen relationship in the local matches or external matches, and apply
+            // it to the enriched list; if none is found, keep the ingredient as-is.
+            enriched.add(applyMatch(ingredient, findMatch(ingredient, result)));
         }
 
         return enriched;
+    }
+
+    /** Finds the first local match by normalized name, falling back to the first external match. */
+    private Ingredient findMatch(Ingredient ingredient, AllergenRelationshipResult result) {
+        Ingredient localMatch = findByName(result.localMatches(), ingredient.ingredientName());
+        if (localMatch != null) {
+            return localMatch;
+        }
+        return findByName(result.externalMatches(), ingredient.ingredientName());
+    }
+
+    private Ingredient findByName(List<Ingredient> candidates, String ingredientName) {
+        if (candidates == null) {
+            return null;
+        }
+        String target = normalize(ingredientName);
+        return candidates.stream()
+            .filter(entry -> entry != null && normalize(entry.ingredientName()).equals(target))
+            .findFirst()
+            .orElse(null);
+    }
+
+    /** Applies the matched parent/root allergen onto a copy of the ingredient, or returns it unchanged. */
+    private static Ingredient applyMatch(Ingredient ingredient, Ingredient match) {
+        if (match == null) {
+            return ingredient;
+        }
+        String root = match.rootAllergen();
+        if (root != null && "NONE".equalsIgnoreCase(root)) {
+            root = null;
+        }
+        return new Ingredient(
+                ingredient.ingredientName(),
+                match.parentAllergen(),
+                root,
+                ingredient.chemicalAlias());
     }
 
     // -------------------------------------------------------------------------

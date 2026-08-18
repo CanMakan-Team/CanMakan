@@ -4,14 +4,14 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { UserRegisterPage } from '../../../pages/UserRegisterPage'
 import { SessionProvider } from '../../../features/auth/SessionProvider'
-import { authService } from '../../../features/auth/authService'
+import { authService } from '../../../features/auth/api/authService'
 import { familyApiService } from '../../../features/family/api/familyApiService'
-import { pendingRegistrationOnboardingStore } from '../../../features/auth/pendingRegistrationOnboardingStore'
-import { authSessionStore } from '../../../features/auth/authSessionStore'
+import { pendingRegistrationOnboardingStore } from '../../../features/auth/lib/pendingRegistrationOnboardingStore'
+import { authSessionStore } from '../../../features/auth/lib/authSessionStore'
 import { ApiError } from '../../../shared/api/apiErrors'
 import { appUserSession } from '../../testUtils'
 
-vi.mock('../../../features/auth/authService', () => ({
+vi.mock('../../../features/auth/api/authService', () => ({
   authService: {
     loginWithCredentials: vi.fn(),
     register: vi.fn(),

@@ -9,7 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.canmakan.backend.user.AuthenticationAccountView;
-import com.canmakan.backend.user.UserAccountRepository;
+import com.canmakan.backend.user.repository.UserAccountRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -123,6 +123,23 @@ class AuthUserDetailsServiceTest {
             "person@example.com",
             true,
             "ROLE_APP_USER"
+        );
+        when(userAccountRepository.findAuthenticationAccountByEmail("person@example.com"))
+            .thenReturn(Optional.of(account));
+
+        assertThrows(
+            UsernameNotFoundException.class,
+            () -> userDetailsService.loadUserByUsername("person@example.com")
+        );
+    }
+
+    @Test
+    void rejectsAccountRecordMissingAnEmail() {
+        AuthenticationAccountView account = account(
+            14L,
+            null,
+            true,
+            "USER"
         );
         when(userAccountRepository.findAuthenticationAccountByEmail("person@example.com"))
             .thenReturn(Optional.of(account));

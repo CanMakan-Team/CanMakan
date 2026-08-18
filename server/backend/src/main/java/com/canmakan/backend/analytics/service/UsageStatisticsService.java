@@ -109,8 +109,9 @@ public class UsageStatisticsService {
         int stickinessPct = percent(dailyActiveUsers, monthlyActiveUsers);
 
         Acquisition acquisition = buildAcquisition(createdAtByUser, scansByUser, usersWithProfile, now, periodDays);
-        Activity activity = buildActivity(createdAtByUser, scansByUser, now, periodStart,
-                dailyActiveUsers, weeklyActiveUsers, monthlyActiveUsers, stickinessPct);
+        ActiveUserCounts activeUserCounts =
+                new ActiveUserCounts(dailyActiveUsers, weeklyActiveUsers, monthlyActiveUsers, stickinessPct);
+        Activity activity = buildActivity(createdAtByUser, scansByUser, now, periodStart, activeUserCounts);
         Retention retention = buildRetention(createdAtByUser, scansByUser, now, periodDays, periodStart,
                 totalUsers, monthlyActiveUsers);
         Engagement engagement = applyRealSessions(buildEngagement(scansByUser, now, periodStart), periodStart, now);
@@ -165,10 +166,7 @@ public class UsageStatisticsService {
             Map<Long, List<Instant>> scansByUser,
             Instant now,
             Instant periodStart,
-            long dailyActiveUsers,
-            long weeklyActiveUsers,
-            long monthlyActiveUsers,
-            int stickinessPct) {
+            ActiveUserCounts activeUserCounts) {
 
         Set<Long> activeInPeriod = activeUsers(scansByUser, periodStart, now);
         long newActive = activeInPeriod.stream()
@@ -180,9 +178,12 @@ public class UsageStatisticsService {
         int newUsersPct = percent(newActive, activeInPeriod.size());
         int returningUsersPct = activeInPeriod.isEmpty() ? 0 : 100 - newUsersPct;
 
-        return new Activity(dailyActiveUsers, weeklyActiveUsers, monthlyActiveUsers,
-                stickinessPct, newUsersPct, returningUsersPct);
+        return new Activity(activeUserCounts.daily(), activeUserCounts.weekly(), activeUserCounts.monthly(),
+                activeUserCounts.stickinessPct(), newUsersPct, returningUsersPct);
     }
+
+    /** Groups the already-computed active-user counts so {@link #buildActivity} stays under the parameter limit. */
+    private record ActiveUserCounts(long daily, long weekly, long monthly, int stickinessPct) {}
 
     private Retention buildRetention(
             Map<Long, Instant> createdAtByUser,
@@ -371,18 +372,26 @@ public class UsageStatisticsService {
             }
             return heatmap;
         }
-    }
 
-    private static double cellShare(int cell, int maxCell) {
-        return maxCell == 0 ? 0.0 : round2((double) cell / maxCell);
-    }
+        private static double cellShare(int cell, int maxCell) {
+            return maxCell == 0 ? 0.0 : round2((double) cell / maxCell);
+        }
 
-    private static long divideOrZero(long total, long count) {
-        return count == 0 ? 0 : Math.round((double) total / count);
-    }
+        private static long divideOrZero(long total, long count) {
+            return count == 0 ? 0 : Math.round((double) total / count);
+        }
 
-    private static double roundPerUser(long total, long activeUserCount) {
-        return activeUserCount == 0 ? 0 : round1((double) total / activeUserCount);
+        private static double roundPerUser(long total, long activeUserCount) {
+            return activeUserCount == 0 ? 0 : round1((double) total / activeUserCount);
+        }
+
+        private static double round1(double value) {
+            return Math.round(value * 10.0) / 10.0;
+        }
+
+        private static double round2(double value) {
+            return Math.round(value * 100.0) / 100.0;
+        }
     }
 
     /** Users with at least one scan in the inclusive window {@code [from, to]}. */
@@ -440,13 +449,5 @@ public class UsageStatisticsService {
 
     private static int percent(long part, long whole) {
         return whole <= 0 ? 0 : (int) Math.round((part * 100.0) / whole);
-    }
-
-    private static double round1(double value) {
-        return Math.round(value * 10.0) / 10.0;
-    }
-
-    private static double round2(double value) {
-        return Math.round(value * 100.0) / 100.0;
     }
 }

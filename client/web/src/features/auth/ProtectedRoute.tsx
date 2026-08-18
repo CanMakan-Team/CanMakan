@@ -7,7 +7,6 @@ import { useSession } from './useSession'
 /** Protected route
  * This client guard improves navigation only
  * 
- * @author Amelia
  */
 
 export function ProtectedRoute({ requiredRole }: { requiredRole: Role }) {

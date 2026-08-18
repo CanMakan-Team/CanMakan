@@ -1,5 +1,13 @@
 package com.canmakan.backend.product.recommendation;
 
+import com.canmakan.backend.product.recommendation.catalog.AlternativeProductQueryService;
+import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
+import com.canmakan.backend.product.recommendation.catalog.CatalogProductMapper;
+import com.canmakan.backend.product.recommendation.catalog.CatalogProductRepository;
+import com.canmakan.backend.product.recommendation.dto.AlternativeProductResponse;
+import com.canmakan.backend.product.recommendation.dto.RecommendationRequest;
+import com.canmakan.backend.product.recommendation.filter.AlternativeCandidateFilter;
+import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfiles;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
@@ -152,14 +160,13 @@ class RecommendationServiceIntegrationTest {
                 new RecommendationRequest(PROFILE_SARAH_TAN, SUNSHINE_WHOLE_GRAIN_BREAD, null));
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
                 .as("sparse GF bread rows should be suggested alongside pita")
-                .contains(GF_SOURDOUGH_7_SEED, GF_PITA_BREAD);
-        assertThat(suggestedBarcodes.size()).isGreaterThanOrEqualTo(2);
-        assertThat(suggestedBarcodes)
+                .contains(GF_SOURDOUGH_7_SEED, GF_PITA_BREAD)
+                .hasSizeGreaterThanOrEqualTo(2)
                 .as("oat cereals mis-tagged as GF bread must stay excluded")
                 .doesNotContain("8887143802515", "8887143802539");
     }
@@ -190,13 +197,12 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
                 .as("unsweetened plant milks should substitute for fresh cow milk")
-                .contains(HOME_SOY_UNSWEETENED);
-        assertThat(suggestedBarcodes)
+                .contains(HOME_SOY_UNSWEETENED)
                 .as("cow milk and dairy spreads must not appear")
                 .doesNotContain(FARMHOUSE_FRESH_MILK, LUXURY_DAIRY_SPREAD);
     }
@@ -214,7 +220,7 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
         Set<String> plantMilkPool = queryService.findSubstituteTagCandidates(source, milkProfile).stream()
                 .map(CatalogProduct::getBarcode)
@@ -222,8 +228,7 @@ class RecommendationServiceIntegrationTest {
 
         assertThat(suggestedBarcodes)
                 .as("coarse Dairies category must not suggest butter spreads")
-                .doesNotContain(LUXURY_DAIRY_SPREAD);
-        assertThat(suggestedBarcodes)
+                .doesNotContain(LUXURY_DAIRY_SPREAD)
                 .as("all suggestions should come from the plant-milk tag pool")
                 .isSubsetOf(plantMilkPool);
     }
@@ -238,16 +243,14 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
                 .as("dairy-free frozen desserts from the ice-creams-and-sorbets substitute pool")
-                .contains("0797776401178");
-        assertThat(suggestedBarcodes)
+                .contains("0797776401178")
                 .as("other dairy Magnum bars must not substitute dairy ice cream scans")
-                .doesNotContain("8714100638415", "8714100635650", "8000920500224");
-        assertThat(suggestedBarcodes)
+                .doesNotContain("8714100638415", "8714100635650", "8000920500224")
                 .as("vegan coconut with declared milk allergen must be catalog-hardened out")
                 .doesNotContain(COCONUT_WITH_MILK_ALLERGEN);
     }
@@ -262,13 +265,12 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
                 .as("wraps are not baking-flour substitutes even when name contains flour")
-                .doesNotContain(ALMOND_FLOUR_WRAP);
-        assertThat(suggestedBarcodes)
+                .doesNotContain(ALMOND_FLOUR_WRAP)
                 .as("tagged GF flour substitutes should still appear")
                 .contains(BROWN_RICE_FLOUR);
     }
@@ -283,21 +285,16 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
                 .as("dairy-free frozen desserts from the ice-creams-and-sorbets substitute pool")
-                .contains("0797776401178");
-        assertThat(suggestedBarcodes)
+                .contains("0797776401178")
                 .as("at least one tagged dairy-free frozen dessert")
-                .isNotEmpty();
-
-        assertThat(suggestedBarcodes)
+                .isNotEmpty()
                 .as("vegan coconut with declared milk allergen must be catalog-hardened out")
-                .doesNotContain(COCONUT_WITH_MILK_ALLERGEN);
-
-        assertThat(suggestedBarcodes)
+                .doesNotContain(COCONUT_WITH_MILK_ALLERGEN)
                 .as("source product must never be suggested as its own alternative")
                 .doesNotContain(MAGNUM_MINI_CHOC_HAZELNUT);
     }
@@ -309,12 +306,15 @@ class RecommendationServiceIntegrationTest {
                 new RecommendationRequest(PROFILE_SARAH_TAN, HI_CALCIUM_MILK_BREAD, null));
 
         assertThat(response.sourceBarcode()).isEqualTo(HI_CALCIUM_MILK_BREAD);
+        assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
+                .as("at least one substitute must be suggested")
+                .isNotEmpty()
                 .as("milk bread must not expand into plant-based milk substitutes")
                 .doesNotContain(HI_CALCIUM_SOYA_MILK);
     }
@@ -329,14 +329,12 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
                 .as("lowercase breads category must route to GF bread pool, not flour")
-                .containsAnyOf(GF_SOURDOUGH_7_SEED, GF_PITA_BREAD, "0697478426588", "9339423009064");
-
-        assertThat(suggestedBarcodes)
+                .containsAnyOf(GF_SOURDOUGH_7_SEED, GF_PITA_BREAD, "0697478426588", "9339423009064")
                 .as("wheat flour must not substitute for bread scans")
                 .doesNotContain("8888231120016", "8888030023662", "8888263533730");
     }
@@ -351,22 +349,16 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
                 .as("tagged GF breakfast cereal without oats")
-                .containsAnyOf(ANCIENT_GRAIN_FLAKES, "0667380799766", "9346430000854");
-
-        assertThat(suggestedBarcodes)
+                .containsAnyOf(ANCIENT_GRAIN_FLAKES, "0667380799766", "9346430000854")
                 .as("oat-containing tagged GF cereals must be excluded")
-                .doesNotContainAnyElementsOf(OAT_BREAKFAST_CEREAL_BARCODES);
-
-        assertThat(suggestedBarcodes)
+                .doesNotContainAnyElementsOf(OAT_BREAKFAST_CEREAL_BARCODES)
                 .as("mis-tagged chips and papadum must not appear as cereal substitutes")
-                .doesNotContain("7750526000895", "9555243803167");
-
-        assertThat(suggestedBarcodes)
+                .doesNotContain("7750526000895", "9555243803167")
                 .as("wheat cereal must not expand into GF flour substitutes")
                 .noneMatch(barcode -> response.alternatives().stream()
                         .filter(alt -> alt.barcode().equals(barcode))
@@ -384,26 +376,18 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
                 .as("nut/seed butter substitute pool should include tahini")
-                .contains(NATURE_GLORY_TAHINI);
-
-        assertThat(suggestedBarcodes)
+                .contains(NATURE_GLORY_TAHINI)
                 .as("sparse cashew butter rows without ingredients_text should still be suggested")
-                .contains(ORGANIC_CASHEW_BUTTER);
-
-        assertThat(suggestedBarcodes)
+                .contains(ORGANIC_CASHEW_BUTTER)
                 .as("soybean paste is not a peanut-butter substitute")
-                .doesNotContain(SALTED_SOYA_BEAN_PASTE);
-
-        assertThat(suggestedBarcodes)
+                .doesNotContain(SALTED_SOYA_BEAN_PASTE)
                 .as("jams must not appear when peanut butter falls back to nut/seed butters")
-                .doesNotContain(STRAWBERRY_JAM);
-
-        assertThat(suggestedBarcodes)
+                .doesNotContain(STRAWBERRY_JAM)
                 .as("source product must never be suggested as its own alternative")
                 .doesNotContain(SINGLONG_PEANUT_BUTTER);
     }
@@ -418,14 +402,12 @@ class RecommendationServiceIntegrationTest {
         assertThat(response.alternatives()).isNotEmpty();
 
         Set<String> suggestedBarcodes = response.alternatives().stream()
-                .map(AlternativeProductDto::barcode)
+                .map(alt -> alt.barcode())
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
                 .as("low-sodium sauce substitutes should include reduced-salt or no-salt-added sauces")
-                .containsAnyOf(REDUCED_SALT_OYSTER_SAUCE, HUNT_NO_SALT_TOMATO_SAUCE);
-
-        assertThat(suggestedBarcodes)
+                .containsAnyOf(REDUCED_SALT_OYSTER_SAUCE, HUNT_NO_SALT_TOMATO_SAUCE)
                 .as("random Groceries rows such as table salt must not substitute for fish sauce")
                 .doesNotContain(PREMIUM_FINE_SALT);
     }

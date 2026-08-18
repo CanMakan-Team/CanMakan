@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
@@ -21,14 +22,10 @@ import org.springframework.stereotype.Service;
  * @author Amelia
  */
 @Service
+@RequiredArgsConstructor
 public class ProductDataAdapter {
 
     private final BarcodeValidationClient barcodeValidationClient;
-
-    public ProductDataAdapter(BarcodeValidationClient barcodeValidationClient) {
-        this.barcodeValidationClient = Objects.requireNonNull(
-            barcodeValidationClient, "barcodeValidationClient");
-    }
 
     /**
      * Looks up a product by barcode via Open Food Facts {@code fetchProduct}
@@ -87,17 +84,16 @@ public class ProductDataAdapter {
                 continue;
             }
             String name = cleanIngredientName(ingredient.ingredientName());
-            if (name.isBlank()) {
-                continue;
-            }
-            if (name.equals(ingredient.ingredientName())) {
-                cleaned.add(ingredient);
-            } else {
-                cleaned.add(new Ingredient(
-                    name,
-                    ingredient.parentAllergen(),
-                    ingredient.rootAllergen(),
-                    ingredient.chemicalAlias()));
+            if (!name.isBlank()) {
+                if (name.equals(ingredient.ingredientName())) {
+                    cleaned.add(ingredient);
+                } else {
+                    cleaned.add(new Ingredient(
+                        name,
+                        ingredient.parentAllergen(),
+                        ingredient.rootAllergen(),
+                        ingredient.chemicalAlias()));
+                }
             }
         }
         return List.copyOf(rejoinSplitParentheticals(cleaned));

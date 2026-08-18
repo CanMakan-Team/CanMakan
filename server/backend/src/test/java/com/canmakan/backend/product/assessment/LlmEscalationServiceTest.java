@@ -13,6 +13,8 @@ import com.canmakan.backend.ai.llm.LlmClient;
 import com.canmakan.backend.ai.llm.PromptBuilder;
 import com.canmakan.backend.ai.llm.ResolvedIngredient;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
+import com.canmakan.backend.product.assessment.dto.TieredOutcome;
+import com.canmakan.backend.product.assessment.service.LlmEscalationService;
 import com.canmakan.backend.product.verdict.DietaryRuleEngine;
 import com.canmakan.backend.product.verdict.Finding;
 import com.canmakan.backend.product.verdict.ProductData;

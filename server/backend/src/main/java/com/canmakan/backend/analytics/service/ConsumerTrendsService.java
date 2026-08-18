@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -113,7 +114,7 @@ public class ConsumerTrendsService {
     /** Backward-compatible entry point for an unfiltered UC7 request. */
     @Transactional(readOnly = true)
     public ConsumerTrendsResponse generateTrends(LocalDate from, LocalDate to, Integer limit) {
-        return generateTrends(from, to, limit, null);
+        return buildTrends(from, to, limit, null);
     }
 
     /**
@@ -122,6 +123,17 @@ public class ConsumerTrendsService {
      */
     @Transactional(readOnly = true)
     public ConsumerTrendsResponse generateTrends(
+            LocalDate from,
+            LocalDate to,
+            Integer limit,
+            String category
+    ) {
+        return buildTrends(from, to, limit, category);
+    }
+
+    // Plain (non-@Transactional) so neither overload above calls another @Transactional method via
+    // 'this' — a self-invocation bypasses Spring's proxy and silently skips the annotation.
+    private ConsumerTrendsResponse buildTrends(
             LocalDate from,
             LocalDate to,
             Integer limit,
@@ -431,50 +443,68 @@ public class ConsumerTrendsService {
                 throw inconsistentAnalytics("finding row identity is missing");
             }
 
-            List<Finding> findings;
-            try {
-                findings = parseFindings(row.getFindingsJson());
-            } catch (JsonProcessingException exception) {
+            Optional<List<Finding>> findings = tryParseFindings(row.getFindingsJson());
+            if (findings.isEmpty()) {
                 skippedMalformedFindings++;
                 continue;
             }
-            if (findings == null) {
-                skippedMalformedFindings++;
+            accumulateRowFindings(
+                    row.getScanId(),
+                    findings.get(),
+                    scanIdsByIngredient,
+                    observedSpellingsByIngredient,
+                    scanIdsByRestriction
+            );
+        }
+
+        return new FindingResult(
+                rankIngredients(scanIdsByIngredient, observedSpellingsByIngredient, ingredientLimit),
+                rankRestrictions(scanIdsByRestriction),
+                skippedMalformedFindings
+        );
+    }
+
+    /** Groups one row's ingredients/restrictions into the running per-scan-id accumulators. */
+    private void accumulateRowFindings(
+            Long scanId,
+            List<Finding> findings,
+            Map<String, Set<Long>> scanIdsByIngredient,
+            Map<String, Set<String>> observedSpellingsByIngredient,
+            Map<String, Set<Long>> scanIdsByRestriction
+    ) {
+        Set<String> ingredientsInScan = new HashSet<>();
+        Set<String> restrictionsInScan = new HashSet<>();
+        for (Finding finding : findings) {
+            if (finding == null) {
                 continue;
             }
-
-            Set<String> ingredientsInScan = new HashSet<>();
-            Set<String> restrictionsInScan = new HashSet<>();
-            for (Finding finding : findings) {
-                if (finding == null) {
-                    continue;
-                }
-                NormalizedIngredient ingredient = normalizeIngredientName(finding.ingredientName());
-                if (ingredient != null) {
-                    ingredientsInScan.add(ingredient.identity());
-                    observedSpellingsByIngredient
-                            .computeIfAbsent(ingredient.identity(), ignored -> new HashSet<>())
-                            .add(ingredient.displayName());
-                }
-                String restriction = normalizeRestrictionCode(finding.restrictionCode());
-                if (restriction != null) {
-                    restrictionsInScan.add(restriction);
-                }
+            NormalizedIngredient ingredient = normalizeIngredientName(finding.ingredientName());
+            if (ingredient != null) {
+                ingredientsInScan.add(ingredient.identity());
+                observedSpellingsByIngredient
+                        .computeIfAbsent(ingredient.identity(), ignored -> new HashSet<>())
+                        .add(ingredient.displayName());
             }
-
-            for (String ingredient : ingredientsInScan) {
-                scanIdsByIngredient
-                        .computeIfAbsent(ingredient, ignored -> new HashSet<>())
-                        .add(row.getScanId());
-            }
-            for (String restriction : restrictionsInScan) {
-                scanIdsByRestriction
-                        .computeIfAbsent(restriction, ignored -> new HashSet<>())
-                        .add(row.getScanId());
+            String restriction = normalizeRestrictionCode(finding.restrictionCode());
+            if (restriction != null) {
+                restrictionsInScan.add(restriction);
             }
         }
 
-        List<FlaggedIngredientTrend> rankedIngredients = scanIdsByIngredient.entrySet().stream()
+        for (String ingredient : ingredientsInScan) {
+            scanIdsByIngredient.computeIfAbsent(ingredient, ignored -> new HashSet<>()).add(scanId);
+        }
+        for (String restriction : restrictionsInScan) {
+            scanIdsByRestriction.computeIfAbsent(restriction, ignored -> new HashSet<>()).add(scanId);
+        }
+    }
+
+    private static List<FlaggedIngredientTrend> rankIngredients(
+            Map<String, Set<Long>> scanIdsByIngredient,
+            Map<String, Set<String>> observedSpellingsByIngredient,
+            int ingredientLimit
+    ) {
+        return scanIdsByIngredient.entrySet().stream()
                 .map(entry -> new FlaggedIngredientTrend(
                         selectDisplayName(observedSpellingsByIngredient.get(entry.getKey())),
                         entry.getValue().size()
@@ -485,7 +515,10 @@ public class ConsumerTrendsService {
                         .thenComparing(FlaggedIngredientTrend::ingredientName))
                 .limit(ingredientLimit)
                 .toList();
-        List<RestrictionTrend> rankedRestrictions = scanIdsByRestriction.entrySet().stream()
+    }
+
+    private static List<RestrictionTrend> rankRestrictions(Map<String, Set<Long>> scanIdsByRestriction) {
+        return scanIdsByRestriction.entrySet().stream()
                 .map(entry -> new RestrictionTrend(entry.getKey(), entry.getValue().size()))
                 .sorted(Comparator
                         .comparingLong(RestrictionTrend::flaggedCount)
@@ -493,19 +526,22 @@ public class ConsumerTrendsService {
                         .thenComparing(RestrictionTrend::restrictionCode))
                 .limit(FIXED_RANKING_LIMIT)
                 .toList();
-
-        return new FindingResult(
-                rankedIngredients,
-                rankedRestrictions,
-                skippedMalformedFindings
-        );
     }
 
-    private List<Finding> parseFindings(String findingsJson) throws JsonProcessingException {
+    /**
+     * Parses one row's findings JSON, or {@link Optional#empty()} when it is blank/missing or
+     * fails to parse — either case is a data-quality issue the caller counts as skipped, distinct
+     * from a successfully parsed but genuinely empty findings array.
+     */
+    private Optional<List<Finding>> tryParseFindings(String findingsJson) {
         if (findingsJson == null || findingsJson.isBlank()) {
-            return null;
+            return Optional.empty();
         }
-        return objectMapper.readValue(findingsJson, FINDING_LIST_TYPE);
+        try {
+            return Optional.ofNullable(objectMapper.readValue(findingsJson, FINDING_LIST_TYPE));
+        } catch (JsonProcessingException exception) {
+            return Optional.empty();
+        }
     }
 
     private static NormalizedIngredient normalizeIngredientName(String ingredientName) {

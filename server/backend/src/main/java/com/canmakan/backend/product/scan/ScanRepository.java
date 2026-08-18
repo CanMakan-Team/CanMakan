@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Persists and queries {@code scans}. Used to save a verdict after assessment
@@ -43,4 +44,12 @@ public interface ScanRepository extends JpaRepository<Scan, Long> {
         """)
     List<Scan> findByProfileIdInWithProductOrderByScannedAtDesc(
         @Param("profileIds") Collection<Long> profileIds);
+
+    @Query("""
+        select distinct s.barcode from Scan s
+        where s.profileId = :profileId
+          and s.verdict = 'SAFE'
+          and s.barcode is not null
+        """)
+    Set<String> findDistinctSafeBarcodesByProfileId(@Param("profileId") Long profileId);
 }

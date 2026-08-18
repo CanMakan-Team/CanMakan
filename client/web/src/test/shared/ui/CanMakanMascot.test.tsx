@@ -6,10 +6,10 @@ import { CANMAKAN_MASCOT_POSES } from '../../../shared/ui/canMakanMascotPoses'
 import { EmptyState } from '../../../shared/ui/PageState'
 import { UserLoginPage } from '../../../pages/UserLoginPage'
 import { SessionProvider } from '../../../features/auth/SessionProvider'
-import { authService } from '../../../features/auth/authService'
+import { authService } from '../../../features/auth/api/authService'
 import { ApiError } from '../../../shared/api/apiErrors'
 
-vi.mock('../../../features/auth/authService', () => ({
+vi.mock('../../../features/auth/api/authService', () => ({
   authService: {
     loginWithCredentials: vi.fn(),
     register: vi.fn(),
