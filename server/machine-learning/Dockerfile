@@ -4,6 +4,11 @@ FROM python:3.12-slim-trixie
 
 WORKDIR /app
 
+# Pick up Debian security updates that already have a Fixed Version (e.g. util-linux).
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system canmakan && useradd --system --gid canmakan --create-home canmakan
 
 COPY requirements.txt /app/requirements.txt
