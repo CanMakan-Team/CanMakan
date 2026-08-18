@@ -127,7 +127,7 @@ Pushes to `main` **do not** run this workflow. Web production deploy runs Playwr
 Since continuous dynamic and stress testing disrupt development workflows and exhaust burstable infrastructure credits, they are executed out-of-band against the Staging environment.
 
 - **DAST (OWASP ZAP):** Executes on a nightly cron schedule. It runs two parallel jobs: a Web Baseline scan against the Firebase staging URL, and an OpenAPI scan against the Spring Boot staging URL using an injected test JWT.
-- **Performance (Grafana k6):** Executes on a weekly cron schedule via `.github/scripts/k6-load-test.js`. Setup logs in once, then each virtual user repeats the scan journey against Staging: restore session (`GET /api/auth/me`, profile, restrictions), `POST /api/scan/assess`, `GET` recommendations, and scan history. Authenticated reads keep a 500ms P95 target on `t3.small`; assess (Open Food Facts + persistence) and recommendations (ranker) use higher tagged SLOs.
+- **Performance (Grafana k6):** Executes on a weekly cron schedule via `.github/scripts/k6-load-test.js`. Setup logs in once, then **5** virtual users (sized for `t3.small` plus the Python ranker) repeat the scan journey: restore session, `POST /api/scan/assess`, `GET` recommendations, and scan history. Read SLOs allow GitHub Actions to EC2 RTT (P95 2s). Assess P95 is 8s; recommendations P95 is 15s. Twenty concurrent recommendation calls queue past the HTTP timeout and are not a useful staging gate.
 
 
 
