@@ -47,36 +47,30 @@ class FamilyRestrictionSummaryViewModel @Inject constructor(
         fetchJob?.cancel()
         fetchJob = viewModelScope.launch {
             _uiState.value = FamilyRestrictionSummaryUiState.Loading
-            val result = try {
-                familyProfileRepository.getFamilyRestrictionSummary()
+            try {
+                val response = familyProfileRepository.getFamilyRestrictionSummary()
+                if (!isCurrentAccount(accountKey)) return@launch
+                val activeMembers = response.familyMembers.filter { it.isActive }
+                if (activeMembers.isEmpty()) {
+                    _uiState.value = FamilyRestrictionSummaryUiState.Empty
+                } else {
+                    val uniqueRestrictions = activeMembers
+                        .flatMap { it.restrictions }
+                        .map { it.displayName }
+                        .distinct()
+                    _uiState.value = FamilyRestrictionSummaryUiState.Success(
+                        response.copy(familyMembers = activeMembers),
+                        uniqueRestrictions,
+                    )
+                }
             } catch (exception: CancellationException) {
                 throw exception
+            } catch (error: Exception) {
+                if (!isCurrentAccount(accountKey)) return@launch
+                _uiState.value = FamilyRestrictionSummaryUiState.Error(
+                    error.message ?: "Unknown Error Occurred",
+                )
             }
-            if (!isCurrentAccount(accountKey)) return@launch
-
-            result.fold(
-                onSuccess = { response ->
-                    val activeMembers = response.familyMembers.filter { it.isActive }
-                    if (activeMembers.isEmpty()) {
-                        _uiState.value = FamilyRestrictionSummaryUiState.Empty
-                    } else {
-                        val uniqueRestrictions = activeMembers
-                            .flatMap { it.restrictions }
-                            .map { it.displayName }
-                            .distinct()
-
-                        _uiState.value = FamilyRestrictionSummaryUiState.Success(
-                            response.copy(familyMembers = activeMembers),
-                            uniqueRestrictions,
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    _uiState.value = FamilyRestrictionSummaryUiState.Error(
-                        error.message ?: "Unknown Error Occurred",
-                    )
-                },
-            )
         }
     }
 

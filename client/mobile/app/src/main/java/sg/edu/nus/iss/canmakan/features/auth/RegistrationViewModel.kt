@@ -125,6 +125,49 @@ class RegistrationViewModel @Inject constructor(
     fun createAccount() {
         val state = _uiState.value
         if (state.isSubmitting || state.account != null) return
+        val fieldErrors = validateAccountForm(state)
+        if (fieldErrors.hasErrors) {
+            _uiState.value = state.copy(
+                nameError = fieldErrors.nameError,
+                emailError = fieldErrors.emailError,
+                passwordError = fieldErrors.passwordError,
+                confirmPasswordError = fieldErrors.confirmPasswordError,
+                registrationError = null,
+                registrationFailureType = null,
+            )
+            return
+        }
+
+        _uiState.value = state.copy(
+            nameError = null,
+            emailError = null,
+            passwordError = null,
+            confirmPasswordError = null,
+            registrationError = null,
+            registrationFailureType = null,
+            isSubmitting = true,
+        )
+
+        viewModelScope.launch {
+            when (val result = registrationRepository.register(
+                email = state.email.trim().lowercase(Locale.ROOT),
+                password = state.password,
+                invitationToken = state.invitationToken,
+            )) {
+                is RegistrationResult.Success -> handleAccountCreated(result.account, state)
+                is RegistrationResult.Failure -> {
+                    _uiState.value = _uiState.value.copy(
+                        step = RegistrationStep.ACCOUNT_INFORMATION,
+                        isSubmitting = false,
+                        registrationError = result.message,
+                        registrationFailureType = result.type,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun validateAccountForm(state: RegistrationUiState): AccountFormErrors {
         val normalizedName = state.name.trim()
         val normalizedEmail = state.email.trim()
         val nameError = when {
@@ -152,46 +195,7 @@ class RegistrationViewModel @Inject constructor(
             state.confirmPassword != state.password -> "Passwords do not match."
             else -> null
         }
-
-        if (nameError != null || emailError != null || passwordError != null || confirmPasswordError != null) {
-            _uiState.value = state.copy(
-                nameError = nameError,
-                emailError = emailError,
-                passwordError = passwordError,
-                confirmPasswordError = confirmPasswordError,
-                registrationError = null,
-                registrationFailureType = null,
-            )
-            return
-        }
-
-        _uiState.value = state.copy(
-            nameError = nameError,
-            emailError = emailError,
-            passwordError = passwordError,
-            confirmPasswordError = confirmPasswordError,
-            registrationError = null,
-            registrationFailureType = null,
-            isSubmitting = true,
-        )
-
-        viewModelScope.launch {
-            when (val result = registrationRepository.register(
-                email = state.email.trim().lowercase(Locale.ROOT),
-                password = state.password,
-                invitationToken = state.invitationToken,
-            )) {
-                is RegistrationResult.Success -> handleAccountCreated(result.account, state)
-                is RegistrationResult.Failure -> {
-                    _uiState.value = _uiState.value.copy(
-                        step = RegistrationStep.ACCOUNT_INFORMATION,
-                        isSubmitting = false,
-                        registrationError = result.message,
-                        registrationFailureType = result.type,
-                    )
-                }
-            }
-        }
+        return AccountFormErrors(nameError, emailError, passwordError, confirmPasswordError)
     }
 
     private suspend fun handleAccountCreated(
@@ -231,6 +235,17 @@ class RegistrationViewModel @Inject constructor(
             accountCreatedButLoginFailed = true,
             registrationError = AUTO_LOGIN_FAILURE_MESSAGE,
         )
+    }
+
+    private data class AccountFormErrors(
+        val nameError: String?,
+        val emailError: String?,
+        val passwordError: String?,
+        val confirmPasswordError: String?,
+    ) {
+        val hasErrors: Boolean
+            get() = nameError != null || emailError != null ||
+                passwordError != null || confirmPasswordError != null
     }
 
     companion object {

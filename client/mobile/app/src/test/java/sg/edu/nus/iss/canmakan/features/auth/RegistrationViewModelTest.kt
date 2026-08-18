@@ -212,6 +212,40 @@ class RegistrationViewModelTest {
         assertFalse(viewModel.uiState.value.toString().contains("Password1!"))
     }
 
+    @Test
+    fun validationCoversLengthPasswordAndConfirmEdges() {
+        viewModel.updateName("n".repeat(101))
+        viewModel.updateEmail("e".repeat(256) + "@x.y")
+        viewModel.updatePassword("   ")
+        viewModel.updateConfirmPassword("")
+        viewModel.createAccount()
+        assertEquals("Profile Name must not exceed 100 characters.", viewModel.uiState.value.nameError)
+        assertEquals("Email must not exceed 255 characters.", viewModel.uiState.value.emailError)
+        assertEquals("Password is required.", viewModel.uiState.value.passwordError)
+        assertEquals("Confirm your password.", viewModel.uiState.value.confirmPasswordError)
+
+        viewModel.updateName("Person")
+        viewModel.updateEmail("person@example.com")
+        viewModel.updatePassword("short")
+        viewModel.updateConfirmPassword("short")
+        viewModel.createAccount()
+        assertEquals("Password must be at least 8 characters.", viewModel.uiState.value.passwordError)
+
+        viewModel.updatePassword("Password1")
+        viewModel.updateConfirmPassword("Password1")
+        viewModel.createAccount()
+        assertEquals(
+            "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.",
+            viewModel.uiState.value.passwordError,
+        )
+
+        viewModel.updatePassword("A1!" + "é".repeat(35))
+        viewModel.updateConfirmPassword("A1!" + "é".repeat(35))
+        viewModel.createAccount()
+        assertEquals("Password must not exceed 72 UTF-8 bytes.", viewModel.uiState.value.passwordError)
+        assertEquals(0, registrationRepository.callCount)
+    }
+
     private fun enterValidAccountInformation() {
         viewModel.updateName("  Person Name  ")
         viewModel.updateEmail("  Person@Example.COM  ")

@@ -4,7 +4,7 @@ package sg.edu.nus.iss.canmakan.shared.notifications
  * Posts CanMakan alerts to the Android system notification drawer.
  *
  * A plain interface (rather than calling [AndroidSystemNotifier] directly) so callers such
- * as [sg.edu.nus.iss.canmakan.navigation.CanMakanNavGraphViewModel] can be unit tested with a
+ * as [sg.edu.nus.iss.canmakan.features.notifications.NotificationBadgeCoordinator] can be unit tested with a
  * fake, without pulling in Android framework classes.
  */
 interface SystemNotifier {

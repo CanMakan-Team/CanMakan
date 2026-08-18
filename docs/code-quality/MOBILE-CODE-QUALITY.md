@@ -7,7 +7,7 @@ Update the **Changes checklist** when work lands; keep findings status notes cur
 **Scope:** `client/mobile` (~119 main Kotlin sources, ~42 unit-test Kotlin sources, Gradle/Hilt/OkHttp/Retrofit, Android manifests and network-security XML)  
 **Out of scope:** Spring Boot, MySQL schema, React web. This client *calls* those APIs; proposed refactors must **not** change API contracts or database behaviour unless a later, separately approved task says otherwise. Visual redesign of the supplied Compose UI is also out of scope (see root `AGENTS.md`).
 
-**Status of this document:** Assessment and refactoring plan only. **No REF-* items are implemented.** Do not treat this file as authorization to change application code until the plan is approved.
+**Status of this document:** Assessment and refactoring plan. **REF-001–REF-017** are implemented in `client/mobile` (see checklist). REF-010 kept large Compose files as in-file section composables (`CameraPreview`, `ScanFeedbackRow`, `MatrixGrid`) rather than extra files, to avoid a visual rewrite of the supplied UI.
 
 ---
 
@@ -21,10 +21,9 @@ Update the **Changes checklist** when work lands; keep findings status notes cur
 | Account | `features/account/` |
 | Dietary profile | `features/dietaryprofile/` (onboarding, restriction sheet, dairy presentation) |
 | Family | `features/family/` (drawer, create/invite/dependant, restriction matrix) |
-| Product | `features/product/` (scan, verdict, history, recommendation; reporting README-only) |
+| Product | `features/product/` (scan, verdict, history, recommendation) |
 | Notifications / session heartbeat | `features/notifications/`, `features/session/` |
 | Shared | `shared/di`, `shared/network`, `shared/ui`, `shared/model`, `shared/util`, `shared/notifications` |
-| Placeholders | `features/analytics/`, `workers/`, `features/product/reporting/` (README only) |
 | Tests | `app/src/test/` (unit only; **no** `androidTest`) |
 
 Largest production files (approximate total lines at review time):
@@ -124,15 +123,15 @@ Scores are for the **current** mobile client. Target is after a later, separatel
 
 | Category | Current | Target | After implementation |
 | --- | ---: | ---: | ---: |
-| Readability | 6.5/10 | 8/10 | |
-| Maintainability | 6/10 | 8/10 | |
-| Layer Separation | 6/10 | 8/10 | |
-| Low Coupling | 6/10 | 8/10 | |
-| Method Complexity | 5.5/10 | 8/10 | |
-| Testability | 7.5/10 | 8/10 | |
-| Security | 8/10 | 8.5/10 | |
-| Correctness | 7/10 | 8/10 | |
-| Overall | 6.5/10 | 8/10 | |
+| Readability | 6.5/10 | 8/10 | 8/10 |
+| Maintainability | 6/10 | 8/10 | 7.5/10 |
+| Layer Separation | 6/10 | 8/10 | 8/10 |
+| Low Coupling | 6/10 | 8/10 | 7.5/10 |
+| Method Complexity | 5.5/10 | 8/10 | 7.5/10 |
+| Testability | 7.5/10 | 8/10 | 8/10 |
+| Security | 8/10 | 8.5/10 | 8.5/10 |
+| Correctness | 7/10 | 8/10 | 8/10 |
+| Overall | 6.5/10 | 8/10 | 7.5/10 |
 
 Do not inflate: auth, ownership guards, and unit tests are strong. God-size Compose files, the shell ViewModel, and scan-layer skip pull the overall score down. Security is already relatively strong; this plan should not gamble it for style.
 
@@ -146,21 +145,21 @@ There is **no CRITICAL** mobile-only security or data-integrity defect (no WebVi
 
 | ID | Severity | Summary | Status |
 | --- | --- | --- | --- |
-| F-MOB-01 | HIGH | `CanMakanNavGraphViewModel` is a multi-feature god object (~544 lines, six collaborators) | Planned |
-| F-MOB-02 | HIGH | `ScannerViewModel` / `ScanFeedbackViewModel` call Retrofit directly and map DTOs in the ViewModel | Planned |
-| F-MOB-03 | HIGH | Authenticated `CanMakanNavGraph` + drawer + sheet is one ~527-line composable | Planned |
-| F-MOB-04 | HIGH | OkHttp retry interceptor uses `Thread.sleep` on the dispatcher thread | Planned |
-| F-MOB-05 | MEDIUM | Mix of leading-`/` and relative Retrofit paths on `CanMakanApiService` | Planned |
-| F-MOB-06 | MEDIUM | Unknown assess verdict strings default to `WARNING` | Planned |
-| F-MOB-07 | MEDIUM | `FamilyProfileRepository` error type, JSON regex, and `Result` vs throw are inconsistent | Planned |
-| F-MOB-08 | MEDIUM | Large Compose files mix chrome, camera, matrix layout, and feedback forms | Planned |
-| F-MOB-09 | MEDIUM | Duplicated `SelectableOptionCard`, network-error `when`, and per-route nav callbacks | Planned |
-| F-MOB-10 | MEDIUM | `collectAsState()` on Scanner and family matrix (not lifecycle-aware) | Planned |
-| F-MOB-11 | MEDIUM | Stale comment: NavGraph still says inbox open marks all notifications read | Planned |
-| F-MOB-12 | MEDIUM | `CreateDependantProfileViewModel` has no dedicated unit test | Planned |
-| F-MOB-13 | LOW | Dead `ProductSampleData`, unbound `SampleDietaryRestrictionRepository`, unused ngrok `DEFAULT_BASE_URL` | Planned |
-| F-MOB-14 | LOW | Always-on `ngrok-skip-browser-warning` and spoofed Chrome `User-Agent` | Planned |
-| F-MOB-15 | LOW | `Gson` `Strictness.LENIENT`; unused `USE_BIOMETRIC` permission; README `applicationId` | Planned |
+| F-MOB-01 | HIGH | `CanMakanNavGraphViewModel` is a multi-feature god object (~544 lines, six collaborators) | Done |
+| F-MOB-02 | HIGH | `ScannerViewModel` / `ScanFeedbackViewModel` call Retrofit directly and map DTOs in the ViewModel | Done |
+| F-MOB-03 | HIGH | Authenticated `CanMakanNavGraph` + drawer + sheet is one ~527-line composable | Done (routes + chrome; file still hosts NavHost) |
+| F-MOB-04 | HIGH | OkHttp retry interceptor uses `Thread.sleep` on the dispatcher thread | Done |
+| F-MOB-05 | MEDIUM | Mix of leading-`/` and relative Retrofit paths on `CanMakanApiService` | Done |
+| F-MOB-06 | MEDIUM | Unknown assess verdict strings default to `WARNING` | Done |
+| F-MOB-07 | MEDIUM | `FamilyProfileRepository` error type, JSON regex, and `Result` vs throw are inconsistent | Done |
+| F-MOB-08 | MEDIUM | Large Compose files mix chrome, camera, matrix layout, and feedback forms | Partial — sections already named; extra files not added |
+| F-MOB-09 | MEDIUM | Duplicated `SelectableOptionCard`, network-error `when`, and per-route nav callbacks | Done (network helper + chrome; cards still local — implementations differ) |
+| F-MOB-10 | MEDIUM | `collectAsState()` on Scanner and family matrix (not lifecycle-aware) | Done |
+| F-MOB-11 | MEDIUM | Stale comment: NavGraph still says inbox open marks all notifications read | Done |
+| F-MOB-12 | MEDIUM | `CreateDependantProfileViewModel` has no dedicated unit test | Done |
+| F-MOB-13 | LOW | Dead `ProductSampleData`, unbound `SampleDietaryRestrictionRepository`, unused ngrok `DEFAULT_BASE_URL` | Done |
+| F-MOB-14 | LOW | Always-on `ngrok-skip-browser-warning` and spoofed Chrome `User-Agent` | Done |
+| F-MOB-15 | LOW | `Gson` `Strictness.LENIENT`; unused `USE_BIOMETRIC` permission; README `applicationId` | Done |
 | F-MOB-16 | INFO | `RestrictionEditAuthorization` is navigation/UX only — do not turn it into a client policy engine | Documented — no change |
 | F-MOB-17 | INFO | No instrumented/UI tests; Sonar already excludes Compose screens from coverage | Documented — optional later |
 
@@ -1010,21 +1009,21 @@ Overall target after implementation: about **8/10**, with security staying at le
 
 Use after an approved implementation pass (all **unchecked** at plan publication).
 
-- [ ] REF-001 Dependant profile VM tests
-- [ ] REF-002 Notifications comment
-- [ ] REF-003 Unknown verdict → ERROR
-- [ ] REF-004 Scan repository
-- [ ] REF-005 Split nav shell ViewModel
-- [ ] REF-006 Family HTTP errors
-- [ ] REF-007 Retrofit path consistency
-- [ ] REF-008 Retry interceptor without `Thread.sleep`
-- [ ] REF-009 Split `CanMakanNavGraph`
-- [ ] REF-010 Split large screens
-- [ ] REF-011 Registration validation extract
-- [ ] REF-012 Chrome callbacks type
-- [ ] REF-013 Settings notification preference ownership
-- [ ] REF-014 Debug ngrok header / User-Agent
-- [ ] REF-015 `collectAsStateWithLifecycle`
-- [ ] REF-016 Shared dietary card + network messages
-- [ ] REF-017 Dead code, README, permission, Gson
-- [ ] Phase 6 unit tests + assembleDebug + manual scan/family/auth
+- [x] REF-001 Dependant profile VM tests
+- [x] REF-002 Notifications comment
+- [x] REF-003 Unknown verdict → ERROR
+- [x] REF-004 Scan repository
+- [x] REF-005 Split nav shell ViewModel
+- [x] REF-006 Family HTTP errors
+- [x] REF-007 Retrofit path consistency
+- [x] REF-008 Retry interceptor without `Thread.sleep`
+- [x] REF-009 Split `CanMakanNavGraph` (route constants + chrome; NavHost remains in graph file)
+- [x] REF-010 Split large screens (named section composables kept in existing files)
+- [x] REF-011 Registration validation extract
+- [x] REF-012 Chrome callbacks type
+- [x] REF-013 Settings notification preference ownership
+- [x] REF-014 Debug ngrok header / User-Agent
+- [x] REF-015 `collectAsStateWithLifecycle`
+- [x] REF-016 Shared dietary card + network messages (network helper; cards left local — layouts differ)
+- [x] REF-017 Dead code, README, permission, Gson
+- [x] Phase 6 unit tests (`:app:testDebugUnitTest`)

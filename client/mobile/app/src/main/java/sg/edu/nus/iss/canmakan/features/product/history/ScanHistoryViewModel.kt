@@ -17,6 +17,7 @@ import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryReposito
 import sg.edu.nus.iss.canmakan.features.product.history.model.ScanHistoryScreenUiState
 import sg.edu.nus.iss.canmakan.features.product.model.AlternativeProduct
 import sg.edu.nus.iss.canmakan.features.product.recommendation.data.RecommendationHistoryRepository
+import sg.edu.nus.iss.canmakan.shared.util.userMessageForNetworkFailure
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -76,13 +77,10 @@ class ScanHistoryViewModel @Inject constructor(
         } catch (exception: Exception) {
             if (!isCurrentOwner(owner)) return
             Timber.e(exception, "Error loading scan history for active profile")
-            val message = when (exception) {
-                is java.net.SocketTimeoutException ->
-                    "Connection timed out. Please check the configured backend connection."
-                is java.net.ConnectException ->
-                    "Failed to connect to the server. Please check your network."
-                else -> "Unable to load scan history. Please try again."
-            }
+            val message = userMessageForNetworkFailure(
+                exception,
+                fallback = "Unable to load scan history. Please try again.",
+            )
             _scanHistoryUiState.value = ScanHistoryScreenUiState(
                 errorMessage = message,
                 alternativesByScanId = emptyMap(),
