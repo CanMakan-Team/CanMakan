@@ -73,7 +73,7 @@ export function CreateFamilyCirclePage({ onCreated }: CreateFamilyCirclePageProp
     <section className="panel" aria-labelledby="create-family-heading">
       <header className="page-header">
         <div>
-          <p className="eyebrow eyebrow--badge">Family management</p>
+          <p className="eyebrow">Family Circle</p>
           <h1 id="create-family-heading">Create your family circle</h1>
           <p>
             Create a family circle if you want to manage or invite family members.

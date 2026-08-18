@@ -206,7 +206,7 @@ export function SelfProfileSetupPage() {
   return (
     <div className="page-shell dietary-setup">
       <section className="page-card dietary-setup__card" aria-labelledby="self-profile-setup-title">
-        <p className="eyebrow">Dietary Profile Setup</p>
+        <p className="eyebrow">User Portal</p>
         <h1 id="self-profile-setup-title">Set up your dietary profile</h1>
         <p>These restrictions are used when you scan food products.</p>
 

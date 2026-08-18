@@ -1724,7 +1724,6 @@ a.summary-card--link:focus-visible {
   background: var(--teal-100);
 }
 
-.status-badge--prototype,
 .status-badge--product_not_found,
 .status-badge--incomplete {
   color: var(--incomplete);
@@ -1866,15 +1865,13 @@ a.summary-card--link:focus-visible {
   font-weight: 700;
 }
 
-.profile-grid,
-.future-grid {
+.profile-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(220px, 1fr));
   gap: 1rem;
 }
 
-.profile-card,
-.future-card {
+.profile-card {
   display: flex;
   min-height: 0;
   flex-direction: column;
@@ -2037,20 +2034,6 @@ a.summary-card--link:focus-visible {
 .tag-list .tag--empty {
   color: var(--muted);
   background: var(--color-web-eef1ef);
-}
-
-.future-card {
-  min-height: 220px;
-  align-items: flex-start;
-}
-
-.future-card .status-badge {
-  margin-bottom: 1rem;
-}
-
-.future-card p {
-  flex: 1;
-  color: var(--muted);
 }
 
 .modal-backdrop {
@@ -4995,8 +4978,7 @@ caption,
     grid-template-columns: 1fr;
   }
 
-  .profile-grid,
-  .future-grid {
+  .profile-grid {
     grid-template-columns: repeat(2, minmax(220px, 1fr));
   }
 
@@ -5175,7 +5157,6 @@ caption,
   .summary-grid,
   .analytics-summary-grid,
   .profile-grid,
-  .future-grid,
   .filter-bar,
   .filter-bar--system,
   .filter-bar--feedback,

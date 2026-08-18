@@ -209,7 +209,7 @@ export function UserAccessPage() {
     <>
       <header className="page-header page-header--system">
         <div>
-          <p className="eyebrow">System administrators only</p>
+          <p className="eyebrow">System Administration</p>
           <h1>User Accounts & Access</h1>
           <p>
             Search existing accounts and manage Active or Suspended status.
