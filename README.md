@@ -123,7 +123,7 @@ Staging and production API runtime is Docker on EC2 (see `CICD-PIPELINE.md` and 
     |   |                          #   OWASP ZAP baseline vs staging web + authenticated API
     |   |-- load-test.yml          # Weekly Sunday cron (19:00 UTC) + dispatch:
     |   |                          #   Grafana k6 scan journey vs staging API
-    |   |                          #   5 VUs; recs/assess have higher SLOs than reads
+    |   |                          #   3 VUs; recs P95 45s (ranker on t3.small)
     |   |-- sync-branches.yml      # Push to main: open PR main → develop (hotfixes back)
     |   `-- triage.yml             # Issues opened/edited: keyword labels
     |-- scripts/
