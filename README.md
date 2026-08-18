@@ -150,14 +150,15 @@ Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 | Semgrep | SAST (`semgrep/semgrep:1.173.0 --config p/default`; needs network; skips via [`.semgrepignore`](.semgrepignore)) |
 | Trivy fs | SCA vulns only (CRITICAL/HIGH fails the job; secrets are Gitleaks); CycloneDX SBOM artefact |
 | Trivy config | GitHub Actions / `.github` YAML misconfiguration |
-| Backend | Maven `verify` against job-local MySQL 8 (not RDS), Java 21, JaCoCo; uploads `backend-jar`; SonarCloud `canmakan-backend` |
+| Backend | Maven `verify` against job-local MySQL 8 (not RDS), Java 21, JaCoCo; Docker image + Trivy; uploads `backend-jar`; SonarCloud `canmakan-backend` |
+| Machine learning | pytest coverage gate; train ranker; Docker image + Trivy; GHCR `canmakan-ml` on `develop`/`main` |
 | Web | `npm ci` + Vitest with coverage + `npm run build` (Node 24); SonarCloud `canmakan-web` |
 | Mobile | Gradle `assembleDebug testDebugUnitTest` + unit-test coverage XML, then `sonar`; SonarCloud `canmakan-mobile` |
 | Build Test | Required aggregator |
 
 Playwright E2E: [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) on PRs and pushes to `develop` when `client/web/**` changes. Production web deploy re-runs Playwright in [`.github/workflows/deploy-frontends.yml`](.github/workflows/deploy-frontends.yml).
 
-> Backend CI runs `mvn verify` against an ephemeral MySQL 8 service (not RDS) and uploads the verified JAR. Production backend deploy waits for that CI run on `main` and SCP’s the artefact (no `skipTests` rebuild). Runtime env vars still come from GitHub secrets and are forwarded to EC2 at JAR start. Deploy jobs use Environment `production` (`vars.DEPLOY_ENVIRONMENT`). <br>
+> Backend CI runs `mvn verify` against an ephemeral MySQL 8 service (not RDS) and uploads the verified JAR. Production/staging deploy waits for that CI run on `main`/`develop` and pulls the GHCR **container** (no `skipTests` rebuild). The UC5 FastAPI ranker is the same CD workflow. Runtime env vars still come from GitHub Environment secrets and are forwarded to EC2 at `docker run`. <br>
 > SonarCloud runs after each stack’s tests when `SONAR_TOKEN` is set (org `canmakan-team` is in source). A failed quality gate fails that build job and **Build Test**. Semgrep remains SAST. <br>
 > Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`, optional `FIREBASE_APP_DISTRIBUTION_URL` → `VITE_FIREBASE_APP_DISTRIBUTION_URL` (also forwarded to the backend for invite-email “mobile” links). Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`, optional `CANMAKAN_INVITES_PUBLIC_BASE_URL`. <br>
 > Android SDK is provisioned via `android-actions/setup-android` <br>

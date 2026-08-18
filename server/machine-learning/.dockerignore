@@ -1,0 +1,6 @@
+*
+!requirements.txt
+!src/
+!src/**
+!artifacts/
+!artifacts/tfidf_ranker.joblib
