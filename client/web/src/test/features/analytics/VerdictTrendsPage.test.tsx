@@ -1,7 +1,9 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { VerdictTrendsPage } from '../../../features/analytics/VerdictTrendsPage'
+import { sharePercents } from '../../../features/analytics/lib/verdictTrendDisplay'
+import { VerdictTrendsPage } from '../../../features/analytics/pages/VerdictTrendsPage'
+import { addCalendarDays, singaporeToday } from '../../../features/analytics/lib/consumerTrendsDateRange'
 import { familyApiService } from '../../../features/family/api/familyApiService'
 import type { ScanRecord } from '../../../shared/api/types'
 
@@ -11,16 +13,15 @@ vi.mock('../../../features/family/api/familyApiService', () => ({
   },
 }))
 
-/** Matches VerdictTrendsPage bucket keys (`toISOString` of local midnight). */
+const FIXED_NOW = new Date('2026-03-15T10:00:00+08:00')
+
+/** Singapore calendar day key for a scan bucket (matches verdictTrendAggregate). */
 function bucketIso(daysAgo: number): string {
-  const startOfToday = new Date()
-  startOfToday.setHours(0, 0, 0, 0)
-  const day = new Date(startOfToday)
-  day.setDate(startOfToday.getDate() - daysAgo)
-  return day.toISOString().slice(0, 10)
+  return addCalendarDays(singaporeToday(FIXED_NOW), -daysAgo)
 }
 
 function scanOnBucket(daysAgo: number, verdict: ScanRecord['verdict'], scanId: number): ScanRecord {
+  const day = bucketIso(daysAgo)
   return {
     scanId,
     product: `Product ${scanId}`,
@@ -34,7 +35,7 @@ function scanOnBucket(daysAgo: number, verdict: ScanRecord['verdict'], scanId: n
     explanation: 'test',
     dataCompleteness: 'COMPLETE',
     dataSource: 'OFF',
-    scannedAt: `${bucketIso(daysAgo)}T12:00:00.000Z`,
+    scannedAt: `${day}T12:00:00+08:00`,
   }
 }
 
@@ -47,13 +48,22 @@ const populatedScans: ScanRecord[] = [
   scanOnBucket(20, 'SAFE', 5),
 ]
 
+describe('sharePercents', () => {
+  it('keeps Safe/Warning/Unsafe shares summing to 100', () => {
+    expect(sharePercents([2, 3, 2], 7).reduce((sum, value) => sum + value, 0)).toBe(100)
+    expect(sharePercents([2, 1, 1], 4)).toEqual([50, 25, 25])
+  })
+})
+
 describe('VerdictTrendsPage', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ now: FIXED_NOW, shouldAdvanceTime: true })
     vi.mocked(familyApiService.getScanHistory).mockReset()
     vi.mocked(familyApiService.getScanHistory).mockResolvedValue(populatedScans)
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
@@ -61,12 +71,14 @@ describe('VerdictTrendsPage', () => {
     render(<VerdictTrendsPage />)
 
     expect(screen.getByText('Loading verdict trend...')).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: 'Verdict Trends' })).toBeInTheDocument()
+    expect(await screen.findByLabelText('Verdict trend summary')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Verdict Trends' })).toBeInTheDocument()
+    expect(screen.getByText('Family Circle')).toBeInTheDocument()
     expect(familyApiService.getScanHistory).toHaveBeenCalledTimes(1)
 
     expect(screen.getByLabelText('Reporting period')).toHaveValue('7')
     const summary = screen.getByLabelText('Verdict trend summary')
-    expect(within(summary).getByText('Total Scans')).toBeInTheDocument()
+    expect(within(summary).getByRole('button', { name: /Total Scans/i })).toBeInTheDocument()
     expect(within(summary).getByText('4')).toBeInTheDocument()
     expect(within(summary).getByText('50%')).toBeInTheDocument()
     expect(within(summary).getByText('2 scans')).toBeInTheDocument()
@@ -96,6 +108,19 @@ describe('VerdictTrendsPage', () => {
     await user.selectOptions(screen.getByLabelText('Reporting period'), '90')
     expect(screen.getByLabelText('Reporting period')).toHaveValue('90')
     expect(within(summary).getByText('5')).toBeInTheDocument()
+  })
+
+  it('filters the trend chart when a metric card is selected', async () => {
+    const user = userEvent.setup()
+    render(<VerdictTrendsPage />)
+    await screen.findByRole('heading', { name: 'Verdict mix' })
+
+    await user.click(screen.getByRole('button', { name: /Unsafe/i }))
+    expect(screen.getByText(/Showing unsafe scans only/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Unsafe/i })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(screen.getByRole('button', { name: /Total Scans/i }))
+    expect(screen.queryByText(/Showing unsafe scans only/i)).not.toBeInTheDocument()
   })
 
   it('shows an empty period when history has no scans in range', async () => {
@@ -158,5 +183,6 @@ describe('VerdictTrendsPage', () => {
     expect(blob.type).toBe('text/csv;charset=utf-8')
     expect(click).toHaveBeenCalledTimes(1)
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:verdict-trend')
+    expect(screen.getByText('CSV download started.')).toBeInTheDocument()
   })
 })

@@ -113,7 +113,9 @@ async function executeRequest(
 ): Promise<Response> {
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
-  headers.set('ngrok-skip-browser-warning', 'true')
+  if (import.meta.env.VITE_NGROK_SKIP_BROWSER_WARNING === 'true') {
+    headers.set('ngrok-skip-browser-warning', 'true')
+  }
   if (options.body) headers.set('Content-Type', 'application/json')
   if (sessionMutation) headers.set(sessionMutationHeader, '1')
   else headers.delete(sessionMutationHeader)

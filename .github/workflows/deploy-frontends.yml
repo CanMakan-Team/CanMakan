@@ -23,11 +23,14 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Detect File Changes
         uses: dorny/paths-filter@v4.0.3
         id: filter
         with:
+          base: ${{ github.event_name == 'push' && github.event.before || '' }}
           filters: |
             web:
               - 'client/web/**'
@@ -70,7 +73,7 @@ jobs:
 
       - name: Cache Playwright Browsers
         id: playwright-cache
-        uses: actions/cache@v4.3.0
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
@@ -89,7 +92,7 @@ jobs:
         run: npx playwright test
 
       - name: Upload Playwright Report
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v7.0.1
         if: ${{ !cancelled() }}
         with:
           name: playwright-report-deploy

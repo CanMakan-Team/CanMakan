@@ -12,8 +12,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import java.time.Instant;
-import java.util.Objects;
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -67,6 +67,7 @@ public class FamilyMember {
     @Setter
     @NoArgsConstructor
     @AllArgsConstructor
+    @EqualsAndHashCode
     @Embeddable
     public static class FamilyMemberId implements Serializable {
 
@@ -77,21 +78,5 @@ public class FamilyMember {
         @NotNull(message = "User id is required.")
         @Column(name = "user_id", nullable = false)
         private Long userId;
-
-        @Override
-        public boolean equals(Object other) {
-            if (this == other) {
-                return true;
-            }
-            if (!(other instanceof FamilyMemberId that)) {
-                return false;
-            }
-            return Objects.equals(familyId, that.familyId) && Objects.equals(userId, that.userId);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(familyId, userId);
-        }
     }
 }

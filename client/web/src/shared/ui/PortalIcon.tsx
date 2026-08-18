@@ -9,6 +9,14 @@ export type PortalIconName =
   | 'restrictions'
   | 'history'
   | 'trends'
+  | 'info'
+  | 'clock'
+  | 'activity'
+  | 'chart'
+  | 'message'
+  | 'ban'
+  | 'profile'
+  | 'addPeople'
 
 const NAMED_ICONS: PortalIconName[] = [
   'home',
@@ -19,6 +27,14 @@ const NAMED_ICONS: PortalIconName[] = [
   'restrictions',
   'history',
   'trends',
+  'info',
+  'clock',
+  'activity',
+  'chart',
+  'message',
+  'ban',
+  'profile',
+  'addPeople',
 ]
 
 function iconPaths(name: PortalIconName): ReactNode {
@@ -87,6 +103,64 @@ function iconPaths(name: PortalIconName): ReactNode {
         <>
           <path d="M3 3v16a2 2 0 0 0 2 2h16" />
           <path d="m7 14 4-4 4 3 5-6" />
+        </>
+      )
+    case 'info':
+      return (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 11v6" />
+          <path d="M12 8h.01" />
+        </>
+      )
+    case 'clock':
+      return (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3 2" />
+        </>
+      )
+    case 'activity':
+      return <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+    case 'chart':
+      return (
+        <>
+          <path d="M3 3v18h18" />
+          <path d="M7 16v-5" />
+          <path d="M12 16V8" />
+          <path d="M17 16v-9" />
+        </>
+      )
+    case 'message':
+      return (
+        <>
+          <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </>
+      )
+    case 'ban':
+      return (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <path d="m5.2 5.2 13.6 13.6" />
+        </>
+      )
+    case 'profile':
+      return (
+        <>
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <circle cx="9" cy="11" r="2.4" />
+          <path d="M5.8 17.2c.7-1.6 2.1-2.5 3.2-2.5s2.5.9 3.2 2.5" />
+          <path d="M14.5 9.5h4" />
+          <path d="M14.5 13h4" />
+        </>
+      )
+    case 'addPeople':
+      return (
+        <>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M19 8v6" />
+          <path d="M16 11h6" />
         </>
       )
   }

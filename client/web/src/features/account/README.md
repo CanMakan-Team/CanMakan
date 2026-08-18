@@ -5,6 +5,27 @@ Personal USER desk: home, SELF dietary setup, and account settings.
 These screens do not require a Family Circle. Day-to-day scanning stays in the
 mobile app.
 
+## Layout
+
+```
+account/
+  README.md
+  pages/
+    PersonalHomePage.tsx
+    SelfProfileSetupPage.tsx
+    AccountPage.tsx
+  components/
+    PersonalHomeSections.tsx
+  hooks/
+    usePersonalHomeData.ts
+  api/
+    selfProfileApiService.ts
+  lib/
+    buildRestrictionPayload.ts
+    personalHomeStorage.ts
+    firebaseAppDistribution.ts
+```
+
 ## Routes
 
 - `/me` — personal home (status cards, setup progress, mobile app banner). The

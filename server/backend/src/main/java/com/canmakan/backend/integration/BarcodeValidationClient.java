@@ -32,6 +32,8 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Client for interacting with the barcode validation service.
@@ -42,6 +44,8 @@ import org.springframework.web.client.RestClientResponseException;
  */
 @Service
 public class BarcodeValidationClient {
+    private static final Logger log = LoggerFactory.getLogger(BarcodeValidationClient.class);
+
     private final RestClient offRestClient;
     private final RestClient eanRestClient;
     private final String eanSearchToken;
@@ -122,31 +126,55 @@ public class BarcodeValidationClient {
 
     public ValidationResponse validateProduct(String barcode) {
         // 1. Primary Lookup: Open Food Facts
+        ValidationResponse offResult = validateViaOpenFoodFacts(barcode);
+        if (offResult != null) {
+            return offResult;
+        }
+
+        // 2. Fallback Lookup: EAN-Search
+        ValidationResponse eanResult = validateViaEanSearch(barcode);
+        if (eanResult != null) {
+            return eanResult;
+        }
+
+        // 3. Neither API yielded a result
+        return new ValidationResponse(false, "Unknown", "Product not found in any database.");
+    }
+
+    /** Returns a conclusive result from Open Food Facts, or {@code null} to fall through to EAN-Search. */
+    private ValidationResponse validateViaOpenFoodFacts(String barcode) {
         try {
             String offResponseStr = executeWithRetry(() -> offRestClient.get()
                     .uri(barcode + ".json")
                     .retrieve()
                     .body(String.class));
-
-            if (offResponseStr != null) {
-                JsonNode offResponse = objectMapper.readTree(offResponseStr);
-                
-                if (offResponse.has("status")) {
-                    String status = offResponse.get("status").asText();
-                    if ("success".equalsIgnoreCase(status) || "1".equals(status)) {
-                        JsonNode product = offResponse.get("product");
-                        String category = (product != null && product.has("product_type"))
-                                ? product.get("product_type").asText()
-                                : "food";
-                        return new ValidationResponse(true, category, "Valid food product found in Open Food Facts.");
-                    }
-                }
+            if (offResponseStr == null) {
+                return null;
             }
-        } catch (Exception e) {
-            // Product not found, API error, or parsing error; suppress and proceed to fallback
-        }
 
-        // 2. Fallback Lookup: EAN-Search
+            JsonNode offResponse = objectMapper.readTree(offResponseStr);
+            if (!offResponse.has("status")) {
+                return null;
+            }
+            String status = offResponse.get("status").asText();
+            if (!"success".equalsIgnoreCase(status) && !"1".equals(status)) {
+                return null;
+            }
+
+            JsonNode product = offResponse.get("product");
+            String category = (product != null && product.has("product_type"))
+                    ? product.get("product_type").asText()
+                    : "food";
+            return new ValidationResponse(true, category, "Valid food product found in Open Food Facts.");
+        } catch (RestClientException | JsonProcessingException e) {
+            log.warn("Open Food Facts validation lookup failed for barcode {}: {}",
+                    barcode, e.getMessage());
+            return null;
+        }
+    }
+
+    /** Returns a conclusive result from EAN-Search, or {@code null} when no result was found/usable. */
+    private ValidationResponse validateViaEanSearch(String barcode) {
         try {
             String eanResponseStr = executeWithRetry(() -> eanRestClient.get()
                     .uri(uriBuilder -> uriBuilder
@@ -158,39 +186,40 @@ public class BarcodeValidationClient {
                         .build())
                     .retrieve()
                     .body(String.class));
-
-            if (eanResponseStr != null) {
-                JsonNode eanResponse = objectMapper.readTree(eanResponseStr);
-                
-                if (eanResponse.isArray() && !eanResponse.isEmpty()) {
-                    JsonNode item = eanResponse.get(0);
-                    
-                    if (item.has("error")) {
-                        return new ValidationResponse(false, "Unknown", "Product not found in fallback database.");
-                    }
-
-                    String name = item.path("name").asText("").toLowerCase();
-                    String category = item.path("categoryName").asText("").toLowerCase();
-                    
-                    boolean isFood = category.contains("food") ||
-                        category.contains("grocery") ||
-                        name.contains("snack") ||
-                        name.contains("drink") ||
-                        name.contains("beverage");
-
-                    if (isFood) {
-                        return new ValidationResponse(true, category, "Valid food product found in EAN-Search.");
-                    } else {
-                        return new ValidationResponse(false, category, "Error: Scanned item is a non-consumable product.");
-                    }
-                }
+            if (eanResponseStr == null) {
+                return null;
             }
-        } catch (Exception e) {
-            // EAN-Search failed or parsing error
+
+            JsonNode eanResponse = objectMapper.readTree(eanResponseStr);
+            if (!eanResponse.isArray() || eanResponse.isEmpty()) {
+                return null;
+            }
+            return interpretEanSearchItem(eanResponse.get(0));
+        } catch (RestClientException | JsonProcessingException e) {
+            log.warn("EAN-Search validation lookup failed for barcode {}: {}",
+                    barcode, e.getMessage());
+            return null;
+        }
+    }
+
+    private ValidationResponse interpretEanSearchItem(JsonNode item) {
+        if (item.has("error")) {
+            return new ValidationResponse(false, "Unknown", "Product not found in fallback database.");
         }
 
-        // 3. Neither API yielded a result
-        return new ValidationResponse(false, "Unknown", "Product not found in any database.");
+        String name = item.path("name").asText("").toLowerCase();
+        String category = item.path("categoryName").asText("").toLowerCase();
+
+        boolean isFood = category.contains("food") ||
+            category.contains("grocery") ||
+            name.contains("snack") ||
+            name.contains("drink") ||
+            name.contains("beverage");
+
+        if (isFood) {
+            return new ValidationResponse(true, category, "Valid food product found in EAN-Search.");
+        }
+        return new ValidationResponse(false, category, "Error: Scanned item is a non-consumable product.");
     }
 
     /**
@@ -353,11 +382,11 @@ public class BarcodeValidationClient {
             }
             if (node.ingredients() != null && !node.ingredients().isEmpty()) {
                 collectLeafIngredients(node.ingredients(), out);
-                continue;
-            }
-            String name = ingredientName(node);
-            if (name != null) {
-                out.add(new Ingredient(name, null, null, false));
+            } else {
+                String name = ingredientName(node);
+                if (name != null) {
+                    out.add(new Ingredient(name, null, null, false));
+                }
             }
         }
     }
@@ -400,10 +429,9 @@ public class BarcodeValidationClient {
             String key = OFF_TAG_LANG_PREFIX
                 .matcher(tag.trim().toLowerCase(Locale.ROOT)).replaceAll("");
             String root = OFF_ALLERGEN_ROOTS.get(key);
-            if (root == null || !seenRoots.add(root)) {
-                continue;
+            if (root != null && seenRoots.add(root)) {
+                out.add(new Ingredient(key.replace('-', ' ') + " (declared allergen)", null, root, false));
             }
-            out.add(new Ingredient(key.replace('-', ' ') + " (declared allergen)", null, root, false));
         }
     }
 
@@ -429,9 +457,11 @@ public class BarcodeValidationClient {
     // Open Food Facts ingredient ids for additives are the bare E-code, e.g. "en:e200".
     private static final Pattern OFF_ENUMBER_ID =
         Pattern.compile("^en:(e\\d{3,4}[a-z]?)$", Pattern.CASE_INSENSITIVE);
-    // Matches an E-number already present in the human-readable text, e.g. "E 200".
+    // Matches an E-number already present in the human-readable text, e.g. "E 200". The prefix
+    // uses a single character class instead of two adjacent \s* groups around an optional '-',
+    // which had an ambiguous split point and caused super-linear backtracking.
     private static final Pattern TEXT_HAS_ENUMBER =
-        Pattern.compile("(?i)\\bE\\s*-?\\s*\\d{3,4}");
+        Pattern.compile("(?i)\\bE[\\s-]*\\d{3,4}");
 
     private String ingredientName(OpenFoodFactsIngredient ingredient) {
         String text = ingredient.text();

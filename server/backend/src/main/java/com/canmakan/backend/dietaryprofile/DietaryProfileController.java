@@ -4,14 +4,14 @@ import com.canmakan.backend.dietaryprofile.dto.CreateSelfProfileRequest;
 import com.canmakan.backend.dietaryprofile.dto.DietaryRestrictionDto;
 import com.canmakan.backend.dietaryprofile.dto.SelfProfileResponse;
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
-import com.canmakan.backend.family.FamilyAuthorizationService;
+import com.canmakan.backend.family.service.FamilyAuthorizationService;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthUserChecker;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import jakarta.validation.Valid;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
  * @author Amelia Wong
  */
 @Slf4j
-@AllArgsConstructor
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api")
 public class DietaryProfileController {

@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState, type SubmitEvent as ReactSubmitEvent } from 'react'
 import type {
-  AgeGroup,
   FamilyProfileInput,
   Relationship,
   RestrictionCode,
 } from '../../../shared/api/types'
 import {
-  ageGroupOptions,
   groupCatalogByCategory,
   relationshipOptions,
   restrictionCategoryLabel,
@@ -19,8 +17,8 @@ import {
 import { getErrorMessage } from '../../../shared/api/apiErrors'
 
 /**
- * ProfileForm component for editing a family profile
- * 
+ * ProfileForm component for creating or editing a family dietary profile.
+ *
  * @author Amelia
  * @author YangMaowei
  */
@@ -30,7 +28,6 @@ const RELIGIOUS_CATEGORY = 'RELIGIOUS'
 const emptyProfile: FamilyProfileInput = {
   profileName: '',
   relationship: 'CHILD',
-  ageGroup: 'CHILD',
   commonRequirements: [],
   restrictions: [],
 }
@@ -174,25 +171,6 @@ export function ProfileForm({
           </select>
         </div>
         )}
-        <div className="field-group">
-          <label htmlFor="age-group">Age group</label>
-          <select
-            id="age-group"
-            value={form.ageGroup}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                ageGroup: event.target.value as AgeGroup,
-              }))
-            }
-          >
-            {ageGroupOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       <div className="restriction-picker">

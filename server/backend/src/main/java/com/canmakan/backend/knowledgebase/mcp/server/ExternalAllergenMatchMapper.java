@@ -116,19 +116,30 @@ public class ExternalAllergenMatchMapper {
 
         Map<String, Ingredient> byKey = new LinkedHashMap<>();
         for (ExternalAllergenMatchPayload.Match match : payload.matches()) {
-            if (match == null || match.ingredient() == null || match.rootAllergen() == null) {
+            Ingredient ingredient = toIngredient(match, unresolvedIngredients);
+            if (ingredient == null) {
                 continue;
             }
-            String unresolved = matchUnresolved(match.ingredient(), unresolvedIngredients);
-            String root = ExternalAllergenMatchParser.canonicalRoot(match.rootAllergen());
-            if (unresolved == null || root == null) {
-                continue;
-            }
-            byKey.putIfAbsent(
-                unresolved.trim().toLowerCase(Locale.ROOT),
-                new Ingredient(unresolved, null, root, false));
+            byKey.putIfAbsent(ingredient.ingredientName().trim().toLowerCase(Locale.ROOT), ingredient);
         }
         return new ArrayList<>(byKey.values());
+    }
+
+    /**
+     * Maps one model match onto an {@link Ingredient}, or {@code null} when the match is
+     * incomplete, does not correspond to an unresolved label, or has no canonical root allergen.
+     */
+    private static Ingredient toIngredient(
+            ExternalAllergenMatchPayload.Match match, List<String> unresolvedIngredients) {
+        if (match == null || match.ingredient() == null || match.rootAllergen() == null) {
+            return null;
+        }
+        String unresolved = matchUnresolved(match.ingredient(), unresolvedIngredients);
+        String root = ExternalAllergenMatchParser.canonicalRoot(match.rootAllergen());
+        if (unresolved == null || root == null) {
+            return null;
+        }
+        return new Ingredient(unresolved, null, root, false);
     }
 
     private static String buildPrompt(List<String> unresolvedIngredients, String searchSummary) {

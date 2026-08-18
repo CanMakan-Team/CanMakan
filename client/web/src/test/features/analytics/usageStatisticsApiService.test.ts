@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { UsageStatistics } from '../../../features/analytics/usageStatisticsApiService'
+import type { UsageStatistics } from '../../../features/analytics/api/usageStatisticsApiService'
 
 const apiClientModule = '../../../shared/api/apiClient'
 
@@ -13,7 +13,7 @@ describe('usageStatisticsApiService transport selection', () => {
     const apiRequest = vi.fn()
     vi.doMock(apiClientModule, () => ({ apiRequest, useMockApi: true }))
 
-    const { usageStatisticsApiService } = await import('../../../features/analytics/usageStatisticsApiService')
+    const { usageStatisticsApiService } = await import('../../../features/analytics/api/usageStatisticsApiService')
     const response = await usageStatisticsApiService.getUsageStatistics(30)
 
     expect(apiRequest).not.toHaveBeenCalled()
@@ -64,7 +64,7 @@ describe('usageStatisticsApiService transport selection', () => {
     const apiRequest = vi.fn().mockResolvedValue(liveResponse)
     vi.doMock(apiClientModule, () => ({ apiRequest, useMockApi: false }))
 
-    const { usageStatisticsApiService } = await import('../../../features/analytics/usageStatisticsApiService')
+    const { usageStatisticsApiService } = await import('../../../features/analytics/api/usageStatisticsApiService')
     const response = await usageStatisticsApiService.getUsageStatistics(90)
 
     expect(apiRequest).toHaveBeenCalledWith('/api/admin/usage-statistics?periodDays=90')

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { SystemHealth } from '../../../features/admin/systemHealthApiService'
+import type { SystemHealth } from '../../../features/admin/api/systemHealthApiService'
 
 const apiClientModule = '../../../shared/api/apiClient'
 
@@ -13,7 +13,7 @@ describe('systemHealthApiService transport selection', () => {
     const apiRequest = vi.fn()
     vi.doMock(apiClientModule, () => ({ apiRequest, useMockApi: true }))
 
-    const { systemHealthApiService } = await import('../../../features/admin/systemHealthApiService')
+    const { systemHealthApiService } = await import('../../../features/admin/api/systemHealthApiService')
     const response = await systemHealthApiService.getSystemHealth(24)
 
     expect(apiRequest).not.toHaveBeenCalled()
@@ -45,7 +45,7 @@ describe('systemHealthApiService transport selection', () => {
     const apiRequest = vi.fn().mockResolvedValue(liveResponse)
     vi.doMock(apiClientModule, () => ({ apiRequest, useMockApi: false }))
 
-    const { systemHealthApiService } = await import('../../../features/admin/systemHealthApiService')
+    const { systemHealthApiService } = await import('../../../features/admin/api/systemHealthApiService')
     const response = await systemHealthApiService.getSystemHealth(168)
 
     expect(apiRequest).toHaveBeenCalledWith('/api/admin/system-health?hours=168')

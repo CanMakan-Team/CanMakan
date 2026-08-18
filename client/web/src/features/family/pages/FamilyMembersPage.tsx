@@ -4,12 +4,15 @@ import { ME_PATH } from '../../../app/userPortalPaths'
 import { getErrorMessage } from '../../../shared/api/apiErrors'
 import { familyApiService } from '../api/familyApiService'
 import type { FamilyMember } from '../../../shared/api/types'
+import { ConfirmModal } from '../../../shared/ui/ConfirmModal'
 import { EmptyState, ErrorState, LoadingState } from '../../../shared/ui/PageState'
-import { ActiveProfileSelector } from '../components/ActiveProfileSelector'
 import { CreateFamilyProfileModal } from '../components/CreateFamilyProfileModal'
 import { EditFamilyProfileModal } from '../components/EditFamilyProfileModal'
 import { LinkExistingUserModal } from '../components/LinkExistingUserModal'
+import { ProfileCardMenu } from '../components/ProfileCardMenu'
+import { ScanEligibilityCard } from '../components/ScanEligibilityCard'
 import { formatCode } from '../lib/profileOptions'
+import { isCurrentAdminProfile } from '../lib/familyRoles'
 import { profileDisplayCaption } from '../lib/profileDisplay'
 import { useFamilyMe } from '../useFamilyMe'
 
@@ -22,6 +25,35 @@ import { useFamilyMe } from '../useFamilyMe'
 
 type OpenModal = 'link' | 'create' | null
 
+type PendingConfirm =
+  | { type: 'deactivate'; member: FamilyMember }
+  | { type: 'remove'; member: FamilyMember }
+
+function confirmCopy(pending: PendingConfirm) {
+  if (pending.type === 'deactivate') {
+    return {
+      title: `Deactivate ${pending.member.profileName}?`,
+      description: 'They will no longer be selectable for scans.',
+      confirmLabel: 'Deactivate',
+      tone: 'warning' as const,
+    }
+  }
+  if (pending.member.source === 'DEPENDANT_PROFILE') {
+    return {
+      title: `Remove ${pending.member.profileName}?`,
+      description: 'Scan history is kept.',
+      confirmLabel: 'Remove',
+      tone: 'danger' as const,
+    }
+  }
+  return {
+    title: `Remove ${pending.member.profileName} from the family circle?`,
+    description: 'This person will leave the household roster.',
+    confirmLabel: 'Remove',
+    tone: 'danger' as const,
+  }
+}
+
 export function FamilyMembersPage() {
   const { family, isPrimaryAdmin, reload, loading: familyLoading } = useFamilyMe()
   const selfProfileId = family?.selfProfileId ?? null
@@ -32,6 +64,7 @@ export function FamilyMembersPage() {
   const [notice, setNotice] = useState('')
   const [openModal, setOpenModal] = useState<OpenModal>(null)
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null)
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null)
 
   /** Load the family members from the API. */
   const loadMembers = useCallback(async () => {
@@ -55,6 +88,15 @@ export function FamilyMembersPage() {
     return () => window.clearTimeout(timeoutId)
   }, [loadMembers, familyLoading, isPrimaryAdmin])
 
+  // Success copy (deactivate, invite, remove) is announced then cleared so it does not linger.
+  useEffect(() => {
+    if (!notice) {
+      return
+    }
+    const timeoutId = window.setTimeout(() => setNotice(''), 5000)
+    return () => window.clearTimeout(timeoutId)
+  }, [notice])
+
   if (familyLoading) {
     return <LoadingState label="Loading family members…" />
   }
@@ -70,19 +112,15 @@ export function FamilyMembersPage() {
 
   /** Toggle the active status of a family member. */
   const toggleActive = async (member: FamilyMember) => {
-    const nextActive = !member.profileActive
-    if (
-      !nextActive &&
-      !window.confirm(
-        `Deactivate ${member.profileName}? They will no longer be selectable for scans.`,
-      )
-    ) {
+    if (isCurrentAdminProfile(member, selfProfileId)) {
       return
     }
+    const nextActive = !member.profileActive
     setBusyId(member.profileId)
     setError('')
     try {
       await familyApiService.setProfileActive(member.profileId, nextActive)
+      setPendingConfirm(null)
       setNotice(
         nextActive
           ? `${member.profileName} is active again.`
@@ -90,19 +128,27 @@ export function FamilyMembersPage() {
       )
       await loadMembers()
     } catch (caughtError) {
+      setPendingConfirm(null)
       setError(getErrorMessage(caughtError))
     } finally {
       setBusyId(null)
     }
   }
 
+  const requestToggleActive = (member: FamilyMember) => {
+    if (isCurrentAdminProfile(member, selfProfileId)) {
+      return
+    }
+    if (member.profileActive) {
+      setPendingConfirm({ type: 'deactivate', member })
+      return
+    }
+    void toggleActive(member)
+  }
+
   /** Remove a family member from the family circle. */
   const removeMember = async (member: FamilyMember) => {
-    const label =
-      member.source === 'DEPENDANT_PROFILE'
-        ? `Remove dependant profile ${member.profileName}? Scan history is kept.`
-        : `Remove ${member.profileName} from the family circle?`
-    if (!window.confirm(label)) {
+    if (isCurrentAdminProfile(member, selfProfileId)) {
       return
     }
     setBusyId(member.profileId)
@@ -115,62 +161,80 @@ export function FamilyMembersPage() {
       } else {
         throw new Error('This member cannot be removed.')
       }
+      setPendingConfirm(null)
       setNotice(`${member.profileName} was removed from the family roster.`)
       reload()
       await loadMembers()
     } catch (caughtError) {
+      setPendingConfirm(null)
       setError(getErrorMessage(caughtError))
     } finally {
       setBusyId(null)
     }
   }
 
+  const requestRemoveMember = (member: FamilyMember) => {
+    if (isCurrentAdminProfile(member, selfProfileId)) {
+      return
+    }
+    setPendingConfirm({ type: 'remove', member })
+  }
+
   /** Render the family members page. PRIMARY_ADMIN only (FamilyMeGate + redirect). */
   return (
     <>
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Family profiles</p>
+      <header className="page-header page-header--split">
+        <p className="eyebrow">Family Circle</p>
+        <div className="page-header__title-row">
           <h1>Family Members</h1>
-          <p>
-            Link a registered App User or create a non-login dependant profile.
-            Edit metadata, toggle scan eligibility, or soft-remove members.
-          </p>
+          <div className="page-header__actions">
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => setOpenModal('link')}
+            >
+              Invite to Family
+            </button>
+            <button
+              className="button button--primary"
+              type="button"
+              onClick={() => setOpenModal('create')}
+            >
+              Create New Profile
+            </button>
+          </div>
         </div>
-        <div className="page-header__actions">
-          <button
-            className="button button--secondary"
-            type="button"
-            onClick={() => setOpenModal('link')}
-          >
-            Invite to Family
-          </button>
-          <button
-            className="button button--primary"
-            type="button"
-            onClick={() => setOpenModal('create')}
-          >
-            Create New Profile
-          </button>
-        </div>
+        <p>
+          Link a registered App User or create a non-login dependant profile.
+          Edit metadata, amend scan eligibility, or soft-remove members.
+        </p>
       </header>
 
-      <div className="sr-live" aria-live="polite">
-        {notice}
-      </div>
+      {notice ? (
+        <p className="success-inline" role="status">
+          {notice}
+        </p>
+      ) : null}
 
       {loading ? (
         <LoadingState label="Loading family members…" />
-      ) : error ? (
-        <ErrorState message={error} onRetry={loadMembers} />
       ) : members.length === 0 ? (
+        error ? (
+          <ErrorState message={error} onRetry={loadMembers} />
+        ) : (
         <EmptyState
           title="No family profiles yet"
           description="Link an existing App User or create a new dependant profile."
         />
+        )
       ) : (
         <>
-          <ActiveProfileSelector members={members} />
+          {error ? (
+            <p className="form-message form-message--error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <ScanEligibilityCard members={members} />
           <section className="profile-grid" aria-label="Family member profiles">
             {members.map((member) => {
               const codes = [...member.commonRequirements, ...member.restrictions]
@@ -179,6 +243,7 @@ export function FamilyMembersPage() {
                 selfProfileId,
                 isPrimaryAdmin: true,
               })
+              const isAdminRow = isCurrentAdminProfile(member, selfProfileId)
               return (
                 <article
                   className={`profile-card${!member.profileActive ? ' profile-card--inactive' : ''}`}
@@ -191,49 +256,35 @@ export function FamilyMembersPage() {
                     <div>
                       <h2>{member.profileName}</h2>
                       {caption ? <p>{caption}</p> : null}
-                      <p>{formatCode(member.ageGroup)}</p>
                     </div>
-                    <span className="source-label">
-                      {!member.profileActive
-                        ? 'Inactive'
-                        : member.source === 'REGISTERED_USER'
-                          ? 'App User'
-                          : 'Family profile'}
-                    </span>
+                    <div className="profile-card__meta">
+                      <span className="source-label">
+                        {!member.profileActive
+                          ? 'Inactive'
+                          : member.source === 'REGISTERED_USER'
+                            ? 'App User'
+                            : 'Family profile'}
+                      </span>
+                      <ProfileCardMenu
+                        disabled={busy}
+                        profileActive={member.profileActive}
+                        profileName={member.profileName}
+                        allowLifecycleActions={!isAdminRow}
+                        onEdit={() => setEditingMember(member)}
+                        onToggleActive={() => requestToggleActive(member)}
+                        onRemove={() => requestRemoveMember(member)}
+                      />
+                    </div>
                   </div>
-                  {member.maskedEmail && <p className="masked-email">{member.maskedEmail}</p>}
+                  {member.maskedEmail && (
+                    <p className="masked-email">{member.maskedEmail}</p>
+                  )}
                   <div className="tag-list" aria-label={`${member.profileName} requirements`}>
                     {codes.length ? (
                       codes.map((code) => <span key={code}>{formatCode(code)}</span>)
                     ) : (
                       <span className="tag--empty">No restrictions recorded</span>
                     )}
-                  </div>
-                  <div className="profile-card__actions">
-                    <button
-                      className="button button--secondary button--full"
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setEditingMember(member)}
-                    >
-                      Edit dietary profile
-                    </button>
-                    <button
-                      className="button button--secondary button--full"
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void toggleActive(member)}
-                    >
-                      {member.profileActive ? 'Deactivate' : 'Reactivate'}
-                    </button>
-                    <button
-                      className="button button--danger button--full"
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void removeMember(member)}
-                    >
-                      Remove
-                    </button>
                   </div>
                 </article>
               )
@@ -262,6 +313,20 @@ export function FamilyMembersPage() {
           onSuccess={handleSuccess}
         />
       )}
+      {pendingConfirm ? (
+        <ConfirmModal
+          {...confirmCopy(pendingConfirm)}
+          confirming={busyId === pendingConfirm.member.profileId}
+          onCancel={() => setPendingConfirm(null)}
+          onConfirm={() => {
+            if (pendingConfirm.type === 'deactivate') {
+              void toggleActive(pendingConfirm.member)
+            } else {
+              void removeMember(pendingConfirm.member)
+            }
+          }}
+        />
+      ) : null}
     </>
   )
 }

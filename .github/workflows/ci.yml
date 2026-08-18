@@ -25,10 +25,16 @@ jobs:
       mobile: ${{ steps.filter.outputs.mobile }}
       machine-learning: ${{ steps.filter.outputs.machine-learning }}
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: dorny/paths-filter@v4.0.3
+      - name: Checkout Repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Detect File Changes
+        uses: dorny/paths-filter@v4.0.3
         id: filter
         with:
+          base: ${{ github.event_name == 'push' && github.event.before || '' }}
           filters: |
             backend:
               - 'server/backend/**'
@@ -125,7 +131,7 @@ jobs:
 
       - name: Upload CycloneDX SBOM
         if: always()
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: trivy-sbom
           path: trivy-sbom.cdx.json
@@ -195,6 +201,7 @@ jobs:
 
       # UC9 invites
       CANMAKAN_INVITES_PUBLIC_BASE_URL: ${{ secrets.CANMAKAN_INVITES_PUBLIC_BASE_URL }}
+      FIREBASE_APP_DISTRIBUTION_URL: ${{ secrets.FIREBASE_APP_DISTRIBUTION_URL }}
       CANMAKAN_INVITES_EXPIRY_DAYS: ${{ secrets.CANMAKAN_INVITES_EXPIRY_DAYS }}
 
       # UC10 Resend invitation email
@@ -258,7 +265,7 @@ jobs:
           cache: 'maven'
 
       - name: Cache SonarQube packages
-        uses: actions/cache@v4.3.0
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
@@ -311,7 +318,7 @@ jobs:
           ls -la staged-backend-jar
 
       - name: Upload verified backend JAR
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: backend-jar
           path: staged-backend-jar/*.jar
@@ -392,7 +399,8 @@ jobs:
     env:
       # Optional override for debug assemble; defaults to emulator localhost in Gradle.
       BASE_URL: ${{ secrets.MOBILE_BASE_URL }}
-      WEB_INVITE_BASE_URLS: ${{ secrets.WEB_INVITE_BASE_URLS }}
+      # Same secret as backend invite minting (CSV aliases OK for App Links).
+      CANMAKAN_INVITES_PUBLIC_BASE_URL: ${{ secrets.CANMAKAN_INVITES_PUBLIC_BASE_URL }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v7.0.1
@@ -417,8 +425,8 @@ jobs:
           if [ -n "${{ env.BASE_URL }}" ]; then
             echo "BASE_URL=${{ env.BASE_URL }}" >> client/mobile/local.properties
           fi
-          if [ -n "${{ env.WEB_INVITE_BASE_URLS }}" ]; then
-            echo "WEB_INVITE_BASE_URLS=${{ env.WEB_INVITE_BASE_URLS }}" >> client/mobile/local.properties
+          if [ -n "${{ env.CANMAKAN_INVITES_PUBLIC_BASE_URL }}" ]; then
+            echo "CANMAKAN_INVITES_PUBLIC_BASE_URL=${{ env.CANMAKAN_INVITES_PUBLIC_BASE_URL }}" >> client/mobile/local.properties
           fi
 
       - name: Build, unit-test, and coverage

@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { AccessDenied } from '../../features/auth/AccessDenied'
+import { AccessDenied } from '../../features/auth/pages/AccessDenied'
 import { ProtectedRoute } from '../../features/auth/ProtectedRoute'
 import { FamilyMeGate } from '../../features/family/FamilyMeGate'
 import { AccountPage } from '../../features/account/pages/AccountPage'
@@ -11,14 +11,13 @@ import { FamilyDashboardPage } from '../../features/family/pages/FamilyDashboard
 import { FamilyMembersPage } from '../../features/family/pages/FamilyMembersPage'
 import { FamilyRestrictionSummaryPage } from '../../features/family/pages/FamilyRestrictionSummaryPage'
 import { FamilyScanHistoryPage } from '../../features/family/pages/FamilyScanHistoryPage'
-import { ConsumerTrendsPage } from '../../features/analytics/ConsumerTrendsPage'
-import { VerdictTrendsPage } from '../../features/analytics/VerdictTrendsPage'
-import { UsageStatisticsPage } from '../../features/analytics/UsageStatisticsPage'
-import { AdminScanFeedbackPage } from '../../features/admin/AdminScanFeedbackPage'
-import { FutureFeaturesPage } from '../../features/admin/FutureFeaturesPage'
-import { SystemDashboardPage } from '../../features/admin/SystemDashboardPage'
-import { UserAccessPage } from '../../features/admin/UserAccessPage'
-import { SystemHealthPage } from '../../features/admin/SystemHealthPage'
+import { ConsumerTrendsPage } from '../../features/analytics/pages/ConsumerTrendsPage'
+import { VerdictTrendsPage } from '../../features/analytics/pages/VerdictTrendsPage'
+import { UsageStatisticsPage } from '../../features/analytics/pages/UsageStatisticsPage'
+import { AdminScanFeedbackPage } from '../../features/admin/pages/AdminScanFeedbackPage'
+import { SystemDashboardPage } from '../../features/admin/pages/SystemDashboardPage'
+import { UserAccessPage } from '../../features/admin/pages/UserAccessPage'
+import { SystemHealthPage } from '../../features/admin/pages/SystemHealthPage'
 import { PortalLayout } from '../../shared/ui/PortalLayout'
 import { UserLoginPage } from '../../pages/UserLoginPage'
 import { UserRegisterPage } from '../../pages/UserRegisterPage'
@@ -98,7 +97,6 @@ export function AppRoutes() {
           <Route path="users" element={<UserAccessPage />} />
           <Route path="feedback" element={<AdminScanFeedbackPage />} />
           <Route path="health" element={<SystemHealthPage />} />
-          <Route path="future" element={<FutureFeaturesPage />} />
         </Route>
       </Route>
 

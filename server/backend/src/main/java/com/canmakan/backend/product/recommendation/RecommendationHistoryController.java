@@ -1,6 +1,8 @@
 package com.canmakan.backend.product.recommendation;
 
-import com.canmakan.backend.family.FamilyAuthorizationService;
+import com.canmakan.backend.product.recommendation.history.RecommendationHistoryResponse;
+import com.canmakan.backend.product.recommendation.history.RecommendationHistoryService;
+import com.canmakan.backend.family.service.FamilyAuthorizationService;
 import com.canmakan.backend.shared.security.AuthUserChecker;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import lombok.RequiredArgsConstructor;

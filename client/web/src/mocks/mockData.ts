@@ -4,7 +4,7 @@ import type {
   FamilyMember,
   ScanRecord,
 } from '../shared/api/types'
-import type { ConsumerTrendsResponse } from '../features/analytics/consumerTrendsTypes'
+import type { ConsumerTrendsResponse } from '../features/analytics/api/consumerTrendsTypes'
 
 /**
  * Mock data for the family state
@@ -28,7 +28,6 @@ export const initialFamilyState: MockFamilyState = {
       linkedUserId: 101,
       profileName: 'Alicia',
       relationship: 'SELF',
-      ageGroup: 'ADULT',
       commonRequirements: ['HALAL'],
       restrictions: ['SHELLFISH'],
       source: 'REGISTERED_USER',
@@ -42,7 +41,6 @@ export const initialFamilyState: MockFamilyState = {
       linkedUserId: 102,
       profileName: 'Marcus',
       relationship: 'SPOUSE',
-      ageGroup: 'ADULT',
       commonRequirements: ['HALAL'],
       restrictions: ['LOW_SUGAR'],
       source: 'REGISTERED_USER',
@@ -56,7 +54,6 @@ export const initialFamilyState: MockFamilyState = {
       linkedUserId: null,
       profileName: 'Noah',
       relationship: 'CHILD',
-      ageGroup: 'CHILD',
       commonRequirements: ['HALAL'],
       restrictions: ['PEANUT', 'DAIRY'],
       source: 'DEPENDANT_PROFILE',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { withSessionMutationLock } from '../../../features/auth/sessionMutationCoordinator'
+import { withSessionMutationLock } from '../../../features/auth/lib/sessionMutationCoordinator'
 
 describe('sessionMutationCoordinator', () => {
   it('serialises independent refresh callers that represent separate tabs', async () => {

@@ -19,15 +19,16 @@ import com.canmakan.backend.dietaryprofile.model.ProfileRestrictionId;
 import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
 import com.canmakan.backend.dietaryprofile.repository.DietaryRestrictionRepository;
 import com.canmakan.backend.dietaryprofile.service.DietaryProfileService;
-import com.canmakan.backend.family.FamilyAuthorizationService;
 import com.canmakan.backend.product.model.ScanProduct;
 import com.canmakan.backend.product.scan.Scan;
 import com.canmakan.backend.product.scan.ScanRepository;
+import com.canmakan.backend.family.config.InviteProperties;
 import com.canmakan.backend.family.dto.ActiveProfileResponse;
 import com.canmakan.backend.family.dto.ClaimInvitationRequest;
 import com.canmakan.backend.family.dto.CreateDependantProfileRequest;
 import com.canmakan.backend.family.dto.CreateFamilyRequest;
 import com.canmakan.backend.family.dto.CreateInvitationRequest;
+import com.canmakan.backend.family.dto.FamilyMemberRosterDto;
 import com.canmakan.backend.family.dto.FamilyMeResponse;
 import com.canmakan.backend.family.dto.FamilyRestrictionSumRes;
 import com.canmakan.backend.family.dto.FamilyScanHistoryDto;
@@ -39,18 +40,26 @@ import com.canmakan.backend.family.exception.FamilyNotFoundException;
 import com.canmakan.backend.family.exception.InactiveProfileException;
 import com.canmakan.backend.family.exception.InvitationConflictException;
 import com.canmakan.backend.family.exception.InvitationExpiredException;
+import com.canmakan.backend.family.exception.LastPrimaryAdminException;
 import com.canmakan.backend.family.model.Family;
 import com.canmakan.backend.family.model.FamilyInvitation;
 import com.canmakan.backend.family.model.FamilyMember;
 import com.canmakan.backend.family.model.InvitationStatus;
-import com.canmakan.backend.family.model.UserPreference;
 import com.canmakan.backend.family.repository.FamilyInvitationRepository;
 import com.canmakan.backend.family.repository.FamilyMemberRepository;
 import com.canmakan.backend.family.repository.FamilyRepository;
-import com.canmakan.backend.family.repository.UserPreferenceRepository;
+import com.canmakan.backend.family.service.FamilyActiveProfileService;
+import com.canmakan.backend.family.service.FamilyAuthorizationService;
+import com.canmakan.backend.family.service.FamilyInvitationService;
+import com.canmakan.backend.family.service.FamilyInviteNotifier;
+import com.canmakan.backend.family.service.FamilyRosterService;
+import com.canmakan.backend.family.service.FamilyScanHistoryService;
+import com.canmakan.backend.family.service.InvitationEmailService;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
-import com.canmakan.backend.user.UserAccount;
-import com.canmakan.backend.user.UserAccountRepository;
+import com.canmakan.backend.user.model.UserAccount;
+import com.canmakan.backend.user.repository.UserAccountRepository;
+import com.canmakan.backend.user.model.UserPreference;
+import com.canmakan.backend.user.repository.UserPreferenceRepository;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -107,20 +116,48 @@ class FamilyServiceTest {
             familyMemberRepository,
             dietaryProfileRepository
         );
+        FamilyRosterService familyRosterService = new FamilyRosterService(
+            userAccountRepository,
+            familyMemberRepository,
+            dietaryProfileRepository,
+            familyAuthorization
+        );
+        FamilyInvitationService familyInvitationService = new FamilyInvitationService(
+            userAccountRepository,
+            familyRepository,
+            familyMemberRepository,
+            familyInvitationRepository,
+            dietaryProfileRepository,
+            familyAuthorization,
+            inviteProperties,
+            invitationEmailService,
+            familyInviteNotifier
+        );
+        FamilyActiveProfileService familyActiveProfileService = new FamilyActiveProfileService(
+            dietaryProfileRepository,
+            familyRepository,
+            familyMemberRepository,
+            familyAuthorization,
+            userPreferenceRepository
+        );
+        FamilyScanHistoryService familyScanHistoryService = new FamilyScanHistoryService(
+            dietaryProfileRepository,
+            scanRepository,
+            familyAuthorization
+        );
         familyService = new FamilyService(
             userAccountRepository,
             familyRepository,
             familyMemberRepository,
             familyInvitationRepository,
-            userPreferenceRepository,
             dietaryProfileRepository,
             dietaryRestrictionRepository,
             dietaryProfileService,
             familyAuthorization,
-            scanRepository,
-            inviteProperties,
-            invitationEmailService,
-            familyInviteNotifier
+            familyRosterService,
+            familyInvitationService,
+            familyActiveProfileService,
+            familyScanHistoryService
         );
     }
 
@@ -301,6 +338,65 @@ class FamilyServiceTest {
         UserAccount user = new UserAccount();
         user.setEmail("sarah.tan@example.com");
         assertEquals("sarah.tan", FamilyService.profileNameFromUser(user));
+    }
+
+    @Test
+    @DisplayName("profileNameFromUser falls back to a default name for a null or blank email")
+    void profileNameFromUserFallsBackForNullOrBlankEmail() {
+        UserAccount blankEmailUser = new UserAccount();
+        blankEmailUser.setEmail("   ");
+
+        assertEquals("My Profile", FamilyService.profileNameFromUser(new UserAccount()));
+        assertEquals("My Profile", FamilyService.profileNameFromUser(blankEmailUser));
+    }
+
+    @Test
+    @DisplayName("profileNameFromUser uses the whole value when there is no '@' sign")
+    void profileNameFromUserUsesWholeValueWhenNoAtSign() {
+        UserAccount user = new UserAccount();
+        user.setEmail("sarahtan");
+        assertEquals("sarahtan", FamilyService.profileNameFromUser(user));
+    }
+
+    @Test
+    @DisplayName("normalizeEmail strips and lowercases; null passes through unchanged")
+    void normalizeEmailStripsLowercasesAndPassesThroughNull() {
+        assertEquals("jamie@example.com", FamilyService.normalizeEmail("  Jamie@Example.COM  "));
+        org.junit.jupiter.api.Assertions.assertNull(FamilyService.normalizeEmail(null));
+    }
+
+    @Test
+    @DisplayName("maskEmail covers the blank, no-at-sign, short-local and long-local branches")
+    void maskEmailCoversAllBranches() {
+        assertEquals("", FamilyService.maskEmail(null));
+        assertEquals("", FamilyService.maskEmail("   "));
+        assertEquals("***", FamilyService.maskEmail("notanemail"));
+        assertEquals("a***@example.com", FamilyService.maskEmail("ab@example.com"));
+        assertEquals("j***e@example.com", FamilyService.maskEmail("jamie@example.com"));
+    }
+
+    @Test
+    @DisplayName("isMembershipUniqueViolation detects a MySQL duplicate-key error code")
+    void isMembershipUniqueViolationDetectsErrorCode() {
+        SQLException sqlException = new SQLException("Duplicate entry", "23000", 1062);
+        assertTrue(FamilyService.isMembershipUniqueViolation(sqlException));
+    }
+
+    @Test
+    @DisplayName("isMembershipUniqueViolation detects the constraint name in the message text")
+    void isMembershipUniqueViolationDetectsConstraintNameInMessage() {
+        assertTrue(FamilyService.isMembershipUniqueViolation(
+            new RuntimeException("Duplicate entry violates UQ_FAMILY_MEMBERS_USER_ID")));
+    }
+
+    @Test
+    @DisplayName("isMembershipUniqueViolation walks the cause chain and returns false when nothing matches")
+    void isMembershipUniqueViolationWalksCauseChainAndCanReturnFalse() {
+        assertTrue(FamilyService.isMembershipUniqueViolation(
+            new RuntimeException("save failed", new SQLException("Duplicate entry", "23000", 1062))));
+        assertFalse(FamilyService.isMembershipUniqueViolation(
+            new RuntimeException("some other failure", new RuntimeException())));
+        assertFalse(FamilyService.isMembershipUniqueViolation(new RuntimeException()));
     }
 
     @Test
@@ -506,19 +602,23 @@ class FamilyServiceTest {
         DietaryProfile self = new DietaryProfile();
         self.setId(1L);
         self.setProfileName("Admin");
-        when(dietaryProfileRepository.findByLinkedUser_Id(10L)).thenReturn(Optional.of(self));
+        UserAccount linkedUser = new UserAccount();
+        linkedUser.setId(10L);
+        self.setLinkedUser(linkedUser);
+        when(dietaryProfileRepository.findByLinkedUserIdInWithRestrictions(any()))
+            .thenReturn(List.of(self));
 
         DietaryProfile dependant = new DietaryProfile();
         dependant.setId(2L);
         dependant.setProfileName("Toddler");
-        when(dietaryProfileRepository.findDependantProfilesByFamilyId(1L))
+        when(dietaryProfileRepository.findActiveDependantsByFamilyIdWithRestrictions(1L))
             .thenReturn(List.of(dependant));
 
         FamilyRestrictionSumRes summary = familyService.getFamilyRestrictionSummary(10L);
-        assertEquals(2, summary.getFamilyMembers().size());
-        assertEquals(0L, summary.getFamilyMembers().get(1).getUserId());
-        assertEquals(2L, summary.getFamilyMembers().get(1).getProfileId());
-        assertEquals("Toddler", summary.getFamilyMembers().get(1).getName());
+        assertEquals(2, summary.familyMembers().size());
+        assertEquals(0L, summary.familyMembers().get(1).userId());
+        assertEquals(2L, summary.familyMembers().get(1).profileId());
+        assertEquals("Toddler", summary.familyMembers().get(1).name());
     }
 
     @Test
@@ -538,19 +638,23 @@ class FamilyServiceTest {
         self.setProfileName("Admin");
         self.setRelationship("SELF");
         self.setActive(true);
-        when(dietaryProfileRepository.findByLinkedUser_Id(10L)).thenReturn(Optional.of(self));
+        UserAccount linkedUser = new UserAccount();
+        linkedUser.setId(10L);
+        self.setLinkedUser(linkedUser);
+        when(dietaryProfileRepository.findByLinkedUserIdInWithRestrictions(any()))
+            .thenReturn(List.of(self));
 
         UserAccount admin = new UserAccount();
         admin.setId(10L);
         admin.setEmail("admin@example.com");
-        when(userAccountRepository.findById(10L)).thenReturn(Optional.of(admin));
+        when(userAccountRepository.findAllById(any())).thenReturn(List.of(admin));
 
         DietaryProfile dependant = new DietaryProfile();
         dependant.setId(2L);
         dependant.setProfileName("Toddler");
         dependant.setRelationship("CHILD");
         dependant.setActive(true);
-        when(dietaryProfileRepository.findAllDependantProfilesByFamilyId(1L))
+        when(dietaryProfileRepository.findAllDependantsByFamilyIdWithRestrictions(1L))
             .thenReturn(List.of(dependant));
 
         List<com.canmakan.backend.family.dto.FamilyMemberRosterDto> rows =
@@ -566,7 +670,6 @@ class FamilyServiceTest {
         assertEquals(2L, rows.get(1).memberId());
         assertEquals("DEPENDANT_PROFILE", rows.get(1).source());
         assertEquals("Toddler", rows.get(1).profileName());
-        assertEquals("UNSPECIFIED", rows.get(1).ageGroup());
         assertTrue(rows.get(1).profileActive());
     }
 
@@ -901,7 +1004,7 @@ class FamilyServiceTest {
         family.setId(1L);
 
         DietaryProfile dependant = activeProfile(88L, "Child", family, true);
-        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(dependant));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(88L)).thenReturn(Optional.of(dependant));
         when(userPreferenceRepository.findById(10L)).thenReturn(Optional.empty());
         when(userPreferenceRepository.saveAndFlush(any(UserPreference.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
@@ -919,7 +1022,7 @@ class FamilyServiceTest {
         Family otherFamily = new Family();
         otherFamily.setId(99L);
         DietaryProfile outsider = activeProfile(55L, "Other", otherFamily, true);
-        when(dietaryProfileRepository.findById(55L)).thenReturn(Optional.of(outsider));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(55L)).thenReturn(Optional.of(outsider));
 
         assertThrows(
             FamilyForbiddenException.class,
@@ -933,7 +1036,7 @@ class FamilyServiceTest {
         Family family = new Family();
         family.setId(1L);
         DietaryProfile inactive = activeProfile(88L, "Child", family, false);
-        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(inactive));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(88L)).thenReturn(Optional.of(inactive));
 
         assertThrows(
             InactiveProfileException.class,
@@ -984,7 +1087,7 @@ class FamilyServiceTest {
         Family otherFamily = new Family();
         otherFamily.setId(99L);
         DietaryProfile outsider = activeProfile(55L, "Other", otherFamily, true);
-        when(dietaryProfileRepository.findById(55L)).thenReturn(Optional.of(outsider));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(55L)).thenReturn(Optional.of(outsider));
 
         assertThrows(
             FamilyForbiddenException.class,
@@ -1000,7 +1103,7 @@ class FamilyServiceTest {
         family.setId(1L);
         DietaryProfile dependant = activeProfile(88L, "Child", family, true);
         dependant.setLinkedUser(null);
-        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(dependant));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(88L)).thenReturn(Optional.of(dependant));
         when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -1022,7 +1125,7 @@ class FamilyServiceTest {
         Family family = new Family();
         family.setId(1L);
         DietaryProfile profile = activeProfile(88L, "Child", family, true);
-        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(profile));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(88L)).thenReturn(Optional.of(profile));
         when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
         when(userPreferenceRepository.findByActiveProfileId(88L)).thenReturn(List.of());
@@ -1031,6 +1134,55 @@ class FamilyServiceTest {
 
         assertFalse(response.active());
         assertFalse(profile.isActive());
+    }
+
+    @Test
+    @DisplayName("setProfileActive rejects deactivating the caller's own admin profile")
+    void setProfileActiveRejectsOwnAdminProfile() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(77L, "Admin", family, true);
+        UserAccount linked = new UserAccount();
+        linked.setId(10L);
+        profile.setLinkedUser(linked);
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(77L)).thenReturn(Optional.of(profile));
+
+        FamilyForbiddenException ex = assertThrows(
+            FamilyForbiddenException.class,
+            () -> familyService.setProfileActive(10L, 77L, false)
+        );
+        assertEquals("Cannot deactivate your own family admin profile.", ex.getMessage());
+        verify(dietaryProfileRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("setProfileActive rejects deactivating the last primary admin's profile")
+    void setProfileActiveRejectsLastPrimaryAdmin() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(99L, "Other Admin", family, true);
+        UserAccount linked = new UserAccount();
+        linked.setId(20L);
+        profile.setLinkedUser(linked);
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(99L)).thenReturn(Optional.of(profile));
+        FamilyMember otherAdminMembership = new FamilyMember(
+            new FamilyMember.FamilyMemberId(1L, 20L),
+            FamilyMember.ROLE_PRIMARY_ADMIN,
+            true,
+            null
+        );
+        when(familyMemberRepository.findMembershipByUserId(20L))
+            .thenReturn(Optional.of(otherAdminMembership));
+        when(familyMemberRepository.countActivePrimaryAdmins(1L)).thenReturn(1L);
+
+        LastPrimaryAdminException ex = assertThrows(
+            LastPrimaryAdminException.class,
+            () -> familyService.setProfileActive(10L, 99L, false)
+        );
+        assertEquals("Cannot deactivate the family admin profile.", ex.getMessage());
+        verify(dietaryProfileRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -1062,7 +1214,7 @@ class FamilyServiceTest {
         family.setId(1L);
         DietaryProfile dependant = activeProfile(88L, "Child", family, true);
         dependant.setLinkedUser(null);
-        when(dietaryProfileRepository.findById(88L)).thenReturn(Optional.of(dependant));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(88L)).thenReturn(Optional.of(dependant));
         when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
         when(userPreferenceRepository.findByActiveProfileId(88L)).thenReturn(List.of());
@@ -1082,7 +1234,7 @@ class FamilyServiceTest {
         UserAccount user = new UserAccount();
         user.setId(10L);
         self.setLinkedUser(user);
-        when(dietaryProfileRepository.findById(77L)).thenReturn(Optional.of(self));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(77L)).thenReturn(Optional.of(self));
 
         familyService.assertMayEditRestrictions(10L, 77L);
     }
@@ -1097,7 +1249,7 @@ class FamilyServiceTest {
         UserAccount linked = new UserAccount();
         linked.setId(20L);
         other.setLinkedUser(linked);
-        when(dietaryProfileRepository.findById(99L)).thenReturn(Optional.of(other));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(99L)).thenReturn(Optional.of(other));
 
         familyService.assertMayEditRestrictions(10L, 99L);
     }
@@ -1119,7 +1271,7 @@ class FamilyServiceTest {
         UserAccount linked = new UserAccount();
         linked.setId(20L);
         other.setLinkedUser(linked);
-        when(dietaryProfileRepository.findById(99L)).thenReturn(Optional.of(other));
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(99L)).thenReturn(Optional.of(other));
 
         assertThrows(
             FamilyForbiddenException.class,
@@ -1167,6 +1319,452 @@ class FamilyServiceTest {
         );
         assertEquals(FamilyAuthorizationService.PRIMARY_ADMIN_REQUIRED, ex.getMessage());
         verify(scanRepository, never()).findByProfileIdInWithProductOrderByScannedAtDesc(any());
+    }
+
+    @Test
+    @DisplayName("listMyFamilyProfiles returns all profiles for the caller's family")
+    void listMyFamilyProfilesOk() {
+        stubMembership(10L, 1L);
+        when(dietaryProfileService.getAllProfilesByFamilyId(1L)).thenReturn(List.of(
+            new com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto(
+                77L, "Admin", 1L, "SELF", "AD", true, true)
+        ));
+
+        List<com.canmakan.backend.dietaryprofile.dto.DietaryProfileSummaryDto> rows =
+            familyService.listMyFamilyProfiles(10L);
+
+        assertEquals(1, rows.size());
+        assertEquals(77L, rows.get(0).id());
+    }
+
+    @Test
+    @DisplayName("updateProfileMetadata applies restriction selections and returns a linked-member roster row")
+    void updateProfileMetadataWithRestrictionsUpdatesSelectionsAndRoster() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(77L, "Admin", family, true);
+        UserAccount linked = new UserAccount();
+        linked.setId(10L);
+        linked.setEmail("amelia@example.com");
+        profile.setLinkedUser(linked);
+        DietaryRestriction halal = new DietaryRestriction();
+        halal.setId(1L);
+        halal.setCode("HALAL");
+        halal.setCategory(" religious ");
+        ProfileRestriction religiousSelection = new ProfileRestriction();
+        religiousSelection.setId(new ProfileRestrictionId(77L, 1L));
+        religiousSelection.setDietaryProfile(profile);
+        religiousSelection.setDietaryRestriction(halal);
+        religiousSelection.setSeverityLevel("STRICT_AVOID");
+        DietaryRestriction dairy = new DietaryRestriction();
+        dairy.setId(2L);
+        dairy.setCode("DAIRY");
+        dairy.setCategory("MEDICAL");
+        ProfileRestriction medicalSelection = new ProfileRestriction();
+        medicalSelection.setId(new ProfileRestrictionId(77L, 2L));
+        medicalSelection.setDietaryProfile(profile);
+        medicalSelection.setDietaryRestriction(dairy);
+        medicalSelection.setSeverityLevel("STRICT_AVOID");
+        ProfileRestriction incompleteSelection = new ProfileRestriction();
+        incompleteSelection.setId(new ProfileRestrictionId(77L, 3L));
+        incompleteSelection.setDietaryProfile(profile);
+        incompleteSelection.setDietaryRestriction(null);
+        profile.getProfileRestrictions().add(religiousSelection);
+        profile.getProfileRestrictions().add(medicalSelection);
+        profile.getProfileRestrictions().add(incompleteSelection);
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(77L)).thenReturn(Optional.of(profile));
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        DietaryRestriction gluten = new DietaryRestriction();
+        gluten.setId(3L);
+        gluten.setCode("GLUTEN");
+        when(dietaryRestrictionRepository.findByCodeIgnoreCase("GLUTEN")).thenReturn(Optional.of(gluten));
+        when(dietaryProfileRepository.findById(77L)).thenReturn(Optional.of(profile));
+        when(userAccountRepository.findById(10L)).thenReturn(Optional.of(linked));
+
+        var response = familyService.updateProfileMetadata(
+            10L,
+            77L,
+            new com.canmakan.backend.family.dto.UpdateProfileRequest(
+                "Amelia", "SELF", null, List.of("gluten")));
+
+        assertEquals("Amelia", response.profileName());
+        assertEquals(10L, response.memberId());
+        assertEquals(FamilyMemberRosterDto.SOURCE_REGISTERED, response.source());
+        assertEquals(FamilyMember.ROLE_PRIMARY_ADMIN, response.memberRole());
+        assertTrue(response.maskedEmail().contains("@"));
+        assertEquals(List.of("HALAL"), response.commonRequirements());
+        assertEquals(List.of("DAIRY"), response.restrictions());
+        verify(dietaryProfileService).saveDietaryRestrictionSelections(eq(77L), any());
+    }
+
+    @Test
+    @DisplayName("removeFamilyMember soft-deactivates the membership and the linked profile")
+    void removeFamilyMemberHappyPath() {
+        stubPrimaryAdmin(10L, 1L);
+        FamilyMember target = new FamilyMember(
+            new FamilyMember.FamilyMemberId(1L, 20L),
+            FamilyMember.ROLE_MEMBER,
+            true,
+            null
+        );
+        when(familyMemberRepository.findMembershipByUserId(20L)).thenReturn(Optional.of(target));
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile linkedProfile = activeProfile(66L, "Member", family, true);
+        when(dietaryProfileRepository.findByLinkedUser_Id(20L)).thenReturn(Optional.of(linkedProfile));
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userPreferenceRepository.findByActiveProfileId(66L)).thenReturn(List.of());
+
+        familyService.removeFamilyMember(10L, 20L);
+
+        assertFalse(target.getIsActive());
+        assertFalse(linkedProfile.isActive());
+        verify(familyMemberRepository).saveAndFlush(target);
+    }
+
+    @Test
+    @DisplayName("user-search reports ALREADY_LINKED for a user already in a family")
+    void searchUserByEmailFoundAlreadyLinked() {
+        stubPrimaryAdmin(10L, 1L);
+        UserAccount found = new UserAccount();
+        found.setId(20L);
+        found.setEmail("jamie@example.com");
+        found.setActive(true);
+        when(userAccountRepository.findByEmail("jamie@example.com")).thenReturn(Optional.of(found));
+        when(familyInvitationRepository.findPendingByFamilyAndEmail(1L, "jamie@example.com"))
+            .thenReturn(Optional.empty());
+        when(dietaryProfileRepository.findByLinkedUser_Id(20L)).thenReturn(Optional.empty());
+        when(familyMemberRepository.existsByIdUserId(20L)).thenReturn(true);
+
+        UserSearchResponse result = familyService.searchUserByEmail(10L, "jamie@example.com");
+
+        assertEquals(UserSearchResponse.ACCOUNT_ACTIVE, result.accountStatus());
+        assertEquals(UserSearchResponse.LINK_ALREADY_LINKED, result.familyLinkStatus());
+        assertEquals(20L, result.userId());
+        assertEquals("jamie", result.displayName());
+    }
+
+    @Test
+    @DisplayName("user-search reports PENDING for a user with an outstanding invitation")
+    void searchUserByEmailFoundPendingInvitation() {
+        stubPrimaryAdmin(10L, 1L);
+        UserAccount found = new UserAccount();
+        found.setId(20L);
+        found.setEmail("jamie@example.com");
+        found.setActive(true);
+        when(userAccountRepository.findByEmail("jamie@example.com")).thenReturn(Optional.of(found));
+        when(familyInvitationRepository.findPendingByFamilyAndEmail(1L, "jamie@example.com"))
+            .thenReturn(Optional.of(pendingInvitation("tok", "jamie@example.com")));
+        when(dietaryProfileRepository.findByLinkedUser_Id(20L)).thenReturn(Optional.empty());
+        when(familyMemberRepository.existsByIdUserId(20L)).thenReturn(false);
+
+        UserSearchResponse result = familyService.searchUserByEmail(10L, "jamie@example.com");
+
+        assertEquals(UserSearchResponse.LINK_PENDING, result.familyLinkStatus());
+    }
+
+    @Test
+    @DisplayName("user-search reports NOT_LINKED and INACTIVE for an inactive, unlinked account")
+    void searchUserByEmailFoundNotLinkedInactiveAccount() {
+        stubPrimaryAdmin(10L, 1L);
+        UserAccount found = new UserAccount();
+        found.setId(20L);
+        found.setEmail("jamie@example.com");
+        found.setActive(false);
+        when(userAccountRepository.findByEmail("jamie@example.com")).thenReturn(Optional.of(found));
+        when(familyInvitationRepository.findPendingByFamilyAndEmail(1L, "jamie@example.com"))
+            .thenReturn(Optional.empty());
+        DietaryProfile ownProfile = new DietaryProfile();
+        ownProfile.setProfileName("Jamie Tan");
+        when(dietaryProfileRepository.findByLinkedUser_Id(20L)).thenReturn(Optional.of(ownProfile));
+        when(familyMemberRepository.existsByIdUserId(20L)).thenReturn(false);
+
+        UserSearchResponse result = familyService.searchUserByEmail(10L, "jamie@example.com");
+
+        assertEquals(UserSearchResponse.ACCOUNT_INACTIVE, result.accountStatus());
+        assertEquals(UserSearchResponse.LINK_NOT_LINKED, result.familyLinkStatus());
+        assertEquals("Jamie Tan", result.displayName());
+    }
+
+    @Test
+    @DisplayName("acceptInvitation(userId, token) delegates to the invitation service")
+    void acceptInvitationTwoArgDelegates() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("jamie@example.com");
+        FamilyInvitation invitation = pendingInvitation("tok", "jamie@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyMemberRepository.existsByIdUserId(30L)).thenReturn(false);
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Wong Family");
+        family.setCreatedByUserId(10L);
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(dietaryProfileRepository.findByLinkedUser_Id(30L)).thenReturn(Optional.empty());
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        FamilyMeResponse response = familyService.acceptInvitation(30L, "tok");
+
+        assertEquals(1L, response.familyId());
+    }
+
+    @Test
+    @DisplayName("previewInvitation delegates to the invitation service")
+    void previewInvitationDelegates() {
+        FamilyInvitation invitation = pendingInvitation("tok", "jamie@example.com");
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Wong Family");
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+
+        var preview = familyService.previewInvitation("tok");
+
+        assertEquals("jamie@example.com", preview.invitedEmail());
+        assertEquals("Wong Family", preview.familyName());
+    }
+
+    @Test
+    @DisplayName("acceptInvitation(userId, token, profileName) delegates to the invitation service")
+    void acceptInvitationThreeArgDelegates() {
+        UserAccount user = new UserAccount();
+        user.setId(30L);
+        user.setEmail("jamie@example.com");
+        FamilyInvitation invitation = pendingInvitation("tok", "jamie@example.com");
+        when(userAccountRepository.findById(30L)).thenReturn(Optional.of(user));
+        when(familyInvitationRepository.findByInvitationToken("tok")).thenReturn(Optional.of(invitation));
+        when(familyMemberRepository.existsByIdUserId(30L)).thenReturn(false);
+        Family family = new Family();
+        family.setId(1L);
+        family.setFamilyName("Wong Family");
+        family.setCreatedByUserId(10L);
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(dietaryProfileRepository.findByLinkedUser_Id(30L)).thenReturn(Optional.empty());
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        FamilyMeResponse response = familyService.acceptInvitation(30L, "tok", "Jamie Tan");
+
+        assertEquals(1L, response.familyId());
+    }
+
+    @Test
+    @DisplayName("setProfileActive reactivates a profile")
+    void setProfileActiveReactivates() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(88L, "Child", family, false);
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(88L)).thenReturn(Optional.of(profile));
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = familyService.setProfileActive(10L, 88L, true);
+
+        assertTrue(response.active());
+        verify(userPreferenceRepository, never()).findByActiveProfileId(any());
+    }
+
+    @Test
+    @DisplayName("setProfileActive deactivates a family-admin-linked profile when another admin remains")
+    void setProfileActiveDeactivatesLinkedAdminProfileWhenNotLastAdmin() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(99L, "Other Admin", family, true);
+        UserAccount linked = new UserAccount();
+        linked.setId(20L);
+        profile.setLinkedUser(linked);
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(99L)).thenReturn(Optional.of(profile));
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userPreferenceRepository.findByActiveProfileId(99L)).thenReturn(List.of());
+        FamilyMember otherAdminMembership = new FamilyMember(
+            new FamilyMember.FamilyMemberId(1L, 20L),
+            FamilyMember.ROLE_PRIMARY_ADMIN,
+            true,
+            null
+        );
+        when(familyMemberRepository.findMembershipByUserId(20L))
+            .thenReturn(Optional.of(otherAdminMembership));
+        when(familyMemberRepository.countActivePrimaryAdmins(1L)).thenReturn(2L);
+
+        var response = familyService.setProfileActive(10L, 99L, false);
+
+        assertFalse(response.active());
+    }
+
+    @Test
+    @DisplayName("removeFamilyMember rejects a target outside the caller's family")
+    void removeFamilyMemberRejectsTargetOutsideFamily() {
+        stubPrimaryAdmin(10L, 1L);
+        FamilyMember target = new FamilyMember(
+            new FamilyMember.FamilyMemberId(99L, 20L),
+            FamilyMember.ROLE_MEMBER,
+            true,
+            null
+        );
+        when(familyMemberRepository.findMembershipByUserId(20L)).thenReturn(Optional.of(target));
+
+        assertThrows(FamilyNotFoundException.class, () -> familyService.removeFamilyMember(10L, 20L));
+        verify(familyMemberRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("removeFamilyMember rejects a target that is already inactive")
+    void removeFamilyMemberRejectsAlreadyInactiveTarget() {
+        stubPrimaryAdmin(10L, 1L);
+        FamilyMember target = new FamilyMember(
+            new FamilyMember.FamilyMemberId(1L, 20L),
+            FamilyMember.ROLE_MEMBER,
+            false,
+            null
+        );
+        when(familyMemberRepository.findMembershipByUserId(20L)).thenReturn(Optional.of(target));
+
+        assertThrows(FamilyNotFoundException.class, () -> familyService.removeFamilyMember(10L, 20L));
+    }
+
+    @Test
+    @DisplayName("removeFamilyMember removes a primary admin when another admin remains")
+    void removeFamilyMemberRemovesNonLastPrimaryAdmin() {
+        stubPrimaryAdmin(10L, 1L);
+        FamilyMember target = new FamilyMember(
+            new FamilyMember.FamilyMemberId(1L, 20L),
+            FamilyMember.ROLE_PRIMARY_ADMIN,
+            true,
+            null
+        );
+        when(familyMemberRepository.findMembershipByUserId(20L)).thenReturn(Optional.of(target));
+        when(familyMemberRepository.countActivePrimaryAdmins(1L)).thenReturn(2L);
+        when(dietaryProfileRepository.findByLinkedUser_Id(20L)).thenReturn(Optional.empty());
+
+        familyService.removeFamilyMember(10L, 20L);
+
+        assertFalse(target.getIsActive());
+        verify(familyMemberRepository).saveAndFlush(target);
+    }
+
+    @Test
+    @DisplayName("removeDependantProfile rejects a profile that is linked to a registered user")
+    void removeDependantProfileRejectsLinkedProfile() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile linkedProfile = activeProfile(77L, "Admin", family, true);
+        UserAccount linked = new UserAccount();
+        linked.setId(10L);
+        linkedProfile.setLinkedUser(linked);
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(77L)).thenReturn(Optional.of(linkedProfile));
+
+        assertThrows(FamilyForbiddenException.class,
+            () -> familyService.removeDependantProfile(10L, 77L));
+        verify(dietaryProfileRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("getMyFamily throws when the family record behind the membership is missing")
+    void getMyFamilyThrowsWhenFamilyRecordMissing() {
+        stubMembership(10L, 1L);
+        when(familyRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(FamilyNotFoundException.class, () -> familyService.getMyFamily(10L));
+    }
+
+    @Test
+    @DisplayName("assertProfileAuthorizedForScan allows a profile within the caller's family")
+    void assertProfileAuthorizedForScanOk() {
+        stubMembership(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        DietaryProfile profile = activeProfile(55L, "Self", family, true);
+        when(dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(55L)).thenReturn(Optional.of(profile));
+
+        familyService.assertProfileAuthorizedForScan(10L, 55L);
+    }
+
+    @Test
+    @DisplayName("user-search rejects a blank email")
+    void searchUserByEmailRejectsBlankEmail() {
+        stubPrimaryAdmin(10L, 1L);
+
+        assertThrows(IllegalArgumentException.class,
+            () -> familyService.searchUserByEmail(10L, "   "));
+    }
+
+    @Test
+    @DisplayName("user-search reports PENDING for an unregistered email with an outstanding invitation")
+    void searchUserByEmailUnregisteredWithPendingInvitation() {
+        stubPrimaryAdmin(10L, 1L);
+        when(userAccountRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
+        when(familyInvitationRepository.findPendingByFamilyAndEmail(1L, "new@example.com"))
+            .thenReturn(Optional.of(pendingInvitation("tok", "new@example.com")));
+
+        UserSearchResponse result = familyService.searchUserByEmail(10L, "new@example.com");
+
+        assertEquals(UserSearchResponse.ACCOUNT_NOT_REGISTERED, result.accountStatus());
+        assertEquals(UserSearchResponse.LINK_PENDING, result.familyLinkStatus());
+    }
+
+    @Test
+    @DisplayName("createDependantProfile skips saving restrictions when none are supplied")
+    void createDependantProfileWithoutRestrictions() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class))).thenAnswer(invocation -> {
+            DietaryProfile profile = invocation.getArgument(0);
+            profile.setId(55L);
+            return profile;
+        });
+
+        familyService.createDependantProfile(
+            10L,
+            new CreateDependantProfileRequest("Child", "CHILD", null, null)
+        );
+
+        verify(dietaryProfileService, never()).saveDietaryRestrictionSelections(any(), any());
+    }
+
+    @Test
+    @DisplayName("createDependantProfile filters out null and blank restriction codes")
+    void createDependantProfileFiltersBlankAndNullRestrictionCodes() {
+        stubPrimaryAdmin(10L, 1L);
+        Family family = new Family();
+        family.setId(1L);
+        when(familyRepository.findById(1L)).thenReturn(Optional.of(family));
+        when(dietaryProfileRepository.saveAndFlush(any(DietaryProfile.class))).thenAnswer(invocation -> {
+            DietaryProfile profile = invocation.getArgument(0);
+            profile.setId(55L);
+            return profile;
+        });
+        DietaryRestriction gluten = new DietaryRestriction();
+        gluten.setId(3L);
+        gluten.setCode("GLUTEN");
+        when(dietaryRestrictionRepository.findByCodeIgnoreCase("GLUTEN")).thenReturn(Optional.of(gluten));
+
+        familyService.createDependantProfile(
+            10L,
+            new CreateDependantProfileRequest(
+                "Child", "CHILD", null, java.util.Arrays.asList("gluten", null, "   "))
+        );
+
+        verify(dietaryProfileService).saveDietaryRestrictionSelections(eq(55L), any());
+    }
+
+    @Test
+    @DisplayName("profileNameFromUser falls back to a default name when the local part is blank")
+    void profileNameFromUserFallsBackWhenLocalPartIsBlank() {
+        UserAccount user = new UserAccount();
+        user.setEmail("   @example.com");
+
+        assertEquals("My Profile", FamilyService.profileNameFromUser(user));
     }
 
     private static DietaryProfile activeProfile(

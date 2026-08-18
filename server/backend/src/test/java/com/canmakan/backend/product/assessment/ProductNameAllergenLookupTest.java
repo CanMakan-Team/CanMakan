@@ -6,6 +6,8 @@ import static org.mockito.Mockito.when;
 
 import com.canmakan.backend.knowledgebase.mcp.server.AllergenRelationshipLookupFallback;
 import com.canmakan.backend.knowledgebase.model.Ingredient;
+import com.canmakan.backend.product.assessment.service.ProductNameAllergenLookup;
+
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

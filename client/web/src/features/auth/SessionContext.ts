@@ -3,7 +3,7 @@ import type {
   AuthenticatedSession,
   RegistrationResponse,
 } from '../../shared/api/types'
-import type { CredentialLoginInput, RegisterInput } from './authService'
+import type { CredentialLoginInput, RegisterInput } from './api/authService'
 
 export type RegisterAndLoginResult =
   | {
@@ -18,7 +18,6 @@ export type RegisterAndLoginResult =
 
 /** Session context value
  * 
- * @author Amelia
  */
 export interface SessionContextValue {
   session: AuthenticatedSession | null

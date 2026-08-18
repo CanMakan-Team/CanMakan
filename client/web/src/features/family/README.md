@@ -14,13 +14,23 @@ family/
   FamilyMeGate.tsx      # PRIMARY_ADMIN only; others go to /me
   FamilyMeContext.tsx   # Provider for GET /families/me (USER portal nav)
   useFamilyMe.ts        # Hook for membership in layout and personal home
+  familyMeState.ts
   README.md
   api/
     familyApiService.ts
+    familyApiHttp.ts
+    familyEndpoints.ts
+    familyTypes.ts
+    selfProfileApiService.ts
   lib/
     familyRoles.ts
     userPortalNav.ts
     profileOptions.ts
+    profileDisplay.ts
+    greeting.ts
+    restrictionMatrix.ts
+    scanHistoryDisplay.ts
+    inviteAppHandoff.ts
   pages/
     CreateFamilyCirclePage.tsx
     FamilyCirclePage.tsx
@@ -29,11 +39,16 @@ family/
     FamilyRestrictionSummaryPage.tsx
     FamilyScanHistoryPage.tsx
     UserLandingPage.tsx
+    InviteLandingPage.tsx
+    PersonalHomePage.tsx
+    SelfProfileSetupPage.tsx
+    FamilyAccountPage.tsx
   components/
-    ActiveProfileSelector.tsx
     CreateFamilyProfileModal.tsx
+    ScanEligibilityCard.tsx
     EditFamilyProfileModal.tsx
     LinkExistingUserModal.tsx
+    ProfileCardMenu.tsx
     ProfileForm.tsx
 ```
 
@@ -43,7 +58,7 @@ family/
 
 | Piece | Notes |
 | --- | --- |
-| `LinkExistingUserModal` | Search + create PENDING invite; copy link/code; optional mailto |
+| `LinkExistingUserModal` | Invite by email + relationship; backend checks conflicts; requires `emailSent` |
 | `CreateFamilyProfileModal` | `POST /api/families/me/profiles` dependant create |
 | `InviteLandingPage` | `/invite/:token` → Android opens the app; desktop stays on web `/register`/`/login` + claim. `?web=1` skips the app. |
 | Silent `members/link` | Removed from live `familyApiService` |
@@ -66,7 +81,7 @@ SELF-profile save/skip, and session restoration never open the family form.
 
 | Piece | Notes |
 | --- | --- |
-| `FamilyMembersPage` | PRIMARY_ADMIN roster: invite, edit, activate, remove |
+| `FamilyMembersPage` | PRIMARY_ADMIN roster: invite, edit, activate, remove; scan-eligibility snapshot; in-app confirm modal for deactivate/remove |
 | `EditFamilyProfileModal` | Live `PUT /me/profiles/{id}`; D3 restricts restriction edits to self + dependants |
 | `familyApiService` | `updateProfile`, `setProfileActive`, `removeMember`, `removeDependantProfile`, `getProfiles`, `getScanHistory` (PRIMARY_ADMIN) |
 | Soft-remove | Linked → `DELETE /me/members/{userId}`; dependant → `DELETE /me/profiles/{id}` |

@@ -7,8 +7,13 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /** Hashed opaque refresh credential mapped to the existing refresh_tokens table. */
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "refresh_tokens")
 public class RefreshToken {
@@ -29,32 +34,9 @@ public class RefreshToken {
     @Column(name = "created_at", insertable = false, updatable = false)
     private Instant createdAt;
 
-    protected RefreshToken() {
-    }
-
     public RefreshToken(Long userId, String tokenHash, Instant expiryDate) {
         this.userId = userId;
         this.tokenHash = tokenHash;
         this.expiryDate = expiryDate;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public String getTokenHash() {
-        return tokenHash;
-    }
-
-    public Instant getExpiryDate() {
-        return expiryDate;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
     }
 }

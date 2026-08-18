@@ -1,5 +1,7 @@
 package com.canmakan.backend.product.scan;
 
+import jakarta.validation.constraints.NotNull;
+
 /**
  * Request body for {@code POST /api/scan/{scanId}/feedback}. {@code isPositive}
  * is required (true for thumbs up, false for thumbs down); {@code userComments}
@@ -12,5 +14,8 @@ package com.canmakan.backend.product.scan;
  *
  * @author Kwok Heng
  */
-public record ScanFeedbackRequest(Boolean isPositive, String userComments) {
+public record ScanFeedbackRequest(
+        @NotNull(message = "isPositive is required")
+        Boolean isPositive,
+        String userComments) {
 }

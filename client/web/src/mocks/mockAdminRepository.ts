@@ -3,7 +3,7 @@ import type {
   ConsumerTrendsQuery,
   ConsumerTrendsResponse,
   DailyTrendPoint,
-} from '../features/analytics/consumerTrendsTypes'
+} from '../features/analytics/api/consumerTrendsTypes'
 import {
   consumerTrendProductTemplates,
   consumerTrends,

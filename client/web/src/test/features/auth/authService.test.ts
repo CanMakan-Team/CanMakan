@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { authService } from '../../../features/auth/authService'
+import { authService } from '../../../features/auth/api/authService'
 import { apiBaseUrl } from '../../../shared/api/apiClient'
 import { jsonResponse } from '../../testUtils'
 

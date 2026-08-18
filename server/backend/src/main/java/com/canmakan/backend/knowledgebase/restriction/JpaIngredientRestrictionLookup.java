@@ -4,6 +4,7 @@ import jakarta.persistence.EntityManager;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @author YangMaowei
  */
 @Repository
+@RequiredArgsConstructor
 public class JpaIngredientRestrictionLookup implements IngredientRestrictionLookup {
 
     private static final String APPROVED_CONFLICT_QUERY = """
@@ -27,10 +29,6 @@ public class JpaIngredientRestrictionLookup implements IngredientRestrictionLook
             """;
 
     private final EntityManager entityManager;
-
-    public JpaIngredientRestrictionLookup(EntityManager entityManager) {
-        this.entityManager = entityManager;
-    }
 
     @Override
     @Transactional(readOnly = true)

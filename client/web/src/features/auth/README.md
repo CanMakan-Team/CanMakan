@@ -5,6 +5,25 @@ Authentication and session management.
 ## Purpose
 Handles live login/register, session context, and route protection against UC19 JWT login.
 
+## Layout
+
+```
+auth/
+  SessionProvider.tsx
+  SessionContext.ts
+  ProtectedRoute.tsx
+  useSession.ts
+  README.md
+  api/
+    authService.ts
+  lib/
+    authSessionStore.ts
+    sessionMutationCoordinator.ts
+    pendingRegistrationOnboardingStore.ts
+  pages/
+    AccessDenied.tsx
+```
+
 ## Contains
 - Session context / provider (`loginWithCredentials`, `registerAndLogin`, restore, logout)
 - `authService` — live register/login/refresh/logout, `/api/auth/me`, and self-service `DELETE /api/auth/account`

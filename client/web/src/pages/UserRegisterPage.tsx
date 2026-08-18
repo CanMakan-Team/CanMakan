@@ -1,7 +1,7 @@
 import { useEffect, useState, type SubmitEvent as ReactSubmitEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError, getErrorMessage } from '../shared/api/apiErrors'
-import { pendingRegistrationOnboardingStore } from '../features/auth/pendingRegistrationOnboardingStore'
+import { pendingRegistrationOnboardingStore } from '../features/auth/lib/pendingRegistrationOnboardingStore'
 import { useSession } from '../features/auth/useSession'
 import { familyApiService } from '../features/family/api/familyApiService'
 import { CanMakanMascot, LoginBrand } from '../shared/ui/CanMakanMascot'

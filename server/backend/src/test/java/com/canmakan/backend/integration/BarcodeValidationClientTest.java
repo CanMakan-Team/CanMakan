@@ -15,6 +15,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import com.canmakan.backend.knowledgebase.model.Ingredient;
 import com.canmakan.backend.product.model.ProductLookupResult;
 import com.canmakan.backend.product.scan.ValidationResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,10 +26,14 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
@@ -44,41 +49,190 @@ class BarcodeValidationClientTest {
 
     private static final String BARCODE = "8888888888888";
 
-    @Test
-    void keepsOpenFoodFactsFirstValidationBehavior() {
+    @ParameterizedTest(name = "[{index}] {0}")
+    @MethodSource("openFoodFactsSuccessCases")
+    void openFoodFactsResolvesCategoryFromResponse(
+            String description, String offResponseJson, String expectedCategory) {
         ClientHarness harness = clientHarness();
         harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
             .andExpect(method(GET))
-            .andRespond(withSuccess(
+            .andRespond(withSuccess(offResponseJson, MediaType.APPLICATION_JSON));
+
+        ValidationResponse response = harness.client().validateProduct(BARCODE);
+
+        assertTrue(response.validFood());
+        assertEquals(expectedCategory, response.category());
+        harness.verify();
+    }
+
+    private static Stream<Arguments> openFoodFactsSuccessCases() {
+        return Stream.of(
+            Arguments.of(
+                "product_type present",
                 "{\"status\":\"success\",\"product\":{\"product_type\":\"snack\"}}",
+                "snack"),
+            Arguments.of(
+                "product field missing entirely",
+                "{\"status\":\"success\"}",
+                "food"),
+            Arguments.of(
+                "product present but product_type missing",
+                "{\"status\":\"success\",\"product\":{}}",
+                "food"),
+            Arguments.of(
+                "legacy numeric success status",
+                "{\"status\":\"1\",\"product\":{\"product_type\":\"snack\"}}",
+                "snack")
+        );
+    }
+
+    @Test
+    void openFoodFactsEmptyBodyFallsThroughToEanSearch() {
+        ClientHarness harness = clientHarness();
+        harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
+            .andRespond(withSuccess());
+        harness.eanServer().expect(once(), requestTo(eanUrl(BARCODE)))
+            .andRespond(withSuccess(
+                "[{\"name\":\"Fruit drink\",\"categoryName\":\"Food\"}]",
                 MediaType.APPLICATION_JSON
             ));
 
         ValidationResponse response = harness.client().validateProduct(BARCODE);
 
         assertTrue(response.validFood());
-        assertEquals("snack", response.category());
         harness.verify();
     }
 
     @Test
-    void keepsEanSearchFallbackValidationBehavior() {
+    void eanSearchEmptyBodyYieldsNotFound() {
         ClientHarness harness = clientHarness();
         harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
             .andRespond(withSuccess("{\"status\":\"failure\"}", MediaType.APPLICATION_JSON));
-        harness.eanServer().expect(once(), requestTo(
-                "https://ean.test/api?token=test-token&op=barcode-lookup&format=json&ean=" + BARCODE
-            ))
+        harness.eanServer().expect(once(), requestTo(eanUrl(BARCODE)))
+            .andRespond(withSuccess());
+
+        ValidationResponse response = harness.client().validateProduct(BARCODE);
+
+        assertFalse(response.validFood());
+        assertEquals("Product not found in any database.", response.message());
+        harness.verify();
+    }
+
+    @ParameterizedTest(name = "[{index}] {0}")
+    @MethodSource("eanSearchInterpretationCases")
+    void eanSearchInterpretsFallbackResponse(
+            String description,
+            String eanResponseJson,
+            boolean expectedValidFood,
+            String expectedCategory,
+            String expectedMessage) {
+        ClientHarness harness = clientHarness();
+        harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
             .andExpect(method(GET))
-            .andRespond(withSuccess(
+            .andRespond(withSuccess("{\"status\":\"failure\"}", MediaType.APPLICATION_JSON));
+        harness.eanServer().expect(once(), requestTo(eanUrl(BARCODE)))
+            .andExpect(method(GET))
+            .andRespond(withSuccess(eanResponseJson, MediaType.APPLICATION_JSON));
+
+        ValidationResponse response = harness.client().validateProduct(BARCODE);
+
+        assertEquals(expectedValidFood, response.validFood());
+        if (expectedCategory != null) {
+            assertEquals(expectedCategory, response.category());
+        }
+        if (expectedMessage != null) {
+            assertEquals(expectedMessage, response.message());
+        }
+        harness.verify();
+    }
+
+    private static Stream<Arguments> eanSearchInterpretationCases() {
+        return Stream.of(
+            Arguments.of(
+                "item has an error field",
+                "[{\"error\":\"Not found\"}]",
+                false, "Unknown", "Product not found in fallback database."),
+            Arguments.of(
+                "non-consumable item is rejected",
+                "[{\"name\":\"Kitchen sponge\",\"categoryName\":\"Household\"}]",
+                false, "household", "Error: Scanned item is a non-consumable product."),
+            Arguments.of(
+                "food matched via combined food/grocery category",
                 "[{\"name\":\"Fruit drink\",\"categoryName\":\"Food and grocery\"}]",
+                true, "food and grocery", null),
+            Arguments.of(
+                "food matched via grocery category keyword alone",
+                "[{\"name\":\"Random gadget\",\"categoryName\":\"Grocery items\"}]",
+                true, null, null),
+            Arguments.of(
+                "food matched via snack name keyword when category is unhelpful",
+                "[{\"name\":\"Choc chip snack bar\",\"categoryName\":\"Miscellaneous\"}]",
+                true, "miscellaneous", null),
+            Arguments.of(
+                "food matched via drink name keyword alone",
+                "[{\"name\":\"Sports drink\",\"categoryName\":\"Electronics\"}]",
+                true, null, null),
+            Arguments.of(
+                "food matched via beverage name keyword alone",
+                "[{\"name\":\"Refreshing beverage\",\"categoryName\":\"Electronics\"}]",
+                true, null, null),
+            Arguments.of(
+                "empty result array is treated as not found",
+                "[]",
+                false, "Unknown", "Product not found in any database."),
+            Arguments.of(
+                "non-array response is treated as not found",
+                "{}",
+                false, null, "Product not found in any database.")
+        );
+    }
+
+    @Test
+    void openFoodFactsMissingStatusFieldFallsThroughToEanSearch() {
+        ClientHarness harness = clientHarness();
+        harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
+            .andRespond(withSuccess("{\"product\":{}}", MediaType.APPLICATION_JSON));
+        harness.eanServer().expect(once(), requestTo(eanUrl(BARCODE)))
+            .andRespond(withSuccess(
+                "[{\"name\":\"Fruit drink\",\"categoryName\":\"Food\"}]",
                 MediaType.APPLICATION_JSON
             ));
 
         ValidationResponse response = harness.client().validateProduct(BARCODE);
 
         assertTrue(response.validFood());
-        assertEquals("food and grocery", response.category());
+        harness.verify();
+    }
+
+    @Test
+    void openFoodFactsNetworkFailureDuringValidationFallsThroughToEanSearch() {
+        ClientHarness harness = clientHarness();
+        harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
+            .andRespond(withException(new IOException("connection reset")));
+        harness.eanServer().expect(once(), requestTo(eanUrl(BARCODE)))
+            .andRespond(withSuccess(
+                "[{\"name\":\"Fruit drink\",\"categoryName\":\"Food\"}]",
+                MediaType.APPLICATION_JSON
+            ));
+
+        ValidationResponse response = harness.client().validateProduct(BARCODE);
+
+        assertTrue(response.validFood());
+        harness.verify();
+    }
+
+    @Test
+    void eanSearchNetworkFailureDuringValidationYieldsNotFound() {
+        ClientHarness harness = clientHarness();
+        harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
+            .andRespond(withSuccess("{\"status\":\"failure\"}", MediaType.APPLICATION_JSON));
+        harness.eanServer().expect(once(), requestTo(eanUrl(BARCODE)))
+            .andRespond(withException(new IOException("connection reset")));
+
+        ValidationResponse response = harness.client().validateProduct(BARCODE);
+
+        assertFalse(response.validFood());
+        assertEquals("Product not found in any database.", response.message());
         harness.verify();
     }
 
@@ -182,11 +336,12 @@ class BarcodeValidationClientTest {
     @Test
     void rejectsNullBlankAndNonNumericBarcodesForFullFetch() {
         ClientHarness harness = clientHarness();
+        BarcodeValidationClient client = harness.client();
 
         for (String barcode : new String[] {null, "  ", "not-a-barcode"}) {
             ProductLookupException exception = assertThrows(
                 ProductLookupException.class,
-                () -> harness.client().fetchProduct(barcode)
+                () -> client.fetchProduct(barcode)
             );
             assertEquals(ProductLookupException.Reason.INVALID_BARCODE, exception.reason());
         }
@@ -230,7 +385,7 @@ class BarcodeValidationClientTest {
         ProductLookupResult result = harness.client().fetchProduct(BARCODE);
 
         List<String> names = result.ingredients().stream()
-            .map(ingredient -> ingredient.ingredientName())
+            .map(Ingredient::ingredientName)
             .toList();
         // "Cereals Grains" is a compound wrapper; its nested leaves (incl. the Wheat allergen
         // source) must surface instead of being hidden inside the parent.
@@ -260,14 +415,78 @@ class BarcodeValidationClientTest {
     }
 
     @Test
+    void ignoresNullElementsInsideIngredientsArray() {
+        ClientHarness harness = clientHarness();
+        harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
+            .andRespond(withSuccess(
+                """
+                {
+                  "status": "success",
+                  "product": {
+                    "product_name": "Sparse Product",
+                    "product_type": "food",
+                    "ingredients_text": "Sugar",
+                    "ingredients": [null, {"id": "en:sugar", "text": "Sugar"}],
+                    "labels_tags": [],
+                    "traces_tags": [],
+                    "nutriments": {}
+                  }
+                }
+                """,
+                MediaType.APPLICATION_JSON
+            ));
+
+        ProductLookupResult result = harness.client().fetchProduct(BARCODE);
+
+        assertEquals(1, result.ingredients().size());
+        assertEquals("Sugar", result.ingredients().get(0).ingredientName());
+        harness.verify();
+    }
+
+    @Test
+    void ignoresUnmappedAllergenTagsAndDeduplicatesRepeatedRoots() {
+        ClientHarness harness = clientHarness();
+        harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
+            .andRespond(withSuccess(
+                """
+                {
+                  "status": "success",
+                  "product": {
+                    "product_name": "Mixed Allergen Product",
+                    "product_type": "food",
+                    "ingredients_text": "Peanuts",
+                    "ingredients": [{"id": "en:peanut", "text": "Peanuts"}],
+                    "labels_tags": [],
+                    "allergens_tags": ["en:mustard", "en:peanuts", "en:peanuts"],
+                    "traces_tags": [],
+                    "nutriments": {}
+                  }
+                }
+                """,
+                MediaType.APPLICATION_JSON
+            ));
+
+        ProductLookupResult result = harness.client().fetchProduct(BARCODE);
+
+        long peanutTagRows = result.ingredients().stream()
+            .filter(ingredient -> "PEANUT".equals(ingredient.rootAllergen()))
+            .count();
+        // The unmapped "en:mustard" tag contributes no row, and the repeated "en:peanuts" tag is
+        // deduplicated by root, so only a single declared-allergen row is added for PEANUT.
+        assertEquals(1, peanutTagRows);
+        harness.verify();
+    }
+
+    @Test
     void classifiesProductNotFound() {
         ClientHarness harness = clientHarness();
+        BarcodeValidationClient client = harness.client();
         harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
             .andRespond(withResourceNotFound());
 
         ProductLookupException exception = assertThrows(
             ProductLookupException.class,
-            () -> harness.client().fetchProduct(BARCODE)
+            () -> client.fetchProduct(BARCODE)
         );
 
         assertEquals(ProductLookupException.Reason.PRODUCT_NOT_FOUND, exception.reason());
@@ -277,12 +496,13 @@ class BarcodeValidationClientTest {
     @Test
     void classifiesMalformedProviderResponse() {
         ClientHarness harness = clientHarness();
+        BarcodeValidationClient client = harness.client();
         harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
             .andRespond(withSuccess("{not-json", MediaType.APPLICATION_JSON));
 
         ProductLookupException exception = assertThrows(
             ProductLookupException.class,
-            () -> harness.client().fetchProduct(BARCODE)
+            () -> client.fetchProduct(BARCODE)
         );
 
         assertEquals(ProductLookupException.Reason.MALFORMED_RESPONSE, exception.reason());
@@ -293,12 +513,13 @@ class BarcodeValidationClientTest {
     @Test
     void classifiesMissingProductAsMalformedResponse() {
         ClientHarness harness = clientHarness();
+        BarcodeValidationClient client = harness.client();
         harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
             .andRespond(withSuccess("{\"status\":\"success\"}", MediaType.APPLICATION_JSON));
 
         ProductLookupException exception = assertThrows(
             ProductLookupException.class,
-            () -> harness.client().fetchProduct(BARCODE)
+            () -> client.fetchProduct(BARCODE)
         );
 
         assertEquals(ProductLookupException.Reason.MALFORMED_RESPONSE, exception.reason());
@@ -308,12 +529,13 @@ class BarcodeValidationClientTest {
     @Test
     void classifiesNetworkFailureAsTransient() {
         ClientHarness harness = clientHarness();
+        BarcodeValidationClient client = harness.client();
         harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
             .andRespond(withException(new IOException("connection reset")));
 
         ProductLookupException exception = assertThrows(
             ProductLookupException.class,
-            () -> harness.client().fetchProduct(BARCODE)
+            () -> client.fetchProduct(BARCODE)
         );
 
         assertEquals(ProductLookupException.Reason.TRANSIENT_FAILURE, exception.reason());
@@ -329,12 +551,13 @@ class BarcodeValidationClientTest {
                 throw new AssertionError("Non-retryable failure must not back off.");
             }
         );
+        BarcodeValidationClient client = harness.client();
         harness.offServer().expect(once(), requestTo(offUrl(BARCODE)))
             .andRespond(withStatus(HttpStatus.BAD_REQUEST));
 
         ProductLookupException exception = assertThrows(
             ProductLookupException.class,
-            () -> harness.client().fetchProduct(BARCODE)
+            () -> client.fetchProduct(BARCODE)
         );
 
         assertEquals(ProductLookupException.Reason.PROVIDER_FAILURE, exception.reason());
@@ -346,12 +569,13 @@ class BarcodeValidationClientTest {
     void boundsTimeoutRetriesAndAppliesConfiguredBackoff() {
         List<Long> delays = new ArrayList<>();
         ClientHarness harness = clientHarness(3, 250, delays::add);
+        BarcodeValidationClient client = harness.client();
         harness.offServer().expect(times(3), requestTo(offUrl(BARCODE)))
             .andRespond(withException(new SocketTimeoutException("timed out")));
 
         ProductLookupException exception = assertThrows(
             ProductLookupException.class,
-            () -> harness.client().fetchProduct(BARCODE)
+            () -> client.fetchProduct(BARCODE)
         );
 
         assertEquals(ProductLookupException.Reason.TIMEOUT, exception.reason());

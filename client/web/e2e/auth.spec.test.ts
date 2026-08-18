@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Route } from '@playwright/test';
 
 /**
  * CMK-55 Playwright authentication and route guarding tests for CanMakan web application.
@@ -6,10 +6,13 @@ import { test, expect } from '@playwright/test';
  * as expected, ensuring that users are properly redirected based on their authentication status.
 **/
 
+/** Personal home greeting: "Good morning/afternoon/evening, {name}." */
+const personalHomeHeading = /Good (morning|afternoon|evening),/i
+
 test.describe('Authentication and Route Guarding', () => {
 
-  async function mockAuthenticatedUser(page) {
-    await page.route('**/api/auth/refresh', route => {
+  async function mockAuthenticatedUser(page: Page) {
+    await page.route('**/api/auth/refresh', (route: Route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -22,7 +25,7 @@ test.describe('Authentication and Route Guarding', () => {
       });
     });
 
-    await page.route('**/api/auth/me', route => {
+    await page.route('**/api/auth/me', (route: Route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -30,7 +33,7 @@ test.describe('Authentication and Route Guarding', () => {
       });
     });
 
-    await page.route('**/api/families/me', route => {
+    await page.route('**/api/families/me', (route: Route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -44,7 +47,7 @@ test.describe('Authentication and Route Guarding', () => {
       });
     });
 
-    await page.route('**/api/families/me/members', route => {
+    await page.route('**/api/families/me/members', (route: Route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -54,7 +57,6 @@ test.describe('Authentication and Route Guarding', () => {
             profileId: 1,
             profileName: 'David Lim',
             relationship: 'SELF',
-            ageGroup: 'ADULT',
             commonRequirements: [],
             restrictions: [],
             source: 'REGISTERED_USER',
@@ -65,7 +67,7 @@ test.describe('Authentication and Route Guarding', () => {
       });
     });
 
-    await page.route('**/api/families/me/active-profile', route => {
+    await page.route('**/api/families/me/active-profile', (route: Route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -73,7 +75,7 @@ test.describe('Authentication and Route Guarding', () => {
       });
     });
 
-    await page.route('**/api/families/me/scans', route => {
+    await page.route('**/api/families/me/scans', (route: Route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -81,11 +83,11 @@ test.describe('Authentication and Route Guarding', () => {
       });
     });
 
-    await page.route('**/api/restrictions', route => {
+    await page.route('**/api/restrictions', (route: Route) => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
 
-    await page.route('**/api/profiles/me', route => {
+    await page.route('**/api/profiles/me', (route: Route) => {
       route.fulfill({
         status: 404,
         contentType: 'application/json',
@@ -152,7 +154,7 @@ test.describe('Authentication and Route Guarding', () => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([{ memberId: 1, profileId: 1, profileName: 'David Lim', relationship: 'SELF', ageGroup: 'ADULT', commonRequirements: [], restrictions: [], source: 'REGISTERED_USER', profileActive: true, memberRole: 'PRIMARY_ADMIN' }])
+        body: JSON.stringify([{ memberId: 1, profileId: 1, profileName: 'David Lim', relationship: 'SELF', commonRequirements: [], restrictions: [], source: 'REGISTERED_USER', profileActive: true, memberRole: 'PRIMARY_ADMIN' }])
       });
     });
 
@@ -194,7 +196,8 @@ test.describe('Authentication and Route Guarding', () => {
     await page.click('button[type="submit"]');
 
     // 5. Verify successful entry into the portal
-    await expect(page.getByRole('heading', { name: 'Your CanMakan account' })).toBeVisible({ timeout: 15000 });
+    await expect(page).toHaveURL(/\/me(?:\/)?(?:\?|$)/, { timeout: 15000 });
+    await expect(page.getByRole('heading', { name: personalHomeHeading })).toBeVisible({ timeout: 15000 });
   });
 
   test('Sign Out Clears Session and Redirects to Login', async ({ page }) => {
@@ -202,7 +205,7 @@ test.describe('Authentication and Route Guarding', () => {
     await page.route('**/api/auth/logout', route => route.fulfill({ status: 200 }));
 
     await page.goto('/me');
-    await expect(page.getByRole('heading', { name: 'Your CanMakan account' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: personalHomeHeading })).toBeVisible({ timeout: 15000 });
 
     const openNavigation = page.getByRole('button', { name: 'Open navigation' })
     if (await openNavigation.isVisible()) {
@@ -224,11 +227,11 @@ test.describe('Authentication and Route Guarding', () => {
     await mockAuthenticatedUser(page);
 
     await page.goto('/me');
-    await expect(page.getByRole('heading', { name: 'Your CanMakan account' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: personalHomeHeading })).toBeVisible({ timeout: 15000 });
     
     await page.reload();
     
     await expect(page).toHaveURL(/.*\/me/);
-    await expect(page.getByRole('heading', { name: 'Your CanMakan account' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: personalHomeHeading })).toBeVisible({ timeout: 15000 });
   });
 });

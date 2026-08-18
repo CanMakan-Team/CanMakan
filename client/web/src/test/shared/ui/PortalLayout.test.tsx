@@ -43,6 +43,7 @@ function renderSystemPortal() {
 
 describe('PortalLayout navigation', () => {
   beforeEach(() => {
+    localStorage.removeItem('canmakan.portal.nav-open')
     window.matchMedia = ((query: string) =>
       ({
         matches: false,
@@ -66,6 +67,9 @@ describe('PortalLayout navigation', () => {
 
     expect(screen.getByRole('navigation', { name: 'System Administration navigation' }))
       .toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Future Features/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'System Health' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Open navigation' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Hide navigation' }))
     expect(screen.getByRole('button', { name: 'Open navigation' })).toBeInTheDocument()
@@ -86,6 +90,25 @@ describe('PortalLayout navigation', () => {
     unmount()
 
     renderSystemPortal()
+    expect(screen.getByRole('button', { name: 'Open navigation' })).toBeInTheDocument()
+    expect(document.getElementById('portal-sidebar')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('starts closed on compact viewports so the page title stays visible', () => {
+    window.matchMedia = ((query: string) =>
+      ({
+        matches: query.includes('1100px'),
+        media: query,
+        onchange: null,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        dispatchEvent: () => false,
+      }) as MediaQueryList) as typeof window.matchMedia
+
+    renderSystemPortal()
+
     expect(screen.getByRole('button', { name: 'Open navigation' })).toBeInTheDocument()
     expect(document.getElementById('portal-sidebar')).toHaveAttribute('aria-hidden', 'true')
   })

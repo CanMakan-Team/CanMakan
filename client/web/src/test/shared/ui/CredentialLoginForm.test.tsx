@@ -4,9 +4,9 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CredentialLoginForm } from '../../../shared/ui/CredentialLoginForm'
 import { SessionProvider } from '../../../features/auth/SessionProvider'
-import { authService } from '../../../features/auth/authService'
-import { authSessionStore } from '../../../features/auth/authSessionStore'
-import { pendingRegistrationOnboardingStore } from '../../../features/auth/pendingRegistrationOnboardingStore'
+import { authService } from '../../../features/auth/api/authService'
+import { authSessionStore } from '../../../features/auth/lib/authSessionStore'
+import { pendingRegistrationOnboardingStore } from '../../../features/auth/lib/pendingRegistrationOnboardingStore'
 import { familyApiService } from '../../../features/family/api/familyApiService'
 import { ApiError } from '../../../shared/api/apiErrors'
 
@@ -15,7 +15,7 @@ import { ApiError } from '../../../shared/api/apiErrors'
  * @author Amelia
  */
   
-vi.mock('../../../features/auth/authService', () => ({
+vi.mock('../../../features/auth/api/authService', () => ({
   authService: {
     loginWithCredentials: vi.fn(),
     register: vi.fn(),

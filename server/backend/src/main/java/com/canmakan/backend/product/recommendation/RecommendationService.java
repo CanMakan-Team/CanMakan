@@ -1,18 +1,35 @@
 package com.canmakan.backend.product.recommendation;
 
+import com.canmakan.backend.product.recommendation.catalog.AlternativeProductQueryService;
+import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
+import com.canmakan.backend.product.recommendation.catalog.CatalogProductMapper;
+import com.canmakan.backend.product.recommendation.discovery.MatchProvenance;
+import com.canmakan.backend.product.recommendation.discovery.RecommendationDiscoveryTier;
+import com.canmakan.backend.product.recommendation.dto.AlternativeProductDto;
+import com.canmakan.backend.product.recommendation.dto.AlternativeProductResponse;
+import com.canmakan.backend.product.recommendation.dto.RecommendationRequest;
+import com.canmakan.backend.product.recommendation.filter.AlternativeCandidateFilter;
+import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfile;
+import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfiles;
+import com.canmakan.backend.product.recommendation.history.RecommendationDataQuality;
+import com.canmakan.backend.product.recommendation.history.RecommendationLogEntry;
+import com.canmakan.backend.product.recommendation.history.RecommendationLogService;
+import com.canmakan.backend.product.recommendation.ranking.AlternativeProductRanker;
+import com.canmakan.backend.product.recommendation.ranking.MlContentBasedRanker;
+import com.canmakan.backend.product.recommendation.ranking.MlSparseCatalogRecommender;
+import com.canmakan.backend.product.recommendation.ranking.PythonTfidfRankClient;
+import com.canmakan.backend.product.recommendation.ranking.PythonTfidfRankClientException;
 import com.canmakan.backend.dietaryprofile.service.RestrictionRuleLoader;
 import com.canmakan.backend.product.scan.ScanRepository;
 import com.canmakan.backend.product.verdict.DietaryRuleEngine;
 import com.canmakan.backend.product.verdict.ProductData;
 import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
-import com.canmakan.backend.product.scan.Scan;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -45,11 +62,7 @@ public class RecommendationService {
     private boolean mlRecommendationEnabled;
 
 	private Set<String> loadPriorSafeBarcodes(Long profileId) {
-	    return scanRepository.findByProfileIdOrderByScannedAtDesc(profileId).stream()
-	        .filter(s -> "SAFE".equals(s.getVerdict()))
-	        .map(Scan::getBarcode)
-	        .filter(Objects::nonNull)
-	        .collect(Collectors.toSet());
+	    return scanRepository.findDistinctSafeBarcodesByProfileId(profileId);
 	}
 	public AlternativeProductResponse recommend(RecommendationRequest request) {
 	    // --- validate input ---
@@ -107,7 +120,7 @@ public class RecommendationService {
 	            substituteProfile = discoveryProfiles.forSourceProduct(source).orElse(null);
 	        }
 	        Set<String> alreadyFound = acceptableCandidates.stream()
-	                .map(CatalogProduct::getBarcode)
+	                .map(product -> product.getBarcode())
 	                .collect(Collectors.toSet());
 	        List<CatalogProduct> mlCandidates =
 	                mlSparseCatalogRecommender.discoverCandidates(source, substituteProfile, alreadyFound);

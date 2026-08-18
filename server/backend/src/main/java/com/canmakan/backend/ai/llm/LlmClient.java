@@ -184,45 +184,52 @@ public class LlmClient {
 
         List<EvidencePayload.ResolvedIngredientEvidence> items = new ArrayList<>();
         for (JsonNode ingredientNode : ingredientsNode) {
-            if (ingredientNode == null || !ingredientNode.isObject()) {
-                throw invalidProviderOutput();
-            }
-
-            JsonNode nameNode = ingredientNode.get("ingredientName");
-            JsonNode rootAllergenNode = ingredientNode.get("rootAllergen");
-            JsonNode confidenceNode = ingredientNode.get("confidence");
-            if (nameNode == null || !nameNode.isTextual()
-                    || rootAllergenNode == null
-                    || confidenceNode == null || !confidenceNode.isNumber()) {
-                throw invalidProviderOutput();
-            }
-
-            String rootAllergen;
-            if (rootAllergenNode.isNull()) {
-                rootAllergen = null;
-            } else if (rootAllergenNode.isTextual()) {
-                rootAllergen = rootAllergenNode.textValue();
-            } else {
-                throw invalidProviderOutput();
-            }
-
-            items.add(new EvidencePayload.ResolvedIngredientEvidence(
-                    nameNode.textValue(),
-                    rootAllergen,
-                    confidenceNode.doubleValue()
-            ));
+            items.add(parseIngredientEvidence(ingredientNode));
         }
 
+        return new EvidencePayload(List.copyOf(items), parseAnalysisNotes(root));
+    }
+
+    private EvidencePayload.ResolvedIngredientEvidence parseIngredientEvidence(JsonNode ingredientNode) {
+        if (ingredientNode == null || !ingredientNode.isObject()) {
+            throw invalidProviderOutput();
+        }
+
+        JsonNode nameNode = ingredientNode.get("ingredientName");
+        JsonNode rootAllergenNode = ingredientNode.get("rootAllergen");
+        JsonNode confidenceNode = ingredientNode.get("confidence");
+        if (nameNode == null || !nameNode.isTextual()
+                || rootAllergenNode == null
+                || confidenceNode == null || !confidenceNode.isNumber()) {
+            throw invalidProviderOutput();
+        }
+
+        return new EvidencePayload.ResolvedIngredientEvidence(
+                nameNode.textValue(),
+                parseRootAllergen(rootAllergenNode),
+                confidenceNode.doubleValue()
+        );
+    }
+
+    private String parseRootAllergen(JsonNode rootAllergenNode) {
+        if (rootAllergenNode.isNull()) {
+            return null;
+        }
+        if (rootAllergenNode.isTextual()) {
+            return rootAllergenNode.textValue();
+        }
+        throw invalidProviderOutput();
+    }
+
+    private String parseAnalysisNotes(JsonNode root) {
         JsonNode notesNode = root.get("analysisNotes");
-        String notes = "";
-        if (notesNode != null && !notesNode.isNull()) {
-            if (!notesNode.isTextual()) {
-                throw invalidProviderOutput();
-            }
-            notes = notesNode.textValue();
+        if (notesNode == null || notesNode.isNull()) {
+            return "";
         }
-
-        return new EvidencePayload(List.copyOf(items), notes);
+        if (!notesNode.isTextual()) {
+            throw invalidProviderOutput();
+        }
+        return notesNode.textValue();
     }
 
     private List<ResolvedIngredient> toResolvedIngredients(EvidencePayload evidence) {
@@ -302,10 +309,11 @@ public class LlmClient {
     }
 
     private static String textFromChatResponse(ChatResponse response) {
-        if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
+        if (response == null) {
             return null;
         }
-        return response.getResult().getOutput().getText();
+        Generation result = response.getResult();
+        return result == null ? null : result.getOutput().getText();
     }
 
     private String serializeEvidenceOrRaw(EvidencePayload evidence, String rawContent) {

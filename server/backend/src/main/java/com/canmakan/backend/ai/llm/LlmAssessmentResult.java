@@ -22,10 +22,13 @@ public record LlmAssessmentResult(
         String rawResponse
 ) {
 
-    private static final Pattern SENSITIVE_CONTENT = Pattern.compile(
-            "(?i)(authorization\\s*[:=]|bearer\\s+|api[_ -]?key\\s*[:=]"
-                    + "|token\\s*[:=]|secret\\s*[:=])"
+    // Split into two simpler patterns (each with a single shared quantifier per branch) instead of
+    // one five-way alternation repeating "\s*[:=]" per branch, which pushed the combined regex past
+    // SonarQube's complexity threshold. Behavior is unchanged: either pattern matching is a rejection.
+    private static final Pattern SENSITIVE_KEY_VALUE = Pattern.compile(
+            "(?i)(authorization|api[_ -]?key|token|secret)\\s*[:=]"
     );
+    private static final Pattern BEARER_TOKEN = Pattern.compile("(?i)bearer\\s+");
 
     public LlmAssessmentResult {
         resolvedIngredients = List.copyOf(
@@ -33,7 +36,8 @@ public record LlmAssessmentResult(
         );
         analysisNotes = analysisNotes == null ? "" : analysisNotes;
 
-        if (SENSITIVE_CONTENT.matcher(analysisNotes).find()) {
+        if (SENSITIVE_KEY_VALUE.matcher(analysisNotes).find()
+                || BEARER_TOKEN.matcher(analysisNotes).find()) {
             throw new IllegalArgumentException(
                     "analysisNotes must not contain sensitive credentials"
             );

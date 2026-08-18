@@ -5,9 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.canmakan.backend.auth.dto.RegistrationRequest;
 import com.canmakan.backend.auth.dto.RegistrationResponse;
+import com.canmakan.backend.auth.service.AuthService;
 import com.canmakan.backend.dietaryprofile.repository.DietaryProfileRepository;
-import com.canmakan.backend.user.UserAccount;
-import com.canmakan.backend.user.UserAccountRepository;
+import com.canmakan.backend.user.model.UserAccount;
+import com.canmakan.backend.user.repository.UserAccountRepository;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;

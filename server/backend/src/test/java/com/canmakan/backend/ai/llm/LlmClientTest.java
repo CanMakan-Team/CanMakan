@@ -26,9 +26,11 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 
 /**
  * Tests evidence parsing through a mocked Spring AI ChatClient boundary without network access.
@@ -152,6 +154,65 @@ class LlmClientTest {
         );
 
         assertInvalidOutput();
+    }
+
+    @Test
+    void rejectsStructurallyInvalidEvidencePayloads() {
+        List<String> invalidPayloads = List.of(
+                // resolvedIngredients present but not an array
+                "{\"resolvedIngredients\":\"not-an-array\",\"analysisNotes\":\"\"}",
+                // array element present but not an object
+                "{\"resolvedIngredients\":[\"not-an-object\"],\"analysisNotes\":\"\"}",
+                // ingredientName key missing entirely
+                "{\"resolvedIngredients\":[{\"rootAllergen\":null,\"confidence\":0.5}],"
+                        + "\"analysisNotes\":\"\"}",
+                // ingredientName present but not textual
+                "{\"resolvedIngredients\":[{\"ingredientName\":1,\"rootAllergen\":null,"
+                        + "\"confidence\":0.5}],\"analysisNotes\":\"\"}",
+                // rootAllergen key missing entirely (distinct from an explicit JSON null)
+                "{\"resolvedIngredients\":[{\"ingredientName\":\"A\",\"confidence\":0.5}],"
+                        + "\"analysisNotes\":\"\"}",
+                // confidence key missing entirely (distinct from a non-numeric value)
+                "{\"resolvedIngredients\":[{\"ingredientName\":\"A\",\"rootAllergen\":null}],"
+                        + "\"analysisNotes\":\"\"}",
+                // rootAllergen present but neither null nor textual
+                "{\"resolvedIngredients\":[{\"ingredientName\":\"A\",\"rootAllergen\":1,"
+                        + "\"confidence\":0.5}],\"analysisNotes\":\"\"}",
+                // analysisNotes present but not textual
+                "{\"resolvedIngredients\":[],\"analysisNotes\":1}"
+        );
+
+        for (String payload : invalidPayloads) {
+            stubResponse(payload, null);
+            assertInvalidOutput();
+        }
+    }
+
+    @Test
+    void treatsMissingOrExplicitNullAnalysisNotesAsEmpty() {
+        stubResponse("{\"resolvedIngredients\":[]}", null);
+        assertEquals("", client.assess(COMPILED_PROMPT).analysisNotes());
+
+        stubResponse("{\"resolvedIngredients\":[],\"analysisNotes\":null}", null);
+        assertEquals("", client.assess(COMPILED_PROMPT).analysisNotes());
+    }
+
+    @Test
+    void fallsBackToChatResponseOutputTextWhenContentAccessorIsBlank() {
+        ChatResponse response = mock(ChatResponse.class);
+        Mockito.lenient().when(response.getMetadata()).thenReturn(null);
+        Generation generation = mock(Generation.class);
+        AssistantMessage message = mock(AssistantMessage.class);
+        when(generation.getOutput()).thenReturn(message);
+        when(message.getText()).thenReturn(validResponse());
+        when(response.getResult()).thenReturn(generation);
+        when(callResponseSpec.content()).thenReturn(null);
+        when(callResponseSpec.chatResponse()).thenReturn(response);
+
+        LlmAssessmentResult result = client.assess(COMPILED_PROMPT);
+
+        assertEquals(1, result.resolvedIngredients().size());
+        verify(chatClient, times(1)).prompt();
     }
 
     @Test

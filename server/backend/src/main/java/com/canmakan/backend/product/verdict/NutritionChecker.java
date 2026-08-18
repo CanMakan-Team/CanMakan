@@ -19,8 +19,11 @@ import org.springframework.stereotype.Component;
 @Component
 public final class NutritionChecker implements RestrictionChecker {
 
+    private static final String CODE_LOW_TRANS_FAT = "LOW_TRANS_FAT";
+    private static final String CODE_LOW_SODIUM = "LOW_SODIUM";
+
     private static final Set<String> SUPPORTED_CODES = Set.of(
-            "LOW_SUGAR", "LOW_FAT", "LOW_TRANS_FAT", "LOW_SODIUM"
+            "LOW_SUGAR", "LOW_FAT", CODE_LOW_TRANS_FAT, CODE_LOW_SODIUM
     );
     private static final BigDecimal LOW_SUGAR_LIMIT = new BigDecimal("5.0");
     private static final BigDecimal LOW_FAT_LIMIT = new BigDecimal("3.0");
@@ -50,9 +53,10 @@ public final class NutritionChecker implements RestrictionChecker {
                     rule.code(), product.nutrition(), Nutrition::fatPer100g,
                     "Total fat", LOW_FAT_LIMIT, hits
             );
-            case "LOW_TRANS_FAT" -> checkTransFat(product.nutrition(), hits);
-            case "LOW_SODIUM" -> checkSodium(product.nutrition(), hits);
+            case CODE_LOW_TRANS_FAT -> checkTransFat(product.nutrition(), hits);
+            case CODE_LOW_SODIUM -> checkSodium(product.nutrition(), hits);
             default -> {
+                // Filtered out by the SUPPORTED_CODES check above; unreachable.
             }
         }
     }
@@ -82,7 +86,7 @@ public final class NutritionChecker implements RestrictionChecker {
     }
 
     private void checkTransFat(Nutrition nutrition, List<Finding> hits) {
-        String code = "LOW_TRANS_FAT";
+        String code = CODE_LOW_TRANS_FAT;
         BigDecimal value = nutrition == null ? null : nutrition.transFatPer100g();
         if (warnIfUncheckable(code, "Trans fat", value, hits)) {
             return;
@@ -100,7 +104,7 @@ public final class NutritionChecker implements RestrictionChecker {
     }
 
     private void checkSodium(Nutrition nutrition, List<Finding> hits) {
-        String code = "LOW_SODIUM";
+        String code = CODE_LOW_SODIUM;
         BigDecimal value = nutrition == null ? null : nutrition.sodiumPer100g();
         if (warnIfUncheckable(code, "Sodium", value, hits)) {
             return;

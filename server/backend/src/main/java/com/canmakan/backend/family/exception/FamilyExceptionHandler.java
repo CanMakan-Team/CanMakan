@@ -3,6 +3,7 @@ package com.canmakan.backend.family.exception;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -25,50 +26,52 @@ import com.canmakan.backend.family.InvitationController;
 @RestControllerAdvice(assignableTypes = {FamilyController.class, InvitationController.class})
 public class FamilyExceptionHandler {
 
+    private static final String MESSAGE_KEY = "message";
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleValidation(MethodArgumentNotValidException ex) {
         String message = "Request validation failed.";
-        if (ex.getBindingResult().getFieldError() != null
-                && ex.getBindingResult().getFieldError().getDefaultMessage() != null) {
-            message = ex.getBindingResult().getFieldError().getDefaultMessage();
+        FieldError fieldError = ex.getBindingResult().getFieldError();
+        if (fieldError != null && fieldError.getDefaultMessage() != null) {
+            message = fieldError.getDefaultMessage();
         }
-        return Map.of("message", message);
+        return Map.of(MESSAGE_KEY, message);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleUnreadable() {
-        return Map.of("message", "Request body is required.");
+        return Map.of(MESSAGE_KEY, "Request body is required.");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleIllegalArgument(IllegalArgumentException ex) {
-        return Map.of("message", ex.getMessage() == null ? "Invalid request." : ex.getMessage());
+        return Map.of(MESSAGE_KEY, ex.getMessage() == null ? "Invalid request." : ex.getMessage());
     }
 
     @ExceptionHandler(AlreadyInFamilyException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public Map<String, String> handleAlreadyInFamily(AlreadyInFamilyException ex) {
-        return Map.of("message", ex.getMessage());
+        return Map.of(MESSAGE_KEY, ex.getMessage());
     }
 
     @ExceptionHandler(InvitationConflictException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public Map<String, String> handleInvitationConflict(InvitationConflictException ex) {
-        return Map.of("message", ex.getMessage());
+        return Map.of(MESSAGE_KEY, ex.getMessage());
     }
 
     @ExceptionHandler(InvitationExpiredException.class)
     @ResponseStatus(HttpStatus.GONE)
     public Map<String, String> handleInvitationExpired(InvitationExpiredException ex) {
-        return Map.of("message", ex.getMessage());
+        return Map.of(MESSAGE_KEY, ex.getMessage());
     }
 
     @ExceptionHandler(InvitationNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Map<String, String> handleInvitationNotFound(InvitationNotFoundException ex) {
-        return Map.of("message", ex.getMessage());
+        return Map.of(MESSAGE_KEY, ex.getMessage());
     }
 }
