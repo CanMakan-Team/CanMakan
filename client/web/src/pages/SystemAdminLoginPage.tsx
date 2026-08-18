@@ -12,9 +12,6 @@ export function SystemAdminLoginPage() {
         >
           <LoginBrand variant="system" />
           <span className="restricted-label">Authorised Staff Only</span>
-          <span className="portal-icon portal-icon--system" aria-hidden="true">
-            ◫
-          </span>
           <p className="eyebrow">System Administration Portal</p>
           <h1 id="system-entry-title">System administrator sign in.</h1>
           <p>
@@ -28,11 +25,8 @@ export function SystemAdminLoginPage() {
           aria-labelledby="system-login-title"
         >
           <p className="eyebrow">System Administration</p>
-          <h2 id="system-login-title">System Administrator sign in</h2>
-          <p>
-            Sign in with an administrator account to review anonymised trends and
-            user access controls.
-          </p>
+          <h2 id="system-login-title">Sign in</h2>
+          <p>Use your administrator account to continue.</p>
           <CredentialLoginForm
             portal="SYSTEM"
             expectedRole="ROLE_SYSTEM_ADMIN"

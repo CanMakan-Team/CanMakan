@@ -18,7 +18,6 @@ export type RegisterAndLoginResult =
 
 /** Session context value
  * 
- * @author Amelia
  */
 export interface SessionContextValue {
   session: AuthenticatedSession | null
