@@ -127,7 +127,7 @@ Pushes to `main` **do not** run this workflow. Web production deploy runs Playwr
 Since continuous dynamic and stress testing disrupt development workflows and exhaust burstable infrastructure credits, they are executed out-of-band against the Staging environment.
 
 - **DAST (OWASP ZAP):** Executes on a nightly cron schedule. It runs two parallel jobs: a Web Baseline scan against the Firebase staging URL, and an OpenAPI scan against the Spring Boot staging URL using an injected test JWT.
-- **Performance (Grafana k6):** Executes on a weekly cron schedule via `.github/scripts/k6-load-test.js`. It simulates a standard user login and data retrieval flow to ensure P95 latency remains below 500ms on the `t3.small` staging instance.
+- **Performance (Grafana k6):** Executes on a weekly cron schedule via `.github/scripts/k6-load-test.js`. Setup logs in once, then each virtual user repeats the scan journey against Staging: restore session (`GET /api/auth/me`, profile, restrictions), `POST /api/scan/assess`, `GET` recommendations, and scan history. Authenticated reads keep a 500ms P95 target on `t3.small`; assess (Open Food Facts + persistence) and recommendations (ranker) use higher tagged SLOs.
 
 
 

@@ -1,97 +1,216 @@
 import http from "k6/http";
-import { check, sleep } from "k6";
+import { check, group, sleep } from "k6";
+import exec from "k6/execution";
 import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/3.0.4/dist/bundle.js";
 import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.2/index.js";
 
 /**
- * @fileoverview This script is designed to be run in a CI/CD pipeline to perform a load test on the CanMakan backend API.
- * It simulates a number of concurrent users making requests to the API and checks that the response times and error rates meet specified thresholds.
+ * Staging load test for the CanMakan scan journey.
+ *
+ * Each virtual user is already authenticated (token from setup) and then
+ * repeats the mobile-style path: restore session, assess a barcode, fetch
+ * alternatives, then load personal scan history.
+ *
+ * POST /api/scan/validate is skipped on purpose. The combined scan path
+ * looks up the product inside assess; calling validate as well would double
+ * Open Food Facts traffic without extra backend coverage.
  *
  * Usage:
- * 1. Set the required environment variables:
- *    - API_BASE_URL: The base URL of the API to test (e.g., https://api.staging.canmakan.space)
- *    - TEST_EMAIL: A valid user email for authentication
- *    - TEST_PASSWORD: The password for the TEST_EMAIL account
- * 2. Run the script using k6:
- *    k6 run .github/scripts/k6-load-test.js
- **/
+ *   API_BASE_URL, TEST_EMAIL, TEST_PASSWORD
+ *   optional TEST_BARCODE (default Nutella, same barcode as backend smoke tests)
+ *   k6 run .github/scripts/k6-load-test.js
+ */
 
-// 1. Configure the test parameters
+const JSON_HEADERS = { "Content-Type": "application/json" };
+const SESSION_HEADER = { "X-CanMakan-Session-Request": "1" };
+
+/* Set options for the load test */
 export const options = {
   stages: [
-    { duration: "30s", target: 20 }, // Ramp-up to 20 concurrent users over 30s
-    { duration: "1m", target: 20 },  // Sustain 20 users for 1 minute
-    { duration: "30s", target: 0 },  // Ramp-down to 0 users
+    { duration: "30s", target: 20 },
+    { duration: "1m", target: 20 },
+    { duration: "30s", target: 0 },
   ],
   thresholds: {
-    // Fails the pipeline if requirements are not met
-    http_req_duration: ["p(95)<500", "p(99)<2000"], // 95% of requests must complete below 500ms
-    http_req_failed: ["rate<0.01"], // Error rate must be less than 1%
+    checks: ["rate>0.99"],
+    http_req_failed: ["rate<0.01"],
+    // Lightweight authenticated reads should stay under the existing 500ms P95.
+    "http_req_duration{name:login}": ["p(95)<500", "p(99)<2000"],
+    "http_req_duration{name:session}": ["p(95)<500", "p(99)<2000"],
+    "http_req_duration{name:profile}": ["p(95)<500", "p(99)<2000"],
+    "http_req_duration{name:restrictions}": ["p(95)<500", "p(99)<2000"],
+    "http_req_duration{name:history}": ["p(95)<500", "p(99)<2000"],
+    // Assess may call Open Food Facts, persist a scan, and sometimes escalate.
+    "http_req_duration{name:assess}": ["p(95)<4000", "p(99)<10000"],
+    // Recommendations may call the Python TF-IDF ranker.
+    "http_req_duration{name:recommendations}": ["p(95)<2000", "p(99)<5000"],
   },
 };
 
-const baseUrl = __ENV.API_BASE_URL || "https://api.staging.canmakan.space";
+const baseUrl = (__ENV.API_BASE_URL || "https://api.staging.canmakan.space").replace(
+  /\/$/,
+  ""
+);
 const testEmail = __ENV.TEST_EMAIL;
 const testPassword = __ENV.TEST_PASSWORD;
+const testBarcode = __ENV.TEST_BARCODE || "9300698500181"; // Nutella
 
-// 2. Define the Virtual User Behavior
-export default function () {
-  // 1. User Login
-  const loginPayload = JSON.stringify({
-    email: testEmail,
-    password: testPassword,
-  });
-
-  const loginRes = http.post(`${baseUrl}/api/auth/login`, loginPayload, {
-    headers: { 
-      'Content-Type': 'application/json',
-      'X-CanMakan-Session-Request': '1'
-    },
-  });
-
-  check(loginRes, {
-    "Login Successful (Status 200)": (r) => r.status === 200,
-  });
-
-  let token;
-  try {
-    // Adjust 'token' based on the API's actual JSON response key
-    token = loginRes.json("accessToken");
-  } catch (e) {
-    // Proceed safely if token parsing fails
-  }
-
-  // Simulate Human Think Time before the Next Action
-  sleep(1 + Math.random() * 2);
-
-  // 2. Data Retrieval
-  if (token) {
-    const dataRes = http.get(`${baseUrl}/api/profiles/me`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    check(dataRes, {
-      "Data Retrieval Successful (Status 200)": (r) => r.status === 200,
-    });
-  }
-
-  // Simulate Human Think Time before the Next Iteration
-  sleep(1 + Math.random() * 2);
+/* Helper functions */
+function authHeaders(token) {
+  return {
+    ...JSON_HEADERS,
+    Authorization: `Bearer ${token}`,
+  };
 }
 
-// 3. Generate an HTML Report
+function jsonField(response, path) {
+  try {
+    return response.json(path);
+  } catch (e) {
+    return undefined;
+  }
+}
+
+/** Stagger think-time from VU id and iteration; not used for secrets or tokens. */
+function thinkSeconds(minSeconds, extraSeconds) {
+  const mix = exec.vu.idInTest * 31 + exec.scenario.iterationInInstance;
+  return minSeconds + extraSeconds * ((mix % 1000) / 1000);
+}
+
+/* 1. Login POST request */
+function login() {
+  return http.post(
+    `${baseUrl}/api/auth/login`,
+    JSON.stringify({
+      email: testEmail,
+      password: testPassword,
+    }),
+    {
+      headers: { ...JSON_HEADERS, ...SESSION_HEADER },
+      tags: { name: "login" },
+    }
+  );
+}
+/* 2. Setup journey */
+export function setup() {
+  if (!testEmail || !testPassword) {
+    exec.test.abort("TEST_EMAIL and TEST_PASSWORD must be set");
+  }
+
+  const loginRes = login();
+  const loginOk = check(loginRes, {
+    "setup: login returns 200": (r) => r.status === 200,
+  });
+  const token = jsonField(loginRes, "accessToken");
+  if (!loginOk || !token) {
+    exec.test.abort(`login failed with HTTP ${loginRes.status}`);
+  }
+
+  const profileRes = http.get(`${baseUrl}/api/profiles/me`, {
+    headers: authHeaders(token),
+    tags: { name: "profile" },
+  });
+  const profileOk = check(profileRes, {
+    "setup: profile returns 200": (r) => r.status === 200,
+  });
+  const profileId = jsonField(profileRes, "profileId");
+  if (!profileOk || profileId === undefined || profileId === null) {
+    exec.test.abort(`GET /api/profiles/me failed with HTTP ${profileRes.status}`);
+  }
+
+  return { token, profileId };
+}
+
+/* 3. Scan journey */
+export default function scanJourney(data) {
+  const token = data.token;
+  const profileId = data.profileId;
+  const headers = authHeaders(token);
+
+  group("restore session", function () {
+    const meRes = http.get(`${baseUrl}/api/auth/me`, {
+      headers,
+      tags: { name: "session" },
+    });
+    check(meRes, {
+      "GET /api/auth/me is 200": (r) => r.status === 200,
+    });
+
+    const profileRes = http.get(`${baseUrl}/api/profiles/me`, {
+      headers,
+      tags: { name: "profile" },
+    });
+    check(profileRes, {
+      "GET /api/profiles/me is 200": (r) => r.status === 200,
+    });
+
+    const restrictionsRes = http.get(
+      `${baseUrl}/api/profiles/${profileId}/restrictions`,
+      {
+        headers,
+        tags: { name: "restrictions" },
+      }
+    );
+    check(restrictionsRes, {
+      "GET profile restrictions is 200": (r) => r.status === 200,
+    });
+  });
+
+  sleep(thinkSeconds(0.5, 1));
+
+  group("scan product", function () {
+    const assessRes = http.post(
+      `${baseUrl}/api/scan/assess`,
+      JSON.stringify({
+        barcode: testBarcode,
+        profileId,
+      }),
+      {
+        headers,
+        tags: { name: "assess" },
+      }
+    );
+
+    const verdict = jsonField(assessRes, "verdict");
+    const scanId = jsonField(assessRes, "scanId");
+    check(assessRes, {
+      "POST /api/scan/assess is 200": (r) => r.status === 200,
+      "assess returns a verdict": () =>
+        verdict === "SAFE" || verdict === "WARNING" || verdict === "UNSAFE",
+    });
+
+    const recParams = [`sourceBarcode=${encodeURIComponent(testBarcode)}`];
+    if (scanId !== undefined && scanId !== null) {
+      recParams.push(`scanId=${encodeURIComponent(String(scanId))}`);
+    }
+    const recRes = http.get(
+      `${baseUrl}/api/profiles/${profileId}/recommendations?${recParams.join("&")}`,
+      {
+        headers,
+        tags: { name: "recommendations" },
+      }
+    );
+    check(recRes, {
+      "GET recommendations is 200": (r) => r.status === 200,
+    });
+
+    const historyRes = http.get(`${baseUrl}/api/scan/history/${profileId}`, {
+      headers,
+      tags: { name: "history" },
+    });
+    check(historyRes, {
+      "GET scan history is 200": (r) => r.status === 200,
+    });
+  });
+
+  sleep(thinkSeconds(1, 2));
+}
+
+/* 4. Handle summary */
 export function handleSummary(data) {
   return {
-    // 1. Generates the interactive HTML dashboard
     "summary.html": htmlReport(data),
-
-    // 2. Generates the markdown summary for GitHub Actions UI
     "github_summary.md": `### 📊 k6 Load Test Summary\n\`\`\`\n${textSummary(data, { indent: " ", enableColors: false })}\n\`\`\``,
-
-    // 3. Generates the JSON summary file
     "summary.json": JSON.stringify(data, null, 2),
   };
 }
