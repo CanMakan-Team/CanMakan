@@ -164,6 +164,50 @@ class FamilyProfileRepositoryTest {
     }
 
     @Test
+    fun restrictionSummaryReturnsBodyOnSuccess() = runBlocking {
+        val expected = FamilyRestrictionSumRes(familyMembers = emptyList())
+        val repository = FamilyProfileRepository(
+            FakeFamilyProfileApiService(summaryResponse = Response.success(expected)),
+        )
+        assertEquals(expected, repository.getFamilyRestrictionSummary())
+    }
+
+    @Test
+    fun restrictionSummaryThrowsOnErrorAndEmptyBody() {
+        val invalidJson = FamilyProfileRepository(
+            FakeFamilyProfileApiService(
+                summaryResponse = Response.error(500, "not-json".toResponseBody("application/json".toMediaType())),
+            ),
+        )
+        val invalid = assertThrows(FamilyApiException::class.java) {
+            runBlocking { invalidJson.getFamilyRestrictionSummary() }
+        }
+        assertEquals("Could not create family circle.", invalid.message)
+
+        val blankBody = FamilyProfileRepository(
+            FakeFamilyProfileApiService(
+                summaryResponse = Response.error(500, " ".toResponseBody("application/json".toMediaType())),
+            ),
+        )
+        assertEquals(
+            "Could not create family circle.",
+            assertThrows(FamilyApiException::class.java) {
+                runBlocking { blankBody.getFamilyRestrictionSummary() }
+            }.message,
+        )
+
+        val empty = FamilyProfileRepository(
+            FakeFamilyProfileApiService(summaryResponse = Response.success(null)),
+        )
+        assertEquals(
+            "Empty body for GET /families/me/restriction-summary",
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking { empty.getFamilyRestrictionSummary() }
+            }.message,
+        )
+    }
+
+    @Test
     @DisplayName("PUT /users/me/preferences/notifications non-2xx throws FamilyApiException")
     fun setNotificationPreferenceThrowsOnError() {
         val body = """{"message":"Could not save preference."}""".toResponseBody("application/json".toMediaType())
@@ -212,6 +256,10 @@ class FamilyProfileRepositoryTest {
         private val setNotificationPreferenceResponse: Response<NotificationPreferenceResponse> = Response.success(
             NotificationPreferenceResponse(notificationsEnabled = true),
         ),
+        private val summaryResponse: Response<FamilyRestrictionSumRes> = Response.error(
+            500,
+            "{}".toResponseBody("application/json".toMediaType()),
+        ),
     ) : FamilyProfileApiService {
         override suspend fun getMyFamily(): Response<FamilyMeResponse> = meResponse
 
@@ -240,7 +288,7 @@ class FamilyProfileRepositoryTest {
         ): Response<NotificationPreferenceResponse> = setNotificationPreferenceResponse
 
         override suspend fun getFamilyRestrictionSummary(): Response<FamilyRestrictionSumRes> =
-            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+            summaryResponse
 
         override suspend fun searchUserByEmail(email: String): Response<UserSearchResponse> =
             Response.error(500, "{}".toResponseBody("application/json".toMediaType()))

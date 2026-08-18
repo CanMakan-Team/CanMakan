@@ -114,6 +114,27 @@ class CreateDependantProfileViewModelTest {
     }
 
     @Test
+    fun familyApiFailureShowsSaveErrorWithoutMarkingCreated() = runTest {
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+        familyApi.createDependantResponse = Response.error(
+            409,
+            """{"message":"already exists"}""".toResponseBody("application/json".toMediaType()),
+        )
+
+        viewModel.updateProfileName("Alex")
+        viewModel.updateRelationship(RelationshipToAdmin.CHILD)
+        viewModel.create()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.created)
+        assertEquals(
+            "We are unable to save the dependant profile. Please try again later.",
+            viewModel.uiState.value.errorMessage,
+        )
+    }
+
+    @Test
     fun accountChangeResetsForm() = runTest {
         assertTrue(sessionStore.saveSession(validSession()))
         testDispatcher.scheduler.advanceUntilIdle()

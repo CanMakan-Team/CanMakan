@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.features.account
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -112,9 +113,41 @@ class SettingsViewModelTest {
         assertEquals(SettingsViewModel.NETWORK_MESSAGE, viewModel.deleteAccountError.value)
     }
 
+    @Test
+    fun genericFailureUsesFallbackMessage() {
+        repository.result = AuthResult.Failure(AuthFailureType.SERVER)
+        viewModel.deleteOwnAccount(onSuccess = {})
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(SettingsViewModel.GENERIC_MESSAGE, viewModel.deleteAccountError.value)
+    }
+
+    @Test
+    fun secondDeleteWhileInFlightIsIgnored() {
+        repository.gate = CompletableDeferred()
+        var successCount = 0
+        viewModel.deleteOwnAccount(onSuccess = { successCount++ })
+        testDispatcher.scheduler.runCurrent()
+        viewModel.deleteOwnAccount(onSuccess = { successCount++ })
+
+        assertEquals(1, repository.deleteCalls)
+        repository.gate?.complete(Unit)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, successCount)
+    }
+
+    @Test
+    fun notificationPreferenceDelegatesToCoordinator() {
+        viewModel.setNotificationsEnabled(true)
+        viewModel.clearNotificationsEnabledError()
+        assertFalse(viewModel.notificationsEnabled.value)
+        assertNull(viewModel.notificationsEnabledError.value)
+    }
+
     private class FakeAuthRepository : AuthRepository {
         var result: AuthResult<Unit> = AuthResult.Success(Unit)
         var deleteCalls = 0
+        var gate: CompletableDeferred<Unit>? = null
 
         override suspend fun login(
             email: String,
@@ -125,6 +158,7 @@ class SettingsViewModelTest {
 
         override suspend fun deleteOwnAccount(): AuthResult<Unit> {
             deleteCalls++
+            gate?.await()
             return result
         }
     }

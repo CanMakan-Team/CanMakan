@@ -43,4 +43,35 @@ class FamilyProfileMapperTest {
         assertEquals(7L, profile.familyId)
         assertEquals(true, profile.isPrimary)
     }
+
+    @Test
+    fun mapsActiveProfileResponseSingleWordAndMissingOptionalFields() {
+        val profile = FamilyProfileMapper.fromActiveResponse(
+            ActiveProfileResponse(
+                profileId = 1L,
+                profileName = "  A  ",
+                relationship = null,
+                familyId = null,
+                isPrimary = null,
+            ),
+        )
+        assertEquals("A", profile.initials)
+        assertEquals(0L, profile.familyId)
+        assertEquals("", profile.relationship)
+        assertEquals(false, profile.isPrimary)
+    }
+
+    @Test
+    fun mapsEmptyActiveProfileNameToQuestionMarkInitials() {
+        val profile = FamilyProfileMapper.fromActiveResponse(
+            ActiveProfileResponse(
+                profileId = 1L,
+                profileName = "   ",
+                relationship = "SELF",
+                familyId = 3L,
+                isPrimary = false,
+            ),
+        )
+        assertEquals("?", profile.initials)
+    }
 }
