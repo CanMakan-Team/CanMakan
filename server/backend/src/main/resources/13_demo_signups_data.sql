@@ -1,0 +1,78 @@
+-- =============================================================================
+-- 13_demo_signups_data.sql  (varied daily registrations)
+-- Spreads new-user registrations over the last 6 days with UNEVEN daily counts
+-- so "Daily new registrations" has a natural up-and-down shape (not a flat row).
+-- Per-day new users (days ago -> count): {1: 6, 2: 8, 3: 3, 4: 7, 5: 4, 6: 5}. Today keeps the base 10.
+-- Each user gets a next-day return scan (Day-1 retained + active). User ids
+-- 21-53, scan ids 9201-9233; all timestamps relative to NOW().
+-- =============================================================================
+
+INSERT INTO users (id, role_id, email, password_hash, is_active, created_at, updated_at) VALUES
+(21, 2, 'signup21@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 1 DAY),
+(22, 2, 'signup22@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 1 DAY),
+(23, 2, 'signup23@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 1 DAY),
+(24, 2, 'signup24@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 1 DAY),
+(25, 2, 'signup25@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 1 DAY),
+(26, 2, 'signup26@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 1 DAY),
+(27, 2, 'signup27@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY),
+(28, 2, 'signup28@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY),
+(29, 2, 'signup29@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY),
+(30, 2, 'signup30@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY),
+(31, 2, 'signup31@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY),
+(32, 2, 'signup32@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY),
+(33, 2, 'signup33@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY),
+(34, 2, 'signup34@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY),
+(35, 2, 'signup35@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 3 DAY, NOW() - INTERVAL 3 DAY),
+(36, 2, 'signup36@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 3 DAY, NOW() - INTERVAL 3 DAY),
+(37, 2, 'signup37@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 3 DAY, NOW() - INTERVAL 3 DAY),
+(38, 2, 'signup38@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY),
+(39, 2, 'signup39@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY),
+(40, 2, 'signup40@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY),
+(41, 2, 'signup41@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY),
+(42, 2, 'signup42@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY),
+(43, 2, 'signup43@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY),
+(44, 2, 'signup44@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY),
+(45, 2, 'signup45@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 5 DAY, NOW() - INTERVAL 5 DAY),
+(46, 2, 'signup46@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 5 DAY, NOW() - INTERVAL 5 DAY),
+(47, 2, 'signup47@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 5 DAY, NOW() - INTERVAL 5 DAY),
+(48, 2, 'signup48@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 5 DAY, NOW() - INTERVAL 5 DAY),
+(49, 2, 'signup49@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY),
+(50, 2, 'signup50@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY),
+(51, 2, 'signup51@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY),
+(52, 2, 'signup52@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY),
+(53, 2, 'signup53@example.com', '$2a$10$oTcHsQELTJSku.uoOLnwYu4s5ACfDft4d/fTKxlxWHnMDyxwijWWO', 1, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY);
+
+INSERT INTO scans (id, user_id, profile_id, barcode, verdict, ai_explanation, findings_json, scanned_at) VALUES
+(9201, 21, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW()),
+(9202, 22, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW()),
+(9203, 23, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW()),
+(9204, 24, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW()),
+(9205, 25, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW()),
+(9206, 26, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW()),
+(9207, 27, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 1 DAY),
+(9208, 28, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 1 DAY),
+(9209, 29, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 1 DAY),
+(9210, 30, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 1 DAY),
+(9211, 31, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 1 DAY),
+(9212, 32, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 1 DAY),
+(9213, 33, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 1 DAY),
+(9214, 34, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 1 DAY),
+(9215, 35, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 2 DAY),
+(9216, 36, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 2 DAY),
+(9217, 37, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 2 DAY),
+(9218, 38, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 3 DAY),
+(9219, 39, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 3 DAY),
+(9220, 40, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 3 DAY),
+(9221, 41, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 3 DAY),
+(9222, 42, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 3 DAY),
+(9223, 43, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 3 DAY),
+(9224, 44, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 3 DAY),
+(9225, 45, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 4 DAY),
+(9226, 46, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 4 DAY),
+(9227, 47, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 4 DAY),
+(9228, 48, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 4 DAY),
+(9229, 49, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 5 DAY),
+(9230, 50, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 5 DAY),
+(9231, 51, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 5 DAY),
+(9232, 52, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 5 DAY),
+(9233, 53, 1, '95500539', 'SAFE', 'Day-1 return visit.', '[]', NOW() - INTERVAL 5 DAY);
