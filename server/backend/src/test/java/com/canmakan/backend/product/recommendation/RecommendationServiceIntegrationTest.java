@@ -313,6 +313,8 @@ class RecommendationServiceIntegrationTest {
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(suggestedBarcodes)
+                .as("at least one substitute must be suggested")
+                .isNotEmpty()
                 .as("milk bread must not expand into plant-based milk substitutes")
                 .doesNotContain(HI_CALCIUM_SOYA_MILK);
     }

@@ -23,12 +23,14 @@ import java.util.regex.Pattern;
  */
 final class ExternalAllergenMatchParser {
 
-    // Pattern to match the arrow line. The leading "[\s*-]*" replaces two adjacent \s* groups
-    // around an optional bullet, and the label capture no longer has a redundant \s* before the
-    // delimiter (the caller already trims group(1)) — both were ambiguous split points that caused
-    // super-linear backtracking on non-matching lines.
+    // Pattern to match the arrow line. The label capture no longer has its own leading
+    // "[\s*-]*" bullet-strip class: that class and the label's ".+?" both matched whitespace/
+    // "*"/"-", so the engine had two adjacent, overlapping-alphabet quantifiers to split the
+    // same run of characters between — the classic super-linear backtracking shape on
+    // non-matching lines. Bullet markers are stripped from the already-matched label in
+    // stripBulletPrefix instead, once the (cheap, bounded) match is done.
     private static final Pattern ARROW_LINE = Pattern.compile(
-            "(?i)^[\\s*\\-]*(.+?)(?:->|→|:|=)\\s*([A-Z_]+)\\s*$",
+            "(?i)^(.+?)(?:->|→|:|=)\\s*([A-Z_]+)\\s*$",
             Pattern.MULTILINE
     );
 
@@ -105,7 +107,7 @@ final class ExternalAllergenMatchParser {
             String summary, List<String> unresolvedIngredients, Map<String, Ingredient> byKey) {
         Matcher arrowMatcher = ARROW_LINE.matcher(summary);
         while (arrowMatcher.find()) {
-            String label = arrowMatcher.group(1).trim();
+            String label = stripBulletPrefix(arrowMatcher.group(1).trim());
             String rootToken = arrowMatcher.group(2).trim().toUpperCase(Locale.ROOT);
             String root = ROOT_ALIASES.get(rootToken);
             if (root == null) {
@@ -176,5 +178,21 @@ final class ExternalAllergenMatchParser {
     // Remove whitespace and convert to lowercase
     private static String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+    }
+
+    // Strip a leading list-bullet marker (e.g. "- " or "* ") from an already-matched,
+    // already-trimmed arrow-line label. Runs once on a short, bounded string, so it carries
+    // none of the backtracking risk the old in-pattern bullet class had.
+    private static String stripBulletPrefix(String label) {
+        int i = 0;
+        while (i < label.length()) {
+            char c = label.charAt(i);
+            if (c == '*' || c == '-' || Character.isWhitespace(c)) {
+                i++;
+            } else {
+                break;
+            }
+        }
+        return label.substring(i);
     }
 }

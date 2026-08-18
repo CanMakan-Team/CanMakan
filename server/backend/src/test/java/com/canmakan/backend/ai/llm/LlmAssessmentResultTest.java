@@ -50,9 +50,10 @@ class LlmAssessmentResultTest {
         source.clear();
 
         assertEquals(List.of(ingredient), result.resolvedIngredients());
+        List<ResolvedIngredient> resolvedIngredients = result.resolvedIngredients();
         assertThrows(
                 UnsupportedOperationException.class,
-                () -> result.resolvedIngredients().add(ingredient)
+                () -> resolvedIngredients.add(ingredient)
         );
     }
 
@@ -88,6 +89,21 @@ class LlmAssessmentResultTest {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
                 () -> result(List.of(), "Authorization: Bearer private-value", null, null, 0L)
+        );
+
+        assertEquals(
+                "analysisNotes must not contain sensitive credentials",
+                exception.getMessage()
+        );
+    }
+
+    @Test
+    void rejectsBearerTokenWithoutKeyValueSyntax() {
+        // No "keyword: " / "keyword=" pair here, so this only trips the bearer-token pattern,
+        // not the key/value pattern — exercises that branch of the OR independently.
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> result(List.of(), "Bearer abc123xyz", null, null, 0L)
         );
 
         assertEquals(

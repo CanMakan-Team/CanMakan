@@ -46,6 +46,16 @@ class CategoryTagParserTest {
     }
 
     @Test
+    void toCategoryTagStripsLeadingAndTrailingDashesFromNonAlphanumericEdges() {
+        assertEquals("en:weird-category", CategoryTagParser.toCategoryTag("!!Weird Category??"));
+    }
+
+    @Test
+    void toCategoryTagLeavesCleanInputUnchanged() {
+        assertEquals("en:brown-rice-flour", CategoryTagParser.toCategoryTag("Brown Rice Flour"));
+    }
+
+    @Test
     void containsAnyIncludingMainCategoryMatchesSlugFromEnglishCategory() {
         assertTrue(CategoryTagParser.containsAnyIncludingMainCategory(
                 "en:no-gluten,en:gluten-free,en:gluten-free-flour",
