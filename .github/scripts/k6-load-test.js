@@ -53,7 +53,7 @@ const baseUrl = (__ENV.API_BASE_URL || "https://api.staging.canmakan.space").rep
 );
 const testEmail = __ENV.TEST_EMAIL;
 const testPassword = __ENV.TEST_PASSWORD;
-const testBarcode = __ENV.TEST_BARCODE || "3017620422003";
+const testBarcode = __ENV.TEST_BARCODE || "9300698500181"; // Nutella
 
 /* Helper functions */
 function authHeaders(token) {
