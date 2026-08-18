@@ -86,6 +86,7 @@ ENV/
 .tox/
 .nox/
 .coverage
+coverage.xml
 htmlcov/
 *.egg-info/
 .ipynb_checkpoints/

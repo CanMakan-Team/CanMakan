@@ -80,10 +80,12 @@ Staging and production API runtime is Docker on EC2 (see `CICD-PIPELINE.md` and 
 |   |-- machine-learning/          # UC5 Python TF-IDF ranker (FastAPI). Spring calls
 |   |   |                          #   POST /rank after filterAcceptable; empty URL or
 |   |   |                          #   downtime → Java ranker fallback. CI: pytest 80%,
-|   |   |                          #   train from 01_products.sql, image + Trivy, GHCR
-|   |   |                          #   canmakan-ml; CD sidecar on EC2 (canmakan-ml:8091)
+|   |   |                          #   SonarCloud canmakan-ml, train from 01_products.sql,
+|   |   |                          #   image + Trivy, GHCR canmakan-ml; CD sidecar on EC2
+|   |   |                          #   (canmakan-ml:8091)
 |   |   |-- Dockerfile             # python:3.12-alpine; joblib baked in after train
 |   |   |-- requirements.txt       # fastapi, uvicorn, sklearn, pytest
+|   |   |-- sonar-project.properties
 |   |   |-- pytest.ini
 |   |   |-- src/canmakan_ml/       # api.py (GET /health, POST /rank), ranker, features
 |   |   |-- scripts/               # export_products.py, train_ranker.py, evaluate.py
@@ -195,7 +197,7 @@ Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 | Trivy fs | SCA vulns only (CRITICAL/HIGH fails the job; secrets are Gitleaks); CycloneDX SBOM artefact |
 | Trivy config | GitHub Actions / `.github` YAML misconfiguration |
 | Backend | Maven `verify` against job-local MySQL 8 (not RDS), Java 21, JaCoCo; Docker image + Trivy; uploads `backend-jar`; SonarCloud `canmakan-backend` |
-| Machine learning | pytest coverage gate; train ranker; Docker image + Trivy; GHCR `canmakan-ml` on `develop`/`main` |
+| Machine learning | pytest coverage gate; SonarCloud `canmakan-ml`; train ranker; Docker image + Trivy; GHCR `canmakan-ml` on `develop`/`main` |
 | Web | `npm ci` + Vitest with coverage + `npm run build` (Node 24); SonarCloud `canmakan-web` |
 | Mobile | Gradle `assembleDebug testDebugUnitTest` + unit-test coverage XML, then `sonar`; SonarCloud `canmakan-mobile` |
 | Build Test | Required aggregator |
