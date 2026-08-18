@@ -9,6 +9,4 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface RecommendationLogRepository extends JpaRepository<RecommendationLog, Long> {
 
     List<RecommendationLog> findByProfileIdAndShownToUserTrueOrderByCreatedAtDesc(Long profileId);
-
-    List<RecommendationLog> findByScanIdOrderByRankScoreDesc(Long scanId);
 }
