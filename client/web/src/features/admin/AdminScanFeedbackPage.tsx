@@ -359,7 +359,7 @@ export function AdminScanFeedbackPage() {
                     </td>
                     <td>
                       {item.userComments ? (
-                        <HoverTip text={item.userComments.trim()} className="hover-tip--block">
+                        <HoverTip text={item.userComments.trim()} className="hover-tip--block" interactiveChild>
                           <button
                             className="text-button feedback-comment-preview"
                             type="button"

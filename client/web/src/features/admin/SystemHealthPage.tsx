@@ -344,7 +344,7 @@ function AuditTrailSection({ entries }: { entries: AuditEntry[] }) {
         </div>
       </div>
       {visibleEntries.length === 0 ? (
-        <p className="health-muted">No admin actions recorded.</p>
+        <p className="health-muted">No admin actions match the selected filters.</p>
       ) : (
         <div className="responsive-table">
           <table className="data-table health-audit-table">
