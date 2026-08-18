@@ -18,6 +18,7 @@ FROM python:3.12-alpine
 WORKDIR /app
 
 RUN apk upgrade --no-cache \
+    && apk add --no-cache libstdc++ libgomp openblas libgfortran \
     && addgroup -S canmakan \
     && adduser -S -G canmakan -H canmakan
 
