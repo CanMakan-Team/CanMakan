@@ -13,7 +13,7 @@ CanMakan utilises **GitHub Actions** to manage a monorepo comprising of 3 produc
 | Mobile | `assembleDebug testDebugUnitTest` | `push` to `develop`: signed APK → Firebase App Distribution (Staging QA) | `push` to `main`: signed APK → Firebase App Distribution (Production QA) |
 |  |  |  |  |
 
-Developers open pull requests into **`develop`**, then promote **`develop` → `main**`. Direct pushes to `main` are not restricted. **`develop` acts as the integration and staging branch** (deploying to a dedicated AWS EC2/RDS and Firebase Staging instance). **`main` is production**.
+Developers open pull requests into **`develop`**, then promote **`develop`** → **`main`**. Direct pushes to `main` are restricted by branch protection. **`develop` acts as the integration and staging branch** (deploying to a dedicated AWS EC2/RDS and Firebase Staging instance). **`main` is production**.
 
 Security jobs in CI: **Gitleaks** (secrets), **Semgrep** (SAST), **Trivy fs** (SCA vulns), **Trivy config** (Actions YAML). **SonarCloud** is the maintainability / coverage quality gate on each stack build. **Gitar** (`gitar-bot`) reviews pull requests on GitHub. Post-deployment security and load testing (OWASP ZAP and Grafana k6) run against the live Staging environment on automated schedules.
 
@@ -42,14 +42,14 @@ All operational and deployment pipelines are securely centralised in the `.githu
 
 | Workflow | Trigger | Role |
 | --- | --- | --- |
-| [`ci.yml`](https://www.google.com/search?q=.github/workflows/ci.yml) | PR / push to `develop` and `main`, `workflow_dispatch` | Gitleaks, Semgrep, Trivy fs, Trivy config, path-filtered builds + SonarCloud, **Build Test**, `backend-jar` upload |
-| [`e2e.yml`](https://www.google.com/search?q=.github/workflows/e2e.yml) | PR to `develop`/`main`, push to `develop`, `workflow_dispatch` | Playwright when `client/web/**` changes |
-| [`deploy.yml`](https://www.google.com/search?q=.github/workflows/deploy.yml) | `workflow_run`: CI on `main` and `develop`, and `backend-jar` exists | EC2 blue/green of the verified JAR. Dynamically targets Staging or Production. |
-| [`deploy-frontends.yml`](https://www.google.com/search?q=.github/workflows/deploy-frontends.yml) | `push` to `main` and `develop` (web/mobile paths) | Web: Playwright then Hosting. Mobile: App Distribution. Dynamically targets Staging or Production. |
-| [`dast.yml`](https://www.google.com/search?q=.github/workflows/dast.yml) | `schedule` (nightly), `workflow_dispatch` | Runs OWASP ZAP baseline and API scans against the live Staging environment. |
-| [`load-test.yml`](https://www.google.com/search?q=.github/workflows/load-test.yml) | `schedule` (weekly), `workflow_dispatch` | Runs Grafana k6 performance scenarios against the live Staging API. |
-| [`sync-branches.yml`](https://www.google.com/search?q=.github/workflows/sync-branches.yml) | `push` to `main` | Opens a PR `main` → `develop` so hotfixes flow back |
-| [`triage.yml`](https://www.google.com/search?q=.github/workflows/triage.yml) | `issues` (opened, edited) | Operational workflow to automatically label and route incoming issues based on content. |
+| [`ci.yml`](.github/workflows/ci.yml) | PR / push to `develop` and `main`, `workflow_dispatch` | Gitleaks, Semgrep, Trivy fs, Trivy config, path-filtered builds + SonarCloud, **Build Test**, `backend-jar` upload |
+| [`e2e.yml`](.github/workflows/e2e.yml) | PR to `develop`/`main`, push to `develop`, `workflow_dispatch` | Playwright when `client/web/**` changes |
+| [`deploy.yml`](.github/workflows/deploy.yml) | `workflow_run`: CI on `main` and `develop`, and `backend-jar` exists | EC2 blue/green of the verified JAR. Dynamically targets Staging or Production. |
+| [`deploy-frontends.yml`](.github/workflows/deploy-frontends.yml) | `push` to `main` and `develop` (web/mobile paths) | Web: Playwright then Hosting. Mobile: App Distribution. Dynamically targets Staging or Production. |
+| [`dast.yml`](.github/workflows/dast.yml) | `schedule` (nightly), `workflow_dispatch` | Runs OWASP ZAP baseline and API scans against the live Staging environment. |
+| [`load-test.yml`](.github/workflows/load-test.yml) | `schedule` (weekly), `workflow_dispatch` | Runs Grafana k6 performance scenarios against the live Staging API. |
+| [`sync-branches.yml`](.github/workflows/sync-branches.yml) | `push` to `main` | Opens a PR `main` → `develop` so hotfixes flow back |
+| [`triage.yml`](.github/workflows/triage.yml) | `issues` (opened, edited) | Operational workflow to automatically label and route incoming issues based on content. |
 |  |  |  |
 
 ## 4. Repository Governance & `.github` Structure
@@ -82,7 +82,7 @@ CanMakan employs a strict configuration-as-code approach for repository governan
 | Visibility | **Public** repository |
 | SARIF upload | Trivy jobs always upload SARIF. On a **public** repo, GitHub Code Scanning can show those results in the Security tab without GitHub Advanced Security. Failure is still the **table** scan (`exit-code: 1`) |
 | SonarCloud | Org **`canmakan-team`**. Projects **`canmakan-backend`**, **`canmakan-web`**, **`canmakan-mobile`**. Repo secret **`SONAR_TOKEN`**. Analysis is in `ci.yml` (not a separate `build.yml`). Scans skip until the token is set |
-| App Distribution URL | Repo (or Environment) secret **`FIREBASE_APP_DISTRIBUTION_URL`**. Vite inlines it as `VITE_FIREBASE_APP_DISTRIBUTION_URL` on web CI build and `deploy-web`; the backend JAR receives the same secret for invite-email “mobile” links. Optional; both fall back to `[https://appdistribution.firebase.google.com/](https://appdistribution.firebase.google.com/)` |
+| App Distribution URL | Repo (or Environment) secret **`FIREBASE_APP_DISTRIBUTION_URL`**. Vite inlines it as `VITE_FIREBASE_APP_DISTRIBUTION_URL` on web CI build and `deploy-web`; the backend JAR receives the same secret for invite-email “mobile” links. Optional; both fall back to `https://appdistribution.firebase.google.com/` |
 | Gitar | GitHub App **Gitar** (`gitar-bot`) enabled on this repository. PR review only; no Actions secret required for the default App install |
 |  |  |
 
