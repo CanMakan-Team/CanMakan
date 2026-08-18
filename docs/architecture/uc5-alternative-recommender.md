@@ -222,7 +222,7 @@ score = min(0.99,
 )
 ```
 
-Train: `server/machine-learning/scripts/train_ranker.py`. Run API: `uvicorn canmakan_ml.api:app --app-dir src --port 8091`.
+Train: `server/machine-learning/scripts/train_ranker.py`. Local API: `uvicorn canmakan_ml.api:app --app-dir src --port 8091`. Staging/production: GHCR image `canmakan-ml` on Docker network `canmakan`; Spring `ranker-url` is `http://canmakan-ml:8091`.
 
 ### Heuristic ranker (`AlternativeProductRanker`)
 

@@ -42,6 +42,15 @@ set ARTIFACT_PATH=artifacts/tfidf_ranker.joblib
 uvicorn canmakan_ml.api:app --app-dir src --host 127.0.0.1 --port 8091
 ```
 
+Or with Docker (train first so `artifacts/tfidf_ranker.joblib` exists):
+
+```bash
+docker build -t canmakan-ml:local .
+docker run --rm -p 8091:8091 canmakan-ml:local
+```
+
+CI trains from `01_products.sql`, scans the image with Trivy, and on `develop`/`main` pushes `ghcr.io/<owner>/canmakan-ml:<sha>`. EC2 runs it as `canmakan-ml` on Docker network `canmakan`; Spring uses `http://canmakan-ml:8091`.
+
 Endpoints:
 
 - `GET /health` — liveness

@@ -495,4 +495,4 @@ Implementing F01–F20 (except deferred F15/F18) should move the scorecard as in
 
 ## Deploy note
 
-Production/staging EC2 deploys set `SPRING_PROFILES_ACTIVE=prod` in `.github/workflows/deploy.yml` (default; override with Environment var `SPRING_PROFILES_ACTIVE`). Local/`mvnw spring-boot:run` and tests use `spring.profiles.default=dev` (SQL seed, LAN CORS patterns, Hibernate SQL DEBUG, `ddl-auto=update`).
+Production/staging EC2 deploys run the GHCR image with `SPRING_PROFILES_ACTIVE=prod` in `.github/workflows/deploy.yml` (default; override with Environment var `SPRING_PROFILES_ACTIVE`). Local/`mvnw spring-boot:run` and tests use `spring.profiles.default=dev` (SQL seed, LAN CORS patterns, Hibernate SQL DEBUG, `ddl-auto=update`).

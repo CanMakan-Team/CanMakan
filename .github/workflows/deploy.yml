@@ -14,33 +14,41 @@ concurrency:
 permissions:
   contents: read
   actions: read
+  packages: read
 
 jobs:
-  # Promote the JAR CI already verified for this SHA (no second Maven compile).
+  # Promote the image CI already built and scanned for this SHA (no second Maven compile).
   resolve-artifact:
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     outputs:
       has_jar: ${{ steps.check.outputs.has_jar }}
+      has_ml: ${{ steps.check.outputs.has_ml }}
     steps:
-      - name: Check CI uploaded backend-jar
+      - name: Check CI uploaded backend-jar / ml-image
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
-          if gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
-            --jq '.artifacts[].name' | grep -qx backend-jar; then
+          names="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" --jq '.artifacts[].name')"
+          if echo "$names" | grep -qx backend-jar; then
             echo "has_jar=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_jar=false" >> "$GITHUB_OUTPUT"
             echo "No backend-jar artefact (CI skipped backend or upload failed)."
           fi
+          if echo "$names" | grep -qx ml-image; then
+            echo "has_ml=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_ml=false" >> "$GITHUB_OUTPUT"
+            echo "No ml-image artefact (CI skipped ML or upload failed)."
+          fi
 
-  # Env names mirror application.properties. Forwarded to EC2 at JAR start.
+  # Env names mirror application.properties. Written to an env-file on EC2 for docker run.
   deploy-backend:
     needs: resolve-artifact
-    if: needs.resolve-artifact.outputs.has_jar == 'true'
+    if: needs.resolve-artifact.outputs.has_jar == 'true' || needs.resolve-artifact.outputs.has_ml == 'true'
     runs-on: ubuntu-latest
     environment: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
     env:
@@ -117,125 +125,53 @@ jobs:
       CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH: ${{ secrets.CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH }}
       CANMAKAN_RECOMMENDATION_LLM_ENABLED: ${{ secrets.CANMAKAN_RECOMMENDATION_LLM_ENABLED }}
     steps:
-      - name: Download verified backend JAR
-        uses: actions/download-artifact@v4.3.0
+      - uses: actions/checkout@v7.0.1
         with:
-          name: backend-jar
-          github-token: ${{ github.token }}
-          run-id: ${{ github.event.workflow_run.id }}
-          path: server/backend/target
+          ref: ${{ github.event.workflow_run.head_sha }}
+          sparse-checkout: |
+            .github/scripts/deploy-backend-container.sh
+          sparse-checkout-cone-mode: false
 
-      # 2.3 PREPARE REMOTE DEPLOY DIRECTORY
+      - name: Make deploy script executable
+        run: chmod +x .github/scripts/deploy-backend-container.sh
+
+      - name: Resolve image URIs
+        id: image
+        env:
+          HAS_JAR: ${{ needs.resolve-artifact.outputs.has_jar }}
+          HAS_ML: ${{ needs.resolve-artifact.outputs.has_ml }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          if [ "${HAS_JAR}" = "true" ]; then
+            echo "backend=ghcr.io/${owner}/canmakan-backend:${SHA}" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${HAS_ML}" = "true" ]; then
+            echo "ml=ghcr.io/${owner}/canmakan-ml:${SHA}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "ml_fallback=ghcr.io/${owner}/canmakan-ml:${BRANCH}" >> "$GITHUB_OUTPUT"
+
       - name: Ensure remote deploy directory exists
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          script: mkdir -p /home/ubuntu/app/deploy-temp
+          script: mkdir -p /home/ubuntu/app
 
-      # 2.4 COPY .JAR PACKAGE TO EC2 VIA SCP
-      - name: Copy JAR to EC2 via SCP
-        uses: appleboy/scp-action@v1.0.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "server/backend/target/*.jar"
-          target: "/home/ubuntu/app/deploy-temp"
-          strip_components: 3
-
-      # 2.5 START REMOTE SSH CLI
-      - name: Execute Remote SSH Startup Commands
+      - name: Deploy backend and ML containers
         uses: appleboy/ssh-action@v1.2.5
+        env:
+          BACKEND_IMAGE: ${{ steps.image.outputs.backend }}
+          ML_IMAGE: ${{ steps.image.outputs.ml }}
+          ML_IMAGE_FALLBACK: ${{ steps.image.outputs.ml_fallback }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: SPRING_PROFILES_ACTIVE,SERVER_ADDRESS,CANMAKAN_CORS_ALLOWED_ORIGINS,CANMAKAN_CORS_ALLOWED_HEADERS,CANMAKAN_CORS_ALLOWED_METHODS,CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS,CANMAKAN_CORS_ALLOW_CREDENTIALS,CANMAKAN_CORS_MAX_AGE_SECONDS,CANMAKAN_INVITES_PUBLIC_BASE_URL,FIREBASE_APP_DISTRIBUTION_URL,CANMAKAN_INVITES_EXPIRY_DAYS,CANMAKAN_EMAIL_RESEND_ENABLED,CANMAKAN_EMAIL_RESEND_API_KEY,CANMAKAN_EMAIL_RESEND_FROM,CANMAKAN_EMAIL_RESEND_API_URL,MYSQL_HOST,MYSQL_PORT,MYSQL_DB,MYSQL_USERNAME,MYSQL_PASSWORD,JWT_ISSUER,JWT_ACCESS_TTL,JWT_SIGNING_SECRET,REFRESH_TOKEN_TTL,REFRESH_COOKIE_NAME,REFRESH_COOKIE_SECURE,REFRESH_COOKIE_SAME_SITE,OPEN_FOOD_FACTS_BASE_URL,EAN_SEARCH_BASE_URL,EAN_SEARCH_API_KEY,PRODUCT_API_CONNECT_TIMEOUT_MS,PRODUCT_API_RESPONSE_TIMEOUT_MS,PRODUCT_API_RETRY_MAX_ATTEMPTS,PRODUCT_API_RETRY_BACKOFF_MS,OPENAI_BASE_URL,OPENAI_API_KEY,OPENAI_MODEL,CANMAKAN_AI_ENABLED,CANMAKAN_AI_TIMEOUT_MS,CANMAKAN_AI_RETRY_MAX_ATTEMPTS,CANMAKAN_AI_RETRY_BACKOFF_MS,CANMAKAN_AI_AGENT_MAX_TOOL_ITERATIONS,CANMAKAN_AI_AUDIT_ENABLED,CANMAKAN_AI_AUDIT_STORE_PROMPT,CANMAKAN_AI_AUDIT_STORE_RESPONSE,TAVILY_API_KEY,TAVILY_URL,CANMAKAN_RECOMMENDATION_ML_ENABLED,CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH,CANMAKAN_RECOMMENDATION_LLM_ENABLED
-          script: |
-            sudo apt-get update > /dev/null && sudo apt-get install -y lsof > /dev/null
-            # Ensure runtime destination directory exists
-            mkdir -p /home/ubuntu/app
+          envs: BACKEND_IMAGE,ML_IMAGE,ML_IMAGE_FALLBACK,GHCR_TOKEN,GHCR_USER,SPRING_PROFILES_ACTIVE,CANMAKAN_CORS_ALLOWED_ORIGINS,CANMAKAN_CORS_ALLOWED_HEADERS,CANMAKAN_CORS_ALLOWED_METHODS,CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS,CANMAKAN_CORS_ALLOW_CREDENTIALS,CANMAKAN_CORS_MAX_AGE_SECONDS,CANMAKAN_INVITES_PUBLIC_BASE_URL,FIREBASE_APP_DISTRIBUTION_URL,CANMAKAN_INVITES_EXPIRY_DAYS,CANMAKAN_EMAIL_RESEND_ENABLED,CANMAKAN_EMAIL_RESEND_API_KEY,CANMAKAN_EMAIL_RESEND_FROM,CANMAKAN_EMAIL_RESEND_API_URL,MYSQL_HOST,MYSQL_PORT,MYSQL_DB,MYSQL_USERNAME,MYSQL_PASSWORD,JWT_ISSUER,JWT_ACCESS_TTL,JWT_SIGNING_SECRET,REFRESH_TOKEN_TTL,REFRESH_COOKIE_NAME,REFRESH_COOKIE_SECURE,REFRESH_COOKIE_SAME_SITE,OPEN_FOOD_FACTS_BASE_URL,EAN_SEARCH_BASE_URL,EAN_SEARCH_API_KEY,PRODUCT_API_CONNECT_TIMEOUT_MS,PRODUCT_API_RESPONSE_TIMEOUT_MS,PRODUCT_API_RETRY_MAX_ATTEMPTS,PRODUCT_API_RETRY_BACKOFF_MS,OPENAI_BASE_URL,OPENAI_API_KEY,OPENAI_MODEL,CANMAKAN_AI_ENABLED,CANMAKAN_AI_TIMEOUT_MS,CANMAKAN_AI_RETRY_MAX_ATTEMPTS,CANMAKAN_AI_RETRY_BACKOFF_MS,CANMAKAN_AI_AGENT_MAX_TOOL_ITERATIONS,CANMAKAN_AI_AUDIT_ENABLED,CANMAKAN_AI_AUDIT_STORE_PROMPT,CANMAKAN_AI_AUDIT_STORE_RESPONSE,TAVILY_API_KEY,TAVILY_URL,CANMAKAN_RECOMMENDATION_ML_ENABLED,CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH,CANMAKAN_RECOMMENDATION_LLM_ENABLED
+          script_path: .github/scripts/deploy-backend-container.sh
 
-            # Provision logrotate configuration if missing
-            if [ ! -f /etc/logrotate.d/canmakan-backend ]; then
-              echo "Provisioning logrotate profile..."
-              echo "/home/ubuntu/app/output-*.log {
-                  daily
-                  rotate 7
-                  size 50M
-                  compress
-                  delaycompress
-                  missingok
-                  notifempty
-                  copytruncate
-              }" | sudo tee /etc/logrotate.d/canmakan-backend > /dev/null
-              sudo chmod 644 /etc/logrotate.d/canmakan-backend
-            fi
-
-            # Determine active port and set the new port
-            ACTIVE_PORT=$(cat /home/ubuntu/app/active_port.txt 2>/dev/null || echo "8081")
-            if [ "$ACTIVE_PORT" = "8080" ]; then
-              NEW_PORT="8081"
-            else
-              NEW_PORT="8080"
-            fi
-            echo "Deploying new instance to port $NEW_PORT (SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-unset})..."
-
-            # Move new artefact into place
-            JAR_PATH="$(ls -t /home/ubuntu/app/deploy-temp/*.jar | grep -v '\.original$' | head -n 1)"
-            if [ -z "$JAR_PATH" ]; then echo "ERROR: No deployable JAR found"; exit 1; fi
-            mv "$JAR_PATH" /home/ubuntu/app/canmakan-backend-$NEW_PORT.jar
-
-            # Start the new application. Prefer the profile forwarded from GitHub Actions
-            # over any SPRING_PROFILES_ACTIVE in /etc/environment.
-            DEPLOY_SPRING_PROFILES_ACTIVE="${SPRING_PROFILES_ACTIVE:-prod}"
-            export SPRING_PROFILES_ACTIVE="$DEPLOY_SPRING_PROFILES_ACTIVE"
-            
-            # Kill any orphaned processes on the target port before starting
-            ORPHAN_PID=$(lsof -t -i:$NEW_PORT || true)
-            if [ -n "$ORPHAN_PID" ]; then
-              echo "Killing orphaned process on port $NEW_PORT..."
-              kill -9 $ORPHAN_PID || true
-              sleep 2
-            fi
-            nohup java -jar /home/ubuntu/app/canmakan-backend-$NEW_PORT.jar --server.port=$NEW_PORT > /home/ubuntu/app/output-$NEW_PORT.log 2>&1 &
-            NEW_PID=$!
-
-            # Wait for the new application to become healthy
-            echo "Polling health check on port $NEW_PORT..."
-            TIMEOUT=60
-            while [ $TIMEOUT -gt 0 ]; do
-              if curl -s "http://localhost:$NEW_PORT/actuator/health" | grep '"status":"UP"' > /dev/null; then
-                echo "Instance is UP."
-                break
-              fi
-              sleep 5
-              TIMEOUT=$((TIMEOUT-5))
-            done
-
-            if [ $TIMEOUT -le 0 ]; then
-              echo "ERROR: Instance failed health check. Rolling back."
-              kill -9 $NEW_PID
-              exit 1
-            fi
-            
-            # Swap Nginx routing configuration
-            echo "Swapping Nginx to port $NEW_PORT..."
-            echo "upstream backend_pool { server 127.0.0.1:$NEW_PORT; }" | sudo tee /etc/nginx/conf.d/canmakan-upstream.conf
-            sudo systemctl reload nginx
-
-            # Gracefully terminate the old application
-            OLD_PID=$(lsof -t -i:$ACTIVE_PORT || true)
-            if [ -n "$OLD_PID" ]; then
-              kill -15 $OLD_PID || true
-            fi
-
-            # Save the new system state
-            echo $NEW_PORT > /home/ubuntu/app/active_port.txt
-
-            # Clean up old JAR files from previous inactive deployments
-            echo "Cleaning up inactive JAR files..."
-            find /home/ubuntu/app -maxdepth 1 -name "canmakan-backend-*.jar" ! -name "canmakan-backend-$NEW_PORT.jar" -delete
-            rm -rf /home/ubuntu/app/deploy-temp/*
