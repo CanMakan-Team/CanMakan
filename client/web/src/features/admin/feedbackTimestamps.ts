@@ -1,5 +1,5 @@
 function parseFeedbackTimestamp(value: string): Date {
-  if (/[zZ]|[+-]\d{2}:\d{2}$/u.test(value)) {
+  if (/([zZ]|[+-]\d{2}:\d{2})$/u.test(value)) {
     return new Date(value)
   }
   return new Date(`${value}+08:00`)

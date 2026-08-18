@@ -297,11 +297,11 @@ function AuditTrailSection({ entries }: { entries: AuditEntry[] }) {
   const [actionFilter, setActionFilter] = useState('ALL')
 
   const admins = useMemo(
-    () => Array.from(new Set(entries.map((entry) => entry.admin))).sort(),
+    () => Array.from(new Set(entries.map((entry) => entry.admin))).sort((left, right) => left.localeCompare(right)),
     [entries],
   )
   const actions = useMemo(
-    () => Array.from(new Set(entries.map((entry) => entry.action))).sort(),
+    () => Array.from(new Set(entries.map((entry) => entry.action))).sort((left, right) => left.localeCompare(right)),
     [entries],
   )
   const visibleEntries = entries.filter((entry) => (
