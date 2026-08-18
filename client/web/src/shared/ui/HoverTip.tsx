@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 
 /**
- * Shows a short explanation above the wrapped control on hover or focus.
- * The help cursor is applied here so every KPI card and chip uses the same affordance.
+ * Shows a short explanation above the wrapped control on hover, keyboard focus, or tap.
+ * The wrapper is focusable and toggleable via click/tap so keyboard and touch users
+ * can access the same information as mouse users.
  */
 export function HoverTip({
   text,
@@ -14,16 +15,28 @@ export function HoverTip({
   className?: string
 }) {
   const [open, setOpen] = useState(false)
+  const tooltipId = useId()
   return (
     <span
       className={`hover-tip${className ? ` ${className}` : ''}`}
+      tabIndex={0}
+      role="button"
+      aria-describedby={open ? tooltipId : undefined}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}
       onBlur={() => setOpen(false)}
+      onClick={() => setOpen((previous) => !previous)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') setOpen(false)
+      }}
     >
       {children}
-      {open ? <span className="hover-tip__bubble" role="tooltip">{text}</span> : null}
+      {open ? (
+        <span id={tooltipId} className="hover-tip__bubble" role="tooltip">
+          {text}
+        </span>
+      ) : null}
     </span>
   )
 }

@@ -75,30 +75,46 @@ export function SystemDashboardPage() {
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
-    try {
-      const [trendData, userData, openFeedback, healthData, usageData] =
-        await Promise.all([
-          consumerTrendsApiService.getConsumerTrends(),
-          adminService.getUsers(),
-          adminService.getScanFeedback({
-            resolved: false,
-            periodDays: 30,
-            page: 0,
-            pageSize: 1,
-          }),
-          systemHealthApiService.getSystemHealth(24),
-          usageStatisticsApiService.getUsageStatistics(7),
-        ])
-      setTrends(trendData)
-      setUsers(userData)
-      setOpenFeedbackCount(openFeedback.pageInfo.totalItems)
-      setHealth(healthData)
-      setDailyActiveUsers(usageData.kpis.dailyActiveUsers)
-    } catch (caughtError) {
-      setError(getErrorMessage(caughtError))
-    } finally {
-      setLoading(false)
+    const [trendResult, userResult, feedbackResult, healthResult, usageResult] =
+      await Promise.allSettled([
+        consumerTrendsApiService.getConsumerTrends(),
+        adminService.getUsers(),
+        adminService.getScanFeedback({
+          resolved: false,
+          periodDays: 30,
+          page: 0,
+          pageSize: 1,
+        }),
+        systemHealthApiService.getSystemHealth(24),
+        usageStatisticsApiService.getUsageStatistics(7),
+      ])
+
+    if (trendResult.status === 'fulfilled') setTrends(trendResult.value)
+    if (userResult.status === 'fulfilled') setUsers(userResult.value)
+    if (feedbackResult.status === 'fulfilled') {
+      setOpenFeedbackCount(feedbackResult.value.pageInfo.totalItems)
     }
+    if (healthResult.status === 'fulfilled') setHealth(healthResult.value)
+    if (usageResult.status === 'fulfilled') {
+      setDailyActiveUsers(usageResult.value.kpis.dailyActiveUsers)
+    }
+
+    const results = [trendResult, userResult, feedbackResult, healthResult, usageResult]
+    const failures = results.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    )
+    if (failures.length === results.length) {
+      setError(getErrorMessage(failures[0].reason))
+    } else if (failures.length > 0) {
+      setError(
+        `Some dashboard data failed to load: ${failures
+          .map((failure) => getErrorMessage(failure.reason))
+          .join('; ')}`,
+      )
+    } else {
+      setError('')
+    }
+    setLoading(false)
   }, [])
 
   useEffect(() => {
@@ -107,7 +123,9 @@ export function SystemDashboardPage() {
   }, [load])
 
   if (loading) return <LoadingState label="Loading system dashboard…" />
-  if (error) return <ErrorState message={error} onRetry={load} />
+  if (error && !trends && users.length === 0 && !health) {
+    return <ErrorState message={error} onRetry={load} />
+  }
 
   const summary = trends?.summary
   const suspendedCount = users.filter((user) => !user.active).length
@@ -121,6 +139,12 @@ export function SystemDashboardPage() {
 
   return (
     <>
+      {error ? (
+        <div className="page-state page-state--error page-state--inline" role="alert">
+          <p>{error}</p>
+        </div>
+      ) : null}
+
       <header className="page-header page-header--system">
         <div>
           <p className="eyebrow">System overview</p>
