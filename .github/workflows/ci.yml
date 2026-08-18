@@ -25,10 +25,16 @@ jobs:
       mobile: ${{ steps.filter.outputs.mobile }}
       machine-learning: ${{ steps.filter.outputs.machine-learning }}
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: dorny/paths-filter@v4.0.3
+      - name: Checkout Repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Detect File Changes
+        uses: dorny/paths-filter@v4.0.3
         id: filter
         with:
+          base: ${{ github.event_name == 'push' && github.event.before || '' }}
           filters: |
             backend:
               - 'server/backend/**'
