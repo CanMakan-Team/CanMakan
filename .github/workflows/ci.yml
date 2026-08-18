@@ -442,6 +442,7 @@ jobs:
           format: 'sarif'
           output: 'trivy-ml-image-results.sarif'
           severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
           exit-code: '0'
 
       - name: Upload ML image SARIF

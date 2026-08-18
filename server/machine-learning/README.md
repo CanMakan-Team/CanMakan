@@ -49,6 +49,8 @@ docker build -t canmakan-ml:local .
 docker run --rm -p 8091:8091 canmakan-ml:local
 ```
 
+The image uses `requirements-runtime.txt` (no pytest/pip in the final Alpine image).
+
 CI trains from `01_products.sql`, scans the image with Trivy, and on `develop`/`main` pushes `ghcr.io/<owner>/canmakan-ml:<sha>`. EC2 runs it as `canmakan-ml` on Docker network `canmakan`; Spring uses `http://canmakan-ml:8091`.
 
 Endpoints:
