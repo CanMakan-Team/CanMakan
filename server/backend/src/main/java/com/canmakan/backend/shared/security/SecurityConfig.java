@@ -7,6 +7,7 @@ import jakarta.servlet.DispatcherType;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -18,6 +19,7 @@ import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -88,15 +90,20 @@ public class SecurityConfig {
             AuthRateLimitFilter authRateLimitFilter,
             RestAuthenticationEntryPoint authenticationEntryPoint,
             RestAccessDeniedHandler accessDeniedHandler,
-            CorsConfigurationSource corsConfigurationSource) throws Exception {
+            CorsConfigurationSource corsConfigurationSource,
+            @Value("${canmakan.security.profiles-me-path:/api/profiles/me}") String profilesMePath) {
         http
             .cors(Customizer.withDefaults())
+            // CSRF exploits a browser's automatic cookie attachment; every mutating endpoint here
+            // is authenticated with a Bearer JWT (Authorization header, never auto-attached) and the
+            // only cookie in play (the refresh token) is SameSite=Lax, so it isn't sent on cross-site
+            // requests either. Safe to disable for this stateless, non-cookie-authenticated API.
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource))
-            .formLogin(formLogin -> formLogin.disable())
-            .httpBasic(httpBasic -> httpBasic.disable())
+            .formLogin(AbstractHttpConfigurer::disable)
+            .httpBasic(AbstractHttpConfigurer::disable)
             .logout(logout -> logout.disable())
-            .requestCache(requestCache -> requestCache.disable())
+            .requestCache(AbstractHttpConfigurer::disable)
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(exceptions -> exceptions
@@ -118,9 +125,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/scan/assess").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/scan/validate").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/scan/history/**").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/profiles/me").hasRole("USER")
-                .requestMatchers(HttpMethod.GET, "/api/profiles/me").hasRole("USER")
-                .requestMatchers(HttpMethod.PUT, "/api/profiles/me").hasRole("USER")
+                .requestMatchers(HttpMethod.POST, profilesMePath).hasRole("USER")
+                .requestMatchers(HttpMethod.GET, profilesMePath).hasRole("USER")
+                .requestMatchers(HttpMethod.PUT, profilesMePath).hasRole("USER")
                 .requestMatchers("/api/profiles/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/restrictions").authenticated()
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()

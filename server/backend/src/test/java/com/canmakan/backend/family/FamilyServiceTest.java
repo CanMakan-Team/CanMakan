@@ -47,10 +47,12 @@ import com.canmakan.backend.family.model.InvitationStatus;
 import com.canmakan.backend.family.repository.FamilyInvitationRepository;
 import com.canmakan.backend.family.repository.FamilyMemberRepository;
 import com.canmakan.backend.family.repository.FamilyRepository;
+import com.canmakan.backend.family.service.FamilyActiveProfileService;
 import com.canmakan.backend.family.service.FamilyAuthorizationService;
 import com.canmakan.backend.family.service.FamilyInvitationService;
 import com.canmakan.backend.family.service.FamilyInviteNotifier;
 import com.canmakan.backend.family.service.FamilyRosterService;
+import com.canmakan.backend.family.service.FamilyScanHistoryService;
 import com.canmakan.backend.family.service.InvitationEmailService;
 import com.canmakan.backend.shared.exception.AuthenticatedUserNotFoundException;
 import com.canmakan.backend.user.model.UserAccount;
@@ -130,19 +132,31 @@ class FamilyServiceTest {
             invitationEmailService,
             familyInviteNotifier
         );
+        FamilyActiveProfileService familyActiveProfileService = new FamilyActiveProfileService(
+            dietaryProfileRepository,
+            familyRepository,
+            familyMemberRepository,
+            familyAuthorization,
+            userPreferenceRepository
+        );
+        FamilyScanHistoryService familyScanHistoryService = new FamilyScanHistoryService(
+            dietaryProfileRepository,
+            scanRepository,
+            familyAuthorization
+        );
         familyService = new FamilyService(
             userAccountRepository,
             familyRepository,
             familyMemberRepository,
             familyInvitationRepository,
-            userPreferenceRepository,
             dietaryProfileRepository,
             dietaryRestrictionRepository,
             dietaryProfileService,
             familyAuthorization,
-            scanRepository,
             familyRosterService,
-            familyInvitationService
+            familyInvitationService,
+            familyActiveProfileService,
+            familyScanHistoryService
         );
     }
 

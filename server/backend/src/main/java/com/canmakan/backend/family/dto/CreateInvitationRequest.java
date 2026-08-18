@@ -15,7 +15,9 @@ public record CreateInvitationRequest(
     @NotBlank(message = "Email is required.")
     @Email(message = "Email must be valid.")
     @Pattern(
-        regexp = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$", // example: "user@example.com"
+        // example: "user@example.com"; domain labels exclude '.' so there is only one way
+        // to split them, avoiding the super-linear backtracking of overlapping [^\s@]+ groups.
+        regexp = "^[^\\s@]+@[^\\s@.]+(\\.[^\\s@.]+){1,10}$",
         message = "Email must be valid.")
     @Size(max = 255, message = "Email must not exceed 255 characters.")
     String email,

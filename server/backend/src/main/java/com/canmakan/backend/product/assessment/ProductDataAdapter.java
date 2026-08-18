@@ -84,17 +84,16 @@ public class ProductDataAdapter {
                 continue;
             }
             String name = cleanIngredientName(ingredient.ingredientName());
-            if (name.isBlank()) {
-                continue;
-            }
-            if (name.equals(ingredient.ingredientName())) {
-                cleaned.add(ingredient);
-            } else {
-                cleaned.add(new Ingredient(
-                    name,
-                    ingredient.parentAllergen(),
-                    ingredient.rootAllergen(),
-                    ingredient.chemicalAlias()));
+            if (!name.isBlank()) {
+                if (name.equals(ingredient.ingredientName())) {
+                    cleaned.add(ingredient);
+                } else {
+                    cleaned.add(new Ingredient(
+                        name,
+                        ingredient.parentAllergen(),
+                        ingredient.rootAllergen(),
+                        ingredient.chemicalAlias()));
+                }
             }
         }
         return List.copyOf(rejoinSplitParentheticals(cleaned));
@@ -103,7 +102,7 @@ public class ProductDataAdapter {
     // Naive comma splits (and some OFF leaves) break "Oyster Extract (Oysters, Water, Salt)"
     // into three names. Rejoin those fragments so Water/Salt are not treated as their own labels.
     private static List<Ingredient> rejoinSplitParentheticals(List<Ingredient> ingredients) {
-        List<String> names = ingredients.stream().map(ingredient -> ingredient.ingredientName()).toList();
+        List<String> names = ingredients.stream().map(Ingredient::ingredientName).toList();
         List<String> mergedNames = IngredientLabelParser.normalize(names);
         if (mergedNames.equals(names)) {
             return ingredients;
@@ -166,7 +165,7 @@ public class ProductDataAdapter {
         }
 
         return Arrays.stream(labelTags.split(","))
-                .map(tag -> tag.trim())
+                .map(String::trim)
                 .filter(label -> !label.isEmpty())
                 .distinct()
                 .toList();

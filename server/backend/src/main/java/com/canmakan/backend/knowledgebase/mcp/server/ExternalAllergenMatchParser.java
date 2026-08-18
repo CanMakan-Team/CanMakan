@@ -23,29 +23,38 @@ import java.util.regex.Pattern;
  */
 final class ExternalAllergenMatchParser {
 
-    // Pattern to match the arrow line
+    // Pattern to match the arrow line. The leading "[\s*-]*" replaces two adjacent \s* groups
+    // around an optional bullet, and the label capture no longer has a redundant \s* before the
+    // delimiter (the caller already trims group(1)) — both were ambiguous split points that caused
+    // super-linear backtracking on non-matching lines.
     private static final Pattern ARROW_LINE = Pattern.compile(
-            "(?i)^\\s*[-*]?\\s*(.+?)\\s*(?:->|→|:|=)\\s*([A-Z_]+)\\s*$",
+            "(?i)^[\\s*\\-]*(.+?)(?:->|→|:|=)\\s*([A-Z_]+)\\s*$",
             Pattern.MULTILINE
     );
 
+    private static final String ROOT_DAIRY = "DAIRY";
+    private static final String ROOT_GLUTEN = "GLUTEN";
+    private static final String ROOT_PEANUT = "PEANUT";
+    private static final String ROOT_TREE_NUT = "TREE_NUT";
+    private static final String ROOT_SHELLFISH = "SHELLFISH";
+
     // Used to map the root alias to the root code
     private static final Map<String, String> ROOT_ALIASES = Map.ofEntries(
-        Map.entry("DAIRY", "DAIRY"),
-        Map.entry("MILK", "DAIRY"),
-        Map.entry("LACTOSE", "DAIRY"),
-        Map.entry("GLUTEN", "GLUTEN"),
-        Map.entry("WHEAT", "GLUTEN"),
-        Map.entry("PEANUT", "PEANUT"),
-        Map.entry("PEANUTS", "PEANUT"),
-        Map.entry("TREE_NUT", "TREE_NUT"),
-        Map.entry("TREE_NUTS", "TREE_NUT"),
-        Map.entry("TREENUT", "TREE_NUT"),
-        Map.entry("NUT", "TREE_NUT"),
-        Map.entry("NUTS", "TREE_NUT"),
+        Map.entry(ROOT_DAIRY, ROOT_DAIRY),
+        Map.entry("MILK", ROOT_DAIRY),
+        Map.entry("LACTOSE", ROOT_DAIRY),
+        Map.entry(ROOT_GLUTEN, ROOT_GLUTEN),
+        Map.entry("WHEAT", ROOT_GLUTEN),
+        Map.entry(ROOT_PEANUT, ROOT_PEANUT),
+        Map.entry("PEANUTS", ROOT_PEANUT),
+        Map.entry(ROOT_TREE_NUT, ROOT_TREE_NUT),
+        Map.entry("TREE_NUTS", ROOT_TREE_NUT),
+        Map.entry("TREENUT", ROOT_TREE_NUT),
+        Map.entry("NUT", ROOT_TREE_NUT),
+        Map.entry("NUTS", ROOT_TREE_NUT),
         Map.entry("FISH", "FISH"),
-        Map.entry("SHELLFISH", "SHELLFISH"),
-        Map.entry("CRUSTACEAN", "SHELLFISH"),
+        Map.entry(ROOT_SHELLFISH, ROOT_SHELLFISH),
+        Map.entry("CRUSTACEAN", ROOT_SHELLFISH),
         Map.entry("EGG", "EGG"),
         Map.entry("EGGS", "EGG"),
         Map.entry("SOY", "SOY"),
@@ -86,7 +95,14 @@ final class ExternalAllergenMatchParser {
         }
 
         Map<String, Ingredient> byKey = new LinkedHashMap<>();
+        parseArrowLines(summary, unresolvedIngredients, byKey);
+        parseLooseProse(summary, unresolvedIngredients, byKey);
+        return new ArrayList<>(byKey.values());
+    }
 
+    /** Preferred line shape: {@code IngredientName -> ROOT_CODE}. */
+    private static void parseArrowLines(
+            String summary, List<String> unresolvedIngredients, Map<String, Ingredient> byKey) {
         Matcher arrowMatcher = ARROW_LINE.matcher(summary);
         while (arrowMatcher.find()) {
             String label = arrowMatcher.group(1).trim();
@@ -101,18 +117,16 @@ final class ExternalAllergenMatchParser {
                         new Ingredient(matchedUnresolved, null, root, false));
             }
         }
+    }
 
-        // Looser prose fallback: ingredient name appears near a known root word.
+    /** Looser prose fallback: ingredient name appears near a known root word. */
+    private static void parseLooseProse(
+            String summary, List<String> unresolvedIngredients, Map<String, Ingredient> byKey) {
         String lowerSummary = summary.toLowerCase(Locale.ROOT);
         for (String unresolved : unresolvedIngredients) {
-            if (unresolved == null || unresolved.isBlank()) {
-                continue;
-            }
             String key = normalize(unresolved);
-            if (byKey.containsKey(key)) {
-                continue;
-            }
-            if (!lowerSummary.contains(normalize(unresolved))) {
+            if (unresolved == null || unresolved.isBlank()
+                    || byKey.containsKey(key) || !lowerSummary.contains(key)) {
                 continue;
             }
             String root = findRootNearIngredient(lowerSummary, unresolved);
@@ -120,8 +134,6 @@ final class ExternalAllergenMatchParser {
                 byKey.put(key, new Ingredient(unresolved.trim(), null, root, false));
             }
         }
-
-        return new ArrayList<>(byKey.values());
     }
 
     // Match the ingredient name in the summary to the ingredient name in the list

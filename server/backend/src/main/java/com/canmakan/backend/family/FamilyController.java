@@ -201,7 +201,9 @@ public class FamilyController {
             @RequestParam("email") String email) {
         long userId = AuthUserChecker.requireUserId(userDetails);
         String normalized = email == null ? "" : email.strip().toLowerCase(Locale.ROOT);
-        if (normalized.isBlank() || !normalized.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+        // Domain labels exclude '.' so there is only one way to split them, avoiding the
+        // super-linear backtracking of overlapping [^\s@]+ groups (see LoginRequest).
+        if (normalized.isBlank() || !normalized.matches("^[^\\s@]+@[^\\s@.]+(\\.[^\\s@.]+){1,10}$")) {
             throw new IllegalArgumentException("Email must be valid.");
         }
         UserSearchResponse result = familyService.searchUserByEmail(userId, normalized);

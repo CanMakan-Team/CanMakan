@@ -5,6 +5,7 @@ import com.canmakan.backend.family.model.FamilyInvitation;
 import com.canmakan.backend.family.repository.FamilyInvitationRepository;
 import com.canmakan.backend.family.repository.FamilyRepository;
 import com.canmakan.backend.notification.NotificationService;
+import com.canmakan.backend.notification.NotificationService.NotificationReference;
 import com.canmakan.backend.notification.model.NotificationType;
 import com.canmakan.backend.user.model.UserAccount;
 import com.canmakan.backend.user.repository.UserAccountRepository;
@@ -36,8 +37,7 @@ public class FamilyInviteNotifier {
         notificationService.upsert(
             invitation.getInvitedByUserId(),
             NotificationType.FAMILY_INVITE_UPDATE,
-            REFERENCE_INVITATION,
-            invitation.getId(),
+            new NotificationReference(REFERENCE_INVITATION, invitation.getId()),
             "Invite sent to " + invitation.getInvitedEmail() + ".",
             familyName,
             null,
@@ -53,8 +53,7 @@ public class FamilyInviteNotifier {
         notificationService.upsert(
             invitation.getInvitedByUserId(),
             NotificationType.FAMILY_INVITE_UPDATE,
-            REFERENCE_INVITATION,
-            invitation.getId(),
+            new NotificationReference(REFERENCE_INVITATION, invitation.getId()),
             friendlyName(inviteeEmail) + " joined your family.",
             familyName(invitation),
             null,
@@ -72,8 +71,7 @@ public class FamilyInviteNotifier {
         notificationService.upsert(
             invitation.getInvitedByUserId(),
             NotificationType.FAMILY_INVITE_UPDATE,
-            REFERENCE_INVITATION,
-            invitation.getId(),
+            new NotificationReference(REFERENCE_INVITATION, invitation.getId()),
             friendlyName(inviteeEmail) + " declined this time.",
             familyName(invitation),
             null,
@@ -105,8 +103,7 @@ public class FamilyInviteNotifier {
         notificationService.upsert(
             userId,
             NotificationType.FAMILY_INVITE_REQUEST,
-            REFERENCE_INVITATION,
-            invitation.getId(),
+            new NotificationReference(REFERENCE_INVITATION, invitation.getId()),
             "Join " + familyName + "?",
             "Invited by " + invitedBy + ".",
             invitation.getInvitationToken(),

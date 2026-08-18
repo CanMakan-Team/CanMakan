@@ -67,13 +67,7 @@ public class RefreshTokenService {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("userId is required");
         }
-        String rawToken = generateRawToken();
-        refreshTokenRepository.save(new RefreshToken(
-            userId,
-            hashToken(rawToken),
-            clock.instant().plus(properties.ttl())
-        ));
-        return new IssuedRefreshToken(rawToken);
+        return issueSession(userId);
     }
 
     @Transactional(
@@ -106,7 +100,7 @@ public class RefreshTokenService {
         }
 
         refreshTokenRepository.delete(currentToken);
-        IssuedRefreshToken replacement = createSession(currentToken.getUserId());
+        IssuedRefreshToken replacement = issueSession(currentToken.getUserId());
         userDetails.eraseCredentials();
         return new RefreshTokenRotation(userDetails, replacement);
     }
@@ -135,6 +129,19 @@ public class RefreshTokenService {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
+    }
+
+    // Plain (non-@Transactional) so an already-MANDATORY-transactional caller such as rotate()
+    // shares this directly instead of calling the annotated createSession(...) via 'this' — a
+    // self-invocation bypasses Spring's proxy and silently skips the annotation.
+    private IssuedRefreshToken issueSession(Long userId) {
+        String rawToken = generateRawToken();
+        refreshTokenRepository.save(new RefreshToken(
+            userId,
+            hashToken(rawToken),
+            clock.instant().plus(properties.ttl())
+        ));
+        return new IssuedRefreshToken(rawToken);
     }
 
     private String generateRawToken() {

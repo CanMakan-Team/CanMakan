@@ -25,19 +25,19 @@ public class FamilyAuthorizationService {
         "You are not a member of a family circle.";
     public static final String PRIMARY_ADMIN_REQUIRED =
         "Only the family primary admin can perform this action.";
+    public static final String PROFILE_NOT_FOUND_MESSAGE = "Profile was not found.";
 
     private final FamilyMemberRepository familyMemberRepository;
     private final DietaryProfileRepository dietaryProfileRepository;
 
     @Transactional(readOnly = true)
     public FamilyMember requireMembership(long userId) {
-        return familyMemberRepository.findMembershipByUserId(userId)
-            .orElseThrow(() -> new FamilyNotFoundException(NOT_IN_FAMILY_MESSAGE));
+        return findMembership(userId);
     }
 
     @Transactional(readOnly = true)
     public FamilyMember requirePrimaryAdmin(long userId) {
-        FamilyMember membership = requireMembership(userId);
+        FamilyMember membership = findMembership(userId);
         if (!FamilyMember.ROLE_PRIMARY_ADMIN.equals(membership.getMemberRole())) {
             throw new FamilyForbiddenException(PRIMARY_ADMIN_REQUIRED);
         }
@@ -46,14 +46,22 @@ public class FamilyAuthorizationService {
 
     @Transactional(readOnly = true)
     public DietaryProfile requireProfileInCallerFamily(long userId, long profileId) {
-        FamilyMember membership = requireMembership(userId);
+        FamilyMember membership = findMembership(userId);
         DietaryProfile profile = dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(profileId)
-            .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
+            .orElseThrow(() -> new FamilyNotFoundException(PROFILE_NOT_FOUND_MESSAGE));
         if (profile.getFamily() == null
                 || !membership.getFamilyId().equals(profile.getFamily().getId())) {
             throw new FamilyForbiddenException("Profile does not belong to your family circle.");
         }
         return profile;
+    }
+
+    // Plain (non-@Transactional) so other methods in this class share it directly instead of
+    // calling the annotated requireMembership(...) via 'this' — a self-invocation bypasses
+    // Spring's proxy and silently skips the annotation.
+    private FamilyMember findMembership(long userId) {
+        return familyMemberRepository.findMembershipByUserId(userId)
+            .orElseThrow(() -> new FamilyNotFoundException(NOT_IN_FAMILY_MESSAGE));
     }
 
     /**
@@ -64,7 +72,7 @@ public class FamilyAuthorizationService {
     @Transactional(readOnly = true)
     public void assertMayEditRestrictions(long actorUserId, long profileId) {
         DietaryProfile profile = dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(profileId)
-            .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
+            .orElseThrow(() -> new FamilyNotFoundException(PROFILE_NOT_FOUND_MESSAGE));
 
         if (profile.getLinkedUser() != null
                 && profile.getLinkedUser().getId() != null
@@ -93,13 +101,20 @@ public class FamilyAuthorizationService {
      */
     @Transactional(readOnly = true)
     public void assertProfileAuthorizedForScan(long userId, long profileId) {
-        assertProfileSelectable(userId, profileId);
+        selectProfile(userId, profileId);
     }
 
     @Transactional(readOnly = true)
     public DietaryProfile assertProfileSelectable(long userId, long profileId) {
+        return selectProfile(userId, profileId);
+    }
+
+    // Plain (non-@Transactional) so assertProfileAuthorizedForScan shares it directly instead of
+    // calling the annotated assertProfileSelectable(...) via 'this' — a self-invocation bypasses
+    // Spring's proxy and silently skips the annotation.
+    private DietaryProfile selectProfile(long userId, long profileId) {
         DietaryProfile profile = dietaryProfileRepository.findByIdWithFamilyAndLinkedUser(profileId)
-            .orElseThrow(() -> new FamilyNotFoundException("Profile was not found."));
+            .orElseThrow(() -> new FamilyNotFoundException(PROFILE_NOT_FOUND_MESSAGE));
         if (!profile.isActive()) {
             throw new InactiveProfileException("Profile is inactive and cannot be selected.");
         }

@@ -137,7 +137,7 @@ public class AuthService {
         }
 
         if (targetAdmin != null) {
-            long activeAdminCount = lockedAdmins.stream().filter(account -> account.isActive()).count();
+            long activeAdminCount = lockedAdmins.stream().filter(UserAccount::isActive).count();
             if (activeAdminCount <= 1) {
                 throw new ProtectedAccountOperationException(LAST_PLATFORM_ADMIN_MESSAGE);
             }

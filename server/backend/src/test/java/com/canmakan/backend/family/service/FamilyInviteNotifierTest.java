@@ -73,22 +73,20 @@ class FamilyInviteNotifierTest {
         verify(notificationService).upsert(
             eq(10L),
             eq(NotificationType.FAMILY_INVITE_UPDATE),
-            eq("INVITATION"),
-            eq(5L),
+            eq(new NotificationService.NotificationReference("INVITATION", 5L)),
             eq("Invite sent to jamie@example.com."),
             eq("Wong Family"),
             isNull(),
             isNull()
         );
         verify(notificationService).upsert(
-            eq(30L),
-            eq(NotificationType.FAMILY_INVITE_REQUEST),
-            eq("INVITATION"),
-            eq(5L),
-            eq("Join Wong Family?"),
-            eq("Invited by Amelia."),
-            eq("tok"),
-            eq(invitation.getExpiresAt())
+            30L,
+            NotificationType.FAMILY_INVITE_REQUEST,
+            new NotificationService.NotificationReference("INVITATION", 5L),
+            "Join Wong Family?",
+            "Invited by Amelia.",
+            "tok",
+            invitation.getExpiresAt()
         );
     }
 
@@ -102,8 +100,7 @@ class FamilyInviteNotifierTest {
         verify(notificationService).upsert(
             eq(10L),
             eq(NotificationType.FAMILY_INVITE_UPDATE),
-            eq("INVITATION"),
-            eq(5L),
+            eq(new NotificationService.NotificationReference("INVITATION", 5L)),
             eq("Jamie joined your family."),
             eq("Wong Family"),
             isNull(),
@@ -130,14 +127,13 @@ class FamilyInviteNotifierTest {
         familyInviteNotifier.hydrateIncomingInvites(30L, "jamie@example.com");
 
         verify(notificationService).upsert(
-            eq(30L),
-            eq(NotificationType.FAMILY_INVITE_REQUEST),
-            eq("INVITATION"),
-            eq(5L),
-            eq("Join Wong Family?"),
-            eq("Invited by Amelia."),
-            eq("tok"),
-            eq(invitation.getExpiresAt())
+            30L,
+            NotificationType.FAMILY_INVITE_REQUEST,
+            new NotificationService.NotificationReference("INVITATION", 5L),
+            "Join Wong Family?",
+            "Invited by Amelia.",
+            "tok",
+            invitation.getExpiresAt()
         );
     }
 

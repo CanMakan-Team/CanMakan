@@ -32,6 +32,8 @@ public class AllergenRelationshipLookupFallback {
     private static final int MAX_EXTERNAL_INGREDIENTS = 8;
     /** Tavily returns HTTP 432 when the account's plan usage quota is exhausted. */
     private static final int TAVILY_PLAN_LIMIT_STATUS = 432;
+    private static final String TAVILY_PLAN_LIMIT_MESSAGE =
+        "Tavily plan limit exceeded (HTTP 432); skipping remaining lookups";
 
     private final WebClient.Builder webClientBuilder;
     @Value("${app.api.tavily.key:${TAVILY_API_KEY:mock_key_value}}")
@@ -66,7 +68,7 @@ public class AllergenRelationshipLookupFallback {
 
         List<String> normalized = IngredientLabelParser.normalize(ingredients).stream()
             .distinct()
-            .collect(Collectors.toList());
+            .toList();
 
         if (normalized.isEmpty()) {
             return "";
@@ -132,7 +134,7 @@ public class AllergenRelationshipLookupFallback {
         } catch (WebClientResponseException e) {
             if (e.getStatusCode().value() == TAVILY_PLAN_LIMIT_STATUS) {
                 tavilyPlanLimitReached = true;
-                log.warn("Tavily plan limit exceeded (HTTP 432); skipping remaining lookups");
+                log.warn(TAVILY_PLAN_LIMIT_MESSAGE);
                 return "";
             }
             log.warn("Tavily search failed for ingredients {}: {}", ingredients, e.getMessage());
@@ -140,7 +142,7 @@ public class AllergenRelationshipLookupFallback {
         } catch (RuntimeException e) {
             if (isPlanLimitFailure(e)) {
                 tavilyPlanLimitReached = true;
-                log.warn("Tavily plan limit exceeded (HTTP 432); skipping remaining lookups");
+                log.warn(TAVILY_PLAN_LIMIT_MESSAGE);
                 return "";
             }
             log.warn("Tavily search failed for ingredients {}: {}", ingredients, e.getMessage());
@@ -198,7 +200,7 @@ public class AllergenRelationshipLookupFallback {
         } catch (WebClientResponseException e) {
             if (e.getStatusCode().value() == TAVILY_PLAN_LIMIT_STATUS) {
                 tavilyPlanLimitReached = true;
-                log.warn("Tavily plan limit exceeded (HTTP 432); skipping remaining lookups");
+                log.warn(TAVILY_PLAN_LIMIT_MESSAGE);
                 return "";
             }
             log.warn("Tavily product-name allergen lookup failed for {}: {}", productName, e.getMessage());
@@ -206,7 +208,7 @@ public class AllergenRelationshipLookupFallback {
         } catch (RuntimeException e) {
             if (isPlanLimitFailure(e)) {
                 tavilyPlanLimitReached = true;
-                log.warn("Tavily plan limit exceeded (HTTP 432); skipping remaining lookups");
+                log.warn(TAVILY_PLAN_LIMIT_MESSAGE);
                 return "";
             }
             log.warn("Tavily product-name allergen lookup failed for {}: {}", productName, e.getMessage());

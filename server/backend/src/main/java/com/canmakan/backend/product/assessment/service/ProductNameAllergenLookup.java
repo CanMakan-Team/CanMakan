@@ -24,19 +24,24 @@ import org.springframework.stereotype.Service;
 @Service
 public class ProductNameAllergenLookup {
 
+    private static final String ROOT_DAIRY = "DAIRY";
+    private static final String ROOT_GLUTEN = "GLUTEN";
+    private static final String ROOT_TREE_NUT = "TREE_NUT";
+    private static final String ROOT_SHELLFISH = "SHELLFISH";
+
     // Keyword that may appear in the provider's answer -> CanMakan root allergen code.
     private static final Map<String, String> KEYWORD_ROOTS = new LinkedHashMap<>();
 
     static {
         KEYWORD_ROOTS.put("PEANUT", "PEANUT");
-        KEYWORD_ROOTS.put("DAIRY", "DAIRY");
-        KEYWORD_ROOTS.put("MILK", "DAIRY");
-        KEYWORD_ROOTS.put("GLUTEN", "GLUTEN");
-        KEYWORD_ROOTS.put("WHEAT", "GLUTEN");
-        KEYWORD_ROOTS.put("TREE NUT", "TREE_NUT");
-        KEYWORD_ROOTS.put("TREE_NUT", "TREE_NUT");
-        KEYWORD_ROOTS.put("SHELLFISH", "SHELLFISH");
-        KEYWORD_ROOTS.put("CRUSTACEAN", "SHELLFISH");
+        KEYWORD_ROOTS.put(ROOT_DAIRY, ROOT_DAIRY);
+        KEYWORD_ROOTS.put("MILK", ROOT_DAIRY);
+        KEYWORD_ROOTS.put(ROOT_GLUTEN, ROOT_GLUTEN);
+        KEYWORD_ROOTS.put("WHEAT", ROOT_GLUTEN);
+        KEYWORD_ROOTS.put("TREE NUT", ROOT_TREE_NUT);
+        KEYWORD_ROOTS.put(ROOT_TREE_NUT, ROOT_TREE_NUT);
+        KEYWORD_ROOTS.put(ROOT_SHELLFISH, ROOT_SHELLFISH);
+        KEYWORD_ROOTS.put("CRUSTACEAN", ROOT_SHELLFISH);
         KEYWORD_ROOTS.put("FISH", "FISH");
         KEYWORD_ROOTS.put("EGG", "EGG");
         KEYWORD_ROOTS.put("SESAME", "SESAME");

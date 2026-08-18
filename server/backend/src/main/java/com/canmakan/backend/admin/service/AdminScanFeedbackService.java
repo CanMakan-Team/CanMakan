@@ -10,15 +10,18 @@ import com.canmakan.backend.product.scan.AdminScanFeedbackView;
 import com.canmakan.backend.product.scan.ScanFeedback;
 import com.canmakan.backend.product.scan.ScanFeedbackRepository;
 
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Read/update access to scan-verdict feedback for the System Admin "Handle
@@ -27,8 +30,9 @@ import java.util.List;
  * @author Kwok Heng
  */
 @Service
-@RequiredArgsConstructor
 public class AdminScanFeedbackService {
+
+    static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Singapore");
 
     /** Default date-period filter when the caller does not specify one ("Past month"). */
     static final int DEFAULT_PERIOD_DAYS = 30;
@@ -37,6 +41,17 @@ public class AdminScanFeedbackService {
     static final int DEFAULT_PAGE_SIZE = 30;
 
     private final ScanFeedbackRepository scanFeedbackRepository;
+    private final Clock clock;
+
+    @Autowired
+    public AdminScanFeedbackService(ScanFeedbackRepository scanFeedbackRepository) {
+        this(scanFeedbackRepository, Clock.system(BUSINESS_ZONE));
+    }
+
+    AdminScanFeedbackService(ScanFeedbackRepository scanFeedbackRepository, Clock clock) {
+        this.scanFeedbackRepository = Objects.requireNonNull(scanFeedbackRepository, "scanFeedbackRepository");
+        this.clock = Objects.requireNonNull(clock, "clock");
+    }
 
     /**
      * Lists one page of feedback rows matching every supplied filter, plus
@@ -58,7 +73,7 @@ public class AdminScanFeedbackService {
         int resolvedPeriodDays = periodDays == null || periodDays <= 0
                 ? DEFAULT_PERIOD_DAYS
                 : periodDays;
-        LocalDateTime since = LocalDateTime.now().minusDays(resolvedPeriodDays);
+        LocalDateTime since = LocalDateTime.now(clock).minusDays(resolvedPeriodDays);
         String normalizedKeyword = blankToNull(keyword);
         String normalizedRestrictionCode = blankToNull(restrictionCode);
 
