@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.canmakan.backend.user.dto.NotificationPreferenceResponse;
 import com.canmakan.backend.user.model.UserPreference;
 import com.canmakan.backend.user.repository.UserPreferenceRepository;
+import com.canmakan.backend.user.service.UserPreferenceService;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

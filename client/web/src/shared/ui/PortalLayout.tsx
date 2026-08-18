@@ -58,13 +58,12 @@ const systemSections: NavigationSection[] = [
   {
     label: '',
     items: [
-      { label: 'Dashboard', to: '/system', icon: 'home' },
-      { label: 'Consumer Trends', to: '/system/trends', icon: '↗' },
-      { label: 'Usage Statistics', to: '/system/usage', icon: '▤' },
-      { label: 'User Accounts & Access', to: '/system/users', icon: '♙' },
-      { label: 'Handle User Feedback', to: '/system/feedback', icon: '⚑' },
-      { label: 'System Health', to: '/system/health', icon: '♥' },
-      { label: 'Future Features', to: '/system/future', icon: '◇' },
+      { label: 'Dashboard', to: '/system', icon: 'overview' },
+      { label: 'Consumer Trends', to: '/system/trends', icon: 'trends' },
+      { label: 'Usage Statistics', to: '/system/usage', icon: 'chart' },
+      { label: 'User Accounts & Access', to: '/system/users', icon: 'people' },
+      { label: 'Handle User Feedback', to: '/system/feedback', icon: 'message' },
+      { label: 'System Health', to: '/system/health', icon: 'activity' },
     ],
   },
 ]

@@ -184,7 +184,7 @@ export function FamilyMembersPage() {
   return (
     <>
       <header className="page-header page-header--split">
-        <p className="eyebrow">Family profiles</p>
+        <p className="eyebrow">Family Circle</p>
         <div className="page-header__title-row">
           <h1>Family Members</h1>
           <div className="page-header__actions">

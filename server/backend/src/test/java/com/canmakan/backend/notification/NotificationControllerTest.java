@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.canmakan.backend.notification.dto.UserNotificationResponse;
 import com.canmakan.backend.notification.exception.NotificationNotFoundException;
 import com.canmakan.backend.notification.model.NotificationType;
+import com.canmakan.backend.notification.service.NotificationService;
 import com.canmakan.backend.shared.security.AuthUserDetails;
 import com.canmakan.backend.shared.security.AuthenticatedPrincipal;
 import com.canmakan.backend.shared.security.SystemRole;

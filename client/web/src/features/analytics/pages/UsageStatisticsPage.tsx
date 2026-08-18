@@ -73,7 +73,7 @@ export function UsageStatisticsPage() {
     <div className="analytics-page usage-statistics-page">
       <header className="page-header page-header--system">
         <div>
-          <p className="eyebrow">Application Usage</p>
+          <p className="eyebrow">System Administration</p>
           <h1>Usage Statistics</h1>
           <p>
             How app users engage with CanMakan: acquisition, activity, retention and sessions across

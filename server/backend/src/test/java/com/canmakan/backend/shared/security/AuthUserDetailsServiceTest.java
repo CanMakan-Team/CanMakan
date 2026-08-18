@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.canmakan.backend.user.AuthenticationAccountView;
+import com.canmakan.backend.user.repository.AuthenticationAccountView;
 import com.canmakan.backend.user.repository.UserAccountRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;

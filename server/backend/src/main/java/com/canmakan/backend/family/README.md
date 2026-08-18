@@ -14,12 +14,11 @@ family/
   FamilyController.java          # HTTP
   InvitationController.java
   FamilyService.java             # Facade over service/*
-  FamilyRelationshipToAdmin.java
   README.md
   config/                        # InviteProperties, ResendProperties
   service/                       # Roster, invitation, authz, email, notifier, util
   dto/
-  model/
+  model/                         # Entities + FamilyRelationshipToAdmin
   repository/
   exception/
 ```

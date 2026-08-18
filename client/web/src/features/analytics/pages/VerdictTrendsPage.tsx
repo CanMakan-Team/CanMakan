@@ -112,7 +112,7 @@ export function VerdictTrendsPage() {
     <>
       <header className="page-header">
         <div>
-          <p className="eyebrow eyebrow--badge">Analytics & insights</p>
+          <p className="eyebrow">Family Circle</p>
           <h1>Verdict Trends</h1>
           <p>
             Your family&apos;s Safe / Warning / Unsafe scan outcomes over time, across all members
