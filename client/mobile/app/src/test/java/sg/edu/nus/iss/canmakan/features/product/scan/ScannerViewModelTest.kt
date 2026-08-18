@@ -23,6 +23,7 @@ import retrofit2.Response
 import sg.edu.nus.iss.canmakan.features.auth.session.AuthSessionStore
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.product.model.ScanVerdict
+import sg.edu.nus.iss.canmakan.features.product.scan.data.ServerScanRepository
 import sg.edu.nus.iss.canmakan.shared.network.AlternativeProductDto
 import sg.edu.nus.iss.canmakan.shared.network.AssessmentFinding
 import sg.edu.nus.iss.canmakan.shared.network.AssessmentRequest
@@ -59,7 +60,7 @@ class ScannerViewModelTest {
         activeProfileManager = ActiveProfileManager().also {
             it.switchProfile(requireNotNull(sessionStore.accountKey.value), 1L)
         }
-        viewModel = ScannerViewModel(api, sessionStore, activeProfileManager)
+        viewModel = ScannerViewModel(ServerScanRepository(api), sessionStore, activeProfileManager)
     }
 
     @AfterEach
@@ -269,6 +270,29 @@ class ScannerViewModelTest {
         assertTrue(api.recommendationsCalled)
         assertTrue(viewModel.verdictDetail.value?.alternatives?.isEmpty() == true)
         assertEquals("Could not load alternatives", viewModel.verdictDetail.value?.alternativesError)
+    }
+
+    @Test
+    @DisplayName("UC3: unknown verdict string becomes ERROR")
+    fun unknownVerdictBecomesError() = runTest {
+        api.validation = Response.success(ValidationResponse(true, "food", "ok"))
+        api.assessment = Response.success(
+            AssessmentResponse(
+                verdict = "MAYBE",
+                explanation = "Unexpected",
+                findings = emptyList(),
+                productName = "Snack",
+                barcode = "333",
+            )
+        )
+
+        viewModel.processBarcode("333", profileId = 1L)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(ScanProcessState.ERROR, viewModel.processState.value)
+        assertEquals("Could not generate a safety verdict", viewModel.errorMessage.value)
+        assertNull(viewModel.verdictDetail.value)
+        assertFalse(api.recommendationsCalled)
     }
 
     @Test

@@ -86,14 +86,14 @@ class FamilyProfileRepositoryTest {
     }
 
     @Test
-    @DisplayName("POST /families 400 throws CreateFamilyException with API message")
+    @DisplayName("POST /families 400 throws FamilyApiException with API message")
     fun createFamilyThrowsOnBadRequest() {
         val body = """{"message":"Family name is required."}""".toResponseBody("application/json".toMediaType())
         val repository = FamilyProfileRepository(
             FakeFamilyProfileApiService(createResponse = Response.error(400, body)),
         )
 
-        val exception = assertThrows(CreateFamilyException::class.java) {
+        val exception = assertThrows(FamilyApiException::class.java) {
             runBlocking { repository.createFamily("  ") }
         }
 
@@ -116,7 +116,7 @@ class FamilyProfileRepositoryTest {
     }
 
     @Test
-    @DisplayName("GET /users/me/preferences/notifications non-2xx throws CreateFamilyException")
+    @DisplayName("GET /users/me/preferences/notifications non-2xx throws FamilyApiException")
     fun getNotificationPreferenceThrowsOnError() {
         val body = """{"message":"Preference unavailable."}""".toResponseBody("application/json".toMediaType())
         val repository = FamilyProfileRepository(
@@ -125,7 +125,7 @@ class FamilyProfileRepositoryTest {
             ),
         )
 
-        val exception = assertThrows(CreateFamilyException::class.java) {
+        val exception = assertThrows(FamilyApiException::class.java) {
             runBlocking { repository.getNotificationPreference() }
         }
 
@@ -164,7 +164,7 @@ class FamilyProfileRepositoryTest {
     }
 
     @Test
-    @DisplayName("PUT /users/me/preferences/notifications non-2xx throws CreateFamilyException")
+    @DisplayName("PUT /users/me/preferences/notifications non-2xx throws FamilyApiException")
     fun setNotificationPreferenceThrowsOnError() {
         val body = """{"message":"Could not save preference."}""".toResponseBody("application/json".toMediaType())
         val repository = FamilyProfileRepository(
@@ -173,7 +173,7 @@ class FamilyProfileRepositoryTest {
             ),
         )
 
-        val exception = assertThrows(CreateFamilyException::class.java) {
+        val exception = assertThrows(FamilyApiException::class.java) {
             runBlocking { repository.setNotificationPreference(true) }
         }
 

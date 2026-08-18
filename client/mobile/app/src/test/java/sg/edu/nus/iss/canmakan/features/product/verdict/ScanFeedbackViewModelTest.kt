@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import retrofit2.Response
+import sg.edu.nus.iss.canmakan.features.product.scan.data.ServerScanRepository
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
 import sg.edu.nus.iss.canmakan.shared.network.AssessmentRequest
 import sg.edu.nus.iss.canmakan.shared.network.AssessmentResponse
@@ -41,7 +42,7 @@ class ScanFeedbackViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         api = FakeCanMakanApiService()
-        viewModel = ScanFeedbackViewModel(api)
+        viewModel = ScanFeedbackViewModel(ServerScanRepository(api))
     }
 
     @AfterEach

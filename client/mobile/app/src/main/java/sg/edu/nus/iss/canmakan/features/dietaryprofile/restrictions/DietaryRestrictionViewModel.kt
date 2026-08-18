@@ -17,6 +17,7 @@ import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.data.Dietary
 import sg.edu.nus.iss.canmakan.features.dietaryprofile.restrictions.model.DietaryRestrictionSheetUiState
 import sg.edu.nus.iss.canmakan.features.family.ActiveProfileManager
 import sg.edu.nus.iss.canmakan.features.family.data.FamilyProfileRepository
+import sg.edu.nus.iss.canmakan.shared.util.userMessageForNetworkFailure
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -117,13 +118,7 @@ class DietaryRestrictionViewModel @Inject constructor(
         } catch (exception: Exception) {
             if (!isCurrentLoad(owner, generation)) return
             Timber.e(exception, "Error loading dietary restrictions")
-            val message = when (exception) {
-                is java.net.SocketTimeoutException ->
-                    "Connection timed out. Please check the configured backend connection."
-                is java.net.ConnectException ->
-                    "Failed to connect to the server. Please check your network."
-                else -> "Unable to load dietary restrictions. Please try again."
-            }
+            val message = userMessageForNetworkFailure(exception)
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 errorMessage = message,

@@ -9,7 +9,8 @@ screenshots.
 
 The project currently contains the supplied UI prototype, including the scanner,
 scan history, product detail, dietary-requirement editor, profile drawer, bottom
-navigation, theme, and supporting sample models and sample data.
+navigation, and theme. Scan history and product data come from the backend, not
+in-app sample catalogs.
 
 Backend integration exists for selected vertical slices, including UC18 user
 registration, dietary restrictions, family profile reads, scan assessment and
@@ -51,7 +52,7 @@ account-owned profile is active.
 ## Technology
 
 - Android with Jetpack Compose
-- Package/application ID: `com.example.canmakan`
+- Package/application ID: `sg.edu.nus.iss.canmakan`
 - Compile SDK and target SDK: 37
 - Minimum SDK: 26
 - Android Gradle Plugin: 8.5.0

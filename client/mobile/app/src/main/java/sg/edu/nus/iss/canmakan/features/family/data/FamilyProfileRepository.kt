@@ -1,13 +1,14 @@
 package sg.edu.nus.iss.canmakan.features.family.data
 
+import com.google.gson.Gson
 import retrofit2.HttpException
 import retrofit2.Response
-import kotlinx.coroutines.CancellationException
 import sg.edu.nus.iss.canmakan.shared.model.DietaryProfile
 import javax.inject.Inject
 
 class FamilyProfileRepository @Inject constructor(
-    private val apiService: FamilyProfileApiService
+    private val apiService: FamilyProfileApiService,
+    private val gson: Gson = Gson(),
 ) {
     /**
      * Returns the caller's family context, or null when the user has no membership (HTTP 404).
@@ -51,7 +52,7 @@ class FamilyProfileRepository @Inject constructor(
                 ?: throw IllegalStateException("Family already exists but GET /families/me returned 404")
         }
         if (!response.isSuccessful) {
-            throw CreateFamilyException(messageFromError(response), response.code())
+            throw FamilyApiException(messageFromError(response), response.code())
         }
         return response.body()
             ?: throw IllegalStateException("Empty body for POST /families")
@@ -64,7 +65,7 @@ class FamilyProfileRepository @Inject constructor(
     suspend fun getActiveProfile(): ActiveProfileResponse {
         val response = apiService.getActiveProfile()
         if (!response.isSuccessful) {
-            throw CreateFamilyException(messageFromError(response), response.code())
+            throw FamilyApiException(messageFromError(response), response.code())
         }
         return response.body()
             ?: throw IllegalStateException("Empty body for GET /families/me/active-profile")
@@ -76,7 +77,7 @@ class FamilyProfileRepository @Inject constructor(
             SetActiveProfileRequestBody(profileId = profileId),
         )
         if (!response.isSuccessful) {
-            throw CreateFamilyException(messageFromError(response), response.code())
+            throw FamilyApiException(messageFromError(response), response.code())
         }
         return response.body()
             ?: throw IllegalStateException("Empty body for PUT /families/me/active-profile")
@@ -85,7 +86,7 @@ class FamilyProfileRepository @Inject constructor(
     suspend fun getNotificationPreference(): Boolean {
         val response = apiService.getNotificationPreference()
         if (!response.isSuccessful) {
-            throw CreateFamilyException(messageFromError(response), response.code())
+            throw FamilyApiException(messageFromError(response), response.code())
         }
         return response.body()?.notificationsEnabled
             ?: throw IllegalStateException("Empty body for GET /users/me/preferences/notifications")
@@ -96,7 +97,7 @@ class FamilyProfileRepository @Inject constructor(
             SetNotificationPreferenceRequestBody(notificationsEnabled = enabled),
         )
         if (!response.isSuccessful) {
-            throw CreateFamilyException(messageFromError(response), response.code())
+            throw FamilyApiException(messageFromError(response), response.code())
         }
         return response.body()?.notificationsEnabled
             ?: throw IllegalStateException("Empty body for PUT /users/me/preferences/notifications")
@@ -107,30 +108,23 @@ class FamilyProfileRepository @Inject constructor(
         if (raw.isBlank()) {
             return "Could not create family circle."
         }
-        val match = Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(raw)
-        val extracted = match?.groupValues?.getOrNull(1).orEmpty()
+        val extracted = runCatching {
+            gson.fromJson(raw, ApiErrorBody::class.java)?.message
+        }.getOrNull().orEmpty()
         return extracted.ifBlank { "Could not create family circle." }
     }
 
     /** (UC6) View Family Allergy Summary Grid */
-    suspend fun getFamilyRestrictionSummary(): Result<FamilyRestrictionSumRes> {
-        return try {
-            val response = apiService.getFamilyRestrictionSummary()
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(
-                    Exception(
-                        "Failed to Fetch Family Restriction Summary, HTTP ${response.code()}",
-                    ),
-                )
-            }
-        } catch (exception: CancellationException) {
-            throw exception
-        } catch (e: Exception) {
-            Result.failure(e)
+    suspend fun getFamilyRestrictionSummary(): FamilyRestrictionSumRes {
+        val response = apiService.getFamilyRestrictionSummary()
+        if (!response.isSuccessful) {
+            throw FamilyApiException(messageFromError(response), response.code())
         }
+        return response.body()
+            ?: throw IllegalStateException("Empty body for GET /families/me/restriction-summary")
     }
+
+    private data class ApiErrorBody(val message: String?)
 
     suspend fun searchUserByEmail(email: String): UserSearchResponse {
         val response = apiService.searchUserByEmail(email.trim().lowercase())
@@ -149,7 +143,7 @@ class FamilyProfileRepository @Inject constructor(
             ),
         )
         if (!response.isSuccessful) {
-            throw CreateFamilyException(messageFromError(response), response.code())
+            throw FamilyApiException(messageFromError(response), response.code())
         }
         return response.body()
             ?: throw IllegalStateException("Empty body for POST /families/me/invitations")
@@ -160,7 +154,7 @@ class FamilyProfileRepository @Inject constructor(
             ClaimInvitationRequestBody(invitationToken = invitationToken.trim()),
         )
         if (!response.isSuccessful) {
-            throw CreateFamilyException(messageFromError(response), response.code())
+            throw FamilyApiException(messageFromError(response), response.code())
         }
         return response.body()
             ?: throw IllegalStateException("Empty body for POST /families/me/invitations/claim")
@@ -169,7 +163,7 @@ class FamilyProfileRepository @Inject constructor(
     suspend fun listMyInvitations(): List<PendingInvitationResponse> {
         val response = apiService.listMyInvitations()
         if (!response.isSuccessful) {
-            throw CreateFamilyException(messageFromError(response), response.code())
+            throw FamilyApiException(messageFromError(response), response.code())
         }
         return response.body().orEmpty()
     }
@@ -177,7 +171,7 @@ class FamilyProfileRepository @Inject constructor(
     suspend fun acceptInvitation(invitationToken: String): FamilyMeResponse {
         val response = apiService.acceptInvitation(invitationToken.trim())
         if (!response.isSuccessful) {
-            throw CreateFamilyException(messageFromError(response), response.code())
+            throw FamilyApiException(messageFromError(response), response.code())
         }
         return response.body()
             ?: throw IllegalStateException("Empty body for POST /invitations/{token}/accept")
@@ -186,7 +180,7 @@ class FamilyProfileRepository @Inject constructor(
     suspend fun declineInvitation(invitationToken: String) {
         val response = apiService.declineInvitation(invitationToken.trim())
         if (!response.isSuccessful) {
-            throw CreateFamilyException(messageFromError(response), response.code())
+            throw FamilyApiException(messageFromError(response), response.code())
         }
     }
 
@@ -205,14 +199,9 @@ class FamilyProfileRepository @Inject constructor(
             ),
         )
         if (!response.isSuccessful) {
-            throw CreateFamilyException(messageFromError(response), response.code())
+            throw FamilyApiException(messageFromError(response), response.code())
         }
         return response.body()
             ?: throw IllegalStateException("Empty body for POST /families/me/profiles")
     }
 }
-
-class CreateFamilyException(
-    message: String,
-    val statusCode: Int,
-) : Exception(message)

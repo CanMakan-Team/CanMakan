@@ -11,12 +11,25 @@ import kotlinx.coroutines.launch
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthFailureType
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthRepository
 import sg.edu.nus.iss.canmakan.features.auth.data.AuthResult
+import sg.edu.nus.iss.canmakan.features.notifications.NotificationBadgeCoordinator
 
 /** Account-level settings actions. Delete always targets the signed-in user. */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
+    private val notificationBadge: NotificationBadgeCoordinator,
 ) : ViewModel() {
+
+    val notificationsEnabled = notificationBadge.notificationsEnabled
+    val notificationsEnabledError = notificationBadge.notificationsEnabledError
+
+    fun setNotificationsEnabled(enabled: Boolean) {
+        notificationBadge.setNotificationsEnabled(enabled)
+    }
+
+    fun clearNotificationsEnabledError() {
+        notificationBadge.clearNotificationsEnabledError()
+    }
 
     private val _isDeletingAccount = MutableStateFlow(false)
     val isDeletingAccount: StateFlow<Boolean> = _isDeletingAccount.asStateFlow()

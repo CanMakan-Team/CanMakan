@@ -43,7 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,8 +101,8 @@ fun ScannerScreen(
     var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
     // Prevents re-firing the same code while it remains in the camera frame.
     var lastProcessedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
-    val processState by viewModel.processState.collectAsState()
-    val verdictDetail by viewModel.verdictDetail.collectAsState()
+    val processState by viewModel.processState.collectAsStateWithLifecycle()
+    val verdictDetail by viewModel.verdictDetail.collectAsStateWithLifecycle()
     val latestProcessState by rememberUpdatedState(processState)
     val latestProfileId by rememberUpdatedState(activeProfile?.id)
 
@@ -449,7 +449,7 @@ private fun ScanningOverlay() {
  */
 @Composable
 fun ValidationOverlay(viewModel: ScannerViewModel) {
-    val state by viewModel.processState.collectAsState()
+    val state by viewModel.processState.collectAsStateWithLifecycle()
 
     val (backgroundColor, statusText) = when (state) {
         ScanProcessState.IDLE, ScanProcessState.SUCCESS -> Pair(Color.Transparent, 0)

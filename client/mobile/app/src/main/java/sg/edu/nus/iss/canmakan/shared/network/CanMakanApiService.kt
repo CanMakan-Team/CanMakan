@@ -67,10 +67,10 @@ data class ScanFeedbackResponse(
 )
 
 interface CanMakanApiService {
-    @POST("/api/scan/validate")
+    @POST("scan/validate")
     suspend fun validateBarcode(@Body request: ScanRequest): Response<ValidationResponse>
 
-    @POST("/api/scan/assess")
+    @POST("scan/assess")
     suspend fun assessBarcode(
         @Body request: AssessmentRequest
     ): Response<AssessmentResponse>
@@ -82,7 +82,7 @@ interface CanMakanApiService {
         @Query("scanId") scanId: Long? = null
     ): Response<RecommendationResponse>
 
-    @POST("/api/scan/{scanId}/feedback")
+    @POST("scan/{scanId}/feedback")
     suspend fun submitScanFeedback(
         @Path("scanId") scanId: Long,
         @Body request: ScanFeedbackRequest
