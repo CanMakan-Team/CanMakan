@@ -82,7 +82,7 @@ Staging and production API runtime is Docker on EC2 (see `CICD-PIPELINE.md` and 
 |   |   |                          #   downtime → Java ranker fallback. CI: pytest 80%,
 |   |   |                          #   train from 01_products.sql, image + Trivy, GHCR
 |   |   |                          #   canmakan-ml; CD sidecar on EC2 (canmakan-ml:8091)
-|   |   |-- Dockerfile             # python:3.12-slim-trixie; joblib baked in after train
+|   |   |-- Dockerfile             # python:3.12-alpine; joblib baked in after train
 |   |   |-- requirements.txt       # fastapi, uvicorn, sklearn, pytest
 |   |   |-- pytest.ini
 |   |   |-- src/canmakan_ml/       # api.py (GET /health, POST /rank), ranker, features

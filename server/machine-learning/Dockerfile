@@ -1,19 +1,27 @@
 # Runtime image for the UC5 FastAPI ranker (Python 3.12).
-# CI trains artifacts/tfidf_ranker.joblib from 01_products.sql, then copies it in.
-FROM python:3.12-slim-trixie
+# CI trains artifacts/tfidf_ranker.joblib, then copies it in.
+# Alpine avoids Debian perl-base / gzip / libacl image alerts; pip is not in the final image.
+FROM python:3.12-alpine AS builder
+
+WORKDIR /build
+
+RUN apk add --no-cache build-base gfortran openblas-dev
+
+COPY requirements-runtime.txt /build/requirements-runtime.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir --prefix=/install -r /build/requirements-runtime.txt \
+    && rm -rf /install/bin/pip* /install/bin/wheel /install/lib/python*/site-packages/pip* \
+        /install/lib/python*/site-packages/setuptools* /install/lib/python*/site-packages/wheel*
+
+FROM python:3.12-alpine
 
 WORKDIR /app
 
-# Pick up Debian security updates that already have a Fixed Version (e.g. util-linux).
-RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk upgrade --no-cache \
+    && addgroup -S canmakan \
+    && adduser -S -G canmakan -H canmakan
 
-RUN groupadd --system canmakan && useradd --system --gid canmakan --create-home canmakan
-
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
-
+COPY --from=builder /install /usr/local
 COPY --chown=canmakan:canmakan src /app/src
 COPY --chown=canmakan:canmakan artifacts/tfidf_ranker.joblib /app/artifacts/tfidf_ranker.joblib
 

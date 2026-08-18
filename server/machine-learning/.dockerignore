@@ -1,5 +1,5 @@
 *
-!requirements.txt
+!requirements-runtime.txt
 !src/
 !src/**
 !artifacts/

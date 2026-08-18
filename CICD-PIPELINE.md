@@ -191,7 +191,7 @@ The workflows do not create GHCR packages, bind them to the repo, or fill Enviro
 
 Backend image: CRITICAL/HIGH in Temurin or the JAR (e.g. Netty) fails `build-backend`. Pin the library or bump the JRE tag.
 
-ML image: the Dockerfile runs `apt-get upgrade` so Debian packages that already have a **Fixed Version** (for example util-linux) must be patched or the job fails. CRITICAL/HIGH with **no Debian fix yet** (perl-base, gzip, ncurses, OpenSSL QUIC, …) use `ignore-unfixed` on both the ML table gate and SARIF, so empty “Fixed Version” rows do not fail **Build Test** or reopen as Code Scanning alerts. Do not set `exit-code: 0` on the table scan.
+ML image: runtime is Alpine (`python:3.12-alpine`) without pip/pytest. `apt`/`perl-base` Debian alerts do not apply. Remaining CRITICAL/HIGH with **no patch** still use `ignore-unfixed`. Fixable packages must still be upgraded (`apk upgrade`) or the table scan fails.
 
 ## 8. Pipeline diagram
 
@@ -250,7 +250,7 @@ With Staging, DAST, performance testing, and **containerised backend + ranker de
 
 ### Gap 1: Direct host execution — **done**
 
-The backend runtime is `eclipse-temurin:21-jre-jammy` plus the CI-verified JAR (`server/backend/Dockerfile`). The ranker runtime is `python:3.12-slim-trixie` plus a CI-trained joblib (`server/machine-learning/Dockerfile`). CI scans both images with Trivy and, on `develop`/`main` pushes, publishes `canmakan-backend:<sha>` and `canmakan-ml:<sha>`. CD pulls them onto the same EC2 Docker network instead of `java -jar` on the host OS.
+The backend runtime is `eclipse-temurin:21-jre-jammy` plus the CI-verified JAR (`server/backend/Dockerfile`). The ranker runtime is `python:3.12-alpine` plus a CI-trained joblib (`server/machine-learning/Dockerfile`). CI scans both images with Trivy and, on `develop`/`main` pushes, publishes `canmakan-backend:<sha>` and `canmakan-ml:<sha>`. CD pulls them onto the same EC2 Docker network instead of `java -jar` on the host OS.
 
 EC2 still needs Docker Engine (the deploy script installs `docker.io` if missing). Follow **§7.1** for GHCR package bind and Environment settings.
 
