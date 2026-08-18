@@ -437,8 +437,12 @@ jobs:
       contents: read
       packages: write
       security-events: write
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5.6.0
@@ -451,7 +455,18 @@ jobs:
         working-directory: server/machine-learning
         run: |
           pip install -r requirements.txt
-          pytest --cov=canmakan_ml --cov-fail-under=80
+          pytest --cov=canmakan_ml --cov-report=xml --cov-fail-under=80
+
+      - name: SonarCloud machine learning
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@v8.1.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectBaseDir: server/machine-learning
+          args: >
+            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.qualitygate.wait=true
 
       - name: Train ranker artifact
         working-directory: server/machine-learning

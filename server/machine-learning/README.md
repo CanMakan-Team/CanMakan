@@ -67,8 +67,10 @@ canmakan.recommendation.ml.ranker-url=http://127.0.0.1:8091
 ## Tests
 
 ```bash
-pytest --cov=canmakan_ml --cov-fail-under=80
+pytest --cov=canmakan_ml --cov-report=xml --cov-fail-under=80
 ```
+
+CI uploads that Cobertura XML to SonarCloud project `canmakan-ml` (same org as the other stacks). Offline `scripts/` are not in that project’s sources; Semgrep still scans them.
 
 Gold-set barcodes align with `RecommendationServiceIntegrationTest` and `artifacts/labeled_substitute_pairs.json`.
 
