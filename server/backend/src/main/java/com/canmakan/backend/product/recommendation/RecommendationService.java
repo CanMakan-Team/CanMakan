@@ -298,12 +298,34 @@ public class RecommendationService {
 	    return acceptable;
 	}
 
-	private record CandidateAssessKey(String ingredientsText, String labels, String traces) {
+	private record CandidateAssessKey(
+	        String ingredientsText,
+	        String labels,
+	        String traces,
+	        String productName,
+	        String mainCategoryEn,
+	        String categoryTags,
+	        String nutrition) {
 	    static CandidateAssessKey from(CatalogProduct product) {
 	        return new CandidateAssessKey(
 	            blankToEmpty(product.getIngredientsText()),
 	            blankToEmpty(product.getLabelsTags()) + "|" + blankToEmpty(product.getAllergens()),
-	            blankToEmpty(product.getTracesTags()));
+	            blankToEmpty(product.getTracesTags()),
+	            blankToEmpty(product.getProductName()),
+	            blankToEmpty(product.getMainCategoryEn()),
+	            blankToEmpty(product.getCategoryTags()),
+	            nutritionKey(product));
+	    }
+
+	    private static String nutritionKey(CatalogProduct product) {
+	        return blankToEmpty(String.valueOf(product.getSugars100g()))
+	            + "|" + blankToEmpty(String.valueOf(product.getSodium100g()))
+	            + "|" + blankToEmpty(String.valueOf(product.getFat100g()))
+	            + "|" + blankToEmpty(String.valueOf(product.getTransFat100g()))
+	            + "|" + blankToEmpty(String.valueOf(product.getSaturatedFat100g()))
+	            + "|" + blankToEmpty(String.valueOf(product.getAddedSugars100g()))
+	            + "|" + blankToEmpty(String.valueOf(product.getSalt100g()))
+	            + "|" + blankToEmpty(String.valueOf(product.getAddedSalt100g()));
 	    }
 
 	    private static String blankToEmpty(String value) {
