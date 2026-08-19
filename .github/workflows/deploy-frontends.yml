@@ -139,7 +139,12 @@ jobs:
       - name: Inject API URL into Firebase Config
         working-directory: ./client/web
         run: |
-          sed "s|{{ env.VITE_API_BASE_URL }}|https://${{ secrets.VITE_API_BASE_URL }}|g" firebase.template.json > firebase.json
+          # 1. Strip any existing protocol prefixes (http:// or https://)
+          RAW_URL="${{ secrets.VITE_API_BASE_URL }}"
+          CLEAN_URL=$(echo "$RAW_URL" | sed -E 's|^https?://||')
+
+          # 2. Inject clean HTTPS URL into template
+          sed "s|{{ env.VITE_API_BASE_URL }}|https://${CLEAN_URL}|g" firebase.template.json > firebase.json
       
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0.11.0
