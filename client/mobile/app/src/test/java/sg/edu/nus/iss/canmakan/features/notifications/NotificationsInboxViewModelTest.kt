@@ -41,6 +41,7 @@ import sg.edu.nus.iss.canmakan.features.family.data.SetActiveProfileRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.SetNotificationPreferenceRequestBody
 import sg.edu.nus.iss.canmakan.features.family.data.UserSearchResponse
 import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsApiService
+import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsException
 import sg.edu.nus.iss.canmakan.features.notifications.data.NotificationsRepository
 import sg.edu.nus.iss.canmakan.features.notifications.data.UserNotificationResponse
 
@@ -167,6 +168,91 @@ class NotificationsInboxViewModelTest {
         assertEquals(1L, viewModel.uiState.value.notifications[0].id)
     }
 
+    @Test
+    fun signedOutRefreshShowsSignInError() {
+        viewModel.refresh()
+        assertEquals("Sign in to view notifications.", viewModel.uiState.value.errorMessage)
+        viewModel.accept("tok") {}
+        assertEquals("Sign in to accept invitations.", viewModel.uiState.value.errorMessage)
+        viewModel.decline("tok")
+        assertEquals("Sign in to decline invitations.", viewModel.uiState.value.errorMessage)
+        viewModel.delete(1L)
+        assertEquals("Sign in to delete notifications.", viewModel.uiState.value.errorMessage)
+        viewModel.markAllRead {}
+        assertEquals("Sign in to update notifications.", viewModel.uiState.value.errorMessage)
+        viewModel.clearError()
+        assertEquals(null, viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun listFailureSurfacesRepositoryMessage() = runTest {
+        notificationsApi.listError = NotificationsException("inbox offline", 503)
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("inbox offline", viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun declineFailureKeepsInviteeCard() = runTest {
+        notificationsApi.notifications = listOf(inviteePendingCard())
+        familyApi.declineResponse = Response.error(
+            400,
+            """{"message":"already declined"}""".toResponseBody("application/json".toMediaType()),
+        )
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.decline("tok")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.notifications.size)
+        assertEquals("already declined", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun markAllReadNoopsWhenEverythingIsAlreadyRead() = runTest {
+        notificationsApi.notifications = listOf(adminSentCard().copy(read = true))
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.markAllRead {}
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(0, notificationsApi.markReadCalls)
+    }
+
+    @Test
+    fun deleteFailureReloadsInbox() = runTest {
+        notificationsApi.notifications = listOf(adminSentCard())
+        notificationsApi.deleteError = NotificationsException("could not delete", 500)
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.delete(1L)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(listOf(1L), notificationsApi.deletedIds)
+        assertEquals(1, viewModel.uiState.value.notifications.size)
+        assertEquals(1L, viewModel.uiState.value.notifications[0].id)
+    }
+
+    @Test
+    fun markAllReadFailureKeepsUnreadState() = runTest {
+        notificationsApi.notifications = listOf(adminSentCard())
+        notificationsApi.markReadError = NotificationsException("mark failed", 500)
+        assertTrue(sessionStore.saveSession(validSession()))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.markAllRead {}
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("mark failed", viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.notifications[0].read)
+        assertFalse(viewModel.uiState.value.isMarkingAllRead)
+    }
+
     private fun validSession(): AuthenticatedSession {
         return AuthenticatedSession(
             accessToken = "access-token",
@@ -222,17 +308,24 @@ class NotificationsInboxViewModelTest {
         var notifications: List<UserNotificationResponse> = emptyList()
         var markReadCalls = 0
         val deletedIds = mutableListOf<Long>()
+        var listError: NotificationsException? = null
+        var deleteError: NotificationsException? = null
+        var markReadError: NotificationsException? = null
 
-        override suspend fun listMyNotifications(): Response<List<UserNotificationResponse>> =
-            Response.success(notifications)
+        override suspend fun listMyNotifications(): Response<List<UserNotificationResponse>> {
+            listError?.let { throw it }
+            return Response.success(notifications)
+        }
 
         override suspend fun markNotificationsRead(): Response<Unit> {
             markReadCalls++
+            markReadError?.let { throw it }
             return Response.success(Unit)
         }
 
         override suspend fun deleteNotification(notificationId: Long): Response<Unit> {
             deletedIds += notificationId
+            deleteError?.let { throw it }
             return Response.success(Unit)
         }
     }
