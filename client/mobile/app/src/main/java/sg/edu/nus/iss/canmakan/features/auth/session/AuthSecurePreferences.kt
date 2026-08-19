@@ -1,13 +1,6 @@
-@file:Suppress("DEPRECATION")
-
 package sg.edu.nus.iss.canmakan.features.auth.session
 
-import android.content.Context
 import android.content.SharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
 import javax.inject.Singleton
 
 /** Encrypted persistence boundary used only for the authenticated-user session. */
@@ -29,19 +22,15 @@ interface RefreshCookiePersistence {
 }
 
 /**
- * Keystore-backed encrypted storage for UC19 authentication state.
+ * Session and cookie persistence used for UC19 authentication state.
  *
- * AndroidX Security Crypto 1.1.0 deprecates this API but does not provide a replacement encrypted
- * preferences implementation. Keeping the existing dependency avoids introducing custom crypto;
- * keys and values are encrypted and the master key is held by Android Keystore.
+ * Production wiring in [sg.edu.nus.iss.canmakan.features.auth.AuthModule] supplies
+ * Keystore-backed encrypted preferences. Tests supply an in-memory SharedPreferences.
  */
 @Singleton
 class EncryptedAuthPreferences internal constructor(
     private val preferencesFactory: () -> SharedPreferences,
 ) : AuthSessionPersistence, RefreshCookiePersistence {
-
-    @Inject
-    constructor(@ApplicationContext context: Context) : this({ createEncryptedPreferences(context) })
 
     private val store: SharedPreferencesAuthPersistence by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         SharedPreferencesAuthPersistence(preferencesFactory())
@@ -82,20 +71,5 @@ internal class SharedPreferencesAuthPersistence(
     override fun clearCookies(): Boolean = preferences.edit().remove(COOKIES_KEY).commit()
 }
 
-private fun createEncryptedPreferences(context: Context): SharedPreferences {
-    val masterKey = MasterKey.Builder(context)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
-
-    return EncryptedSharedPreferences.create(
-        context,
-        PREFERENCES_FILE,
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-    )
-}
-
-private const val PREFERENCES_FILE = "canmakan_auth_secure"
 private const val SESSION_KEY = "authenticated_session"
 private const val COOKIES_KEY = "refresh_cookies"
