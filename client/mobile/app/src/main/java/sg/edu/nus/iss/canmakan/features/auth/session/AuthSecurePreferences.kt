@@ -37,22 +37,30 @@ interface RefreshCookiePersistence {
  */
 @Singleton
 class EncryptedAuthPreferences @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @ApplicationContext context: Context,
 ) : AuthSessionPersistence, RefreshCookiePersistence {
 
-    private val preferences: SharedPreferences by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-
-        EncryptedSharedPreferences.create(
-            context,
-            PREFERENCES_FILE,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
+    private val store: SharedPreferencesAuthPersistence by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        SharedPreferencesAuthPersistence(createEncryptedPreferences(context))
     }
+
+    override fun readSession(): String? = store.readSession()
+
+    override fun writeSession(serializedSession: String): Boolean = store.writeSession(serializedSession)
+
+    override fun clearSession(): Boolean = store.clearSession()
+
+    override fun readCookies(): String? = store.readCookies()
+
+    override fun writeCookies(serializedCookies: String): Boolean = store.writeCookies(serializedCookies)
+
+    override fun clearCookies(): Boolean = store.clearCookies()
+}
+
+/** Session and cookie keys stored in the encrypted preferences file. */
+internal class SharedPreferencesAuthPersistence(
+    private val preferences: SharedPreferences,
+) : AuthSessionPersistence, RefreshCookiePersistence {
 
     override fun readSession(): String? = preferences.getString(SESSION_KEY, null)
 
@@ -69,10 +77,22 @@ class EncryptedAuthPreferences @Inject constructor(
     }
 
     override fun clearCookies(): Boolean = preferences.edit().remove(COOKIES_KEY).commit()
-
-    private companion object {
-        const val PREFERENCES_FILE = "canmakan_auth_secure"
-        const val SESSION_KEY = "authenticated_session"
-        const val COOKIES_KEY = "refresh_cookies"
-    }
 }
+
+private fun createEncryptedPreferences(context: Context): SharedPreferences {
+    val masterKey = MasterKey.Builder(context)
+        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+        .build()
+
+    return EncryptedSharedPreferences.create(
+        context,
+        PREFERENCES_FILE,
+        masterKey,
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+    )
+}
+
+private const val PREFERENCES_FILE = "canmakan_auth_secure"
+private const val SESSION_KEY = "authenticated_session"
+private const val COOKIES_KEY = "refresh_cookies"

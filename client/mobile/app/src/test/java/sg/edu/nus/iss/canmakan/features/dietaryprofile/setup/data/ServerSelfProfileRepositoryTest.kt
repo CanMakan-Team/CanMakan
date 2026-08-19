@@ -121,6 +121,48 @@ class ServerSelfProfileRepositoryTest {
         assertEquals(SelfProfileSetupResult.Forbidden, forbidden)
     }
 
+    @Test
+    fun badRequestAndServerErrorStayDistinct() = kotlinx.coroutines.test.runTest {
+        val invalid = repositoryForStatus(400).createSelfProfile(
+            "Person Name",
+            mapOf(2L to ProfileRestrictionSeverity.STRICT_AVOID),
+        )
+        val unavailable = repositoryForStatus(503).createSelfProfile(
+            "Person Name",
+            mapOf(2L to ProfileRestrictionSeverity.STRICT_AVOID),
+        )
+
+        val typed = assertInstanceOf(SelfProfileSetupResult.InvalidRequest::class.java, invalid)
+        assertEquals(
+            "Check the profile name and dietary selections and try again.",
+            typed.message,
+        )
+        val failure = assertInstanceOf(SelfProfileSetupResult.Failure::class.java, unavailable)
+        assertEquals(
+            "Dietary profile setup is temporarily unavailable. Try again later.",
+            failure.message,
+        )
+    }
+
+    @Test
+    fun networkExceptionMapsToConnectionFailure() = kotlinx.coroutines.test.runTest {
+        val api = object : SelfProfileApiService {
+            override suspend fun createSelfProfile(
+                request: CreateSelfProfileRequest,
+            ): Response<SelfProfileResponse> {
+                throw java.io.IOException("offline")
+            }
+        }
+
+        val result = ServerSelfProfileRepository(api).createSelfProfile("Person", emptyMap())
+
+        val failure = assertInstanceOf(SelfProfileSetupResult.Failure::class.java, result)
+        assertEquals(
+            "Check your connection and try dietary profile setup again.",
+            failure.message,
+        )
+    }
+
     private fun repositoryForStatus(status: Int): ServerSelfProfileRepository {
         val error = "{}".toResponseBody("application/json".toMediaType())
         return ServerSelfProfileRepository(FakeApi(Response.error(status, error)))
