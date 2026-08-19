@@ -118,7 +118,7 @@ There is no repo-root `.github/workflows/build.yml` or root `sonar-project.prope
 
 ### End-to-end (`e2e.yml`)
 
-Concurrency: `e2e-${{ github.ref }}`. Path job `detect-frontend-changes`; Playwright job runs only if `client/web/**` changed. Report artefact `playwright-report`, 30 days. Sparse-checkout includes `client/web`, `client/shared`, and `client/mobile/app/src/main/res/mipmap-xxxhdpi` (web favicon).
+Concurrency: `e2e-${{ github.ref }}`. Path job `detect-frontend-changes`; Playwright job runs only if `client/web/**` changed. Report artefact `playwright-report`, 30 days. Sparse-checkout includes `client/web`, `client/shared`, and `client/mobile/app/src/main/res/mipmap-xxxhdpi` (web favicon). Browser install is Chromium and WebKit only (`npx playwright install --with-deps chromium webkit`), matching the four projects in `playwright.config.ts`; Firefox is not downloaded. Cached browsers still run `playwright install-deps chromium webkit` so WebKit system libraries are present.
 
 Pushes to `main` **do not** run this workflow. Web production deploy runs Playwright in `deploy-frontends.yml` instead.
 
