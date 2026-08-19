@@ -17,9 +17,6 @@ export function getEmailValidationError(value: string): string | null {
   if (!trimmed) {
     return 'Email is required.'
   }
-  if (!trimmed) {
-    return 'Name is required.'
-  }
   if (trimmed.length > MAX_EMAIL_LENGTH) {
     return 'Email must not exceed 255 characters.'
   }
