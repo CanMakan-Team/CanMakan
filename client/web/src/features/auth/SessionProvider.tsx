@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react'
@@ -58,7 +59,7 @@ configureApiAuthBridge({
 })
 
 /** Owns the browser's in-memory access session and refresh-cookie lifecycle. */
-export function SessionProvider({ children }: { children: ReactNode }) {
+export function SessionProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [session, setSession] = useState<AuthenticatedSession | null>(() =>
     authSessionStore.getSession(),
   )
@@ -109,7 +110,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setRestorationAttempt((attempt) => attempt + 1)
   }, [])
 
-  const loginWithCredentials = async (input: CredentialLoginInput) => {
+  const loginWithCredentials = useCallback(async (input: CredentialLoginInput) => {
     setLoading(true)
     try {
       return await withSessionMutationLock('login', async () => {
@@ -121,18 +122,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const register = async (input: RegisterInput) => {
+  const register = useCallback(async (input: RegisterInput) => {
     setLoading(true)
     try {
       return await authService.register(input)
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const registerAndLogin = async (
+  const registerAndLogin = useCallback(async (
     input: RegisterInput,
   ): Promise<RegisterAndLoginResult> => {
     setLoading(true)
@@ -158,9 +159,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     authSessionStore.clear(true)
     try {
       await refreshInFlight
@@ -177,22 +178,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         authSessionStore.clear(true)
       }
     })
-  }
+  }, [])
+
+  const value = useMemo(
+    () => ({
+      session,
+      loading,
+      restoring,
+      restorationError,
+      retryRestoration,
+      loginWithCredentials,
+      register,
+      registerAndLogin,
+      logout,
+    }),
+    [
+      session,
+      loading,
+      restoring,
+      restorationError,
+      retryRestoration,
+      loginWithCredentials,
+      register,
+      registerAndLogin,
+      logout,
+    ],
+  )
 
   return (
-    <SessionContext.Provider
-      value={{
-        session,
-        loading,
-        restoring,
-        restorationError,
-        retryRestoration,
-        loginWithCredentials,
-        register,
-        registerAndLogin,
-        logout,
-      }}
-    >
+    <SessionContext.Provider value={value}>
       {children}
     </SessionContext.Provider>
   )

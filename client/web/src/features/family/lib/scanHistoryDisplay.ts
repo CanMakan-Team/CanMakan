@@ -47,7 +47,7 @@ export function formatRelativeScanTime(
 }
 
 export function hasScanFieldValue(value: string | undefined | null): boolean {
-  return Boolean(value && value.trim())
+  return Boolean(value?.trim())
 }
 
 export function displayScanField(
@@ -55,5 +55,5 @@ export function displayScanField(
   emptyLabel = '—',
 ): string {
   const trimmed = value?.trim()
-  return trimmed ? trimmed : emptyLabel
+  return trimmed || emptyLabel
 }

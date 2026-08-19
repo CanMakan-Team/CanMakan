@@ -4,10 +4,10 @@ import type { AdminScanFeedbackItem } from '../api/models'
 export function AdminScanFeedbackCommentModal({
   item,
   onClose,
-}: {
+}: Readonly<{
   item: AdminScanFeedbackItem
   onClose: () => void
-}) {
+}>) {
   if (!item.userComments) return null
   return (
     <Modal

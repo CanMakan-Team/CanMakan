@@ -59,7 +59,7 @@ export const mockFamilyRepository = {
       return {
         userId: null,
         displayName: null,
-        maskedEmail: normalized.replace(/^(.{1}).*(@.*)$/, '$1***$2'),
+        maskedEmail: normalized.replace(/^(.).*(@.*)$/, '$1***$2'),
         accountStatus: 'NOT_REGISTERED',
         familyLinkStatus: 'NOT_LINKED',
       }
@@ -121,7 +121,7 @@ export const mockFamilyRepository = {
   async linkExistingUser(userId: number): Promise<FamilyMember> {
     await delay(650)
     const match = Object.values(existingUsers).find((user) => user.userId === userId)
-    if (!match || match.familyLinkStatus !== 'NOT_LINKED') {
+    if (match?.familyLinkStatus !== 'NOT_LINKED') {
       throw new ApiError('This user cannot be linked in the current state.')
     }
     if (match.userId == null || !match.displayName) {
@@ -244,7 +244,7 @@ export const mockFamilyRepository = {
   async removeDependantProfile(profileId: number) {
     await delay(400)
     const state = readState()
-    const target = state.members.find(
+    const target = state.members.some(
       (m) => m.profileId === profileId && m.source === 'DEPENDANT_PROFILE',
     )
     if (!target) throw new ApiError('The dependant profile could not be found.')

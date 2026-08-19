@@ -19,11 +19,16 @@ export interface RestrictionMatrixMember {
   restrictions: FamilyMeRestrictionDetail[]
 }
 
+function groupKeyFromIndex(groupIndex: number): RestrictionGroupKey {
+  if (groupIndex === 0) return 'religious'
+  if (groupIndex === 1) return 'allergy'
+  return 'diet'
+}
+
 const restrictionGroupIndex = new Map<string, number>()
 const restrictionGroupKey = new Map<string, RestrictionGroupKey>()
 restrictionGroups.forEach((group, groupIndex) => {
-  const key: RestrictionGroupKey =
-    groupIndex === 0 ? 'religious' : groupIndex === 1 ? 'allergy' : 'diet'
+  const key = groupKeyFromIndex(groupIndex)
   for (const option of group.options) {
     restrictionGroupIndex.set(option.value, groupIndex)
     restrictionGroupKey.set(option.value, key)
@@ -39,11 +44,7 @@ export const DAIRY_FAMILY_CODES = new Set([
 
 export const REFERENCE_GROUPS = restrictionGroups.map((group, groupIndex) => ({
   ...group,
-  groupKey: (groupIndex === 0
-    ? 'religious'
-    : groupIndex === 1
-      ? 'allergy'
-      : 'diet') as RestrictionGroupKey,
+  groupKey: groupKeyFromIndex(groupIndex),
 }))
 
 export const MATRIX_FILTER_OPTIONS: Array<{ value: MatrixFilter; label: string }> = [

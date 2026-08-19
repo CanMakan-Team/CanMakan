@@ -25,9 +25,9 @@ function parseHex(hex) {
     throw new Error(`Expected 6-digit hex, got ${hex}`);
   }
   return {
-    r: parseInt(clean.slice(0, 2), 16),
-    g: parseInt(clean.slice(2, 4), 16),
-    b: parseInt(clean.slice(4, 6), 16),
+    r: Number.parseInt(clean.slice(0, 2), 16),
+    g: Number.parseInt(clean.slice(2, 4), 16),
+    b: Number.parseInt(clean.slice(4, 6), 16),
     rgb: clean,
   };
 }
@@ -92,15 +92,12 @@ function generateCss(colors, aliases) {
     lines.push(`  ${color.css}: ${cssValue(color.hex, color.alpha)};`);
   }
 
-  lines.push("");
-  lines.push("  /* Legacy web aliases (keep existing class CSS working) */");
+  lines.push("", "  /* Legacy web aliases (keep existing class CSS working) */");
   for (const [alias, target] of Object.entries(aliases)) {
     lines.push(`  ${alias}: var(${target});`);
   }
 
-  lines.push("  --shadow: 0 12px 36px rgba(25, 65, 53, 0.08);");
-  lines.push("}");
-  lines.push("");
+  lines.push("  --shadow: 0 12px 36px rgba(25, 65, 53, 0.08);", "}", "");
   return lines.join("\n");
 }
 

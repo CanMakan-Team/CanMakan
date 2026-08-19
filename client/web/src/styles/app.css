@@ -1211,6 +1211,7 @@ a.summary-card--link:focus-visible {
   margin: 0.35rem 0 0;
   color: var(--muted);
   font-size: 0.88rem;
+  font-style: normal;
 }
 
 .recent-list article {
@@ -1382,7 +1383,7 @@ a.summary-card--link:focus-visible {
   margin: 0 0 1.15rem;
 }
 
-.home-tester-notice p {
+.home-tester-notice > span {
   margin: 0;
 }
 
@@ -1543,7 +1544,6 @@ a.summary-card--link:focus-visible {
   font-weight: 500;
   line-height: 1.4;
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .home-scan-row:hover .home-scan-row__tip,
@@ -1593,6 +1593,7 @@ a.summary-card--link:focus-visible {
 
 .safety-disclaimer,
 .notice {
+  display: block;
   margin: 1rem 0;
   padding: 1rem 1.1rem;
   border: 1px solid var(--color-web-eadfae);
@@ -1875,15 +1876,12 @@ a.summary-card--link:focus-visible {
   display: flex;
   min-height: 0;
   flex-direction: column;
+  overflow: visible;
   padding: 1.2rem;
   border: 1px solid var(--line);
   border-radius: 1rem;
   background: var(--color-surface);
   box-shadow: 0 5px 18px color-mix(in srgb, var(--color-web-194135) 3.5%, transparent);
-}
-
-.profile-card {
-  overflow: visible;
 }
 
 .profile-card__header {
@@ -2342,6 +2340,7 @@ a.summary-card--link:focus-visible {
 }
 
 .form-message {
+  display: block;
   margin: 0.8rem 0;
   padding: 0.75rem;
   border-radius: 0.6rem;
@@ -2363,10 +2362,12 @@ a.summary-card--link:focus-visible {
 }
 
 .success-inline {
+  display: block;
   margin: 0.75rem 0 1.25rem;
   color: var(--safe);
   font-size: 0.9rem;
   font-weight: 600;
+  font-style: normal;
 }
 
 .search-form {
@@ -2762,6 +2763,8 @@ caption,
 }
 
 .restriction-matrix {
+  width: 100%;
+  min-width: 100%;
   font-size: 0.78rem;
 }
 
@@ -3002,11 +3005,6 @@ caption,
 .panel--restriction-matrix .page-state {
   margin: 1.35rem;
   min-height: 10rem;
-}
-
-.restriction-matrix {
-  width: 100%;
-  min-width: 100%;
 }
 
 .restriction-matrix th:not(:first-child),
@@ -3892,6 +3890,7 @@ caption,
 }
 
 .analytics-warning {
+  display: block;
   padding: 0.85rem 1rem;
   border: 1px solid var(--warning);
   border-radius: 0.75rem;
@@ -4606,7 +4605,7 @@ caption,
   margin: 0 0 1rem;
 }
 
-.user-access-notice p {
+.user-access-notice > span {
   margin: 0;
   font-size: 0.9rem;
   font-weight: 600;
@@ -4859,8 +4858,8 @@ caption,
   display: inline-block;
   padding: 0.15rem 0.45rem;
   border-radius: 0.4rem;
-  color: #8a6a12;
-  background: #f8f0dd;
+  color: var(--color-web-67531d);
+  background: var(--warning-bg);
   font-size: 0.72rem;
   font-weight: 800;
 }

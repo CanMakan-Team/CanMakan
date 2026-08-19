@@ -41,7 +41,7 @@ export function ProfileForm({
   onCancel,
   allowRestrictionEdit = true,
   restrictionEditHint,
-}: {
+}: Readonly<{
   initialValue?: FamilyProfileInput
   submitLabel: string
   saving: boolean
@@ -51,7 +51,7 @@ export function ProfileForm({
   /** When false, restriction checkboxes are read-only (D3). */
   allowRestrictionEdit?: boolean
   restrictionEditHint?: string
-}) {
+}>) {
   const [form, setForm] = useState<FamilyProfileInput>(initialValue)
   const [nameError, setNameError] = useState('')
   const [catalog, setCatalog] = useState<DietaryRestrictionOption[]>([])
@@ -94,13 +94,13 @@ export function ProfileForm({
         }
       }
       if (option.category === RELIGIOUS_CATEGORY) {
-        const religiousCodes = catalog
+        const religiousCodes = new Set(catalog
           .filter((item) => item.category === RELIGIOUS_CATEGORY)
-          .map((item) => item.code as RestrictionCode)
+          .map((item) => item.code as RestrictionCode))
         return {
           ...current,
           commonRequirements: [
-            ...current.commonRequirements.filter((item) => !religiousCodes.includes(item)),
+            ...current.commonRequirements.filter((item) => !religiousCodes.has(item)),
             code,
           ],
         }
@@ -175,11 +175,11 @@ export function ProfileForm({
 
       <div className="restriction-picker">
         {!allowRestrictionEdit && restrictionEditHint && (
-          <p className="form-message" role="status">
+          <output className="form-message">
             {restrictionEditHint}
-          </p>
+          </output>
         )}
-        {catalogLoading ? <p role="status">Loading dietary options…</p> : null}
+        {catalogLoading ? <output className="field-hint">Loading dietary options…</output> : null}
         {catalogError ? (
           <p className="form-message form-message--error" role="alert">
             {catalogError}

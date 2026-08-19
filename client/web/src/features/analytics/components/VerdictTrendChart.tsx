@@ -52,10 +52,10 @@ function niceStep(target: number): number {
 export function VerdictTrendChart({
   points,
   visibleSeries = ['safe', 'warning', 'unsafe'],
-}: {
+}: Readonly<{
   points: VerdictTrendPoint[]
   visibleSeries?: VerdictTrendSeriesKey[]
-}) {
+}>) {
   if (points.length === 0) {
     return <p>No daily trend data was available for this period.</p>
   }

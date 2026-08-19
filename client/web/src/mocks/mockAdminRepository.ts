@@ -124,9 +124,14 @@ function buildMockResponse(query: ConsumerTrendsQuery): ConsumerTrendsResponse {
       percentage: roundPercentage(product.scanCount, totalScans),
     }))
 
-  const peakPoint = totalScans === 0
-    ? null
-    : dailyTrend.reduce((peak, point) => point.totalCount >= peak.totalCount ? point : peak)
+  const firstPoint = dailyTrend[0]
+  let peakPoint: DailyTrendPoint | null = null
+  if (totalScans > 0 && firstPoint) {
+    peakPoint = dailyTrend.reduce((peak, point) => {
+      if (point.totalCount >= peak.totalCount) return point
+      return peak
+    }, firstPoint)
+  }
   const concernFactor = selectedCategory === null ? 1 : 0.55
   const scaleConcern = (count: number) => Math.max(1, Math.round(count * dates.length / 3 * concernFactor))
 

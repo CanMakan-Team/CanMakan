@@ -9,7 +9,7 @@ import { useSession } from './useSession'
  * 
  */
 
-export function ProtectedRoute({ requiredRole }: { requiredRole: Role }) {
+export function ProtectedRoute({ requiredRole }: Readonly<{ requiredRole: Role }>) {
   const {
     session,
     restoring,
