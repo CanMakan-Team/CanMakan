@@ -66,6 +66,12 @@ public class DietaryKnowledgeMcpClient implements IngredientResolver {
      */
     @Override
     public Map<String, IngredientResolution> resolveAll(List<String> ingredientNames) {
+        return resolveAll(ingredientNames, true);
+    }
+
+    @Override
+    public Map<String, IngredientResolution> resolveAll(
+            List<String> ingredientNames, boolean allowExternalSearch) {
         Map<String, IngredientResolution> resolutions = new LinkedHashMap<>();
         if (ingredientNames == null || ingredientNames.isEmpty()) {
             return resolutions;
@@ -77,7 +83,7 @@ public class DietaryKnowledgeMcpClient implements IngredientResolver {
         // Phase 2: one shared allergen-relationship lookup for every label that needs it.
         AllergenRelationshipResult batchedHierarchy = batch.hierarchyQueries().isEmpty()
                 ? null
-                : allergenRelationshipTool.lookup(batch.hierarchyQueries());
+                : allergenRelationshipTool.lookup(batch.hierarchyQueries(), allowExternalSearch);
 
         // Phase 3: resolve each label against its alias and the shared hierarchy result.
         for (String name : ingredientNames) {

@@ -2,6 +2,7 @@ package com.canmakan.backend.knowledgebase.mcp.server;
 
 import com.canmakan.backend.knowledgebase.mcp.contract.DietaryRuleResult;
 import com.canmakan.backend.knowledgebase.repository.DietaryKnowledgeRepository;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 public class DietaryRuleTool {
 
     private final DietaryKnowledgeRepository repository;
+    private final ConcurrentHashMap<String, DietaryRuleResult> lookupCache = new ConcurrentHashMap<>();
 
     @Tool(
         name = "dietary_rule_lookup", 
@@ -30,16 +32,17 @@ public class DietaryRuleTool {
             return new DietaryRuleResult("", "", "");
         }
 
-        // Normalize the code by trimming and converting to uppercase
         String normalizedCode = code.trim().toUpperCase();
+        return lookupCache.computeIfAbsent(normalizedCode, this::loadRule);
+    }
 
-        // Find the dietary rule by code and map the result to a DietaryRuleResult
-        // If no result is found, return a default result with the normalized code and UNKNOWN category
+    private DietaryRuleResult loadRule(String normalizedCode) {
         return repository.findDietaryRule(normalizedCode)
             .map(entry -> new DietaryRuleResult(
                 entry.code(),
                 entry.category(),
                 entry.description() == null ? "" : entry.description()))
-            .orElseGet(() -> new DietaryRuleResult(normalizedCode, "UNKNOWN", "No dietary rule definition found."));
+            .orElseGet(() -> new DietaryRuleResult(
+                normalizedCode, "UNKNOWN", "No dietary rule definition found."));
     }
 }

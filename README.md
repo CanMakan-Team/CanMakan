@@ -113,7 +113,7 @@ flowchart TB
   GHA --> AppDist
 ```
 
-Agentic AI is **in-process** in Spring (`knowledgebase/mcp` + `ai/`); it is not a separate container. Data visualisation is **in the web SPA** (no Chart.js / Recharts). Validate uses Open Food Facts then **EAN-Search**; assess uses OFF only. Ranker stays on the Docker network (`http://canmakan-ml:8091`), not on Nginx.
+Agentic AI is **in-process** in Spring (`knowledgebase/mcp` + `ai/`); it is not a separate container. Data visualisation is **in the web SPA** (no Chart.js / Recharts). Validate uses Open Food Facts then **EAN-Search**; assess uses OFF only (optional Tavily for unresolved allergen labels). UC5 catalog scoring does not call Tavily. Ranker stays on the Docker network (`http://canmakan-ml:8091`), not on Nginx.
 
 Expanded notes: [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md). Assess sequence: [`mcp-agent-architecture.md`](docs/architecture/mcp-agent-architecture.md). UC5: [`uc5-alternative-recommender.md`](docs/architecture/uc5-alternative-recommender.md). Pipeline jobs: [`CICD-PIPELINE.md`](docs/devsecops/CICD-PIPELINE.md).
 

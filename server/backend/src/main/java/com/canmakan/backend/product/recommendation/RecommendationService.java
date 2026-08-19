@@ -26,6 +26,7 @@ import com.canmakan.backend.product.verdict.ProductData;
 import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.canmakan.backend.product.verdict.SafetyVerdict;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -82,6 +83,7 @@ public class RecommendationService {
 
 	    // --- step 2: load profile restrictions ---
 	    List<RestrictionRule> rules = restrictionRuleLoader.load(request.profileId());
+	    Map<CandidateAssessKey, Boolean> assessCache = new HashMap<>();
 	    boolean preferLowSodiumSauceSubstitutes = AlternativeCandidateFilter.hasLowSodiumPreference(rules)
 	            && SubstituteDiscoveryProfiles.isSauceSource(source);
 	    boolean skipSameCategoryForCowMilkSubstitutes = SubstituteDiscoveryProfiles.isCowMilkSource(source);
@@ -97,7 +99,7 @@ public class RecommendationService {
 	            : queryService.findSameCategoryCandidates(source);
 
 	    // --- step 4: keep only SAFE alternatives ---
-	    List<CatalogProduct> acceptableCandidates = filterAcceptable(candidates, rules, null);
+	    List<CatalogProduct> acceptableCandidates = filterAcceptable(candidates, rules, null, assessCache);
 	    MatchProvenance provenance = MatchProvenance.SAME_CATEGORY;
 	    SubstituteDiscoveryProfile substituteProfile = null;
 	    RecommendationDiscoveryTier discoveryTier = RecommendationDiscoveryTier.TIER_A_CATALOG;
@@ -110,7 +112,7 @@ public class RecommendationService {
 	            List<CatalogProduct> tagCandidates = useExpandedSubstituteDiscovery
 	                    ? queryService.findExpandedSubstituteCandidates(source, substituteProfile)
 	                    : queryService.findSubstituteTagCandidates(source, substituteProfile);
-	            acceptableCandidates = filterAcceptable(tagCandidates, rules, substituteProfile);
+	            acceptableCandidates = filterAcceptable(tagCandidates, rules, substituteProfile, assessCache);
 	            provenance = MatchProvenance.SUBSTITUTE_TAG;
 	        }
 	    }
@@ -124,7 +126,7 @@ public class RecommendationService {
 	                .collect(Collectors.toSet());
 	        List<CatalogProduct> mlCandidates =
 	                mlSparseCatalogRecommender.discoverCandidates(source, substituteProfile, alreadyFound);
-	        List<CatalogProduct> extraAcceptable = filterAcceptable(mlCandidates, rules, substituteProfile);
+	        List<CatalogProduct> extraAcceptable = filterAcceptable(mlCandidates, rules, substituteProfile, assessCache);
 	        if (!extraAcceptable.isEmpty()) {
 	            acceptableCandidates = mergeByBarcode(acceptableCandidates, extraAcceptable, source.getBarcode());
 	            provenance = MatchProvenance.ML_SIMILARITY;
@@ -193,7 +195,8 @@ public class RecommendationService {
 	private List<CatalogProduct> filterAcceptable(
 	        List<CatalogProduct> candidates,
 	        List<RestrictionRule> rules,
-	        SubstituteDiscoveryProfile substituteProfile) {
+	        SubstituteDiscoveryProfile substituteProfile,
+	        Map<CandidateAssessKey, Boolean> assessCache) {
 	    boolean flourSubstituteDiscovery = discoveryProfiles.isFlourSubstituteDiscovery(substituteProfile);
 	    boolean peanutSpreadDiscovery = discoveryProfiles.isPeanutSpreadSubstituteDiscovery(substituteProfile);
 	    boolean iceCreamSubstituteDiscovery = discoveryProfiles.isIceCreamSubstituteDiscovery(substituteProfile);
@@ -215,7 +218,7 @@ public class RecommendationService {
 	                    || AlternativeCandidateFilter.isGlutenFreeBreakfastCerealSubstitute(candidate))
 	            .filter(candidate -> !lowSodiumSauceSubstituteDiscovery
 	                    || AlternativeCandidateFilter.isLowSodiumSauceSubstitute(candidate))
-	            .filter(candidate -> isAcceptableAlternative(candidate, rules))
+	            .filter(candidate -> isAcceptableAlternative(candidate, rules, assessCache))
 	            .toList();
 	}
 
@@ -279,10 +282,33 @@ public class RecommendationService {
 	    merged.putIfAbsent(candidate.getBarcode(), candidate);
 	}
 
-	private boolean isAcceptableAlternative(CatalogProduct candidate, List<RestrictionRule> rules) {
+	private boolean isAcceptableAlternative(
+	        CatalogProduct candidate,
+	        List<RestrictionRule> rules,
+	        Map<CandidateAssessKey, Boolean> assessCache) {
+	    CandidateAssessKey key = CandidateAssessKey.from(candidate);
+	    Boolean cached = assessCache.get(key);
+	    if (cached != null) {
+	        return cached;
+	    }
 	    ProductData productData = catalogProductMapper.toProductData(candidate);
 	    SafetyVerdict verdict = ruleEngine.assessForRecommendation(rules, productData);
-	    return candidateFilter.isAcceptableAlternative(rules, verdict, candidate);
+	    boolean acceptable = candidateFilter.isAcceptableAlternative(rules, verdict, candidate);
+	    assessCache.put(key, acceptable);
+	    return acceptable;
+	}
+
+	private record CandidateAssessKey(String ingredientsText, String labels, String traces) {
+	    static CandidateAssessKey from(CatalogProduct product) {
+	        return new CandidateAssessKey(
+	            blankToEmpty(product.getIngredientsText()),
+	            blankToEmpty(product.getLabelsTags()) + "|" + blankToEmpty(product.getAllergens()),
+	            blankToEmpty(product.getTracesTags()));
+	    }
+
+	    private static String blankToEmpty(String value) {
+	        return value == null ? "" : value.trim();
+	    }
 	}
 	private List<RecommendationLogEntry> toLogEntries(
 	        RecommendationRequest request,

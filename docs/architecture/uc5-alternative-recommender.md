@@ -18,7 +18,7 @@ The recommender is **profile-aware and safety-first**:
 3. **Ranking** — order SAFE (or profile-tolerant WARNING) candidates; hybrid cosine + hand-tuned boosts when ML is enabled.
 4. **Return top 5** — log to `recommendation_logs` (UC17 history) and respond to mobile.
 
-UC5 does **not** generate a new verdict. It reuses the same rule engine as assess, with recommendation-specific acceptance rules for intolerance profiles.
+UC5 does **not** generate a new verdict. It reuses `DietaryRuleEngine` with recommendation-specific acceptance rules for intolerance profiles. Catalog scoring calls `assessForRecommendation`, which resolves ingredients from the local knowledge base only (no Tavily) and caches identical ingredient/label rows within one request. Scan/assess still may use Tavily for unresolved OFF labels.
 
 **UC17 boundary:** listing past recommendation sessions is a separate read API. UC5 only writes logs at recommendation time.
 
@@ -171,7 +171,7 @@ Tag coverage is extended offline via `server/machine-learning/scripts/audit_subs
 
 ## Safety filter
 
-Every candidate passes through the same verdict machinery as assess, then recommendation-specific gates.
+Every candidate is scored with `DietaryRuleEngine.assessForRecommendation` (same verdict rules as assess, local catalog ingredients only — no Tavily), then recommendation-specific gates.
 
 ```mermaid
 flowchart LR
@@ -351,6 +351,7 @@ UC17 reads grouped history via `GET /api/profiles/{profileId}/recommendation-his
 ## Out of scope (by design)
 
 - Generating alternatives from Open Food Facts at request time (catalog is local DB)
+- Tavily / web search while scoring catalog alternatives (scan/assess fallback only)
 - LLM-owned substitute discovery on the MVP path (`LlmRecommendationDiscoveryService` disabled by default)
 - Replacing `DietaryRuleEngine` verdict authority
 - Recommendation history UI (UC17)

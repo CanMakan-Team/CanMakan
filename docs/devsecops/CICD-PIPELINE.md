@@ -127,7 +127,7 @@ Pushes to `main` **do not** run this workflow. Web production deploy runs Playwr
 Since continuous dynamic and stress testing disrupt development workflows and exhaust burstable infrastructure credits, they are executed out-of-band against the Staging environment.
 
 - **DAST (OWASP ZAP):** Executes on a nightly cron schedule. It runs two parallel jobs: a Web Baseline scan against the Firebase staging URL, and an OpenAPI scan against the Spring Boot staging URL using an injected test JWT.
-- **Performance (Grafana k6):** Executes on a weekly cron schedule via `.github/scripts/k6-load-test.js`. Setup logs in once, then **3** virtual users repeat the scan journey: restore session, `POST /api/scan/assess`, `GET` recommendations, and scan history. Read SLOs allow GitHub Actions to EC2 RTT (P95 2s). Assess P95 is 8s. Recommendations on `t3.small` (catalog filter + Python ranker) use P95 45s / P99 90s so the gate is “completes before timeout”, not an interactive latency target.
+- **Performance (Grafana k6):** Executes on a weekly cron schedule via `.github/scripts/k6-load-test.js`. Setup logs in once, then **3** virtual users repeat the scan journey: restore session, `POST /api/scan/assess`, `GET` recommendations, and scan history. Read SLOs allow GitHub Actions to EC2 RTT (P95 2s). Assess P95 is 8s. Recommendations on `t3.small` (catalog filter + Python ranker) use P95 45s / P99 90s so the gate is “completes before timeout”, not an interactive latency target. The Android client uses a 60s read timeout and no generic retry on those two endpoints; k6 SLOs above are independent of that client timeout.
 
 
 

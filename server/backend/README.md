@@ -189,7 +189,7 @@ Default `CANMAKAN_AI_ENABLED=false` keeps assess on Tier-1 rules only. Do not co
 
 ### UC5 recommendations (Tier A catalog + Tier C ML + Python ranker)
 
-MVP recommendations use catalog discovery and dietary filtering in Spring, then rank SAFE candidates. LLM discovery is **not** on the request path.
+MVP recommendations use catalog discovery and dietary filtering in Spring, then rank SAFE candidates. LLM discovery is **not** on the request path. Candidate scoring uses `assessForRecommendation` (local knowledge base only); Tavily is not called for UC5.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -208,9 +208,13 @@ Tan-family demo gold-set overlays: `01f_uc5_demo_gold_set.sql`. Additive tag bac
 ### Enable Tavily (external allergen fallback)
 
 Unknown ingredients that miss the local allergen hierarchy can be looked up via Tavily
-(one batched search per scan, capped). When `CANMAKAN_AI_ENABLED=true`, a tool-free
-ChatClient maps that search text to structured root codes; otherwise a regex parser
-is used. With the default `local-dev-placeholder` key, Tavily is skipped.
+(one batched search per **scan/assess**, capped). Successful answers are cached in
+process. HTTP 432 (plan limit) and 433 (PAYGO limit) stop further Tavily calls until
+restart. UC5 catalog scoring does **not** use Tavily.
+
+When `CANMAKAN_AI_ENABLED=true`, a tool-free ChatClient maps that search text to
+structured root codes; otherwise a regex parser is used. With the default
+`local-dev-placeholder` key, Tavily is skipped.
 
 ```powershell
 $env:TAVILY_API_KEY = "tvly-your-real-key"

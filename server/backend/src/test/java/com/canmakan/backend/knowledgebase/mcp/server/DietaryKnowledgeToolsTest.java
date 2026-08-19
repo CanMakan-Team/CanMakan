@@ -568,6 +568,98 @@ class DietaryKnowledgeToolsTest {
         assertThat(calls.get()).isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("Tavily HTTP 433 stops remaining lookups like a plan limit")
+    void tavilyPayGoLimitStopsRemainingLookups() {
+        AtomicInteger calls = new AtomicInteger();
+        ExchangeFunction exchangeFunction = request -> {
+            calls.incrementAndGet();
+            return Mono.just(
+                ClientResponse.create(HttpStatusCode.valueOf(433))
+                    .header("Content-Type", "application/json")
+                    .body("{\"detail\":{\"error\":\"paygo limit\"}}")
+                    .build());
+        };
+        WebClient.Builder builder = WebClient.builder().exchangeFunction(exchangeFunction);
+        AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
+                builder,
+                "tvly-test-key",
+                "https://api.tavily.com/search");
+
+        assertThat(fallback.searchExternal(List.of("alpha"))).isEmpty();
+        assertThat(fallback.searchExternal(List.of("beta"))).isEmpty();
+        assertThat(calls.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Successful Tavily answers are reused for the same ingredient list")
+    void tavilySearchIsCachedForTheSameIngredients() {
+        AtomicInteger calls = new AtomicInteger();
+        ExchangeFunction exchangeFunction = request -> {
+            calls.incrementAndGet();
+            return Mono.just(
+                ClientResponse.create(HttpStatus.OK)
+                    .header("Content-Type", "application/json")
+                    .body("{\"answer\":\"Oat powder is gluten.\"}")
+                    .build());
+        };
+        WebClient.Builder builder = WebClient.builder().exchangeFunction(exchangeFunction);
+        AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
+                builder,
+                "tvly-test-key",
+                "https://api.tavily.com/search");
+
+        String first = fallback.searchExternal(List.of("OAT POWDER", "SUCROSE"));
+        String second = fallback.searchExternal(List.of("sucrose", "oat powder"));
+
+        assertThat(first).contains("Oat powder is gluten");
+        assertThat(second).isEqualTo(first);
+        assertThat(calls.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Catalog hierarchy lookup can skip Tavily")
+    void localHierarchyLookupSkipsTavily() {
+        AtomicInteger calls = new AtomicInteger();
+        ExchangeFunction exchangeFunction = request -> {
+            calls.incrementAndGet();
+            return Mono.just(ClientResponse.create(HttpStatus.OK)
+                .header("Content-Type", "application/json")
+                .body("{\"answer\":\"should not be used\"}")
+                .build());
+        };
+        WebClient.Builder builder = WebClient.builder().exchangeFunction(exchangeFunction);
+        AllergenRelationshipLookupFallback fallback = new AllergenRelationshipLookupFallback(
+                builder,
+                "tvly-test-key",
+                "https://api.tavily.com/search");
+        AllergenRelationshipTool tool = new AllergenRelationshipTool(repository, fallback);
+
+        AllergenRelationshipResult result = tool.lookup(List.of("mystery-additive"), false);
+
+        assertThat(result.unresolvedIngredients()).containsExactly("mystery-additive");
+        assertThat(result.externalSearchSummary()).isEmpty();
+        assertThat(calls.get()).isZero();
+    }
+
+    @Test
+    @DisplayName("Dietary rule lookups are cached by code")
+    void dietaryRuleLookupIsCached() {
+        DietaryRestrictionRepository isolatedRepo = mock(DietaryRestrictionRepository.class);
+        when(isolatedRepo.findByCodeIgnoreCase(anyString())).thenAnswer(invocation -> {
+            String code = invocation.getArgument(0);
+            return Optional.ofNullable(SEED_RESTRICTIONS.get(code.trim().toLowerCase(Locale.ROOT)));
+        });
+        DietaryRuleTool tool = new DietaryRuleTool(
+                new DietaryKnowledgeRepository(ingredientEntityRepository, isolatedRepo));
+
+        tool.lookup("HALAL");
+        tool.lookup("halal");
+
+        org.mockito.Mockito.verify(isolatedRepo, org.mockito.Mockito.times(1))
+                .findByCodeIgnoreCase("HALAL");
+    }
+
     private static Map<String, DietaryRestriction> seedRestrictions() {
         Map<String, DietaryRestriction> byCode = new LinkedHashMap<>();
         addRestriction(byCode, 1L, "GLUTEN", "Gluten Intolerance", "ALLERGEN",

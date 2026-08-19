@@ -55,6 +55,14 @@ public class AllergenRelationshipTool {
     public AllergenRelationshipResult lookup(
         @ToolParam(description = "List of ingredient names from the product label") List<String> ingredients
     ) {
+        return lookup(ingredients, true);
+    }
+
+    /**
+     * Same as {@link #lookup(List)} with an explicit Tavily switch. Catalog alternative
+     * scoring uses {@code useExternalSearch=false}.
+     */
+    public AllergenRelationshipResult lookup(List<String> ingredients, boolean useExternalSearch) {
         if (ingredients == null || ingredients.isEmpty()) {
             return new AllergenRelationshipResult(List.of(), List.of(), "", List.of());
         }
@@ -84,7 +92,7 @@ public class AllergenRelationshipTool {
         }
 
         // Open Food Facts has already been consulted upstream during product lookup.
-        String externalSummary = unresolvedIngredients.isEmpty()
+        String externalSummary = !useExternalSearch || unresolvedIngredients.isEmpty()
             ? ""
             : Objects.requireNonNullElse(fallback.searchExternal(unresolvedIngredients), "");
 
