@@ -5,6 +5,7 @@ interface AppErrorBoundaryState {
 }
 
 /** Keeps an unexpected render failure from becoming a blank page. */
+
 export class AppErrorBoundary extends Component<
   { children: ReactNode },
   AppErrorBoundaryState

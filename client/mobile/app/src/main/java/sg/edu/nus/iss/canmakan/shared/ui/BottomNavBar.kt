@@ -26,6 +26,7 @@ import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
 // The two possible tabs in the bottom navigation bar.
 enum class BottomTab { SCAN, HISTORY }
 
+
 @Composable
 fun AppBottomNavBar(
     selectedTab: BottomTab,

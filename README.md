@@ -108,11 +108,13 @@ Staging and production API runtime is Docker on EC2 (see `CICD-PIPELINE.md` and 
     |   |                          #   Trivy fs + config, path-filtered builds, Sonar,
     |   |                          #   Docker images + Trivy image, Build Test gate.
     |   |                          #   GHCR push of canmakan-backend / canmakan-ml
-    |   |                          #   only on push to develop/main (not on PRs)
+    |   |                          #   on push or workflow_dispatch to develop/main
+    |   |                          #   (not on PRs)
     |   |-- e2e.yml                # Playwright when client/web changes.
     |   |                          #   PR to develop/main; push to develop only
     |   |                          #   (production web E2E is in deploy-frontends)
-    |   |-- deploy.yml             # After successful CI *push* on develop/main:
+    |   |-- deploy.yml             # After successful CI push or dispatch on
+    |   |                          #   develop/main:
     |   |                          #   pull SHA images from GHCR, SSH ubuntu@EC2,
     |   |                          #   docker run, health check, Nginx blue/green.
     |   |                          #   develop → staging Environment; main → production
