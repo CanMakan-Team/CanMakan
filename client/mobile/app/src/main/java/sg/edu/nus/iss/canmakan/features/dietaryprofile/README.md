@@ -4,11 +4,12 @@ Individual dietary needs and restrictions.
 
 ## Responsibilities
 - View and edit the user’s dietary profile
-- Manage preset constraints (Halal, peanut-free, dairy-free, etc.)
-- Manage custom constraints
+- Manage catalog/preset constraints (Halal, peanut-free, dairy-free, etc.)
 - Provide the active dietary profile to the product flow
 - After normal client-side login, load the authoritative restriction catalog and create
   the caller's SELF profile through `POST /api/profiles/me`
+
+Custom free-text constraints are not implemented. Supported severities are `STRICT_AVOID` and `INTOLERANCE` (`PREFERENCE` is not accepted by the API).
 
 ## Authenticated onboarding
 

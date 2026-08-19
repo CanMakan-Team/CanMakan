@@ -1,6 +1,6 @@
 # CanMakan Dietary Rule Specification
 
-**Status: Proposed MVP v1 — requires team review and approval before conversion into SQL seed data or Java implementation.**
+**Status: Implemented** in [`DietaryRuleEngine`](../../server/backend/src/main/java/com/canmakan/backend/product/verdict/DietaryRuleEngine.java) and SQL seed for the MVP codes below. Live severities are `STRICT_AVOID` and `INTOLERANCE` only. `PREFERENCE`, OCR intake, and MUIS certification claims are out of the live engine.
 
 ## 1. Purpose
 

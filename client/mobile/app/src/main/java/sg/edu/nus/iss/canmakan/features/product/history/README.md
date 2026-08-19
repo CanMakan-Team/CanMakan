@@ -3,9 +3,10 @@
 Scan history (UC4 personal list).
 
 ## Responsibilities
-- List previous scans for the active dietary profile
+- List previous scans for the active dietary profile via [`ServerScanHistoryRepository.kt`](data/ServerScanHistoryRepository.kt)
 - Allow re-opening a past verdict
-- Optional local caching (Room)
+
+History is live Retrofit only. There is no Room cache.
 
 ## API
 Live: `GET /api/scan/history/{profileId}` via `ScanHistoryApiService`

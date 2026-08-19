@@ -1,53 +1,30 @@
 # CanMakan Mobile
 
-The CanMakan mobile client is an Android UI prototype for scanning packaged food
-and presenting dietary and ingredient information. This initial Jetpack Compose
-UI implementation was supplied by Kwok Heng from the team's approved mobile
-screenshots.
+Android client for scanning packaged food and presenting dietary verdicts from the Spring Boot API. The Jetpack Compose screens were originally supplied by Kwok Heng from the team's approved mockups; scan, history, family, and auth now call the live backend.
 
 ## Current status
 
-The project currently contains the supplied UI prototype, including the scanner,
-scan history, product detail, dietary-requirement editor, profile drawer, bottom
-navigation, and theme. Scan history and product data come from the backend, not
-in-app sample catalogs.
+Live slices: UC18 registration, UC19 session, dietary restrictions, family (create/invite/switch), barcode scan/assess, scan history, notifications. An authenticated USER without a dietary profile enters the consumer shell; Scanner and History stay reachable with in-context setup actions, and profile-dependent network calls stay disabled until a positive, account-owned profile is active.
 
-Backend integration exists for selected vertical slices, including UC18 user
-registration, dietary restrictions, family profile reads, scan assessment and
-scan history. Some supplied screens still contain prototype-only callbacks or
-sample presentation data.
-
-The application root now validates the encrypted authentication session before
-showing either the Login/Registration flow or the consumer mobile flow. UC18
-registration remains account creation only. After `201`, Android uses the normal
-login repository/session store and opens optional authenticated profile setup.
-Set Up Later creates no profile; profile failure leaves both account and session
-intact.
-
-An authenticated USER without a dietary profile enters the normal consumer
-shell. Scanner and History remain reachable and present in-context setup actions,
-while their profile-dependent network operations remain disabled until a positive,
-account-owned profile is active.
+UC18 registration remains account creation only. After `201`, Android uses the normal login repository/session store and opens optional authenticated profile setup. Set Up Later creates no profile; profile failure leaves both account and session intact.
 
 ## Design Principles
 
 1. **Feature packages match backend & web names** for easier cross-platform reasoning.
-2. **core** contains only technical shared code (network, DI, UI kit, utils).
+2. [`shared`](app/src/main/java/sg/edu/nus/iss/canmakan/shared/di/README.md) contains only technical shared code (network, DI, UI kit, utils).
 3. Business logic and screens live inside their feature.
 4. Start as a single module. Extract real Gradle modules later only if needed.
 
 ## Feature Overview
 
-```
-| Feature            | Purpose                                      |
-|--------------------|----------------------------------------------|
-| `auth`             | Login, logout, session handling              |
-| `account`          | Notification preference and delete account   |
-| `dietaryprofile`   | User dietary preferences and constraints     |
-| `family`           | Family members and active profile switching  |
-| `product`          | Scanning, verdicts, recommendations, history |
-| `analytics`        | Lightweight trends / stats (optional)        |
-```
+| Feature | Purpose |
+| --- | --- |
+| [`auth`](app/src/main/java/sg/edu/nus/iss/canmakan/features/auth/README.md) | Login, logout, session handling |
+| [`account`](app/src/main/java/sg/edu/nus/iss/canmakan/features/account/README.md) | Notification preference and delete account |
+| [`dietaryprofile`](app/src/main/java/sg/edu/nus/iss/canmakan/features/dietaryprofile/README.md) | User dietary preferences and constraints |
+| [`family`](app/src/main/java/sg/edu/nus/iss/canmakan/features/family/README.md) | Family members and active profile switching |
+| [`product`](app/src/main/java/sg/edu/nus/iss/canmakan/features/product/scan/README.md) | Scanning, verdicts, recommendations, history |
+| [`notifications`](app/src/main/java/sg/edu/nus/iss/canmakan/features/notifications/README.md) | Account inbox |
 
 ## Technology
 

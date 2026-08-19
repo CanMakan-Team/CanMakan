@@ -1,17 +1,16 @@
 # shared/config
 
-Spring Boot configuration classes.
+Cross-cutting Spring beans that are not security or AI.
 
 ## Purpose
-Central place for all application configuration.
 
-## Typical contents
-- `SecurityConfig`
-- `OpenAiConfig` / `OpenRouterConfig`
-- `OpenFoodFactsConfig`
-- `JacksonConfig`, `AsyncConfig`, `CacheConfig`, etc.
-- Property binding classes (`@ConfigurationProperties`)
+HTTP client and JPA setup only. No business logic.
 
-## Rules
-- No business logic
-- Only configuration and bean definitions
+## Contents
+
+| File | Role |
+| --- | --- |
+| [`HttpClientConfig.java`](HttpClientConfig.java) | Shared `WebClient` / HTTP beans used by [`integration`](../../integration/README.md) |
+| [`JpaConfig.java`](JpaConfig.java) | JPA auditing / entity config |
+
+JWT, CORS, and the filter chain live in [`shared/security`](../security/README.md). LLM `ChatClient` beans live in [`ai/llm/LlmChatClientConfig.java`](../../ai/llm/LlmChatClientConfig.java). Refresh-token properties live in [`auth/config`](../../auth/README.md).
