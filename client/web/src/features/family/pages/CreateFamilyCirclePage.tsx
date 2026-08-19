@@ -11,7 +11,7 @@ type CreateFamilyCirclePageProps = {
  * 
  * @author Amelia
  */
-export function CreateFamilyCirclePage({ onCreated }: CreateFamilyCirclePageProps) {
+export function CreateFamilyCirclePage({ onCreated }: Readonly<CreateFamilyCirclePageProps>) {
   const [familyName, setFamilyName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [validationError, setValidationError] = useState('')

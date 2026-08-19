@@ -60,6 +60,12 @@ function parseResolvedFilter(value: string | null): ResolvedFilter {
   return 'ALL'
 }
 
+function resolvedActionLabel(saving: boolean, resolved: boolean): string {
+  if (saving) return 'Saving…'
+  if (resolved) return 'Unresolve'
+  return 'Resolve'
+}
+
 function previewComment(comment: string): string {
   const trimmed = comment.trim()
   return trimmed.length > COMMENT_PREVIEW_LENGTH
@@ -321,17 +327,16 @@ export function AdminScanFeedbackPage() {
         </p>
       )}
 
-      {loading ? (
-        <LoadingState label="Loading user feedback…" />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
-      ) : !data || data.items.length === 0 ? (
+      {loading && <LoadingState label="Loading user feedback…" />}
+      {!loading && error && <ErrorState message={error} onRetry={load} />}
+      {!loading && !error && (!data || data.items.length === 0) && (
         <EmptyState
           title="No feedback matches"
           description="Change the keyword, restriction, period, type or resolved filters and try again."
           showMascot={false}
         />
-      ) : (
+      )}
+      {!loading && !error && data && data.items.length > 0 && (
         <section className="panel panel--table">
           <div className="responsive-table">
             <table className="data-table feedback-table">
@@ -400,11 +405,7 @@ export function AdminScanFeedbackPage() {
                         disabled={savingId === item.id}
                         onClick={() => void changeResolved(item, !item.resolved)}
                       >
-                        {savingId === item.id
-                          ? 'Saving…'
-                          : item.resolved
-                            ? 'Unresolve'
-                            : 'Resolve'}
+                        {resolvedActionLabel(savingId === item.id, item.resolved)}
                       </button>
                     </td>
                   </tr>
@@ -437,7 +438,7 @@ export function AdminScanFeedbackPage() {
         </section>
       )}
 
-      {selectedComment && selectedComment.userComments && (
+      {selectedComment?.userComments && (
         <AdminScanFeedbackCommentModal
           item={selectedComment}
           onClose={() => setSelectedComment(null)}

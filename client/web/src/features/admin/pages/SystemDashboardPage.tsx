@@ -18,7 +18,7 @@ import { PortalIcon } from '../../../shared/ui/PortalIcon'
 import { StatusBadge } from '../../../shared/ui/StatusBadge'
 
 /** Compact SVG sparkline from daily scan totals. */
-function DailyTrendSparkline({ points }: { points: DailyTrendPoint[] }) {
+function DailyTrendSparkline({ points }: Readonly<{ points: DailyTrendPoint[] }>) {
   if (points.length < 2) return null
 
   const values = points.map((point) => point.totalCount)
@@ -241,9 +241,9 @@ export function SystemDashboardPage() {
               {' '}({topIngredient.flaggedCount.toLocaleString()})
             </p>
           ) : (
-            <p className="empty-inline" role="status">
+            <output className="empty-inline">
               No flagged ingredient trends in the current period.
-            </p>
+            </output>
           )}
         </section>
 

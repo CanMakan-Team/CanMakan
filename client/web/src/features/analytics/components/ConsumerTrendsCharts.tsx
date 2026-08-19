@@ -12,6 +12,12 @@ import type {
   ProductScanTrend,
 } from '../api/consumerTrendsTypes'
 
+function axisTextAnchor(index: number, lastIndex: number): 'start' | 'middle' | 'end' {
+  if (index === 0) return 'start'
+  if (index === lastIndex) return 'end'
+  return 'middle'
+}
+
 function ListPageNav({
   label,
   page,
@@ -19,14 +25,14 @@ function ListPageNav({
   start,
   rangeEnd,
   onPageChange,
-}: {
+}: Readonly<{
   label: string
   page: number
   total: number
   start: number
   rangeEnd: number
   onPageChange: (page: number) => void
-}) {
+}>) {
   if (total === 0) return null
   const totalPages = Math.max(1, Math.ceil(total / CONSUMER_TRENDS_ROWS_PER_PAGE))
   const rangeText = `${start + 1}–${rangeEnd} of ${total}`
@@ -59,12 +65,12 @@ export function SummaryCard({
   value,
   detail,
   title,
-}: {
+}: Readonly<{
   label: string
   value: ReactNode
   detail?: string
   title: string
-}) {
+}>) {
   return (
     <HoverTip text={title} className="hover-tip--block">
       <article className="analytics-card summary-card">
@@ -76,7 +82,9 @@ export function SummaryCard({
   )
 }
 
-export function DailyActivityChart({ daily }: { daily: ConsumerTrendsResponse['dailyTrend'] }) {
+export function DailyActivityChart({
+  daily,
+}: Readonly<{ daily: ConsumerTrendsResponse['dailyTrend'] }>) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const width = 720
   const height = 220
@@ -106,7 +114,7 @@ export function DailyActivityChart({ daily }: { daily: ConsumerTrendsResponse['d
   const hoveredPoint = hovered && hoveredIndex !== null
     ? pointFor(hoveredIndex, hovered.totalCount)
     : null
-  const dailyResetKey = `${daily[0]?.date ?? ''}|${daily[daily.length - 1]?.date ?? ''}|${daily.length}`
+  const dailyResetKey = `${daily[0]?.date ?? ''}|${daily.at(-1)?.date ?? ''}|${daily.length}`
   const {
     page: dailyPage,
     setPage: setDailyPage,
@@ -167,7 +175,7 @@ export function DailyActivityChart({ daily }: { daily: ConsumerTrendsResponse['d
           {xLabelIndexes.map((index) => {
             const item = daily[index]
             const x = pointFor(index, item.totalCount).x
-            const textAnchor = index === 0 ? 'start' : index === daily.length - 1 ? 'end' : 'middle'
+            const textAnchor = axisTextAnchor(index, daily.length - 1)
             return (
               <text key={item.date} x={x} y={height - 8} textAnchor={textAnchor} className="chart-axis-label">
                 {formatShortDate(item.date)}
@@ -242,11 +250,11 @@ export function ProductRankingChart({
   products,
   resetKey,
   periodLabel,
-}: {
+}: Readonly<{
   products: ProductScanTrend[]
   resetKey: string
   periodLabel: string
-}) {
+}>) {
   const { page, setPage, start, visible, rangeEnd, total } = usePagedItems(products, resetKey)
   const maxCount = Math.max(1, ...products.map((item) => item.scanCount))
 
@@ -304,13 +312,13 @@ export function CategoryOverviewChart({
   onCategoryChange,
   resetKey,
   periodLabel,
-}: {
+}: Readonly<{
   categories: CategoryScanTrend[]
   selectedCategory: string
   onCategoryChange: (category: string) => void
   resetKey: string
   periodLabel: string
-}) {
+}>) {
   const { page, setPage, start, visible, rangeEnd, total } = usePagedItems(categories, resetKey)
   const maxCount = Math.max(1, ...categories.map((item) => item.scanCount))
 
@@ -381,7 +389,7 @@ export function ConcernBars({
   paginationLabel,
   resetKey,
   periodLabel,
-}: {
+}: Readonly<{
   eyebrow: string
   title: string
   description: string
@@ -390,7 +398,7 @@ export function ConcernBars({
   paginationLabel: string
   resetKey: string
   periodLabel: string
-}) {
+}>) {
   const { page, setPage, start, visible, rangeEnd, total } = usePagedItems(items, resetKey)
   const maxCount = Math.max(1, ...items.map((item) => item.count))
 
@@ -437,7 +445,7 @@ export function ConcernBars({
   )
 }
 
-export function OutcomeMix({ data }: { data: ConsumerTrendsResponse }) {
+export function OutcomeMix({ data }: Readonly<{ data: ConsumerTrendsResponse }>) {
   const total = data.summary.totalScans
   const safePercent = total ? Math.round((data.summary.safeCount / total) * 100) : 0
   const warningPercent = total ? Math.round((data.summary.warningCount / total) * 100) : 0
@@ -495,12 +503,12 @@ function OutcomeLegendRow({
   value,
   total,
   className,
-}: {
+}: Readonly<{
   label: string
   value: number
   total: number
   className: string
-}) {
+}>) {
   const share = total === 0 ? '0.0' : ((value / total) * 100).toFixed(1)
   return (
     <tr className={`outcome-tile ${className}`}>

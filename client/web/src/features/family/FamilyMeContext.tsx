@@ -5,7 +5,7 @@ import { familyApiService } from './api/familyApiService'
 import { FamilyMeContext, type FamilyMeState } from './familyMeState'
 import { isPrimaryAdminRole } from './lib/familyRoles'
 
-export function FamilyMeProvider({ children }: { children: ReactNode }) {
+export function FamilyMeProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [family, setFamily] = useState<FamilyMe | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -19,9 +19,9 @@ export function FamilyMeProvider({ children }: { children: ReactNode }) {
         setFamily(next)
         setLoading(false)
       },
-      (caught: unknown) => {
+      (error_: unknown) => {
         setFamily(null)
-        setError(getErrorMessage(caught))
+        setError(getErrorMessage(error_))
         setLoading(false)
       },
     )

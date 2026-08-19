@@ -13,10 +13,10 @@ import { ProfileForm } from './ProfileForm'
 export function CreateFamilyProfileModal({
   onClose,
   onSuccess,
-}: {
+}: Readonly<{
   onClose: () => void
   onSuccess: (message: string) => void
-}) {
+}>) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 

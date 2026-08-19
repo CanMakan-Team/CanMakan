@@ -10,6 +10,12 @@ import { getRegistrationPasswordError } from '../shared/validation/authFields'
 import { getEmailValidationError } from '../shared/validation/email'
 import { FAMILY_ROOT_PATH, ME_SETUP_PROFILE_PATH, USER_LOGIN_PATH } from '../app/userPortalPaths'
 
+function registerSubmitLabel(loading: boolean, accountCreated: boolean): string {
+  if (loading) return 'Creating account…'
+  if (accountCreated) return 'Account created'
+  return 'Create account'
+}
+
 /** UC18 account registration followed by the authoritative UC19 login flow. */
 export function UserRegisterPage() {
   const [searchParams] = useSearchParams()
@@ -210,7 +216,7 @@ export function UserRegisterPage() {
               type="submit"
               disabled={loading || accountCreated}
             >
-              {loading ? 'Creating account…' : accountCreated ? 'Account created' : 'Create account'}
+              {registerSubmitLabel(loading, accountCreated)}
             </button>
           </form>
 

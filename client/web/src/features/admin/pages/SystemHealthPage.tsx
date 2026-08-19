@@ -95,13 +95,14 @@ export function SystemHealthPage() {
         </div>
       </section>
 
-      {loading ? (
-        <LoadingState label="Loading system health…" />
-      ) : errorMessage ? (
+      {loading && <LoadingState label="Loading system health…" />}
+      {!loading && errorMessage && (
         <ErrorState message={errorMessage} onRetry={() => void load()} />
-      ) : data ? (
+      )}
+      {!loading && !errorMessage && data && (
         <SystemHealthResult data={data} hours={hours} />
-      ) : (
+      )}
+      {!loading && !errorMessage && !data && (
         <EmptyState title="No health data" description="No system health data is available yet." />
       )}
     </>

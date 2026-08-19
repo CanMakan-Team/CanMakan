@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { authService } from '../../auth/api/authService'
 import { useSession } from '../../auth/useSession'
@@ -112,6 +112,21 @@ export function AccountPage() {
   // stray click on the danger button cannot remove the account on its own.
   const deleteConfirmed =
     deleteConfirmation.trim().toLowerCase() === account.email.toLowerCase()
+  let familyCircleAction: ReactNode = (
+    <Link className="button button--secondary button--small" to={FAMILY_CIRCLE_PATH}>
+      Create family circle
+    </Link>
+  )
+  if (family) {
+    familyCircleAction = null
+    if (isPrimaryAdmin) {
+      familyCircleAction = (
+        <Link className="button button--secondary button--small" to={FAMILY_MEMBERS_PATH}>
+          Manage family
+        </Link>
+      )
+    }
+  }
 
   return (
     <>
@@ -158,17 +173,7 @@ export function AccountPage() {
                 <p className="account-row__meta">Not in a family</p>
               )}
             </div>
-            {family ? (
-              isPrimaryAdmin ? (
-                <Link className="button button--secondary button--small" to={FAMILY_MEMBERS_PATH}>
-                  Manage family
-                </Link>
-              ) : null
-            ) : (
-              <Link className="button button--secondary button--small" to={FAMILY_CIRCLE_PATH}>
-                Create family circle
-              </Link>
-            )}
+            {familyCircleAction}
           </li>
         </ul>
       </section>

@@ -66,7 +66,7 @@ export function FamilyDashboardPage() {
   const latestScanAt = scans.reduce((latest, scan) => {
     const scannedAt = Date.parse(scan.scannedAt)
     if (Number.isNaN(scannedAt)) return latest
-    return scannedAt > latest ? scannedAt : latest
+    return Math.max(scannedAt, latest)
   }, 0)
   const verdictCounts = scans.reduce<Record<string, number>>((counts, scan) => {
     counts[scan.verdict] = (counts[scan.verdict] ?? 0) + 1
@@ -143,9 +143,9 @@ export function FamilyDashboardPage() {
             ))}
           </div>
           {scans.length === 0 ? (
-            <p className="empty-inline" role="status">
+            <output className="empty-inline">
               No scans yet — scan a product in the CanMakan mobile app.
-            </p>
+            </output>
           ) : (
             <div className="recent-list">
               {scans.slice(0, 3).map((scan) => (

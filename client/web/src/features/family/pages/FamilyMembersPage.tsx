@@ -29,6 +29,12 @@ type PendingConfirm =
   | { type: 'deactivate'; member: FamilyMember }
   | { type: 'remove'; member: FamilyMember }
 
+function profileSourceLabel(member: Pick<FamilyMember, 'profileActive' | 'source'>): string {
+  if (!member.profileActive) return 'Inactive'
+  if (member.source === 'REGISTERED_USER') return 'App User'
+  return 'Family profile'
+}
+
 function confirmCopy(pending: PendingConfirm) {
   if (pending.type === 'deactivate') {
     return {
@@ -211,23 +217,22 @@ export function FamilyMembersPage() {
       </header>
 
       {notice ? (
-        <p className="success-inline" role="status">
+        <output className="success-inline">
           {notice}
-        </p>
+        </output>
       ) : null}
 
-      {loading ? (
-        <LoadingState label="Loading family members…" />
-      ) : members.length === 0 ? (
-        error ? (
-          <ErrorState message={error} onRetry={loadMembers} />
-        ) : (
+      {loading && <LoadingState label="Loading family members…" />}
+      {!loading && members.length === 0 && error && (
+        <ErrorState message={error} onRetry={loadMembers} />
+      )}
+      {!loading && members.length === 0 && !error && (
         <EmptyState
           title="No family profiles yet"
           description="Link an existing App User or create a new dependant profile."
         />
-        )
-      ) : (
+      )}
+      {!loading && members.length > 0 && (
         <>
           {error ? (
             <p className="form-message form-message--error" role="alert">
@@ -259,11 +264,7 @@ export function FamilyMembersPage() {
                     </div>
                     <div className="profile-card__meta">
                       <span className="source-label">
-                        {!member.profileActive
-                          ? 'Inactive'
-                          : member.source === 'REGISTERED_USER'
-                            ? 'App User'
-                            : 'Family profile'}
+                        {profileSourceLabel(member)}
                       </span>
                       <ProfileCardMenu
                         disabled={busy}

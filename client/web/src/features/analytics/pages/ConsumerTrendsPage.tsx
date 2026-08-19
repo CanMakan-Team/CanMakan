@@ -66,9 +66,9 @@ export function ConsumerTrendsPage() {
           if (requestId === latestLoadRequest.current) {
             setData(response)
           }
-        } catch (caught) {
+        } catch (error_) {
           if (requestId === latestLoadRequest.current) {
-            setError(getErrorMessage(caught))
+            setError(getErrorMessage(error_))
           }
         } finally {
           if (requestId === latestLoadRequest.current) {
@@ -162,7 +162,7 @@ export function ConsumerTrendsPage() {
         <div className="analytics-toolbar">
           <div className="analytics-controls" aria-label="Consumer trends filters">
             <label>
-              Period
+              <span>Period</span>
               <select
                 value={presetDays ?? 'custom'}
                 onChange={(event) => updatePeriod(event.target.value)}
@@ -178,7 +178,7 @@ export function ConsumerTrendsPage() {
             </label>
 
             <label>
-              From
+              <span>From</span>
               <input
                 type="date"
                 value={fromInput}
@@ -193,7 +193,7 @@ export function ConsumerTrendsPage() {
             </label>
 
             <label>
-              To
+              <span>To</span>
               <input
                 type="date"
                 value={toInput}
@@ -208,7 +208,7 @@ export function ConsumerTrendsPage() {
             </label>
 
             <label>
-              Product Category
+              <span>Product Category</span>
               <select
                 value={selectedCategory}
                 onChange={(event) => updateCategory(event.target.value)}
@@ -228,7 +228,7 @@ export function ConsumerTrendsPage() {
             <button
               type="button"
               className="button button--secondary"
-              onClick={() => void load()}
+              onClick={load}
               disabled={loading}
             >
               {loading ? 'Refreshing…' : 'Refresh'}
@@ -253,7 +253,7 @@ export function ConsumerTrendsPage() {
       {rangeError ? <p className="form-message form-message--error" role="alert">{rangeError}</p> : null}
       {exportError ? <p className="form-message form-message--error" role="alert">{exportError}</p> : null}
       {exportSuccess ? (
-        <p className="form-message form-message--success" role="status">Consumer trends report downloaded.</p>
+        <output className="form-message form-message--success">Consumer trends report downloaded.</output>
       ) : null}
 
       {loading && !data ? <LoadingState label="Loading consumer trends…" /> : null}
@@ -274,11 +274,11 @@ function ConsumerTrendsResult({
   data,
   selectedCategory,
   onCategoryChange,
-}: {
+}: Readonly<{
   data: ConsumerTrendsResponse
   selectedCategory: string
   onCategoryChange: (category: string) => void
-}) {
+}>) {
   const noActivity = data.summary.totalScans === 0
   const listResetKey = `${data.period.from}|${data.period.to}|${data.appliedFilters.category ?? ''}`
   const periodLabel = `${formatDate(data.period.from)} – ${formatDate(data.period.to)}`
@@ -310,9 +310,9 @@ function ConsumerTrendsResult({
       </section>
 
       {data.dataQuality.partial ? (
-        <div className="analytics-warning" role="status">
+        <output className="analytics-warning">
           <strong>Partial dietary-concern data:</strong> {formatNumber(data.dataQuality.skippedMalformedFindings)} scan finding records could not be read.
-        </div>
+        </output>
       ) : null}
 
       {noActivity ? (

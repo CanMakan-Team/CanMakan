@@ -225,7 +225,7 @@ export function SelfProfileSetupPage() {
           <p className="field-hint">How this profile appears in your shared Family Circle.</p>
         </div>
 
-        {loading ? <p role="status">Loading dietary options…</p> : null}
+        {loading ? <output className="field-hint">Loading dietary options…</output> : null}
         {!loading
           ? groupedCatalog.map(([category, options]) => (
               <fieldset key={category} className="dietary-setup__category">
@@ -269,9 +269,9 @@ export function SelfProfileSetupPage() {
         ) : null}
 
         {successMessage ? (
-          <p className="form-message form-message--success" role="status">
+          <output className="form-message form-message--success">
             {successMessage}
-          </p>
+          </output>
         ) : null}
 
         <div className="dietary-setup__actions">

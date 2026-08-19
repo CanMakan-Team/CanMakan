@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type SyntheticEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { adminService } from '../api/adminService'
 import type { AdminUser, AdminUserFilters, AdminUserRole } from '../api/models'
@@ -159,7 +159,7 @@ export function UserAccessPage() {
     }
   }, [busyUserId])
 
-  const updateStatus = async (event: FormEvent<HTMLFormElement>) => {
+  const updateStatus = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selected) return
 
@@ -266,11 +266,8 @@ export function UserAccessPage() {
       </section>
 
       {notice ? (
-        <div
-          className={`notice notice--${notice.tone} user-access-notice`}
-          role="status"
-        >
-          <p>{notice.message}</p>
+        <output className={`notice notice--${notice.tone} user-access-notice`}>
+          <span>{notice.message}</span>
           <button
             type="button"
             className="user-access-notice__dismiss"
@@ -278,14 +275,12 @@ export function UserAccessPage() {
           >
             Dismiss
           </button>
-        </div>
+        </output>
       ) : null}
 
-      {loading ? (
-        <LoadingState label="Loading user accounts…" />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
-      ) : manageableUsers.length === 0 ? (
+      {loading && <LoadingState label="Loading user accounts…" />}
+      {!loading && error && <ErrorState message={error} onRetry={load} />}
+      {!loading && !error && manageableUsers.length === 0 && (
         <EmptyState
           title="No accounts match"
           description="Change the email, role or status filters and try again."
@@ -307,7 +302,8 @@ export function UserAccessPage() {
             ) : null
           }
         />
-      ) : (
+      )}
+      {!loading && !error && manageableUsers.length > 0 && (
         <section className="panel panel--table">
           <div className="responsive-table">
             <table className="data-table user-table">

@@ -57,9 +57,9 @@ export function usePersonalHomeData() {
       selfProfileApiService.getCatalog().catch(() => [] as DietaryRestrictionOption[]),
       selfProfileApiService.getSelfProfile().then(
         (existing) => existing,
-        (caught: unknown) => {
-          if (caught instanceof ApiError && caught.status === 404) return null
-          throw caught
+        (error_: unknown) => {
+          if (error_ instanceof ApiError && error_.status === 404) return null
+          throw error_
         },
       ),
     ]).then(
@@ -70,10 +70,10 @@ export function usePersonalHomeData() {
         setProfileError('')
         setProfileLoading(false)
       },
-      (caught: unknown) => {
+      (error_: unknown) => {
         if (!active) return
         setProfile(null)
-        setProfileError(getErrorMessage(caught))
+        setProfileError(getErrorMessage(error_))
         setProfileLoading(false)
       },
     )

@@ -30,12 +30,12 @@ export function EditFamilyProfileModal({
   isPrimaryAdmin = false,
   onClose,
   onSuccess,
-}: {
+}: Readonly<{
   member: FamilyMember
   isPrimaryAdmin?: boolean
   onClose: () => void
   onSuccess: (message: string) => void
-}) {
+}>) {
   const { session } = useSession()
   const allowRestrictionEdit = mayEditRestrictions(
     member,
