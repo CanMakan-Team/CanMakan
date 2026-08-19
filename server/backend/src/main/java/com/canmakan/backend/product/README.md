@@ -1,40 +1,39 @@
 # product
 
-Core product assessment flow.
+Scan, assess, verdict, recommendations, and history.
 
 ## Purpose
-Handles everything related to scanning a product and producing a safety result.
 
-## Responsibilities
-- Barcode scanning intake
-- Ingredient list (OCR) intake
-- Product lookup (via `integration`)
-- Safety verdict generation (Safe / Warning / Unsafe)
-- Two-step scan API: `POST /api/scan/validate` (OFF + EAN is-food check), then `POST /api/scan/assess` (OFF fetch + verdict)
-- Alternative product recommendations (UC5 Tier A catalog + Tier C content-based ranking; LLM not on the MVP path)
-- Scan history
-- User reporting of incorrect product information
+Barcode intake through Open Food Facts, deterministic dietary verdict, optional Tier-3 evidence, and UC5 substitutes. OCR ingredient intake (UC24) is **not** implemented; `AssessmentRequest` is barcode + `profileId` only.
 
-## Internal structure (multi-capability domain)
+## Two-step scan API
 
-Capability sub-slices keep related code together. **Do not** mass-move types into nested `dto/` trees for packaging symmetry (F19 / P5).
+1. `POST /api/scan/validate` — OFF + is-food check ([`ScanController`](scan/ScanController.java))
+2. `POST /api/scan/assess` — fetch + verdict ([`AssessmentOrchestrator`](assessment/AssessmentOrchestrator.java))
+
+## Internal structure
 
 ```
 product/
-  scan/
-  assessment/
-  recommendation/   # capability folders: catalog, filter, ranking, discovery, history, dto
-  model/            # ScanProduct (history projection of products)
-  …
+  scan/           # validate, persist, history, user feedback
+  assessment/     # orchestrate OFF + tiers
+  verdict/        # DietaryRuleEngine and checkers
+  recommendation/ # UC5 catalog / filter / rank
+  model/          # ScanProduct history projection
 ```
+
+| Slice | Important files |
+| --- | --- |
+| Scan | [`scan/ScanController.java`](scan/ScanController.java), [`scan/ScanService.java`](scan/ScanService.java) |
+| Assess | [`assessment/AssessmentOrchestrator.java`](assessment/AssessmentOrchestrator.java), [`assessment/service/LlmEscalationService.java`](assessment/service/LlmEscalationService.java) |
+| Verdict | [`verdict/DietaryRuleEngine.java`](verdict/DietaryRuleEngine.java) |
+| Recs | [`recommendation/README.md`](recommendation/README.md) |
 
 ### Dual read models of `products` (intentional)
 
 | Type | Package | Role |
 | --- | --- | --- |
 | `ScanProduct` | `product.model` | Narrow mapping for scan-history / barcode display |
-| `CatalogProduct` | `product.recommendation.catalog` | Richer mapping for UC5 Tier A matching and rule checks |
+| `CatalogProduct` | `product.recommendation.catalog` | Richer mapping for UC5 matching and rule checks |
 
-Both map the same `products` table with different column sets. They are **not** candidates for a single merged JPA entity: each slice should only load the fields it needs.
-
-This is the heart of the Core MVP.
+Both map the same `products` table. They are not candidates for a single merged JPA entity.

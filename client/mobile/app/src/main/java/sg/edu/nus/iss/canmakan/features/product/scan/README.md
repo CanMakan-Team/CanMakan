@@ -4,10 +4,11 @@ Product scanning entry point.
 
 ## Responsibilities
 - Camera permission handling
-- Barcode scanning (ML Kit)
-- Ingredient list OCR (ML Kit) when barcode is unavailable
-- Two-step backend calls: `POST /api/scan/validate` then `POST /api/scan/assess`
-- Navigating to verdict screen
+- Barcode scanning (ML Kit + CameraX); see [`BarcodeAnalyzer.kt`](BarcodeAnalyzer.kt)
+- Two-step backend calls: `POST /api/scan/validate` then `POST /api/scan/assess` via [`ScannerViewModel.kt`](ScannerViewModel.kt)
+- Navigating to the verdict screen
+
+Ingredient-list OCR (UC24) is not implemented. Scan requests send barcode + profile id only.
 
 Assessment requires a positive active profile owned by the current authenticated
 account. Profile-less users still see the Scanner page, drawer, and bottom

@@ -1,16 +1,25 @@
 # analytics
 
-Aggregated insights and reporting.
+Aggregated insights and reporting. HTTP is on [`AdminController`](../admin/AdminController.java), not in this package.
 
 ## Purpose
-Produces trends, usage statistics and AI performance metrics.
+Produces anonymised consumer trends and application usage statistics.
 
 ## Responsibilities
 - Consumer trends (scan activity, products, categories, restrictions and flagged ingredients)
-- Scan verdict trends (SAFE / WARNING / UNSAFE over time)
 - Application usage statistics
-- AI reasoning performance & accuracy logs
-- Anonymised data export is a separate UC22 responsibility and is not part of UC7
+- Anonymised data export is a separate UC22 client responsibility and is not part of UC7
+
+Family verdict trends (UC14) are aggregated on the web from `GET /api/families/me/scans`, not this package.
+AI execution logs are owned by [`ai/log`](../ai/README.md) and surfaced on admin system health, not here.
+
+## Key files
+
+| File | Role |
+| --- | --- |
+| [`service/ConsumerTrendsService.java`](service/ConsumerTrendsService.java) | UC7 aggregates |
+| [`service/UsageStatisticsService.java`](service/UsageStatisticsService.java) | UC15 usage |
+| [`repository/ScanAnalyticsRepository.java`](repository/ScanAnalyticsRepository.java) | Scan projections |
 
 ## Note
 All data used here should be anonymised where required.

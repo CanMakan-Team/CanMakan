@@ -6,12 +6,12 @@ Root navigation of the app.
 Wires feature navigation graphs together and defines the top-level `NavHost`.
 
 ## Contains
-- Root authentication/application composition
-- Separate unauthenticated and consumer-main `NavHost` instances
-- Top-level routes
+- Root authentication/application composition ([`CanMakanApp.kt`](CanMakanApp.kt))
+- Separate unauthenticated and consumer-main `NavHost` instances ([`AuthNavGraph.kt`](AuthNavGraph.kt), [`CanMakanNavGraph.kt`](CanMakanNavGraph.kt))
+- Top-level routes and deep links ([`InviteWebDeepLinks.kt`](InviteWebDeepLinks.kt))
+- Account-scoped orchestration in [`CanMakanNavGraphViewModel.kt`](CanMakanNavGraphViewModel.kt) (family/profile/drawer; not feature screens)
 - Asynchronous restoration, recovery, unsupported-account and sign-out states
 - Authenticated post-login continuation before the consumer graph
-- Navigation helpers & deep links
 
 The auth and main graphs never share a back stack. A successful Login, local
 session invalidation, or completed Logout replaces the root composition and
@@ -42,7 +42,8 @@ profile. Family creation and invitation remain available because they can create
 or attach the caller's SELF profile.
 
 ## Does not contain
-- Feature screens or ViewModels
-- Business logic
+- Feature screens (those stay in `features/`)
 
-Features expose their own navigation APIs; this package only composes them.
+[`CanMakanNavGraphViewModel`](CanMakanNavGraphViewModel.kt) holds navigation-scoped family/profile/drawer orchestration. Feature packages still own their screen ViewModels.
+
+Features expose their own navigation APIs; this package composes them.

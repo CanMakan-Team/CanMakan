@@ -1,5 +1,19 @@
 # API Documentation
 
+Auth, family, and notifications are documented below. Scan, recommendations, and admin HTTP are indexed here and implemented on the linked controllers.
+
+## Index (other live APIs)
+
+| Area | Endpoints | Controller |
+| --- | --- | --- |
+| Scan | `POST /api/scan/validate`, `POST /api/scan/assess`, `GET /api/scan/history/{profileId}`, `POST /api/scan/{scanId}/feedback` | [`ScanController`](../../server/backend/src/main/java/com/canmakan/backend/product/scan/ScanController.java) |
+| Recommendations | `GET /api/profiles/{profileId}/recommendations`, `GET /api/profiles/{profileId}/recommendation-history` | [`RecommendationController`](../../server/backend/src/main/java/com/canmakan/backend/product/recommendation/RecommendationController.java), [`RecommendationHistoryController`](../../server/backend/src/main/java/com/canmakan/backend/product/recommendation/RecommendationHistoryController.java) |
+| Profiles | `GET/POST/PUT /api/profiles/me`, `GET/PUT /api/profiles/{id}/restrictions`, `GET /api/restrictions` | [`DietaryProfileController`](../../server/backend/src/main/java/com/canmakan/backend/dietaryprofile/DietaryProfileController.java) |
+| Admin | `GET /api/admin/consumer-trends`, `usage-statistics`, `system-health`, `users`, `scan-feedback` | [`AdminController`](../../server/backend/src/main/java/com/canmakan/backend/admin/AdminController.java) |
+| Family scans | `GET /api/families/me/scans` (web history / UC14 client aggregate) | [`FamilyController`](../../server/backend/src/main/java/com/canmakan/backend/family/FamilyController.java) |
+
+UC5 flow: [uc5-alternative-recommender.md](../architecture/uc5-alternative-recommender.md). Assess tiers: [mcp-agent-architecture.md](../architecture/mcp-agent-architecture.md).
+
 ## Family circle (UC8 / UC9 / UC10 / UC11)
 
 **Status:** Create + `/me` + invite/dependant (UC9) + invitee inbox (UC10) + active profile (UC11) + restriction summary; JWT principal.
