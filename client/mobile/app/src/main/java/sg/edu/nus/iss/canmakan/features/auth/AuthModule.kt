@@ -18,6 +18,7 @@ import sg.edu.nus.iss.canmakan.features.auth.session.AuthLogoutAction
 import sg.edu.nus.iss.canmakan.features.auth.session.EncryptedAuthPreferences
 import sg.edu.nus.iss.canmakan.features.auth.session.RefreshCookiePersistence
 import sg.edu.nus.iss.canmakan.features.auth.session.SerializedAuthLogoutAction
+import sg.edu.nus.iss.canmakan.features.auth.session.SharedPreferencesAuthPersistence
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -58,7 +59,9 @@ abstract class AuthModule {
         fun provideEncryptedAuthPreferences(
             @ApplicationContext context: Context,
         ): EncryptedAuthPreferences {
-            return EncryptedAuthPreferences { createEncryptedPreferences(context) }
+            return EncryptedAuthPreferences(
+                SharedPreferencesAuthPersistence(createEncryptedPreferences(context)),
+            )
         }
 
         @Suppress("DEPRECATION")

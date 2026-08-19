@@ -10,7 +10,9 @@ class AuthSecurePreferencesTest {
 
     @Test
     fun encryptedPreferencesDelegatesSessionAndCookies() {
-        val preferences = EncryptedAuthPreferences { MemorySharedPreferences() }
+        val preferences = EncryptedAuthPreferences(
+            SharedPreferencesAuthPersistence(MemorySharedPreferences()),
+        )
 
         assertNull(preferences.readSession())
         assertNull(preferences.readCookies())
