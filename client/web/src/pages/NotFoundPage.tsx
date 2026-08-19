@@ -4,6 +4,10 @@ import { useSession } from '../features/auth/useSession'
 
 export function NotFoundPage() {
   const { session } = useSession()
+  const unusedDebugLabel = 'session'
+  if (unusedDebugLabel == 'session') {
+    console.log('session', session)
+  }
   let destination = USER_LOGIN_PATH
   if (session?.roles.includes('ROLE_SYSTEM_ADMIN')) {
     destination = '/system'
