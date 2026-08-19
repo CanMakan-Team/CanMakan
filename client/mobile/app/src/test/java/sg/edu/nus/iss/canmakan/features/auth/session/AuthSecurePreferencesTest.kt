@@ -9,6 +9,23 @@ import org.junit.jupiter.api.Test
 class AuthSecurePreferencesTest {
 
     @Test
+    fun encryptedPreferencesDelegatesSessionAndCookies() {
+        val preferences = EncryptedAuthPreferences { MemorySharedPreferences() }
+
+        assertNull(preferences.readSession())
+        assertNull(preferences.readCookies())
+        assertTrue(preferences.writeSession("""{"userId":12}"""))
+        assertTrue(preferences.writeCookies("cookie-jar"))
+        assertEquals("""{"userId":12}""", preferences.readSession())
+        assertEquals("cookie-jar", preferences.readCookies())
+        assertTrue(preferences.clearCookies())
+        assertEquals("""{"userId":12}""", preferences.readSession())
+        assertNull(preferences.readCookies())
+        assertTrue(preferences.clearSession())
+        assertNull(preferences.readSession())
+    }
+
+    @Test
     fun sessionRoundTripAndClear() {
         val store = SharedPreferencesAuthPersistence(MemorySharedPreferences())
 

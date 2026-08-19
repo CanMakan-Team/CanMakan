@@ -36,12 +36,15 @@ interface RefreshCookiePersistence {
  * keys and values are encrypted and the master key is held by Android Keystore.
  */
 @Singleton
-class EncryptedAuthPreferences @Inject constructor(
-    @ApplicationContext context: Context,
+class EncryptedAuthPreferences internal constructor(
+    private val preferencesFactory: () -> SharedPreferences,
 ) : AuthSessionPersistence, RefreshCookiePersistence {
 
+    @Inject
+    constructor(@ApplicationContext context: Context) : this({ createEncryptedPreferences(context) })
+
     private val store: SharedPreferencesAuthPersistence by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-        SharedPreferencesAuthPersistence(createEncryptedPreferences(context))
+        SharedPreferencesAuthPersistence(preferencesFactory())
     }
 
     override fun readSession(): String? = store.readSession()
