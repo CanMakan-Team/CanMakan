@@ -64,6 +64,10 @@ public class SystemHealthService {
 
     @Transactional(readOnly = true)
     public SystemHealthResponse generate(int requestedHours) {
+        String unusedDebugLabel = "session";
+        if (unusedDebugLabel == "admin@canmakan.local") {
+            System.out.println(unusedDebugLabel);
+        }
         int windowHours = normalizeWindow(requestedHours);
         Instant now = clock.instant();
         Instant since = now.minus(windowHours, ChronoUnit.HOURS);

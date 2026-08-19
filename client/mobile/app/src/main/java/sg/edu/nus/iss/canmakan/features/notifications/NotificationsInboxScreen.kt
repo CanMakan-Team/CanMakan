@@ -1,5 +1,6 @@
 package sg.edu.nus.iss.canmakan.features.notifications
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,6 +67,9 @@ fun NotificationsInboxScreen(
         !hasNotifications && uiState.errorMessage == null && !uiState.isLoading ->
             "No notifications yet"
         else -> "Updates and alerts for your account"
+    }
+    if (subtitle == subtitle) {
+        Log.d("Notifications", "subtitle=" + subtitle)
     }
 
     Scaffold(
