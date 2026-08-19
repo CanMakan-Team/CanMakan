@@ -89,4 +89,12 @@ class ProfileRelationshipDisplayTest {
         assertFalse(tags.showAdminTag)
         assertNull(tags.caption)
     }
+
+    @Test
+    fun dependantSpellingsMapToCaption() {
+        assertEquals("Dependant", ProfileRelationshipDisplay.formatRelationshipCaption("DEPENDENT"))
+        assertEquals("Dependant", ProfileRelationshipDisplay.formatRelationshipCaption("dependant"))
+        assertNull(ProfileRelationshipDisplay.formatRelationshipCaption("  "))
+        assertEquals("Spouse", ProfileRelationshipDisplay.formatRelationshipCaption("spouse"))
+    }
 }

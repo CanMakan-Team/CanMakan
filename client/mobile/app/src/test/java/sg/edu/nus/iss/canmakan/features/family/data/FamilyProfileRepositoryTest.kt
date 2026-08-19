@@ -241,6 +241,45 @@ class FamilyProfileRepositoryTest {
         assertEquals("Empty body for PUT /users/me/preferences/notifications", exception.message)
     }
 
+    @Test
+    fun claimInvitationTrimsTokenAndReturnsJoinedFamily() = runBlocking {
+        val joined = FamilyMeResponse(3L, "Wong Family", "MEMBER", 77L, 14L)
+        val api = FakeFamilyProfileApiService(claimResponse = Response.success(joined))
+        val repository = FamilyProfileRepository(api)
+
+        val result = repository.claimInvitation("  invite-token  ")
+
+        assertEquals(joined, result)
+        assertEquals("invite-token", api.lastClaimToken)
+    }
+
+    @Test
+    fun claimInvitationThrowsOnErrorAndEmptyBody() {
+        val errorRepo = FamilyProfileRepository(
+            FakeFamilyProfileApiService(
+                claimResponse = Response.error(
+                    400,
+                    """{"message":"expired invite"}""".toResponseBody("application/json".toMediaType()),
+                ),
+            ),
+        )
+        val error = assertThrows(FamilyApiException::class.java) {
+            runBlocking { errorRepo.claimInvitation("tok") }
+        }
+        assertEquals("expired invite", error.message)
+        assertEquals(400, error.statusCode)
+
+        val emptyRepo = FamilyProfileRepository(
+            FakeFamilyProfileApiService(claimResponse = Response.success(null)),
+        )
+        assertEquals(
+            "Empty body for POST /families/me/invitations/claim",
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking { emptyRepo.claimInvitation("tok") }
+            }.message,
+        )
+    }
+
     private class FakeFamilyProfileApiService(
         private val meResponse: Response<FamilyMeResponse> = Response.error(
             404,
@@ -260,7 +299,13 @@ class FamilyProfileRepositoryTest {
             500,
             "{}".toResponseBody("application/json".toMediaType()),
         ),
+        private val claimResponse: Response<FamilyMeResponse> = Response.error(
+            500,
+            "{}".toResponseBody("application/json".toMediaType()),
+        ),
     ) : FamilyProfileApiService {
+        var lastClaimToken: String? = null
+
         override suspend fun getMyFamily(): Response<FamilyMeResponse> = meResponse
 
         override suspend fun getFamilyMembers(): Response<List<FamilyMemberRosterItem>> =
@@ -300,8 +345,10 @@ class FamilyProfileRepositoryTest {
 
         override suspend fun claimInvitation(
             request: ClaimInvitationRequestBody,
-        ): Response<FamilyMeResponse> =
-            Response.error(500, "{}".toResponseBody("application/json".toMediaType()))
+        ): Response<FamilyMeResponse> {
+            lastClaimToken = request.invitationToken
+            return claimResponse
+        }
 
         override suspend fun listMyInvitations(): Response<List<PendingInvitationResponse>> =
             Response.success(emptyList())

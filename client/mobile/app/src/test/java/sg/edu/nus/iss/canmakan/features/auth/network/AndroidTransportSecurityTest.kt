@@ -11,8 +11,8 @@ import javax.xml.parsers.DocumentBuilderFactory
 class AndroidTransportSecurityTest {
 
     @Test
-    fun debugVariantAllowsCleartextOnlyThroughItsMergedOverlay() {
-        assertEquals("true", applicationAttribute("debug", "usesCleartextTraffic"))
+    fun debugVariantAllowsCleartextOnlyThroughNetworkSecurityConfig() {
+        assertEquals("false", applicationAttribute("debug", "usesCleartextTraffic"))
         assertEquals("true", baseConfigAttribute("debug", "cleartextTrafficPermitted"))
     }
 

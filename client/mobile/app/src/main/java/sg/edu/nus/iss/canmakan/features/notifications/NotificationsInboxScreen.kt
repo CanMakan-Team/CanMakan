@@ -67,7 +67,6 @@ fun NotificationsInboxScreen(
             "No notifications yet"
         else -> "Updates and alerts for your account"
     }
-
     Scaffold(
         topBar = {
             AppTopBar(

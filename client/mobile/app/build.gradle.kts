@@ -265,7 +265,7 @@ kotlin {
 }
 
 dependencies {
-    // 1. Core Android & Jetpack Compose
+    // Core Android & Jetpack Compose
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
@@ -274,50 +274,53 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.material)
 
-    // 2. Icon sets used for the menu, notification, back, close, and other icons.
+    // Icon sets used for the menu, notification, back, close, and other icons.
     implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 
-    // 3. CameraX (For real-time barcode scanning feed)
+    // CameraX (real-time barcode scanning feed)
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
 
-    // 4. Google ML Kit (Barcode Scanning)
+    // Google ML Kit (barcode scanning)
     implementation(libs.barcode.scanning)
 
-    // 5. Networking (Retrofit & OkHttp to connect to Java SpringBoot)
+    // Networking (Retrofit & OkHttp)
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.logging.interceptor)
 
-    // 6. Security & Cryptography (Biometric Authentication)
+    // Security
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.security.crypto)
 
-    // 7. Coroutines (Async Operations)
+    // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
-    // 8. Testing
-    testImplementation(libs.junit.jupiter.api)
-    testRuntimeOnly(libs.junit.jupiter.engine)
-    testRuntimeOnly(libs.junit.platform.launcher)
-    testImplementation(libs.kotlinx.coroutines.test)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
-
-    // 9. Hilt, Compose, Timber
+    // Hilt, navigation, logging
     implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.timber)
 
-    // 10. FireBase SDK
+    // Firebase
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
+
+    ksp(libs.hilt.compiler)
+
+    testImplementation(libs.junit.jupiter.api)
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
+
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

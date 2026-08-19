@@ -131,14 +131,72 @@ class ProductFlagCopyTest {
     }
 
     @Test
-    fun liveDairyFindingUsesRuleHeaderAndReasonBody() {
-        val flag = ProductFlagCopy.flagFromFinding(
-            restrictionCode = "DAIRY",
-            ingredientName = "Milk",
-            reason = "Contains milk",
+    fun flagsFromFindingsUsesSummaryWhenNoFindings() {
+        assertEquals(
+            listOf(ProductFlag("Summary", "Check the label.")),
+            ProductFlagCopy.flagsFromFindings(emptyList(), "Check the label."),
         )
+        assertTrue(ProductFlagCopy.flagsFromFindings(emptyList(), "  ").isEmpty())
+    }
 
-        assertEquals("Rule", flag.category)
-        assertEquals("Contains milk", flag.label)
+    @Test
+    fun titlesAndBodiesCoverDataQualityAndBlankCodes() {
+        assertEquals("Info", ProductFlagCopy.titleForCode(null))
+        assertEquals("Info", ProductFlagCopy.titleForCode(" "))
+        assertEquals("Unverified ingredient", ProductFlagCopy.titleForCode("UNRESOLVED"))
+        assertEquals("Possible cross-contamination", ProductFlagCopy.titleForCode("CROSS_CONTAMINATION"))
+        assertEquals("Summary", ProductFlagCopy.titleForCode("SUMMARY"))
+        assertEquals("Info", ProductFlagCopy.titleForCode("INFO"))
+        assertEquals("Allergen", ProductFlagCopy.titleForCode("ALLERGEN"))
+        assertEquals("Rule", ProductFlagCopy.titleForCode("DAIRY"))
+        assertEquals("Custom Code", ProductFlagCopy.humanizeCode("CUSTOM_CODE"))
+        assertTrue(ProductFlagCopy.isSubjectSentinel(" LABEL "))
+        assertTrue(ProductFlagCopy.isSubjectSentinel(null))
+        assertEquals(
+            "Some ingredients could not be verified against this dietary profile.",
+            ProductFlagCopy.defaultBodyForCode("UNRESOLVED"),
+        )
+        assertEquals(
+            "The label mentions possible traces that may affect this profile.",
+            ProductFlagCopy.defaultBodyForCode("CROSS_CONTAMINATION"),
+        )
+    }
+
+    @Test
+    fun flagFromFindingFallsBackToHumanizedRuleName() {
+        val flag = ProductFlagCopy.flagFromFinding(
+            restrictionCode = "  ",
+            ingredientName = "unknown",
+            reason = null,
+        )
+        assertEquals("Info", flag.category)
+        assertEquals("Flagged by dietary rules", flag.label)
+    }
+
+    @Test
+    fun groupRuleAndAllergenFlagsSkipsBlankCards() {
+        val grouped = ProductFlagCopy.groupRuleAndAllergenFlags(
+            listOf(
+                ProductFlag("Rule", "Dairy"),
+                ProductFlag("Rule", "Gluten"),
+                ProductFlag(" ", "ignored"),
+                ProductFlag("Summary", null),
+                ProductFlag("Incomplete product data", "Check the label."),
+            ),
+        )
+        assertEquals("Rule", grouped[0].category)
+        assertEquals("Dairy, Gluten", grouped[0].label)
+        assertEquals("Incomplete product data", grouped[1].category)
+    }
+
+    @Test
+    fun historyUsesDefaultUnresolvedBodyAndSkipsBlankRules() {
+        val flags = ProductFlagCopy.flagsFromHistoryFindings(
+            matchedRules = listOf(" ", "UNRESOLVED"),
+            allergensFound = listOf("nutrition"),
+            summary = "Distinct summary.",
+        )
+        assertEquals("Unverified ingredient", flags[0].category)
+        assertEquals("Summary", flags.last().category)
     }
 }

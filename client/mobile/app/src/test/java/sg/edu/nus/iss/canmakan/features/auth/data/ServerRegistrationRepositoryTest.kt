@@ -101,6 +101,55 @@ class ServerRegistrationRepositoryTest {
         assertFalse(failure.message.contains("do-not-expose"))
     }
 
+    @Test
+    fun invitationTokenIsTrimmedOnRegister() = kotlinx.coroutines.test.runTest {
+        val api = FakeRegistrationApiService(
+            response = Response.success(201, RegistrationResponse(14L, "person@example.com", true)),
+        )
+
+        ServerRegistrationRepository(api).register("person@example.com", "Password1!", "  tok  ")
+
+        assertEquals("tok", api.lastRequest?.invitationToken)
+    }
+
+    @Test
+    fun blankErrorBodyUsesInvalidRequestFallback() = kotlinx.coroutines.test.runTest {
+        val result = ServerRegistrationRepository(
+            FakeRegistrationApiService(
+                response = Response.error(400, " ".toResponseBody("application/json".toMediaType())),
+            ),
+        ).register("person@example.com", "Password1!", null)
+
+        val failure = assertInstanceOf(RegistrationResult.Failure::class.java, result)
+        assertEquals("Invalid registration request.", failure.message)
+    }
+
+    @Test
+    fun previewInvitationReturnsBodyOrNull() = kotlinx.coroutines.test.runTest {
+        val preview = InvitationPreviewResponse("jamie@example.com", "Wong Family", false)
+        val successApi = FakeRegistrationApiService(previewResponse = Response.success(preview))
+        assertEquals(
+            preview,
+            ServerRegistrationRepository(successApi).previewInvitation("  tok  "),
+        )
+        assertEquals("tok", successApi.lastPreviewToken)
+
+        assertEquals(
+            null,
+            ServerRegistrationRepository(
+                FakeRegistrationApiService(
+                    previewResponse = Response.error(404, "{}".toResponseBody("application/json".toMediaType())),
+                ),
+            ).previewInvitation("tok"),
+        )
+        assertEquals(
+            null,
+            ServerRegistrationRepository(
+                FakeRegistrationApiService(previewException = IOException("offline")),
+            ).previewInvitation("tok"),
+        )
+    }
+
     private fun repositoryForStatus(status: Int): ServerRegistrationRepository {
         val errorBody = "{\"message\":\"internal detail\"}"
             .toResponseBody("application/json".toMediaType())
@@ -112,8 +161,14 @@ class ServerRegistrationRepositoryTest {
     private class FakeRegistrationApiService(
         private val response: Response<RegistrationResponse>? = null,
         private val exception: Exception? = null,
+        private val previewResponse: Response<InvitationPreviewResponse> = Response.error(
+            404,
+            "{}".toResponseBody("application/json".toMediaType()),
+        ),
+        private val previewException: Exception? = null,
     ) : RegistrationApiService {
         var lastRequest: RegistrationRequest? = null
+        var lastPreviewToken: String? = null
 
         override suspend fun register(
             request: RegistrationRequest,
@@ -126,7 +181,9 @@ class ServerRegistrationRepositoryTest {
         override suspend fun previewInvitation(
             token: String,
         ): Response<InvitationPreviewResponse> {
-            return Response.error(404, "{}".toResponseBody("application/json".toMediaType()))
+            lastPreviewToken = token
+            previewException?.let { throw it }
+            return previewResponse
         }
     }
 }
