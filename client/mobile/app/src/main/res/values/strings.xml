@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">CanMakan</string>
+    <string name="scanner_barcode">Barcode Scanner</string>
+    <string name="scanner_instructions">Point Camera at a Product Barcode</string>
+    <string name="scanner_ready">Ready to scan</string>
+    <string name="scanner_checking">Checking product&#8230;</string>
+    <string name="scanner_try_again">Try again</string>
+    <string name="scanner_camera_failed">Camera Use Case Binding Failed</string>
+    <string name="scanner_camera_permission_required">Camera Permission is Required</string>
+    <string name="scanner_redlines_transition">RedLineTransition</string>
+    <string name="scanner_redlines_progress">RedLineProgress</string>
+    <string name="dietary_profile_restrictions">Active Restrictions</string>
+    <string name="validation_state_validating">Verifying product&#8230;</string>
+    <string name="validation_state_assessing">Generating Safety Verdicts&#8230;</string>
+    <string name="validation_state_fetching_alternatives">Finding alternatives&#8230;</string>
+    <string name="validation_state_invalid">Error: Non-Food Item</string>
+    <string name="validation_state_error">Product not found or network error</string>
+</resources>

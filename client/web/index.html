@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="CanMakan Sprint 1 Family and System Administration prototype"
+    />
+    <title>CanMakan</title>
+    <script>
+      (function () {
+        var match = location.pathname.match(/^\/invite\/([^/]+)\/?$/)
+        if (!match) return
+        if (/(?:^|[?&])web=1(?:&|$)/.test(location.search)) return
+        if (!/Android/i.test(navigator.userAgent)) return
+        var token = match[1]
+        var fallback = location.origin + '/invite/' + token + '?web=1'
+        location.replace(
+          'intent://invite/' +
+            encodeURIComponent(token) +
+            '#Intent;scheme=canmakan;package=sg.edu.nus.iss.canmakan;S.browser_fallback_url=' +
+            encodeURIComponent(fallback) +
+            ';end',
+        )
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

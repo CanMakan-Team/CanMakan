@@ -1,0 +1,142 @@
+package com.canmakan.backend.shared.security;
+
+import com.canmakan.backend.auth.config.RefreshTokenProperties;
+import com.canmakan.backend.family.config.InviteProperties;
+import com.canmakan.backend.family.config.ResendProperties;
+import jakarta.servlet.DispatcherType;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.AccountExpiredException;
+import org.springframework.security.authentication.CredentialsExpiredException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
+
+/** Spring Security authentication foundation for UC19. */
+@Configuration
+@EnableConfigurationProperties({
+    JwtProperties.class,
+    RefreshTokenProperties.class,
+    InviteProperties.class,
+    ResendProperties.class,
+    AuthRateLimitProperties.class
+})
+public class SecurityConfig {
+
+    private static final int BCRYPT_STRENGTH = 10;
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(BCRYPT_STRENGTH);
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider(
+            AuthUserDetailsService userDetailsService,
+            PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
+        // Validate the secret before exposing the AC3 suspended-account distinction.
+        provider.setPreAuthenticationChecks(user -> { });
+        provider.setPostAuthenticationChecks(SecurityConfig::rejectUnavailableAccount);
+        return provider;
+    }
+
+    /**
+     * Runs after the password matches. Locked, disabled, expired-account and expired-credential
+     * users all fail here so a wrong password still looks like generic bad credentials.
+     */
+    static void rejectUnavailableAccount(UserDetails user) {
+        if (!user.isAccountNonLocked()) {
+            throw new LockedException("Account is unavailable");
+        }
+        if (!user.isEnabled()) {
+            throw new DisabledException("Account is unavailable");
+        }
+        if (!user.isAccountNonExpired()) {
+            throw new AccountExpiredException("Account is unavailable");
+        }
+        if (!user.isCredentialsNonExpired()) {
+            throw new CredentialsExpiredException("Account is unavailable");
+        }
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(
+            AuthenticationProvider authenticationProvider) {
+        return new ProviderManager(authenticationProvider);
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            AuthRateLimitFilter authRateLimitFilter,
+            RestAuthenticationEntryPoint authenticationEntryPoint,
+            RestAccessDeniedHandler accessDeniedHandler,
+            CorsConfigurationSource corsConfigurationSource,
+            @Value("${canmakan.security.profiles-me-path:/api/profiles/me}") String profilesMePath) {
+        http
+            .cors(Customizer.withDefaults())
+            // CSRF exploits a browser's automatic cookie attachment; every mutating endpoint here
+            // is authenticated with a Bearer JWT (Authorization header, never auto-attached) and the
+            // only cookie in play (the refresh token) is SameSite=Lax, so it isn't sent on cross-site
+            // requests either. Safe to disable for this stateless, non-cookie-authenticated API.
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource))
+            .formLogin(AbstractHttpConfigurer::disable)
+            .httpBasic(AbstractHttpConfigurer::disable)
+            .logout(logout -> logout.disable())
+            .requestCache(AbstractHttpConfigurer::disable)
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler))
+            .authorizeHttpRequests(authorize -> authorize
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/invitations/*/preview").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/auth/account").authenticated()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/families/**").authenticated()
+                .requestMatchers("/api/invitations/**").authenticated()
+                .requestMatchers("/api/notifications/**").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/scan/assess").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/scan/validate").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/scan/history/**").authenticated()
+                .requestMatchers(HttpMethod.POST, profilesMePath).hasRole("USER")
+                .requestMatchers(HttpMethod.GET, profilesMePath).hasRole("USER")
+                .requestMatchers(HttpMethod.PUT, profilesMePath).hasRole("USER")
+                .requestMatchers("/api/profiles/**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/restrictions").authenticated()
+                .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                .requestMatchers("/api/**").authenticated()
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                .anyRequest().denyAll())
+            .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+}

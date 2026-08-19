@@ -1,0 +1,79 @@
+package sg.edu.nus.iss.canmakan.shared.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.CropFree
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import sg.edu.nus.iss.canmakan.shared.ui.theme.CardWhite
+import sg.edu.nus.iss.canmakan.shared.ui.theme.PrimaryGreen
+import sg.edu.nus.iss.canmakan.shared.ui.theme.TextSecondary
+
+// The two possible tabs in the bottom navigation bar.
+enum class BottomTab { SCAN, HISTORY }
+
+
+@Composable
+fun AppBottomNavBar(
+    selectedTab: BottomTab,
+    onScanClick: () -> Unit,
+    onHistoryClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    NavigationBar(
+        modifier = modifier.navigationBarsPadding(),
+        containerColor = CardWhite
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CardWhite)
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            BottomNavItem(
+                label = "Scan",
+                icon = Icons.Default.CropFree,
+                isSelected = selectedTab == BottomTab.SCAN,
+                onClick = onScanClick
+            )
+            BottomNavItem(
+                label = "History",
+                icon = Icons.Default.AccessTime,
+                isSelected = selectedTab == BottomTab.HISTORY,
+                onClick = onHistoryClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun BottomNavItem(
+    label: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val tint = if (isSelected) PrimaryGreen else TextSecondary
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        Icon(icon, contentDescription = label, tint = tint)
+        Text(label, color = tint)
+    }
+}

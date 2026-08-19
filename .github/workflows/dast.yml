@@ -1,0 +1,72 @@
+name: DAST (OWASP ZAP)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Runs daily at 2:00 AM SGT (18:00 UTC)
+    - cron: '0 18 * * *'
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  zap-web-scan:
+    name: ZAP Scan - Web Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Run ZAP Baseline Scan (Web)
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: 'https://canmakan-staging.web.app'
+          issue_title: 'DAST Vulnerability Report - Web Staging'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_action: false
+          artifact_name: 'zap-web-scan-report'
+
+      - name: Upload Web Scan Reports
+        uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: zap-web-reports
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
+          retention-days: 30
+
+  zap-api-scan:
+    name: ZAP Scan - Backend API
+    runs-on: ubuntu-latest
+    environment: staging 
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Run ZAP API Scan (Backend)
+        uses: zaproxy/action-api-scan@v0.10.0
+        env:
+          ZAP_AUTH_HEADER: Authorization
+          ZAP_AUTH_HEADER_VALUE: "Bearer ${{ secrets.DAST_TEST_JWT }}"
+          ZAP_AUTH_HEADER_SITE: "api.staging.canmakan.space"
+        with:
+          format: openapi
+          target: 'https://api.staging.canmakan.space/v3/api-docs'
+          issue_title: 'DAST Vulnerability Report - API Staging'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_action: false
+          artifact_name: 'zap-api-scan-report'
+
+      - name: Upload API Scan Reports
+        uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: zap-api-reports
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
+          retention-days: 30

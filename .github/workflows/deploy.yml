@@ -1,0 +1,179 @@
+name: Deploy Backend to AWS EC2
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches: [main, develop]
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+  packages: read
+
+jobs:
+  # Promote the image CI already built and scanned for this SHA (no second Maven compile).
+  resolve-artifact:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    outputs:
+      has_jar: ${{ steps.check.outputs.has_jar }}
+      has_ml: ${{ steps.check.outputs.has_ml }}
+    steps:
+      - name: Check CI uploaded backend-jar / ml-image
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          names="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" --jq '.artifacts[].name')"
+          if echo "$names" | grep -qx backend-jar; then
+            echo "has_jar=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_jar=false" >> "$GITHUB_OUTPUT"
+            echo "No backend-jar artefact (CI skipped backend or upload failed)."
+          fi
+          if echo "$names" | grep -qx ml-image; then
+            echo "has_ml=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_ml=false" >> "$GITHUB_OUTPUT"
+            echo "No ml-image artefact (CI skipped ML or upload failed)."
+          fi
+
+  # Env names mirror application.properties. Written to an env-file on EC2 for docker run.
+  deploy-backend:
+    needs: resolve-artifact
+    if: needs.resolve-artifact.outputs.has_jar == 'true' || needs.resolve-artifact.outputs.has_ml == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
+    env:
+      # Spring profile: deployed EC2 must not fall back to spring.profiles.default=dev.
+      # Override per GitHub Environment (staging/production) via vars.SPRING_PROFILES_ACTIVE if needed.
+      SPRING_PROFILES_ACTIVE: ${{ vars.SPRING_PROFILES_ACTIVE || 'prod' }}
+
+      # Server
+      SERVER_ADDRESS: ${{ secrets.SERVER_ADDRESS }}
+
+      # CORS
+      CANMAKAN_CORS_ALLOWED_ORIGINS: ${{ secrets.CANMAKAN_CORS_ALLOWED_ORIGINS }}
+      CANMAKAN_CORS_ALLOWED_HEADERS: ${{ secrets.CANMAKAN_CORS_ALLOWED_HEADERS }}
+      CANMAKAN_CORS_ALLOWED_METHODS: ${{ secrets.CANMAKAN_CORS_ALLOWED_METHODS }}
+      CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS: ${{ secrets.CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS }}
+      CANMAKAN_CORS_ALLOW_CREDENTIALS: ${{ secrets.CANMAKAN_CORS_ALLOW_CREDENTIALS }}
+      CANMAKAN_CORS_MAX_AGE_SECONDS: ${{ secrets.CANMAKAN_CORS_MAX_AGE_SECONDS }}
+
+      # UC9 invites (+ App Distribution install link shared with web)
+      CANMAKAN_INVITES_PUBLIC_BASE_URL: ${{ secrets.CANMAKAN_INVITES_PUBLIC_BASE_URL }}
+      FIREBASE_APP_DISTRIBUTION_URL: ${{ secrets.FIREBASE_APP_DISTRIBUTION_URL }}
+      CANMAKAN_INVITES_EXPIRY_DAYS: ${{ secrets.CANMAKAN_INVITES_EXPIRY_DAYS }}
+
+      # UC10 Resend invitation email
+      CANMAKAN_EMAIL_RESEND_ENABLED: ${{ secrets.CANMAKAN_EMAIL_RESEND_ENABLED }}
+      CANMAKAN_EMAIL_RESEND_API_KEY: ${{ secrets.CANMAKAN_EMAIL_RESEND_API_KEY }}
+      CANMAKAN_EMAIL_RESEND_FROM: ${{ secrets.CANMAKAN_EMAIL_RESEND_FROM }}
+      CANMAKAN_EMAIL_RESEND_API_URL: ${{ secrets.CANMAKAN_EMAIL_RESEND_API_URL }}
+
+      # Datasource
+      MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+      MYSQL_PORT: ${{ secrets.MYSQL_PORT }}
+      MYSQL_DB: ${{ secrets.MYSQL_DB }}
+      MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+      MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+
+      # UC19 JWT / refresh
+      JWT_ISSUER: ${{ secrets.JWT_ISSUER }}
+      JWT_ACCESS_TTL: ${{ secrets.JWT_ACCESS_TTL }}
+      JWT_SIGNING_SECRET: ${{ secrets.JWT_SIGNING_SECRET }}
+      REFRESH_TOKEN_TTL: ${{ secrets.REFRESH_TOKEN_TTL }}
+      REFRESH_COOKIE_NAME: ${{ secrets.REFRESH_COOKIE_NAME }}
+      REFRESH_COOKIE_SECURE: ${{ secrets.REFRESH_COOKIE_SECURE }}
+      REFRESH_COOKIE_SAME_SITE: ${{ vars.REFRESH_COOKIE_SAME_SITE || 'Lax' }}
+
+      # Product APIs (OFF / EAN-Search)
+      OPEN_FOOD_FACTS_BASE_URL: ${{ secrets.OPEN_FOOD_FACTS_BASE_URL }}
+      EAN_SEARCH_BASE_URL: ${{ secrets.EAN_SEARCH_BASE_URL }}
+      EAN_SEARCH_API_KEY: ${{ secrets.EAN_SEARCH_API_KEY }}
+      PRODUCT_API_CONNECT_TIMEOUT_MS: ${{ secrets.PRODUCT_API_CONNECT_TIMEOUT_MS }}
+      PRODUCT_API_RESPONSE_TIMEOUT_MS: ${{ secrets.PRODUCT_API_RESPONSE_TIMEOUT_MS }}
+      PRODUCT_API_RETRY_MAX_ATTEMPTS: ${{ secrets.PRODUCT_API_RETRY_MAX_ATTEMPTS }}
+      PRODUCT_API_RETRY_BACKOFF_MS: ${{ secrets.PRODUCT_API_RETRY_BACKOFF_MS }}
+
+      # OpenAI / AI agent
+      OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+      CANMAKAN_AI_ENABLED: ${{ secrets.CANMAKAN_AI_ENABLED }}
+      CANMAKAN_AI_TIMEOUT_MS: ${{ secrets.CANMAKAN_AI_TIMEOUT_MS }}
+      CANMAKAN_AI_RETRY_MAX_ATTEMPTS: ${{ secrets.CANMAKAN_AI_RETRY_MAX_ATTEMPTS }}
+      CANMAKAN_AI_RETRY_BACKOFF_MS: ${{ secrets.CANMAKAN_AI_RETRY_BACKOFF_MS }}
+      CANMAKAN_AI_AGENT_MAX_TOOL_ITERATIONS: ${{ secrets.CANMAKAN_AI_AGENT_MAX_TOOL_ITERATIONS }}
+      CANMAKAN_AI_AUDIT_ENABLED: ${{ secrets.CANMAKAN_AI_AUDIT_ENABLED }}
+      CANMAKAN_AI_AUDIT_STORE_PROMPT: ${{ secrets.CANMAKAN_AI_AUDIT_STORE_PROMPT }}
+      CANMAKAN_AI_AUDIT_STORE_RESPONSE: ${{ secrets.CANMAKAN_AI_AUDIT_STORE_RESPONSE }}
+
+      # Tavily
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+      TAVILY_URL: ${{ secrets.TAVILY_URL }}
+
+      # UC5 recommendations
+      CANMAKAN_RECOMMENDATION_ML_ENABLED: ${{ secrets.CANMAKAN_RECOMMENDATION_ML_ENABLED }}
+      CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH: ${{ secrets.CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH }}
+      CANMAKAN_RECOMMENDATION_LLM_ENABLED: ${{ secrets.CANMAKAN_RECOMMENDATION_LLM_ENABLED }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          sparse-checkout: |
+            .github/scripts/deploy-backend-container.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Make deploy script executable
+        run: chmod +x .github/scripts/deploy-backend-container.sh
+
+      - name: Resolve image URIs
+        id: image
+        env:
+          HAS_JAR: ${{ needs.resolve-artifact.outputs.has_jar }}
+          HAS_ML: ${{ needs.resolve-artifact.outputs.has_ml }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          if [ "${HAS_JAR}" = "true" ]; then
+            echo "backend=ghcr.io/${owner}/canmakan-backend:${SHA}" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${HAS_ML}" = "true" ]; then
+            echo "ml=ghcr.io/${owner}/canmakan-ml:${SHA}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "ml_fallback=ghcr.io/${owner}/canmakan-ml:${BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure remote deploy directory exists
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: mkdir -p /home/ubuntu/app
+
+      - name: Deploy backend and ML containers
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          BACKEND_IMAGE: ${{ steps.image.outputs.backend }}
+          ML_IMAGE: ${{ steps.image.outputs.ml }}
+          ML_IMAGE_FALLBACK: ${{ steps.image.outputs.ml_fallback }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: BACKEND_IMAGE,ML_IMAGE,ML_IMAGE_FALLBACK,GHCR_TOKEN,GHCR_USER,SPRING_PROFILES_ACTIVE,CANMAKAN_CORS_ALLOWED_ORIGINS,CANMAKAN_CORS_ALLOWED_HEADERS,CANMAKAN_CORS_ALLOWED_METHODS,CANMAKAN_CORS_ALLOWED_ORIGIN_PATTERNS,CANMAKAN_CORS_ALLOW_CREDENTIALS,CANMAKAN_CORS_MAX_AGE_SECONDS,CANMAKAN_INVITES_PUBLIC_BASE_URL,FIREBASE_APP_DISTRIBUTION_URL,CANMAKAN_INVITES_EXPIRY_DAYS,CANMAKAN_EMAIL_RESEND_ENABLED,CANMAKAN_EMAIL_RESEND_API_KEY,CANMAKAN_EMAIL_RESEND_FROM,CANMAKAN_EMAIL_RESEND_API_URL,MYSQL_HOST,MYSQL_PORT,MYSQL_DB,MYSQL_USERNAME,MYSQL_PASSWORD,JWT_ISSUER,JWT_ACCESS_TTL,JWT_SIGNING_SECRET,REFRESH_TOKEN_TTL,REFRESH_COOKIE_NAME,REFRESH_COOKIE_SECURE,REFRESH_COOKIE_SAME_SITE,OPEN_FOOD_FACTS_BASE_URL,EAN_SEARCH_BASE_URL,EAN_SEARCH_API_KEY,PRODUCT_API_CONNECT_TIMEOUT_MS,PRODUCT_API_RESPONSE_TIMEOUT_MS,PRODUCT_API_RETRY_MAX_ATTEMPTS,PRODUCT_API_RETRY_BACKOFF_MS,OPENAI_BASE_URL,OPENAI_API_KEY,OPENAI_MODEL,CANMAKAN_AI_ENABLED,CANMAKAN_AI_TIMEOUT_MS,CANMAKAN_AI_RETRY_MAX_ATTEMPTS,CANMAKAN_AI_RETRY_BACKOFF_MS,CANMAKAN_AI_AGENT_MAX_TOOL_ITERATIONS,CANMAKAN_AI_AUDIT_ENABLED,CANMAKAN_AI_AUDIT_STORE_PROMPT,CANMAKAN_AI_AUDIT_STORE_RESPONSE,TAVILY_API_KEY,TAVILY_URL,CANMAKAN_RECOMMENDATION_ML_ENABLED,CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH,CANMAKAN_RECOMMENDATION_LLM_ENABLED
+          script_path: .github/scripts/deploy-backend-container.sh
+
