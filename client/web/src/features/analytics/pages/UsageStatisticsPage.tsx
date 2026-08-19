@@ -111,13 +111,12 @@ export function UsageStatisticsPage() {
         </button>
       </section>
 
-      {loading ? (
-        <LoadingState label="Loading usage statistics…" />
-      ) : errorMessage ? (
+      {loading && <LoadingState label="Loading usage statistics…" />}
+      {!loading && errorMessage && (
         <ErrorState message={errorMessage} onRetry={load} />
-      ) : data ? (
-        <UsageStatisticsResult data={data} />
-      ) : (
+      )}
+      {!loading && !errorMessage && data && <UsageStatisticsResult data={data} />}
+      {!loading && !errorMessage && !data && (
         <EmptyState
           title="No usage data"
           description="No usage statistics are available yet."

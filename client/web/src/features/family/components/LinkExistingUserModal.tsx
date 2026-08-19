@@ -19,10 +19,10 @@ import { relationshipOptions } from '../lib/profileOptions'
 export function LinkExistingUserModal({
   onClose,
   onSuccess,
-}: {
+}: Readonly<{
   onClose: () => void
   onSuccess: (message: string) => void
-}) {
+}>) {
   const [email, setEmail] = useState('')
   const [relationship, setRelationship] = useState<Exclude<Relationship, 'SELF'> | ''>('')
   const [inviting, setInviting] = useState(false)

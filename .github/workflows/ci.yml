@@ -46,6 +46,55 @@ jobs:
               - 'client/shared/**'
             machine-learning:
               - 'server/machine-learning/**'
+              - 'server/backend/src/main/resources/01_products.sql'
+
+  # Path filters skip image Trivy jobs. develop still has Code Scanning
+  # categories trivy-image and trivy-ml-image. Without a SARIF upload on the
+  # PR, GitHub cannot compute "alerts introduced by this pull request".
+  code-scanning-skipped-image-sarif:
+    name: Code Scanning image placeholders
+    needs: detect-changes
+    if: >
+      github.event_name == 'pull_request' &&
+      (needs.detect-changes.outputs.backend != 'true' ||
+       needs.detect-changes.outputs.machine-learning != 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: Write empty Trivy SARIF
+        run: |
+          cat > empty-trivy.sarif <<'EOF'
+          {
+            "version": "2.1.0",
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "Trivy",
+                    "informationUri": "https://github.com/aquasecurity/trivy"
+                  }
+                },
+                "results": []
+              }
+            ]
+          }
+          EOF
+
+      - name: Upload placeholder backend image SARIF
+        if: needs.detect-changes.outputs.backend != 'true'
+        uses: github/codeql-action/upload-sarif@v4.37.7
+        with:
+          sarif_file: empty-trivy.sarif
+          category: trivy-image
+
+      - name: Upload placeholder ML image SARIF
+        if: needs.detect-changes.outputs.machine-learning != 'true'
+        uses: github/codeql-action/upload-sarif@v4.37.7
+        with:
+          sarif_file: empty-trivy.sarif
+          category: trivy-ml-image
 
   # 2. SECRET SCANNING
   gitleaks:
@@ -174,6 +223,10 @@ jobs:
     if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
     services:
       mysql:
         image: mysql:8.0
@@ -299,7 +352,7 @@ jobs:
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.qualitygate.wait=true
 
-      # Flatten so deploy can download into server/backend/target/*.jar (no nested dirs).
+      # Flatten the boot JAR so the image build copies exactly one file.
       - name: Stage verified JAR
         run: |
           mkdir -p staged-backend-jar
@@ -318,6 +371,55 @@ jobs:
           fi
           ls -la staged-backend-jar
 
+      - name: Build backend image
+        run: |
+          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/canmakan-backend"
+          tag="${{ github.sha }}"
+          mkdir -p image-context
+          cp staged-backend-jar/*.jar image-context/app.jar
+          cp server/backend/Dockerfile image-context/Dockerfile
+          docker build -t "${image}:${tag}" image-context
+          echo "BACKEND_IMAGE=${image}:${tag}" >> "$GITHUB_ENV"
+          echo "BACKEND_IMAGE_REPO=${image}" >> "$GITHUB_ENV"
+
+      - name: Scan backend image (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.BACKEND_IMAGE }}
+          scanners: vuln
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+
+      - name: Write backend image SARIF
+        if: always() && env.BACKEND_IMAGE != ''
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.BACKEND_IMAGE }}
+          scanners: vuln
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Upload backend image SARIF
+        if: always() && env.BACKEND_IMAGE != ''
+        uses: github/codeql-action/upload-sarif@v4.37.7
+        with:
+          sarif_file: trivy-image-results.sarif
+          category: trivy-image
+
+      - name: Push backend image to GHCR
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "${BACKEND_IMAGE}"
+          docker tag "${BACKEND_IMAGE}" "${BACKEND_IMAGE_REPO}:${GITHUB_REF_NAME}"
+          docker push "${BACKEND_IMAGE_REPO}:${GITHUB_REF_NAME}"
+
       - name: Upload verified backend JAR
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -331,8 +433,16 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.machine-learning == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5.6.0
@@ -345,7 +455,86 @@ jobs:
         working-directory: server/machine-learning
         run: |
           pip install -r requirements.txt
-          pytest --cov=canmakan_ml --cov-fail-under=80
+          pytest --cov=canmakan_ml --cov-report=xml --cov-fail-under=80
+
+      - name: SonarCloud machine learning
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@v8.1.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectBaseDir: server/machine-learning
+          args: >
+            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.qualitygate.wait=true
+
+      - name: Train ranker artifact
+        working-directory: server/machine-learning
+        run: |
+          python scripts/export_products.py
+          python scripts/train_ranker.py
+          test -f artifacts/tfidf_ranker.joblib
+
+      - name: Build ML image
+        run: |
+          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner}/canmakan-ml"
+          tag="${{ github.sha }}"
+          docker build -t "${image}:${tag}" server/machine-learning
+          echo "ML_IMAGE=${image}:${tag}" >> "$GITHUB_ENV"
+          echo "ML_IMAGE_REPO=${image}" >> "$GITHUB_ENV"
+
+      - name: Scan ML image (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.ML_IMAGE }}
+          scanners: vuln
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Write ML image SARIF
+        if: always() && env.ML_IMAGE != ''
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.ML_IMAGE }}
+          scanners: vuln
+          format: 'sarif'
+          output: 'trivy-ml-image-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          exit-code: '0'
+
+      - name: Upload ML image SARIF
+        if: always() && env.ML_IMAGE != ''
+        uses: github/codeql-action/upload-sarif@v4.37.7
+        with:
+          sarif_file: trivy-ml-image-results.sarif
+          category: trivy-ml-image
+
+      - name: Push ML image to GHCR
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "${ML_IMAGE}"
+          docker tag "${ML_IMAGE}" "${ML_IMAGE_REPO}:${GITHUB_REF_NAME}"
+          docker push "${ML_IMAGE_REPO}:${GITHUB_REF_NAME}"
+
+      - name: Write ML image marker
+        run: |
+          mkdir -p ml-image-marker
+          echo "${ML_IMAGE}" > ml-image-marker/image-uri.txt
+
+      - name: Upload ML image marker
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ml-image
+          path: ml-image-marker/image-uri.txt
+          if-no-files-found: error
+          retention-days: 14
 
   # 8. WEB VERIFICATION
   build-web:

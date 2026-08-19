@@ -4,11 +4,12 @@ import { useSession } from '../features/auth/useSession'
 
 export function NotFoundPage() {
   const { session } = useSession()
-  const destination = session?.roles.includes('ROLE_SYSTEM_ADMIN')
-    ? '/system'
-    : session
-      ? ME_PATH
-      : USER_LOGIN_PATH
+  let destination = USER_LOGIN_PATH
+  if (session?.roles.includes('ROLE_SYSTEM_ADMIN')) {
+    destination = '/system'
+  } else if (session) {
+    destination = ME_PATH
+  }
 
   return (
     <main className="centered-page">

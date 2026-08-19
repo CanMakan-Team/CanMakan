@@ -21,7 +21,7 @@ export function ProfileCardMenu({
   onEdit,
   onToggleActive,
   onRemove,
-}: ProfileCardMenuProps) {
+}: Readonly<ProfileCardMenuProps>) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 

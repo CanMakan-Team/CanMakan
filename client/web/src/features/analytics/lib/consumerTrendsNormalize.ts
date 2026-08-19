@@ -21,8 +21,7 @@ export function prepareConsumerTrendsResponse(
 ): ConsumerTrendsResponse {
   const incomplete = () => new ApiError(INCOMPLETE_MESSAGE)
   if (
-    !response
-    || !response.period
+    !response?.period
     || !isCalendarDate(response.period.from)
     || !isCalendarDate(response.period.to)
     || !response.summary

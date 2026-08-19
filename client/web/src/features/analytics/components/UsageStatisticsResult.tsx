@@ -40,7 +40,7 @@ function formatDuration(seconds: number): string {
   return `${minutes}m ${remaining}s`
 }
 
-export function UsageStatisticsResult({ data }: { data: UsageStatistics }) {
+export function UsageStatisticsResult({ data }: Readonly<{ data: UsageStatistics }>) {
   const { kpis, acquisition, activity, retention, engagement } = data
   return (
     <>
@@ -244,12 +244,12 @@ function SectionPanel({
   eyebrow,
   title,
   children,
-}: {
+}: Readonly<{
   accent: string
   eyebrow: string
   title: string
   children: ReactNode
-}) {
+}>) {
   return (
     <section className="panel usage-section-panel" style={{ borderTop: `3px solid ${accent}` }}>
       <div className="panel__header">
@@ -269,13 +269,13 @@ function StatCard({
   color,
   background,
   title,
-}: {
+}: Readonly<{
   label: string
   value: string
   color: string
   background: string
   title: string
-}) {
+}>) {
   return (
     <HoverTip text={title} className="hover-tip--block">
       <article className="usage-stat-card" style={{ background }}>
@@ -294,7 +294,7 @@ function Chip({
   background,
   block,
   title,
-}: {
+}: Readonly<{
   label: string
   value: string
   hint?: string
@@ -302,7 +302,7 @@ function Chip({
   background: string
   block?: boolean
   title: string
-}) {
+}>) {
   return (
     <HoverTip text={title} className={block ? 'hover-tip--block' : 'hover-tip--chip'}>
       <div className={`usage-chip${block ? ' usage-chip--block' : ''}`} style={{ background }}>
@@ -314,10 +314,15 @@ function Chip({
   )
 }
 
-function MiniBarChart({ values, color }: { values: number[]; color: string }) {
+function MiniBarChart({ values, color }: Readonly<{ values: number[]; color: string }>) {
   const max = Math.max(1, ...values)
+  const bars = values.map((count, dayOffset) => ({
+    day: dayOffset + 1,
+    count,
+  }))
   const labelIndexes = new Set(chartEndLabelIndexes(values.length))
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const [hoveredDay, setHoveredDay] = useState<number | null>(null)
+  const hoveredBar = bars.find((bar) => bar.day === hoveredDay)
   return (
     <div className="usage-bar-chart">
       <div className="usage-bar-chart__y" aria-hidden="true">
@@ -336,28 +341,30 @@ function MiniBarChart({ values, color }: { values: number[]; color: string }) {
           role="img"
           aria-label={`Daily new registrations over ${values.length} days. Peak ${max}.`}
         >
-          {values.map((value, index) => (
+          {bars.map((bar) => (
             <span
-              key={index}
+              key={`registration-day-${bar.day}`}
               className="usage-bar-chart__col"
-              onMouseEnter={() => setHoveredIndex(index)}
-              onMouseLeave={() => setHoveredIndex(null)}
+              onMouseEnter={() => setHoveredDay(bar.day)}
+              onMouseLeave={() => setHoveredDay(null)}
             >
               <span
                 className="usage-bar-chart__bar"
-                style={{ height: `${Math.max(4, (value / max) * 100)}%`, background: color }}
+                style={{ height: `${Math.max(4, (bar.count / max) * 100)}%`, background: color }}
               />
             </span>
           ))}
         </div>
-        {hoveredIndex !== null ? (
+        {hoveredBar ? (
           <span className="hover-tip__bubble hover-tip__bubble--chart" role="tooltip">
-            Day {hoveredIndex + 1}: {values[hoveredIndex]} registrations
+            Day {hoveredBar.day}: {hoveredBar.count} registrations
           </span>
         ) : null}
         <div className="usage-bar-chart__x" aria-hidden="true">
-          {values.map((_, index) => (
-            <span key={index}>{labelIndexes.has(index) ? String(index + 1) : ''}</span>
+          {bars.map((bar) => (
+            <span key={`registration-axis-${bar.day}`}>
+              {labelIndexes.has(bar.day - 1) ? String(bar.day) : ''}
+            </span>
           ))}
         </div>
       </div>
@@ -365,7 +372,7 @@ function MiniBarChart({ values, color }: { values: number[]; color: string }) {
   )
 }
 
-function ActivityHeatmap({ heatmap }: { heatmap: number[][] }) {
+function ActivityHeatmap({ heatmap }: Readonly<{ heatmap: number[][] }>) {
   const columns = heatmap[0]?.length ?? 12
   return (
     <div
@@ -397,7 +404,7 @@ function heatColor(intensity: number): string {
   return BLUE
 }
 
-function LegendDot({ color, label }: { color: string; label: string }) {
+function LegendDot({ color, label }: Readonly<{ color: string; label: string }>) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
       <i style={{ width: 10, height: 10, borderRadius: 2, background: color, display: 'inline-block' }} />

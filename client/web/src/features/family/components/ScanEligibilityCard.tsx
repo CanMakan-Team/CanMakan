@@ -10,9 +10,9 @@ import type { FamilyMember } from '../../../shared/api/types'
  */
 export function ScanEligibilityCard({
   members,
-}: {
+}: Readonly<{
   members: FamilyMember[]
-}) {
+}>) {
   const eligibleCount = members.filter((member) => member.profileActive).length
   const inactiveCount = members.length - eligibleCount
 

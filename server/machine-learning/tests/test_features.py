@@ -1,5 +1,6 @@
 """Tests for feature helpers."""
 
+from canmakan_ml.domain import parse_volume_ml
 from canmakan_ml.features import is_placeholder_ingredients, normalize_tags
 
 
@@ -21,6 +22,15 @@ def test_real_ingredients_not_placeholder() -> None:
         "ingredients_text": "Organic Brown Rice",
     }
     assert is_placeholder_ingredients(product) is False
+
+
+def test_parse_volume_ml_matches_java_pack_sizes() -> None:
+    assert parse_volume_ml("1 l") == 1000.0
+    assert parse_volume_ml("1 Litre") == 1000.0
+    assert parse_volume_ml("375ml") == 375.0
+    assert parse_volume_ml("250 ml") == 250.0
+    assert parse_volume_ml("20 cl") == 200.0
+    assert parse_volume_ml(None) is None
 
 
 def test_sklearn_import() -> None:

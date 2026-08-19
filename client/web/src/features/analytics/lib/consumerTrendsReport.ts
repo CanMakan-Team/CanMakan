@@ -14,11 +14,12 @@ function safeCsvText(value: string): string {
 }
 
 function encodeCsvCell(value: CsvValue): string {
-  const text = typeof value === 'string'
-    ? safeCsvText(value)
-    : value === null || value === undefined
-      ? ''
-      : String(value)
+  let text = ''
+  if (typeof value === 'string') {
+    text = safeCsvText(value)
+  } else if (value !== null && value !== undefined) {
+    text = String(value)
+  }
   return /[",\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 
@@ -27,7 +28,12 @@ function formatPercentage(value: number | null | undefined): string {
 }
 
 function formatTimestamp(value: string | Date | null | undefined): string {
-  const date = value instanceof Date ? value : value ? new Date(value) : null
+  let date: Date | null = null
+  if (value instanceof Date) {
+    date = value
+  } else if (value) {
+    date = new Date(value)
+  }
   if (date === null || Number.isNaN(date.getTime())) return 'Not available'
 
   return new Intl.DateTimeFormat('en-SG', {
@@ -38,8 +44,7 @@ function formatTimestamp(value: string | Date | null | undefined): string {
 }
 
 function appendSection(rows: CsvRow[], title: string, header: CsvRow, data: CsvRow[]) {
-  rows.push([], [title], header)
-  rows.push(...(data.length > 0 ? data : [['No data available']]))
+  rows.push([], [title], header, ...(data.length > 0 ? data : [['No data available']]))
 }
 
 export function buildConsumerTrendsCsv(

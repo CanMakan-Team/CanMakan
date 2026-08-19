@@ -13,19 +13,64 @@ import { ErrorState } from '../../../shared/ui/PageState'
 import { CanMakanMascot } from '../../../shared/ui/CanMakanMascot'
 import { PortalIcon } from '../../../shared/ui/PortalIcon'
 
+type PersonalHomeBannersProps = Readonly<{
+  showMobilePromo: boolean
+  testerNoticeDismissed: boolean
+  firebaseAppDistributionUrl: string
+  onDismissInstalled: () => void
+  onDismissTesterNotice: () => void
+}>
+
+type PersonalHomeSummaryProps = Readonly<{
+  session: AuthenticatedSession | null
+  profile: SelfProfileResponse | null
+  profileLoading: boolean
+  profileError: string
+  restrictionNames: string[]
+  hasFamily: boolean
+  familyLoading: boolean
+  isPrimaryAdmin: boolean
+  family: FamilyMe | null | undefined
+  memberCount: number | null
+  onRetryProfile: () => void
+}>
+
+type DietaryProfileCardProps = Readonly<{
+  profile: SelfProfileResponse | null
+  profileLoading: boolean
+  profileError: string
+  restrictionNames: string[]
+  onRetryProfile: () => void
+}>
+
+type FamilyCircleCardProps = Readonly<{
+  hasFamily: boolean
+  familyLoading: boolean
+  isPrimaryAdmin: boolean
+  family: FamilyMe | null | undefined
+  memberCount: number | null
+}>
+
+type PersonalHomeSetupProps = Readonly<{
+  setupFinished: boolean
+  setupCompleteCount: number
+  profile: SelfProfileResponse | null
+  profileError: string
+  hasFamily: boolean
+}>
+
+type PersonalHomeRecentScansProps = Readonly<{
+  profile: SelfProfileResponse | null
+  recentScans: PersonalScanHistoryItem[]
+}>
+
 export function PersonalHomeBanners({
   showMobilePromo,
   testerNoticeDismissed,
   firebaseAppDistributionUrl,
   onDismissInstalled,
   onDismissTesterNotice,
-}: {
-  showMobilePromo: boolean
-  testerNoticeDismissed: boolean
-  firebaseAppDistributionUrl: string
-  onDismissInstalled: () => void
-  onDismissTesterNotice: () => void
-}) {
+}: PersonalHomeBannersProps) {
   return (
     <>
       {showMobilePromo ? (
@@ -57,11 +102,11 @@ export function PersonalHomeBanners({
       ) : null}
 
       {showMobilePromo && !testerNoticeDismissed ? (
-        <div className="notice notice--neutral home-tester-notice" role="status">
-          <p>
+        <output className="notice notice--neutral home-tester-notice">
+          <span>
             Tester build: the Android app is on Firebase App Distribution, not
             the App Store or Google Play.
-          </p>
+          </span>
           <button
             type="button"
             className="home-tester-notice__dismiss"
@@ -69,7 +114,7 @@ export function PersonalHomeBanners({
           >
             Dismiss
           </button>
-        </div>
+        </output>
       ) : null}
     </>
   )
@@ -87,19 +132,7 @@ export function PersonalHomeSummary({
   family,
   memberCount,
   onRetryProfile,
-}: {
-  session: AuthenticatedSession | null
-  profile: SelfProfileResponse | null
-  profileLoading: boolean
-  profileError: string
-  restrictionNames: string[]
-  hasFamily: boolean
-  familyLoading: boolean
-  isPrimaryAdmin: boolean
-  family: FamilyMe | null | undefined
-  memberCount: number | null
-  onRetryProfile: () => void
-}) {
+}: PersonalHomeSummaryProps) {
   return (
     <section className="summary-grid summary-grid--home" aria-label="Account summary">
       <article className="summary-card home-card">
@@ -120,90 +153,170 @@ export function PersonalHomeSummary({
         </div>
       </article>
 
-      <article className={`summary-card home-card${profile || profileError ? '' : ' home-card--action'}`}>
-        <span className="summary-card__icon" aria-hidden="true">
-          <PortalIcon name="person" />
-        </span>
-        <div>
-          <span>Dietary Profile</span>
-          {profileLoading ? (
-            <strong>Checking…</strong>
-          ) : profileError ? (
-            <ErrorState message={profileError} onRetry={onRetryProfile} />
-          ) : profile ? (
-            <>
-              <strong>
-                {restrictionNames.length === 0
-                  ? `${profile.profileName} is ready`
-                  : `${restrictionNames.length} active restriction${restrictionNames.length === 1 ? '' : 's'}`}
-              </strong>
-              <small>
-                {restrictionNames.length
-                  ? restrictionNames.slice(0, 3).join(', ')
-                  : 'No restrictions recorded yet. Add them so app scans can warn you.'}
-              </small>
-              <Link className="button button--secondary home-card__cta" to={ME_SETUP_PROFILE_PATH}>
-                Edit profile
-              </Link>
-            </>
-          ) : (
-            <>
-              <strong>Not set up yet</strong>
-              <small>
-                Configure restrictions like Halal, dairy, or gluten so app scans
-                can match your needs.
-              </small>
-              <Link className="button button--primary home-card__cta" to={ME_SETUP_PROFILE_PATH}>
-                Set Up Profile
-              </Link>
-            </>
-          )}
-        </div>
-      </article>
+      <DietaryProfileCard
+        profile={profile}
+        profileLoading={profileLoading}
+        profileError={profileError}
+        restrictionNames={restrictionNames}
+        onRetryProfile={onRetryProfile}
+      />
 
-      <article className={`summary-card home-card${hasFamily ? '' : ' home-card--action'}`}>
-        <span className="summary-card__icon" aria-hidden="true">
-          <PortalIcon name="people" />
-        </span>
-        <div>
-          <span>Family Circle</span>
-          {familyLoading ? (
-            <strong>Checking…</strong>
-          ) : hasFamily ? (
-            <>
-              <strong>
-                {memberCount != null
-                  ? `${memberCount} household member${memberCount === 1 ? '' : 's'}`
-                  : family?.familyName ?? 'Your household'}
-              </strong>
-              <small>
-                {isPrimaryAdmin
-                  ? `${family?.familyName ?? 'Your circle'} — manage profiles on the web.`
-                  : `${family?.familyName ?? 'Your circle'} — household tools are for the family admin. Scan in the app.`}
-              </small>
-              {isPrimaryAdmin ? (
-                <Link className="button button--secondary home-card__cta" to={FAMILY_DASHBOARD_PATH}>
-                  View circle
-                </Link>
-              ) : (
-                <span className="home-card__cta home-card__hint">Scan in the mobile app</span>
-              )}
-            </>
-          ) : (
-            <>
-              <strong>Manage household dietary needs in one place</strong>
-              <small>
-                Optional. Create a circle only if you want shared profiles for
-                your household.
-              </small>
-              <Link className="button button--primary home-card__cta" to={FAMILY_CIRCLE_PATH}>
-                Create Circle
-              </Link>
-            </>
-          )}
-        </div>
-      </article>
+      <FamilyCircleCard
+        hasFamily={hasFamily}
+        familyLoading={familyLoading}
+        isPrimaryAdmin={isPrimaryAdmin}
+        family={family}
+        memberCount={memberCount}
+      />
     </section>
+  )
+}
+
+function DietaryProfileCard({
+  profile,
+  profileLoading,
+  profileError,
+  restrictionNames,
+  onRetryProfile,
+}: DietaryProfileCardProps) {
+  return (
+    <article className={`summary-card home-card${profile || profileError ? '' : ' home-card--action'}`}>
+      <span className="summary-card__icon" aria-hidden="true">
+        <PortalIcon name="person" />
+      </span>
+      <div>
+        <span>Dietary Profile</span>
+        <DietaryProfileCardBody
+          profile={profile}
+          profileLoading={profileLoading}
+          profileError={profileError}
+          restrictionNames={restrictionNames}
+          onRetryProfile={onRetryProfile}
+        />
+      </div>
+    </article>
+  )
+}
+
+function DietaryProfileCardBody({
+  profile,
+  profileLoading,
+  profileError,
+  restrictionNames,
+  onRetryProfile,
+}: DietaryProfileCardProps) {
+  if (profileLoading) {
+    return <strong>Checking…</strong>
+  }
+  if (profileError) {
+    return <ErrorState message={profileError} onRetry={onRetryProfile} />
+  }
+  if (!profile) {
+    return (
+      <>
+        <strong>Not set up yet</strong>
+        <small>
+          Configure restrictions like Halal, dairy, or gluten so app scans
+          can match your needs.
+        </small>
+        <Link className="button button--primary home-card__cta" to={ME_SETUP_PROFILE_PATH}>
+          Set Up Profile
+        </Link>
+      </>
+    )
+  }
+
+  const restrictionSummary =
+    restrictionNames.length === 0
+      ? `${profile.profileName} is ready`
+      : `${restrictionNames.length} active restriction${pluralSuffix(restrictionNames.length)}`
+  const restrictionDetail = restrictionNames.length
+    ? restrictionNames.slice(0, 3).join(', ')
+    : 'No restrictions recorded yet. Add them so app scans can warn you.'
+
+  return (
+    <>
+      <strong>{restrictionSummary}</strong>
+      <small>{restrictionDetail}</small>
+      <Link className="button button--secondary home-card__cta" to={ME_SETUP_PROFILE_PATH}>
+        Edit profile
+      </Link>
+    </>
+  )
+}
+
+function FamilyCircleCard({
+  hasFamily,
+  familyLoading,
+  isPrimaryAdmin,
+  family,
+  memberCount,
+}: FamilyCircleCardProps) {
+  return (
+    <article className={`summary-card home-card${hasFamily ? '' : ' home-card--action'}`}>
+      <span className="summary-card__icon" aria-hidden="true">
+        <PortalIcon name="people" />
+      </span>
+      <div>
+        <span>Family Circle</span>
+        <FamilyCircleCardBody
+          hasFamily={hasFamily}
+          familyLoading={familyLoading}
+          isPrimaryAdmin={isPrimaryAdmin}
+          family={family}
+          memberCount={memberCount}
+        />
+      </div>
+    </article>
+  )
+}
+
+function FamilyCircleCardBody({
+  hasFamily,
+  familyLoading,
+  isPrimaryAdmin,
+  family,
+  memberCount,
+}: FamilyCircleCardProps) {
+  if (familyLoading) {
+    return <strong>Checking…</strong>
+  }
+  if (!hasFamily) {
+    return (
+      <>
+        <strong>Manage household dietary needs in one place</strong>
+        <small>
+          Optional. Create a circle only if you want shared profiles for
+          your household.
+        </small>
+        <Link className="button button--primary home-card__cta" to={FAMILY_CIRCLE_PATH}>
+          Create Circle
+        </Link>
+      </>
+    )
+  }
+
+  const circleName = family?.familyName ?? 'Your circle'
+  const memberHeadline =
+    memberCount != null
+      ? `${memberCount} household member${pluralSuffix(memberCount)}`
+      : family?.familyName ?? 'Your household'
+  const adminHint = isPrimaryAdmin
+    ? `${circleName} — manage profiles on the web.`
+    : `${circleName} — household tools are for the family admin. Scan in the app.`
+
+  return (
+    <>
+      <strong>{memberHeadline}</strong>
+      <small>{adminHint}</small>
+      {isPrimaryAdmin ? (
+        <Link className="button button--secondary home-card__cta" to={FAMILY_DASHBOARD_PATH}>
+          View circle
+        </Link>
+      ) : (
+        <span className="home-card__cta home-card__hint">Scan in the mobile app</span>
+      )}
+    </>
   )
 }
 
@@ -213,19 +326,13 @@ export function PersonalHomeSetup({
   profile,
   profileError,
   hasFamily,
-}: {
-  setupFinished: boolean
-  setupCompleteCount: number
-  profile: SelfProfileResponse | null
-  profileError: string
-  hasFamily: boolean
-}) {
+}: PersonalHomeSetupProps) {
   if (setupFinished) {
     return (
-      <p className="setup-complete-banner" role="status">
+      <output className="setup-complete-banner">
         <span aria-hidden="true">✓</span>
-        All setup steps completed
-      </p>
+        <span>All setup steps completed</span>
+      </output>
     )
   }
 
@@ -237,12 +344,12 @@ export function PersonalHomeSetup({
       <ol className="setup-steps">
         <li className="setup-steps__item setup-steps__item--done">
           <span aria-hidden="true">✓</span>
-          Account created
+          <span>Account created</span>
         </li>
         <li className={`setup-steps__item${profile ? ' setup-steps__item--done' : ''}`}>
           <span aria-hidden="true">{profile ? '✓' : '○'}</span>
           {profile || profileError ? (
-            'Dietary Profile'
+            <span>Dietary Profile</span>
           ) : (
             <Link to={ME_SETUP_PROFILE_PATH}>Dietary Profile</Link>
           )}
@@ -250,7 +357,7 @@ export function PersonalHomeSetup({
         <li className={`setup-steps__item${hasFamily ? ' setup-steps__item--done' : ''}`}>
           <span aria-hidden="true">{hasFamily ? '✓' : '○'}</span>
           {hasFamily ? (
-            'Family Circle'
+            <span>Family Circle</span>
           ) : (
             <Link to={FAMILY_CIRCLE_PATH}>Family Circle</Link>
           )}
@@ -263,49 +370,16 @@ export function PersonalHomeSetup({
 export function PersonalHomeRecentScans({
   profile,
   recentScans,
-}: {
-  profile: SelfProfileResponse | null
-  recentScans: PersonalScanHistoryItem[]
-}) {
+}: PersonalHomeRecentScansProps) {
   return (
     <section className="panel home-recent-panel" aria-labelledby="recent-activity-title">
       <p className="eyebrow">Activity</p>
       <h2 id="recent-activity-title">Recent scans</h2>
       {profile && recentScans.length > 0 ? (
         <div className="recent-list home-scan-list">
-          {recentScans.map((scan) => {
-            const productName = scan.product?.productName || 'Scanned product'
-            const brand = scan.product?.brand?.trim() || ''
-            const summary = scan.aiExplanation?.trim() || ''
-            const verdictKey = scan.verdict?.trim().toLowerCase() || 'unknown'
-            return (
-              <article
-                key={scan.id}
-                className="home-scan-row"
-                tabIndex={summary ? 0 : undefined}
-              >
-                <span className="home-scan-row__thumb" aria-hidden="true">
-                  {productName.slice(0, 1).toUpperCase()}
-                </span>
-                <div>
-                  <strong>{productName}</strong>
-                  <span>
-                    {brand || 'Unknown brand'}
-                    {' · '}
-                    {formatScanTime(scan.scannedAt)}
-                  </span>
-                </div>
-                <span className={`status-badge status-badge--${verdictKey}`}>
-                  {formatCode(scan.verdict || 'UNKNOWN')}
-                </span>
-                {summary ? (
-                  <p className="home-scan-row__tip" role="tooltip">
-                    {summary}
-                  </p>
-                ) : null}
-              </article>
-            )
-          })}
+          {recentScans.map((scan) => (
+            <ScanHistoryRow key={scan.id} scan={scan} />
+          ))}
         </div>
       ) : (
         <div className="home-empty-scans">
@@ -318,6 +392,41 @@ export function PersonalHomeRecentScans({
       )}
     </section>
   )
+}
+
+function ScanHistoryRow({ scan }: Readonly<{ scan: PersonalScanHistoryItem }>) {
+  const productName = scan.product?.productName || 'Scanned product'
+  const brand = scan.product?.brand?.trim() || ''
+  const summary = scan.aiExplanation?.trim() || ''
+  const verdictKey = scan.verdict?.trim().toLowerCase() || 'unknown'
+
+  return (
+    <article className="home-scan-row">
+      <span className="home-scan-row__thumb" aria-hidden="true">
+        {productName.slice(0, 1).toUpperCase()}
+      </span>
+      <div>
+        <strong>{productName}</strong>
+        <span>
+          {brand || 'Unknown brand'}
+          {' · '}
+          {formatScanTime(scan.scannedAt)}
+        </span>
+      </div>
+      <span className={`status-badge status-badge--${verdictKey}`}>
+        {formatCode(scan.verdict || 'UNKNOWN')}
+      </span>
+      {summary ? (
+        <p className="home-scan-row__tip" role="tooltip">
+          {summary}
+        </p>
+      ) : null}
+    </article>
+  )
+}
+
+function pluralSuffix(count: number): string {
+  return count === 1 ? '' : 's'
 }
 
 function formatScanTime(iso: string): string {

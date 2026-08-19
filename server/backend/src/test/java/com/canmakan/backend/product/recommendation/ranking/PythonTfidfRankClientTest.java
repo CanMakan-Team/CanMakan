@@ -6,6 +6,7 @@ import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryPro
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.http.HttpMethod.POST;
@@ -119,21 +120,21 @@ class PythonTfidfRankClientTest {
                 Set.of(),
                 milkSubstituteProfile());
 
-        assertTrue(ranked.isEmpty());
+        assertEquals(0, ranked.size());
     }
 
     @Test
     void rankThrowsWhenNotConfigured() {
         PythonTfidfRankClient client = new PythonTfidfRankClient(discoveryProfiles, "", 500, 2000);
+        CatalogProduct source = milkSource("8888200602857");
+        List<CatalogProduct> candidates = List.of(plantMilk("8850025000521", "Soya Milk Unsweetened"));
+        List<RestrictionRule> rules = List.of();
+        Set<String> priorSafeBarcodes = Set.of();
+        SubstituteDiscoveryProfile profile = milkSubstituteProfile();
 
         PythonTfidfRankClientException exception = assertThrows(
                 PythonTfidfRankClientException.class,
-                () -> client.rank(
-                        milkSource("8888200602857"),
-                        List.of(plantMilk("8850025000521", "Soya Milk Unsweetened")),
-                        List.of(),
-                        Set.of(),
-                        milkSubstituteProfile()));
+                () -> client.rank(source, candidates, rules, priorSafeBarcodes, profile));
 
         assertEquals("Python ranker is not configured or has no candidates", exception.getMessage());
     }
@@ -142,36 +143,35 @@ class PythonTfidfRankClientTest {
     void rankThrowsWhenSourceOrCandidatesMissing() {
         PythonTfidfRankClient client = new PythonTfidfRankClient(
                 discoveryProfiles, "http://127.0.0.1:8091", 500, 2000);
+        CatalogProduct source = milkSource("8888200602857");
+        List<CatalogProduct> noCandidates = List.of();
+        List<RestrictionRule> noRules = List.of();
+        Set<String> noPriorSafeBarcodes = Set.of();
 
         assertThrows(
                 PythonTfidfRankClientException.class,
-                () -> client.rank(null, List.of(), List.of(), Set.of(), null));
+                () -> client.rank(null, noCandidates, noRules, noPriorSafeBarcodes, null));
         assertThrows(
                 PythonTfidfRankClientException.class,
-                () -> client.rank(
-                        milkSource("8888200602857"),
-                        List.of(),
-                        List.of(),
-                        Set.of(),
-                        null));
+                () -> client.rank(source, noCandidates, noRules, noPriorSafeBarcodes, null));
     }
 
     @Test
     void rankWrapsHttpFailures() {
         PythonTfidfRankClient client = clientWithMockServer(
                 withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+        CatalogProduct source = milkSource("8888200602857");
+        List<CatalogProduct> candidates = List.of(plantMilk("8850025000521", "Soya Milk Unsweetened"));
+        List<RestrictionRule> rules = List.of();
+        Set<String> priorSafeBarcodes = Set.of();
+        SubstituteDiscoveryProfile profile = milkSubstituteProfile();
 
         PythonTfidfRankClientException exception = assertThrows(
                 PythonTfidfRankClientException.class,
-                () -> client.rank(
-                        milkSource("8888200602857"),
-                        List.of(plantMilk("8850025000521", "Soya Milk Unsweetened")),
-                        List.of(),
-                        Set.of(),
-                        milkSubstituteProfile()));
+                () -> client.rank(source, candidates, rules, priorSafeBarcodes, profile));
 
         assertEquals("Python rank service call failed", exception.getMessage());
-        assertTrue(exception.getCause() != null);
+        assertNotNull(exception.getCause());
     }
 
     @Test

@@ -8,7 +8,14 @@ export function niceChartStep(target: number): number {
   const rough = target / 5
   const power = Math.pow(10, Math.floor(Math.log10(Math.max(rough, 1))))
   const normalised = rough / power
-  const stepFactor = normalised <= 1 ? 1 : normalised <= 2 ? 2 : normalised <= 5 ? 5 : 10
+  let stepFactor = 10
+  if (normalised <= 1) {
+    stepFactor = 1
+  } else if (normalised <= 2) {
+    stepFactor = 2
+  } else if (normalised <= 5) {
+    stepFactor = 5
+  }
   return stepFactor * power
 }
 

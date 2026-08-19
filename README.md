@@ -7,16 +7,16 @@ dietary information.
 ## Confirmed technology
 
 - Mobile: Android with Jetpack Compose
-- Web: React with Vite using JavaScript
+- Web: React with Vite using TypeScript
 - Backend: Spring Boot with Maven and Java 21
+- Ranker: Python FastAPI (`server/machine-learning`), Docker image on GHCR with the API
 
 Shared brand colors live under `design-tokens/` (JSON source → generated
 Compose `Color.kt` and web `tokens.css`). See `design-tokens/README.md`.
 Shared mascot images live under `client/shared/assets/mascot/` and are
 referenced by both the Android and web clients.
 
-The machine-learning, agentic AI, database, and deployment technology choices
-remain pending.
+Staging and production API runtime is Docker on EC2 (see `CICD-PIPELINE.md` and `deployment/README.md`).
 
 ## Repository Structure
 
@@ -34,58 +34,105 @@ remain pending.
 |   |       |-- shared/            # DI, network, UI kit, shared models, utils
 |   |       |-- features/
 |   |       |   |-- auth/
+|   |       |   |-- account/
 |   |       |   |-- dietaryprofile/
 |   |       |   |-- family/
-|   |       |   |-- product/       # scan, verdict, recommendation, history, reporting
-|   |       |   `-- analytics/     # lightweight / optional on mobile
-|   |       |-- navigation/        # root NavHost
+|   |       |   |-- notifications/
+|   |       |   |-- session/
+|   |       |   `-- product/       # scan, verdict, recommendation, history
+|   |       |-- navigation/
 |   |       |-- MainActivity.kt
 |   |       `-- CanMakanApplication.kt
 |   |
 |   `-- web/                       # React + Vite + TypeScript
 |       `-- src/
-|           |-- app/
-|           |   `-- router/        # AppRoutes
-|           |-- shared/
-|           |   |-- api/           # apiClient, apiErrors, shared types
-|           |   |-- model/         # truly shared models only
-|           |   |-- ui/            # PortalLayout + shared components
-|           |   `-- lib/           # optional hooks/utils
+|           |-- app/               # router (AppRoutes), error boundary
+|           |-- shared/            # api, ui, validation, lib
 |           |-- features/
 |           |   |-- auth/
+|           |   |-- account/
 |           |   |-- family/
 |           |   |-- admin/
 |           |   `-- analytics/
 |           |-- mocks/
-|           |-- pages/             # temporary login entry pages
+|           |-- pages/             # login / register entry pages
 |           |-- styles/            # app.css + generated tokens.css
 |           `-- main.tsx
 |
 |-- server/
 |   |-- backend/                   # Spring Boot, Maven, Java 21
+|   |   |-- Dockerfile             # Temurin JRE + CI-verified JAR
 |   |   `-- src/main/java/com/canmakan/backend/
-|   |       |-- common/            # config, security, exception, util
+|   |       |-- shared/            # config, security, exception
 |   |       |-- auth/
+|   |       |-- user/
+|   |       |-- session/
 |   |       |-- dietaryprofile/
 |   |       |-- family/
-|   |       |-- product/           # scan, verdict, recommendation, history, reporting
+|   |       |-- notification/
+|   |       |-- product/           # scan, assessment, recommendation
 |   |       |-- analytics/
 |   |       |-- admin/
-|   |       |-- knowledgebase/
-|   |       `-- integration/       # Open Food Facts, OpenRouter, etc.
-|   |-- machine-learning/          # Python TF-IDF rank API (UC5)
-|   `-- agentic-ai/                # Reserved Agentic AI and RAG component
+|   |       |-- knowledgebase/     # Dietary tools (in-process MCP-style)
+|   |       |-- ai/                # Tier-3 LLM evidence (not a separate deploy)
+|   |       |-- etl/
+|   |       `-- integration/
+|   |-- machine-learning/          # UC5 Python TF-IDF ranker (FastAPI). Spring calls
+|   |   |                          #   POST /rank after filterAcceptable; empty URL or
+|   |   |                          #   downtime → Java ranker fallback. CI: pytest 80%,
+|   |   |                          #   SonarCloud canmakan-ml, train from 01_products.sql,
+|   |   |                          #   image + Trivy, GHCR canmakan-ml; CD sidecar on EC2
+|   |   |                          #   (canmakan-ml:8091)
+|   |   |-- Dockerfile             # python:3.12-alpine; joblib baked in after train
+|   |   |-- requirements.txt       # fastapi, uvicorn, sklearn, pytest
+|   |   |-- sonar-project.properties
+|   |   |-- pytest.ini
+|   |   |-- src/canmakan_ml/       # api.py (GET /health, POST /rank), ranker, features
+|   |   |-- scripts/               # export_products.py, train_ranker.py, evaluate.py
+|   |   |-- tests/                 # unit + API tests (tiny fixtures, not prod joblib)
+|   |   `-- artifacts/             # tfidf_ranker.joblib not committed; CI trains it
+|   `-- agentic-ai/                # Reserved (no container/CD). Assess agent is
+|                                  #   in-process Spring: knowledgebase/mcp tools +
+|                                  #   ai/ Tier-3 ChatClient. See
+|                                  #   docs/architecture/mcp-agent-architecture.md
 |
-|-- database/                      # Reserved database area
-|-- deployment/                    # Reserved deployment and infrastructure area
 |-- docs/
 |   |-- architecture/
 |   |-- requirements/
 |   |-- api/
-|   |-- database/
 |   |-- code-quality/
 |   `-- sprint/
-`-- .github/                       # Pull request and issue templates
+`-- .github/                       # CI/CD as code (secrets stay on CD workflows, not PR CI)
+    |-- workflows/
+    |   |-- ci.yml                 # PR + push to develop/main: Gitleaks, Semgrep,
+    |   |                          #   Trivy fs + config, path-filtered builds, Sonar,
+    |   |                          #   Docker images + Trivy image, Build Test gate.
+    |   |                          #   GHCR push of canmakan-backend / canmakan-ml
+    |   |                          #   only on push to develop/main (not on PRs)
+    |   |-- e2e.yml                # Playwright when client/web changes.
+    |   |                          #   PR to develop/main; push to develop only
+    |   |                          #   (production web E2E is in deploy-frontends)
+    |   |-- deploy.yml             # After successful CI *push* on develop/main:
+    |   |                          #   pull SHA images from GHCR, SSH ubuntu@EC2,
+    |   |                          #   docker run, health check, Nginx blue/green.
+    |   |                          #   develop → staging Environment; main → production
+    |   |-- deploy-frontends.yml   # Push to develop/main (web/mobile paths):
+    |   |                          #   Vite → Firebase Hosting; signed APK →
+    |   |                          #   Firebase App Distribution (staging vs production)
+    |   |-- dast.yml               # Nightly cron (18:00 UTC) + workflow_dispatch:
+    |   |                          #   OWASP ZAP baseline vs staging web + authenticated API
+    |   |-- load-test.yml          # Weekly Sunday cron (19:00 UTC) + dispatch:
+    |   |                          #   Grafana k6 scan journey vs staging API
+    |   |                          #   3 VUs; recs P95 45s (ranker on t3.small)
+    |   |-- sync-branches.yml      # Push to main: open PR main → develop (hotfixes back)
+    |   `-- triage.yml             # Issues opened/edited: keyword labels
+    |-- scripts/
+    |   |-- deploy-backend-container.sh  # EC2: docker login/pull/run + ML sidecar
+    |   `-- k6-load-test.js        # k6 scenario used by load-test.yml
+    |-- CODEOWNERS                 # * @Codemelia @K4i-Z3r (required on protected branches)
+    |-- dependabot.yml             # Weekly Monday: npm (web), Maven, Gradle, Actions
+    |-- pull_request_template.md
+    `-- ISSUE_TEMPLATE/
 ```
 
 ## Local start
@@ -150,14 +197,15 @@ Implemented via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 | Semgrep | SAST (`semgrep/semgrep:1.173.0 --config p/default`; needs network; skips via [`.semgrepignore`](.semgrepignore)) |
 | Trivy fs | SCA vulns only (CRITICAL/HIGH fails the job; secrets are Gitleaks); CycloneDX SBOM artefact |
 | Trivy config | GitHub Actions / `.github` YAML misconfiguration |
-| Backend | Maven `verify` against job-local MySQL 8 (not RDS), Java 21, JaCoCo; uploads `backend-jar`; SonarCloud `canmakan-backend` |
+| Backend | Maven `verify` against job-local MySQL 8 (not RDS), Java 21, JaCoCo; Docker image + Trivy; uploads `backend-jar`; SonarCloud `canmakan-backend` |
+| Machine learning | pytest coverage gate; SonarCloud `canmakan-ml`; train ranker; Docker image + Trivy; GHCR `canmakan-ml` on `develop`/`main` |
 | Web | `npm ci` + Vitest with coverage + `npm run build` (Node 24); SonarCloud `canmakan-web` |
 | Mobile | Gradle `assembleDebug testDebugUnitTest` + unit-test coverage XML, then `sonar`; SonarCloud `canmakan-mobile` |
 | Build Test | Required aggregator |
 
 Playwright E2E: [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) on PRs and pushes to `develop` when `client/web/**` changes. Production web deploy re-runs Playwright in [`.github/workflows/deploy-frontends.yml`](.github/workflows/deploy-frontends.yml).
 
-> Backend CI runs `mvn verify` against an ephemeral MySQL 8 service (not RDS) and uploads the verified JAR. Production backend deploy waits for that CI run on `main` and SCP’s the artefact (no `skipTests` rebuild). Runtime env vars still come from GitHub secrets and are forwarded to EC2 at JAR start. Deploy jobs use Environment `production` (`vars.DEPLOY_ENVIRONMENT`). <br>
+> Backend CI runs `mvn verify` against an ephemeral MySQL 8 service (not RDS) and uploads the verified JAR. Production/staging deploy waits for that CI run on `main`/`develop` and pulls the GHCR **container** (no `skipTests` rebuild). The UC5 FastAPI ranker is the same CD workflow. Runtime env vars still come from GitHub Environment secrets and are forwarded to EC2 at `docker run`. <br>
 > SonarCloud runs after each stack’s tests when `SONAR_TOKEN` is set (org `canmakan-team` is in source). A failed quality gate fails that build job and **Build Test**. Semgrep remains SAST. <br>
 > Web job: `VITE_API_BASE_URL`, `VITE_USE_MOCK_API`, optional `FIREBASE_APP_DISTRIBUTION_URL` → `VITE_FIREBASE_APP_DISTRIBUTION_URL` (also forwarded to the backend for invite-email “mobile” links). Mobile job: optional `MOBILE_BASE_URL` → `BASE_URL`, optional `CANMAKAN_INVITES_PUBLIC_BASE_URL`. <br>
 > Android SDK is provisioned via `android-actions/setup-android` <br>

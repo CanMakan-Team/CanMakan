@@ -30,9 +30,9 @@ export function PersonalHomePage() {
       </header>
 
       {home.notice ? (
-        <p className="notice notice--neutral" role="status">
+        <output className="notice notice--neutral">
           {home.notice}
-        </p>
+        </output>
       ) : null}
 
       <PersonalHomeBanners

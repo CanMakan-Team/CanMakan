@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react'
+import type { SyntheticEvent } from 'react'
 import { Modal } from '../../../shared/ui/Modal'
 import type { AdminUser } from '../api/models'
 
@@ -11,7 +11,7 @@ export function UserAccessStatusModal({
   onReasonChange,
   onClose,
   onSubmit,
-}: {
+}: Readonly<{
   selected: AdminUser
   reason: string
   reasonError: string
@@ -19,9 +19,15 @@ export function UserAccessStatusModal({
   busyUserId: number | null
   onReasonChange: (value: string) => void
   onClose: () => void
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
-}) {
+  onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void
+}>) {
   const busy = busyUserId === selected.userId
+  let actionLabel = 'Reactivate account'
+  if (busy) {
+    actionLabel = 'Saving…'
+  } else if (selected.active) {
+    actionLabel = 'Suspend account'
+  }
   return (
     <Modal
       title={`${selected.active ? 'Suspend' : 'Reactivate'} account`}
@@ -64,11 +70,7 @@ export function UserAccessStatusModal({
             type="submit"
             disabled={busy}
           >
-            {busy
-              ? 'Saving…'
-              : selected.active
-                ? 'Suspend account'
-                : 'Reactivate account'}
+            {actionLabel}
           </button>
           <button
             className="button button--secondary"

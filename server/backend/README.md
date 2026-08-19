@@ -104,7 +104,19 @@ From `server/backend` on Windows:
 Database and external-service defaults are available in `application.properties`.
 Access-token signing material intentionally has no insecure local fallback.
 
-**Profiles:** `spring.profiles.default=dev` so local runs and tests still seed MySQL and allow LAN CORS patterns. Deployed EC2 instances set `SPRING_PROFILES_ACTIVE=prod` via [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) (overridable with GitHub Environment variable `SPRING_PROFILES_ACTIVE` on `staging` / `production`). That loads `application-prod.properties` (no SQL seed, `ddl-auto=validate`, empty CORS origin patterns, no Hibernate SQL DEBUG).
+**Profiles:** `spring.profiles.default=dev` so local runs and tests still seed MySQL and allow LAN CORS patterns. Staging/production containers set `SPRING_PROFILES_ACTIVE=prod` via [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) (overridable with GitHub Environment variable `SPRING_PROFILES_ACTIVE` on `staging` / `production`). That loads `application-prod.properties` (no SQL seed, `ddl-auto=validate`, empty CORS origin patterns, no Hibernate SQL DEBUG).
+
+### Docker image (optional local)
+
+CI builds this image from the verified JAR. Locally, after `.\mvnw.cmd -DskipTests package`:
+
+```powershell
+Copy-Item .\target\backend-0.0.1-SNAPSHOT.jar .\app.jar -Force
+docker build -t canmakan-backend:local .
+docker run --rm -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev -e JWT_SIGNING_SECRET -e MYSQL_HOST=host.docker.internal canmakan-backend:local
+```
+
+Do not copy secrets into the image. Runtime config is env vars only (`Dockerfile` plus `--env-file` on EC2).
 
 **Tests:** `src/test/resources/application-dev.properties` replaces the main `application-dev.properties` on the test classpath (same filename resolves to one resource). Keep `ddl-auto=update` and `spring.sql.init.mode=always` in the test file whenever you add JWT or other test-only overrides there.
 
@@ -184,7 +196,7 @@ MVP recommendations use catalog discovery and dietary filtering in Spring, then 
 | `CANMAKAN_RECOMMENDATION_ML_RANKER_URL` | _(empty)_ | Python FastAPI rank service (e.g. `http://127.0.0.1:8091`). Empty = Java ranker fallback |
 | `CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH` | _(empty)_ | Legacy Java inline vectors (`product_feature_vectors.json`) |
 
-Local demo: run Spring Boot, then from `server/machine-learning/` train and start uvicorn (see `server/machine-learning/README.md`).
+Local demo: train and run uvicorn (see `server/machine-learning/README.md`), or run the ML image and point Spring at it. Staging/production CD sets `CANMAKAN_RECOMMENDATION_ML_RANKER_URL=http://canmakan-ml:8091` on the Docker network — do not set that secret to `127.0.0.1` on GitHub Environments.
 
 Fallback order: Tier A → Tier C tag recall → Python rank (if configured) → Java `MlContentBasedRanker` → heuristic ranker → empty list.
 

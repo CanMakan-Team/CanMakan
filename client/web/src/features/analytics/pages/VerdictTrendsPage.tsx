@@ -152,17 +152,17 @@ export function VerdictTrendsPage() {
         {exportNotice ? <p className="form-message form-message--success">{exportNotice}</p> : null}
       </div>
 
-      {loading ? (
-        <LoadingState label="Loading verdict trend..." />
-      ) : errorMessage ? (
+      {loading && <LoadingState label="Loading verdict trend..." />}
+      {!loading && errorMessage && (
         <ErrorState message={errorMessage} onRetry={load} />
-      ) : aggregated ? (
+      )}
+      {!loading && !errorMessage && aggregated && (
         <VerdictTrendsResult
           data={aggregated}
           verdictFilter={verdictFilter}
           onToggleFilter={toggleFilter}
         />
-      ) : null}
+      )}
     </>
   )
 }
@@ -171,11 +171,11 @@ function VerdictTrendsResult({
   data,
   verdictFilter,
   onToggleFilter,
-}: {
+}: Readonly<{
   data: ReturnType<typeof aggregateFamilyVerdictTrend>
   verdictFilter: VerdictFilter
   onToggleFilter: (filter: VerdictFilter) => void
-}) {
+}>) {
   const summary = data.summary
   const visibleSeries = seriesForFilter(verdictFilter)
   const [safePercent, warningPercent, unsafePercent] = sharePercents(
@@ -309,14 +309,14 @@ function StatCard({
   tone,
   active,
   onSelect,
-}: {
+}: Readonly<{
   label: string
   value: string
   hint?: string
   tone: 'neutral' | 'safe' | 'warning' | 'unsafe'
   active: boolean
   onSelect: () => void
-}) {
+}>) {
   return (
     <button
       type="button"
@@ -331,7 +331,7 @@ function StatCard({
   )
 }
 
-function LegendChip({ color, label }: { color: string; label: string }) {
+function LegendChip({ color, label }: Readonly<{ color: string; label: string }>) {
   return (
     <span className="verdict-trend-legend__chip">
       <i style={{ background: color }} />
@@ -345,12 +345,12 @@ function VerdictMixItem({
   count,
   percent,
   tone,
-}: {
+}: Readonly<{
   label: string
   count: number
   percent: number
   tone: 'safe' | 'warning' | 'unsafe'
-}) {
+}>) {
   return (
     <li className={`verdict-mix-legend__item verdict-mix-legend__item--${tone}`}>
       <span className={`status-badge status-badge--${tone}`}>{label}</span>

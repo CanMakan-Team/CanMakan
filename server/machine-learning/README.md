@@ -42,6 +42,17 @@ set ARTIFACT_PATH=artifacts/tfidf_ranker.joblib
 uvicorn canmakan_ml.api:app --app-dir src --host 127.0.0.1 --port 8091
 ```
 
+Or with Docker (train first so `artifacts/tfidf_ranker.joblib` exists):
+
+```bash
+docker build -t canmakan-ml:local .
+docker run --rm -p 8091:8091 canmakan-ml:local
+```
+
+The image uses `requirements-runtime.txt` (no pytest/pip in the final Alpine image).
+
+CI trains from `01_products.sql`, scans the image with Trivy, and on `develop`/`main` pushes `ghcr.io/<owner>/canmakan-ml:<sha>`. EC2 runs it as `canmakan-ml` on Docker network `canmakan`; Spring uses `http://canmakan-ml:8091`.
+
 Endpoints:
 
 - `GET /health` — liveness
@@ -56,8 +67,10 @@ canmakan.recommendation.ml.ranker-url=http://127.0.0.1:8091
 ## Tests
 
 ```bash
-pytest --cov=canmakan_ml --cov-fail-under=80
+pytest --cov=canmakan_ml --cov-report=xml --cov-fail-under=80
 ```
+
+CI uploads that Cobertura XML to SonarCloud project `canmakan-ml` (same org as the other stacks). Offline `scripts/` are not in that project’s sources; Semgrep still scans them.
 
 Gold-set barcodes align with `RecommendationServiceIntegrationTest` and `artifacts/labeled_substitute_pairs.json`.
 

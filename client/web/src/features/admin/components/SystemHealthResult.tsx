@@ -67,10 +67,10 @@ function formatTime(timestamp: string): string {
 export function SystemHealthResult({
   data,
   hours,
-}: {
+}: Readonly<{
   data: SystemHealth
   hours: HealthWindowHours
-}) {
+}>) {
   const healthy = isHealthy(data.overallStatus)
   const { ai, auditTrail, scanQuality } = data
   const chartEmpty = ai.totalCalls === 0 || ai.latencyTrend.length === 0
@@ -202,7 +202,7 @@ export function SystemHealthResult({
   )
 }
 
-function AuditTrailSection({ entries }: { entries: AuditEntry[] }) {
+function AuditTrailSection({ entries }: Readonly<{ entries: AuditEntry[] }>) {
   const [adminFilter, setAdminFilter] = useState('ALL')
   const [actionFilter, setActionFilter] = useState('ALL')
 
@@ -296,12 +296,12 @@ function SectionPanel({
   title,
   caption,
   children,
-}: {
+}: Readonly<{
   accent: string
   title: string
   caption: string
   children: ReactNode
-}) {
+}>) {
   return (
     <section className="panel health-section" style={{ borderTop: `3px solid ${accent}` }}>
       <div className="panel__header">
@@ -321,13 +321,13 @@ function Chip({
   color,
   background,
   title,
-}: {
+}: Readonly<{
   label: string
   value: string
   color: string
   background: string
   title?: string
-}) {
+}>) {
   const card = (
     <div className="health-chip" style={{ background }}>
       <div className="health-chip__label">{label}</div>
@@ -377,19 +377,32 @@ function trendPointTime(
   return new Date(safeEnd.getTime() - spanMs + (spanMs * index) / (count - 1))
 }
 
+function trendAxisAnchor(
+  labelIndex: number,
+  labelCount: number,
+): 'start' | 'middle' | 'end' {
+  if (labelIndex === 0) {
+    return 'start'
+  }
+  if (labelIndex === labelCount - 1) {
+    return 'end'
+  }
+  return 'middle'
+}
+
 function MiniAreaChart({
   values,
   hours,
   generatedAt,
   color,
   background,
-}: {
+}: Readonly<{
   values: number[]
   hours: HealthWindowHours
   generatedAt: string
   color: string
   background: string
-}) {
+}>) {
   const width = 480
   const height = 92
   const padLeft = 36
@@ -408,11 +421,12 @@ function MiniAreaChart({
   const area = `${pointAt(0)},${padTop + plotHeight} ${line} ${pointAt(count - 1)},${padTop + plotHeight}`
   const yTicks = [max, 0]
   const baseline = padTop + plotHeight
-  const xIndexes = count <= 1
-    ? [0]
-    : count === 2
-      ? [0, count - 1]
-      : [0, Math.floor((count - 1) / 2), count - 1]
+  let xIndexes = [0]
+  if (count === 2) {
+    xIndexes = [0, count - 1]
+  } else if (count > 2) {
+    xIndexes = [0, Math.floor((count - 1) / 2), count - 1]
+  }
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="health-chart__svg" role="img" aria-label="AI call latency trend.">
@@ -444,7 +458,7 @@ function MiniAreaChart({
           key={index}
           x={pointAt(index)}
           y={height - 3}
-          textAnchor={labelIndex === 0 ? 'start' : labelIndex === xIndexes.length - 1 ? 'end' : 'middle'}
+          textAnchor={trendAxisAnchor(labelIndex, xIndexes.length)}
           className="health-chart-axis"
         >
           {formatTrendXLabel(trendPointTime(generatedAt, hours, index, count), hours)}

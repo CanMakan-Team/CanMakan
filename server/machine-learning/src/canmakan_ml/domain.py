@@ -23,15 +23,17 @@ PACK_SIZE_WEIGHT = 0.08
 MAX_PACK_RANGE_ML = 1000.0
 MIN_PACK_MATCH_SIMILARITY = 0.85
 
+# Possessive quantifiers avoid super-linear backtracking (Sonar python:S5852).
+_VOLUME_AMOUNT = r"(\d++(?:[.,]\d++)?)"
 MILLILITRE_PATTERN = re.compile(
-    r"(\d+(?:[.,]\d+)?)\s*(ml|millilitre?s?|milliliter?s?)",
+    rf"{_VOLUME_AMOUNT}\s*+(?:millilitres|milliliters|millilitre|milliliter|ml)\b",
     re.IGNORECASE,
 )
 LITRE_PATTERN = re.compile(
-    r"(\d+(?:[.,]\d+)?)\s*(l|litre?s?|liter?s?)(?![a-z])",
+    rf"{_VOLUME_AMOUNT}\s*+(?:litres|liters|litre|liter|l)(?![a-z])",
     re.IGNORECASE,
 )
-CENTILITRE_PATTERN = re.compile(r"(\d+(?:[.,]\d+)?)\s*(cl)", re.IGNORECASE)
+CENTILITRE_PATTERN = re.compile(rf"{_VOLUME_AMOUNT}\s*+cl\b", re.IGNORECASE)
 
 
 @dataclass
