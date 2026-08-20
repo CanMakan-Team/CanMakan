@@ -8,9 +8,9 @@ on:
         type: boolean
         default: true
       force_ml:
-        description: Rebuild and push canmakan-ml even if path filters would skip it
+        description: Retrain tfidf_ranker.joblib, rebuild, and push canmakan-ml even if path filters would skip it
         type: boolean
-        default: false
+        default: true
   pull_request:
     branches: [main, develop]
   push:
