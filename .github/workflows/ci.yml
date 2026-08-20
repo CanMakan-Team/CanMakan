@@ -492,7 +492,7 @@ jobs:
 
       - name: SonarCloud machine learning
         if: env.SONAR_TOKEN != ''
-        uses: SonarSource/sonarqube-scan-action@v8.1.0
+        uses: SonarSource/sonarqube-scan-action@v8.2.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -603,7 +603,7 @@ jobs:
 
       - name: SonarCloud web
         if: env.SONAR_TOKEN != ''
-        uses: SonarSource/sonarqube-scan-action@v8.1.0
+        uses: SonarSource/sonarqube-scan-action@v8.2.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
