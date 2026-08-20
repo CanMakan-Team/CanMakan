@@ -42,6 +42,7 @@ import sg.edu.nus.iss.canmakan.features.product.history.data.ScanHistoryApiServi
 import sg.edu.nus.iss.canmakan.features.product.recommendation.data.RecommendationHistoryApiService
 import sg.edu.nus.iss.canmakan.features.session.data.SessionApiService
 import sg.edu.nus.iss.canmakan.shared.network.CanMakanApiService
+import sg.edu.nus.iss.canmakan.shared.network.LongReadTimeoutInterceptor
 import sg.edu.nus.iss.canmakan.shared.network.RequestHeadersInterceptor
 import sg.edu.nus.iss.canmakan.shared.network.RetryPolicyInterceptor
 import sg.edu.nus.iss.canmakan.shared.util.BACKEND_LOCAL_DATE_TIME_FORMATTER
@@ -221,6 +222,7 @@ object NetworkModule {
 
         return builder
             .addInterceptor(RequestHeadersInterceptor())
+            .addInterceptor(LongReadTimeoutInterceptor())
             .addInterceptor(RetryPolicyInterceptor())
             .addInterceptor(loggingInterceptor)
             .connectTimeout(15, TimeUnit.SECONDS)

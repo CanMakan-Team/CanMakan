@@ -102,4 +102,4 @@ flowchart TB
 | Cloud | GitHub Actions, GHCR, EC2/Docker/Nginx, Firebase Hosting and App Distribution |
 | External APIs | OFF (validate + assess), EAN-Search (validate fallback), optional OpenAI / Tavily / Resend |
 
-Validate uses Open Food Facts then **EAN-Search**. Assess uses OFF only. Ranker port 8091 is Docker-internal (`http://canmakan-ml:8091`); Nginx does not expose it.
+Validate uses Open Food Facts then **EAN-Search**. Assess uses OFF only (optional Tavily for unresolved allergen labels). UC5 catalog scoring does not call Tavily. Ranker port 8091 is Docker-internal (`http://canmakan-ml:8091`); Nginx does not expose it.

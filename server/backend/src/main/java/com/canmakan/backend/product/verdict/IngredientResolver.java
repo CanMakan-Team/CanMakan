@@ -42,6 +42,15 @@ public interface IngredientResolver {
      * @return each resolvable label mapped to its {@link IngredientResolution}
      */
     default Map<String, IngredientResolution> resolveAll(List<String> ingredientNames) {
+        return resolveAll(ingredientNames, true);
+    }
+
+    /**
+     * Same as {@link #resolveAll(List)} with an explicit external-search switch.
+     * Catalog alternative checks pass {@code false} so Tavily is not called per candidate.
+     */
+    default Map<String, IngredientResolution> resolveAll(
+            List<String> ingredientNames, boolean allowExternalSearch) {
         Map<String, IngredientResolution> resolutions = new LinkedHashMap<>();
         if (ingredientNames == null) {
             return resolutions;

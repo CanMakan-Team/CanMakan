@@ -207,7 +207,7 @@ flowchart LR
 
 | Step | Class | Behavior |
 |------|--------|----------|
-| Retrieve | `AllergenRelationshipLookupFallback` | One Tavily query for the unresolved list (max 8). Returns answer + a few result snippets, or `""`. HTTP 432 stops further Tavily calls until process restart. Placeholder key / missing `WebClient` → skip. |
+| Retrieve | `AllergenRelationshipLookupFallback` | One Tavily query for the unresolved list (max 8). Successful answers are cached. Returns answer + a few result snippets, or `""`. HTTP 432/433 stop further Tavily calls until process restart. Placeholder key / missing `WebClient` → skip. Catalog alternative scoring skips Tavily. |
 | Structure | `ExternalAllergenMatchMapper` | If AI is on and search text is non-blank, `allergenMatchChatClient` maps to `{ingredient, rootAllergen}` (`ExternalAllergenMatchPayload`). Rows must match the unresolved list; unknown roots are dropped. |
 | Offline map | `ExternalAllergenMatchParser` | Used when AI is off, the ChatClient fails, or JSON is empty. Regex / prose window on the same Tavily text. |
 | Product name | `ProductNameAllergenLookup` | Separate last resort when the barcode has **no usable ingredient list**. Still Tavily; must not be used to certify SAFE. |
@@ -316,7 +316,7 @@ On escalate failure the backend logs `Tier-3 escalate skipped ...` (and `LlmClie
 | `product/scan/ScanService.java` | Scan persist + product upsert for OFF-only barcodes |
 | `knowledgebase/mcp/DietaryKnowledgeMcpClient.java` | Tier 1 tool orchestration |
 | `knowledgebase/mcp/server/*Tool.java` | Five `@Tool` beans |
-| `knowledgebase/mcp/server/AllergenRelationshipLookupFallback.java` | One Tavily search (capped list + 432 handling) |
+| `knowledgebase/mcp/server/AllergenRelationshipLookupFallback.java` | One Tavily search (capped list, cache, 432/433 handling) |
 | `knowledgebase/mcp/server/ExternalAllergenMatchMapper.java` | Tavily text → JSON rows (`ObjectProvider` ChatClient) |
 | `knowledgebase/mcp/server/ExternalAllergenMatchParser.java` | Regex fallback when AI is off |
 | `knowledgebase/mcp/contract/ExternalAllergenMatchPayload.java` | `{ matches: [{ ingredient, rootAllergen }] }` |

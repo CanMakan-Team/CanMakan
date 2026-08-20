@@ -91,6 +91,9 @@ User registration, authentication and session management.
 - The shared generic retry layer now treats all HTTP 4xx responses as terminal;
   its existing transient 5xx and I/O retry behavior remains for ordinary
   requests, while an authentication follow-up response is never retried again.
+  `POST scan/assess` and `GET .../recommendations` send `X-CanMakan-No-Retry` so
+  they are not retried; those two paths also use a 60s read timeout (default
+  client read timeout stays ~15s). See `shared/network/README.md`.
 - `AuthSessionRestorer` provides token-safe `Authenticated`, `Unauthenticated`,
   `TemporarilyUnavailable`, and `Forbidden` results. Backend `/me` metadata
   replaces the stored user summary while preserving the current access token.

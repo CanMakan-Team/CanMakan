@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -52,7 +53,7 @@ class DietaryRuleEngineTest {
 
         // The engine now resolves the whole label in one batched call; delegate that batch
         // to the per-name resolve() stubs each test already sets up.
-        when(resolver.resolveAll(any())).thenAnswer(invocation -> {
+        org.mockito.stubbing.Answer<Map<String, IngredientResolution>> resolveBatch = invocation -> {
             List<String> names = invocation.getArgument(0);
             Map<String, IngredientResolution> resolutions = new LinkedHashMap<>();
             for (String name : names) {
@@ -61,7 +62,9 @@ class DietaryRuleEngineTest {
                 }
             }
             return resolutions;
-        });
+        };
+        when(resolver.resolveAll(any())).thenAnswer(resolveBatch);
+        when(resolver.resolveAll(any(), anyBoolean())).thenAnswer(resolveBatch);
     }
 
     @Test
@@ -96,6 +99,7 @@ class DietaryRuleEngineTest {
         assertEquals(SafetyVerdict.Level.SAFE, verdict.level());
         assertTrue(verdict.findings().isEmpty());
         verify(resolver, never()).resolveAll(any());
+        verify(resolver, never()).resolveAll(any(), anyBoolean());
     }
 
     @Test
@@ -105,6 +109,26 @@ class DietaryRuleEngineTest {
 
         assertEquals(SafetyVerdict.Level.WARNING, verdict.level());
         assertEquals(DietaryRuleEngine.INCOMPLETE_DATA, verdict.findings().getFirst().restrictionCode());
+    }
+
+    @Test
+    @DisplayName("Recommendation assess with ingredients skips external search")
+    void recommendationAssessResolvesIngredientsWithoutExternalSearch() {
+        Ingredient oat = new Ingredient("Oat powder", null, null, false);
+        when(resolver.resolve("Oat powder")).thenReturn(IngredientResolution.unknown());
+
+        ProductData product = new ProductData(
+                "123",
+                List.of(oat),
+                "Oat powder",
+                List.of(),
+                null,
+                true
+        );
+
+        engine.assessForRecommendation(List.of(), product);
+
+        verify(resolver).resolveAll(eq(List.of("Oat powder")), eq(false));
     }
 
     @Test
