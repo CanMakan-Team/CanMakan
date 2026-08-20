@@ -1,9 +1,13 @@
 # Rule ID	Threshold	Regex / Target (Optional)
-# Threshold options: IGNORE, INFO, WARN, FAIL
+# 10038: CSP missing on non-HTML assets
+10038	IGNORE	https://canmakan-staging\.(web\.app|firebaseapp\.com)/(robots\.txt|sitemap\.xml).*
 
-# Exclude static files from CSP / anti-clickjacking rules (URL-scoped)
-10038	IGNORE	https://.*\.web\.app/(robots\.txt|sitemap\.xml).*
-10020	IGNORE	https://.*\.web\.app/(robots\.txt|sitemap\.xml).*
+# 10020: Anti-clickjacking on non-HTML assets
+10020	IGNORE	https://canmakan-staging\.(web\.app|firebaseapp\.com)/(robots\.txt|sitemap\.xml).*
 
-# Globally ignore Timestamp Disclosure 
-10096	IGNORE
+# 10027: False-positive keyword matching in minified production bundles
+10027	IGNORE
+
+# 10015 & 10050: Standard caching notifications on static assets
+10015	IGNORE
+10050	IGNORE
