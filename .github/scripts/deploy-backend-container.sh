@@ -217,10 +217,10 @@ sudo docker run -d \
   -e MANAGEMENT_ENDPOINT_HEALTH_SHOWDETAILS=never \
   "${BACKEND_IMAGE}"
 
-echo "Polling health check on port ${NEW_PORT}..."
+echo "Polling health check on port 8082..."
 TIMEOUT=90
 while [ "$TIMEOUT" -gt 0 ]; do
-  if curl -fsS "http://127.0.0.1:${NEW_PORT}/actuator/health" | grep '"status":"UP"' > /dev/null; then
+  if curl -fsS "http://127.0.0.1:8082/actuator/health" | grep '"status":"UP"' > /dev/null; then
     echo "Instance is UP."
     break
   fi
