@@ -207,9 +207,14 @@ sudo docker run -d \
   --log-opt max-size=50m \
   --log-opt max-file=7 \
   -p "127.0.0.1:${NEW_PORT}:8080" \
+  -p "127.0.0.1:8082:8082" \
   --env-file "${ENV_FILE}" \
   -e SERVER_ADDRESS=0.0.0.0 \
   -e SERVER_PORT=8080 \
+  -e MANAGEMENT_SERVER_PORT=8082 \
+  -e MANAGEMENT_SERVER_ADDRESS=127.0.0.1 \
+  -e MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health \
+  -e MANAGEMENT_ENDPOINT_HEALTH_SHOWDETAILS=never \
   "${BACKEND_IMAGE}"
 
 echo "Polling health check on port ${NEW_PORT}..."
