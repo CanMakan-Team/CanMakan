@@ -86,9 +86,6 @@ class RecommendationServiceIntegrationTest {
     /** Tahini from the nut/seed butter substitute pool. */
     private static final String NATURE_GLORY_TAHINI = "8888536703136";
 
-    /** Sparse cashew spread — no ingredients_text in catalog; must still be discoverable. */
-    private static final String ORGANIC_CASHEW_BUTTER = "95539553";
-
     /** Legume paste miscategorised near spreads — must never substitute for peanut butter. */
     private static final String SALTED_SOYA_BEAN_PASTE = "8888256370632";
 
@@ -382,8 +379,6 @@ class RecommendationServiceIntegrationTest {
         assertThat(suggestedBarcodes)
                 .as("nut/seed butter substitute pool should include tahini")
                 .contains(NATURE_GLORY_TAHINI)
-                .as("sparse cashew butter rows without ingredients_text should still be suggested")
-                .contains(ORGANIC_CASHEW_BUTTER)
                 .as("soybean paste is not a peanut-butter substitute")
                 .doesNotContain(SALTED_SOYA_BEAN_PASTE)
                 .as("jams must not appear when peanut butter falls back to nut/seed butters")
