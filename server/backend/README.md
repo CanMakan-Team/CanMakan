@@ -39,43 +39,44 @@ See [Backend Code Quality](../../docs/code-quality/BACKEND-CODE-QUALITY.md) (F19
 
 ## Package Overview
 
-```
-| Package            | Purpose                                              |
-|--------------------|------------------------------------------------------|
-| `shared`           | Shared technical foundation (config, security, util) |
-| `auth`             | Login, logout, tokens, sessions                      |
-| `dietaryprofile`   | Individual dietary needs and restrictions            |
-| `family`           | Family membership and active profile switching       |
-| `user`             | Account entity, preferences, projection views        |
-| `notification`     | Per-user inbox for invite and system cards           |
-| `session`          | Lightweight session tracking                         |
-| `product`          | Scanning, verdicts, recommendations, history         |
-| `analytics`        | Trends, statistics, AI metrics, exports              |
-| `admin`            | Account, role, health and subscription management    |
-| `knowledgebase`    | Ingredient aliases, E-numbers, dietary rules         |
-| `integration`      | External API clients (Open Food Facts, OpenRouter…)  |
-```
+| Package | Purpose |
+| --- | --- |
+| [`shared`](src/main/java/com/canmakan/backend/shared/security/README.md) | Config, security, exceptions |
+| [`auth`](src/main/java/com/canmakan/backend/auth/README.md) | Register, login, JWT, refresh |
+| [`dietaryprofile`](src/main/java/com/canmakan/backend/dietaryprofile/README.md) | SELF profile and restrictions |
+| [`family`](src/main/java/com/canmakan/backend/family/README.md) | Circle, invites, active profile |
+| [`user`](src/main/java/com/canmakan/backend/user/README.md) | Account entity and preferences |
+| [`notification`](src/main/java/com/canmakan/backend/notification/README.md) | Per-user inbox |
+| [`session`](src/main/java/com/canmakan/backend/session/README.md) | Heartbeat session tracking |
+| [`product`](src/main/java/com/canmakan/backend/product/README.md) | Scan, verdict, recommendations, history |
+| [`ai`](src/main/java/com/canmakan/backend/ai/README.md) | Tier-3 LLM evidence and execution logs |
+| [`analytics`](src/main/java/com/canmakan/backend/analytics/README.md) | Anonymised trends and usage aggregates |
+| [`admin`](src/main/java/com/canmakan/backend/admin/README.md) | Admin HTTP: accounts, health, feedback |
+| [`knowledgebase`](src/main/java/com/canmakan/backend/knowledgebase/README.md) | DB-backed dietary tools (MCP-style) |
+| [`integration`](src/main/java/com/canmakan/backend/integration/README.md) | Open Food Facts client |
+| [`etl`](src/main/java/com/canmakan/backend/etl/README.md) | Offline OFF → SQL helper (`generate-sql`) |
+
 See individual package README files for detailed responsibilities.
 
 ## Package Status
 
 This repository uses feature-first package boundaries even though implementation depth differs by package.
 
-```
-|     Package      |       Status       |                                 Notes                            |
-|------------------|--------------------|------------------------------------------------------------------|
-| `dietaryprofile` |     Implemented    | Nested model/repository/dto/service; active API                  |
-| `family`         |     Implemented    | Thin root (controllers + facade); collaborators in `service/`    |
-| `user`           |     Implemented    | Nested `model/` `repository/` `service/` `dto/`; controller at root     |
-| `notification`   |     Implemented    | Nested `model/` `repository/` `service/` `dto/` `exception/`; controller at root |
-| `session`        |     Implemented    | Small flat package (under type-count threshold)                  |
-| `knowledgebase`  |     Foundation     | Domain models available; service APIs in progress                |
-| `product`        |     Implemented    | Slice layout (`scan`, `recommendation`, …); dual product entities |
-| `auth`           |     Implemented    | Thin root (`AuthController` + session guard); `service/` `config/` `dto/` `model/` `repository/` `exception/` |
-| `admin`          |     Implemented    | Nested admin layout; account + health APIs                       |
-| `analytics`      |    Planned/partial | Package scaffolded; implementation to expand                     |
-| `integration`    |     Implemented    | External clients for OFF / OpenRouter / search                   |
-```
+| Package | Status | Notes |
+| --- | --- | --- |
+| `dietaryprofile` | Implemented | Nested model/repository/dto/service; active API |
+| `family` | Implemented | Thin root (controllers + facade); collaborators in `service/` |
+| `user` | Implemented | Nested `model/` `repository/` `service/` `dto/`; controller at root |
+| `notification` | Implemented | Nested layout; controller at root |
+| `session` | Implemented | Small flat package |
+| `knowledgebase` | Implemented | DB-loaded store + in-process MCP tools |
+| `product` | Implemented | Slices `scan`, `assessment`, `verdict`, `recommendation` |
+| `ai` | Implemented | Tier-3 evidence agent; default off (`CANMAKAN_AI_ENABLED`) |
+| `auth` | Implemented | Thin root + `service/` `config/` `dto/` `model/` `repository/` |
+| `admin` | Implemented | Accounts, health, scan-feedback; no subscription API |
+| `analytics` | Implemented | UC7/UC15 services; HTTP on `AdminController` |
+| `integration` | Implemented | Open Food Facts client only |
+| `etl` | Implemented | Offline `generate-sql` helper; not API runtime |
 
 ## Resource Source Of Truth
 
@@ -188,7 +189,7 @@ Default `CANMAKAN_AI_ENABLED=false` keeps assess on Tier-1 rules only. Do not co
 
 ### UC5 recommendations (Tier A catalog + Tier C ML + Python ranker)
 
-MVP recommendations use catalog discovery and dietary filtering in Spring, then rank SAFE candidates. LLM discovery is **not** on the request path.
+MVP recommendations use catalog discovery and dietary filtering in Spring, then rank SAFE candidates. LLM discovery is **not** on the request path. Candidate scoring uses `assessForRecommendation` (local knowledge base only); Tavily is not called for UC5.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -207,9 +208,13 @@ Tan-family demo gold-set overlays: `01f_uc5_demo_gold_set.sql`. Additive tag bac
 ### Enable Tavily (external allergen fallback)
 
 Unknown ingredients that miss the local allergen hierarchy can be looked up via Tavily
-(one batched search per scan, capped). When `CANMAKAN_AI_ENABLED=true`, a tool-free
-ChatClient maps that search text to structured root codes; otherwise a regex parser
-is used. With the default `local-dev-placeholder` key, Tavily is skipped.
+(one batched search per **scan/assess**, capped). Successful answers are cached in
+process. HTTP 432 (plan limit) and 433 (PAYGO limit) stop further Tavily calls until
+restart. UC5 catalog scoring does **not** use Tavily.
+
+When `CANMAKAN_AI_ENABLED=true`, a tool-free ChatClient maps that search text to
+structured root codes; otherwise a regex parser is used. With the default
+`local-dev-placeholder` key, Tavily is skipped.
 
 ```powershell
 $env:TAVILY_API_KEY = "tvly-your-real-key"

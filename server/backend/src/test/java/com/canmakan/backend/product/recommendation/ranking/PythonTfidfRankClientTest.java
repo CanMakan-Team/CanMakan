@@ -59,6 +59,34 @@ class PythonTfidfRankClientTest {
     }
 
     @Test
+    void rankRequestUsesSnakeCaseProductFields() throws Exception {
+        CatalogProduct source = milkSource("8888200602857");
+        PythonTfidfRankRequest request = new PythonTfidfRankRequest(
+                new PythonTfidfRankRequest.PythonTfidfProductPayload(
+                        source.getBarcode(),
+                        source.getProductName(),
+                        source.getBrand(),
+                        source.getMainCategoryEn(),
+                        source.getCategoryTags(),
+                        source.getLabelsTags(),
+                        source.getIngredientsText(),
+                        source.getQuantity(),
+                        source.getServingSize(),
+                        source.getServingQuantity(),
+                        source.getSugars100g(),
+                        source.getSodium100g()),
+                List.of(),
+                new PythonTfidfRankRequest.PythonTfidfProfileHints(
+                        true, true, false, false, List.of(), List.of(), List.of(), List.of()));
+
+        String json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(request);
+
+        assertTrue(json.contains("\"product_name\""));
+        assertTrue(json.contains("\"prefer_low_sugar\""));
+        assertTrue(json.contains("Farmhouse Fresh Milk"));
+    }
+
+    @Test
     void rankMapsSuccessfulResponse() {
         PythonTfidfRankClient client = clientWithMockServer(withSuccess("""
                 {

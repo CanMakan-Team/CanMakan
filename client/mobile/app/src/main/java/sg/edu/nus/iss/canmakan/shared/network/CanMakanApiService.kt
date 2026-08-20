@@ -71,11 +71,13 @@ interface CanMakanApiService {
     @POST("scan/validate")
     suspend fun validateBarcode(@Body request: ScanRequest): Response<ValidationResponse>
 
+    @Headers("X-CanMakan-No-Retry: true")
     @POST("scan/assess")
     suspend fun assessBarcode(
         @Body request: AssessmentRequest
     ): Response<AssessmentResponse>
 
+    @Headers("X-CanMakan-No-Retry: true")
     @GET("profiles/{profileId}/recommendations")
     suspend fun getRecommendations(
         @Path("profileId") profileId: Long,

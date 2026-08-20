@@ -30,3 +30,4 @@ recommendation/
 
 - New multi-class collaborators belong in a capability folder, not the slice root.
 - Prefer keeping internal helpers package-private when tests live in the same subpackage.
+- Catalog alternative scoring uses `DietaryRuleEngine.assessForRecommendation`, which resolves ingredients locally (no Tavily) and caches identical ingredient/label rows within one request.

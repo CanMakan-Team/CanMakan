@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -214,7 +216,7 @@ class DietaryKnowledgeMcpClientTest {
                 .thenReturn(new IngredientAliasResult("coconut milk", "coconut milk", null, false, true));
         when(ingredientAliasTool.lookup("bananas"))
                 .thenReturn(new IngredientAliasResult("bananas", "bananas", null, false, false));
-        when(allergenRelationshipTool.lookup(List.of("bananas")))
+        when(allergenRelationshipTool.lookup(eq(List.of("bananas")), eq(true)))
                 .thenReturn(new AllergenRelationshipResult(
                         List.of(new Ingredient("Milk", "Milk Derivatives", "DAIRY", false)),
                         List.of("bananas"), "", List.of()));
@@ -232,7 +234,7 @@ class DietaryKnowledgeMcpClientTest {
                 .thenReturn(new IngredientAliasResult("whey", "Whey", null, false, true));
         when(ingredientAliasTool.lookup("mystery"))
                 .thenReturn(new IngredientAliasResult("mystery", "mystery", null, false, false));
-        when(allergenRelationshipTool.lookup(List.of("Whey", "mystery")))
+        when(allergenRelationshipTool.lookup(eq(List.of("Whey", "mystery")), eq(true)))
                 .thenReturn(new AllergenRelationshipResult(
                         List.of(new Ingredient("Whey", "Milk", "DAIRY", false)),
                         List.of("mystery"), "", List.of()));
@@ -244,5 +246,19 @@ class DietaryKnowledgeMcpClientTest {
         assertEquals("DAIRY", resolutions.get("whey").rootAllergen());
         // The batched Whey match must not leak onto the unrelated, unresolved label.
         assertEquals(IngredientResolution.Kind.UNKNOWN, resolutions.get("mystery").kind());
+    }
+
+    @Test
+    void resolveAllCanSkipExternalHierarchySearch() {
+        when(ingredientAliasTool.lookup("mystery"))
+                .thenReturn(new IngredientAliasResult("mystery", "mystery", null, false, false));
+        when(allergenRelationshipTool.lookup(eq(List.of("mystery")), eq(false)))
+                .thenReturn(new AllergenRelationshipResult(List.of(), List.of("mystery"), "", List.of()));
+
+        Map<String, IngredientResolution> resolutions =
+                client.resolveAll(List.of("mystery"), false);
+
+        assertEquals(IngredientResolution.Kind.UNKNOWN, resolutions.get("mystery").kind());
+        verify(allergenRelationshipTool).lookup(eq(List.of("mystery")), eq(false));
     }
 }

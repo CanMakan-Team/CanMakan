@@ -263,23 +263,13 @@ Web: `FamilyMeGate` protects family-only routes. The create form is available
 only through the explicit `/family/circle` entry when `/me` is 404. Details:
 [`docs/api/families.md`](../../docs/api/families.md).
 
-## Proposed backend contracts requiring confirmation
+## Backend contracts (live)
 
-The frontend isolates these proposal paths; most are **not** implemented on
-Spring Boot yet (UC9–UC12 / admin / analytics):
+Family, invite, members, restriction summary, family scans, and admin consumer-trends are implemented on Spring Boot. Contract: [`docs/api/families.md`](../../docs/api/families.md) and the [API index](../../docs/api/README.md).
 
-```text
-GET   /api/families/me/members
-GET   /api/families/me/user-search?email={email}
-POST  /api/families/me/members/link
-POST  /api/families/me/profiles
-GET   /api/families/me/profiles/{profileId}
-PUT   /api/families/me/profiles/{profileId}
-PUT   /api/families/me/active-profile
-GET   /api/families/me/restriction-summary
-GET   /api/families/me/scans
-GET   /api/admin/consumer-trends
-```
+`POST /api/families/me/members/link` is not used; linking is invite + claim (`POST /api/families/me/invitations` / `.../claim`).
+
+When `VITE_USE_MOCK_API=true`, some family/analytics pages still use browser mocks. Default is `false` (live API).
 
 ## Safety and architecture boundaries
 
@@ -296,11 +286,7 @@ food-safety guarantees.
 
 ## Known limitations
 
-- Live register/login and UC8 create/`/me` use the database with JWT Bearer
-  identity on family APIs.
-- Members/invite/history and analytics pages may still be mock when
-  `VITE_USE_MOCK_API=true` (default is `false`).
-- Backend `spring.sql.init.mode=always` reseeds and drops newly registered users
-  on restart.
-- Scan records, recommendations and aggregate trends may still be mock outputs.
-- Spring Security filter chain / JWT remain UC19.
+- Live register/login and family APIs use the database with JWT Bearer identity.
+- Members/invite/history and analytics pages may still be mock when `VITE_USE_MOCK_API=true` (default is `false`).
+- Backend `spring.sql.init.mode=always` (dev) reseeds and drops newly registered users on restart.
+- React never computes a food-safety verdict; it displays backend `SAFE` | `WARNING` | `UNSAFE`.

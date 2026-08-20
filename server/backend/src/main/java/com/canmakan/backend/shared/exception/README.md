@@ -1,17 +1,15 @@
 # shared/exception
 
-Global exception handling.
+Shared API exception mapping.
 
 ## Purpose
-Defines shared exceptions and central error handling for the API.
+
+Cross-cutting `@RestControllerAdvice` handlers. Feature packages keep their own exception types.
 
 ## Contents
-- `AuthenticatedUserNotFoundException` — authenticated caller not found in `users`
-- `GlobalExceptionHandler` — maps that to HTTP 401
-- `ProductLookupExceptionHandler` — product lookup failures
 
-## Typical contents
-- Base exceptions (`BusinessException`, `NotFoundException`, etc.)
-- `@ControllerAdvice` / `@RestControllerAdvice`
-- Standard error response DTO
-- Exception-to-HTTP status mapping
+| File | Role |
+| --- | --- |
+| [`AuthenticatedUserNotFoundException.java`](AuthenticatedUserNotFoundException.java) | Authenticated caller missing from `users` |
+| [`GlobalExceptionHandler.java`](GlobalExceptionHandler.java) | Maps that case to HTTP 401 |
+| [`ProductLookupExceptionHandler.java`](ProductLookupExceptionHandler.java) | OFF / product lookup failures |

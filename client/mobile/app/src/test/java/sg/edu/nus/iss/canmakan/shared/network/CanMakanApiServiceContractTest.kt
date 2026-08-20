@@ -2,9 +2,11 @@ package sg.edu.nus.iss.canmakan.shared.network
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.POST
 
 @DisplayName("Scan Retrofit paths are relative to the /api/ base URL")
@@ -31,6 +33,18 @@ class CanMakanApiServiceContractTest {
                 .single()
             assertFalse(path.startsWith("/"), name)
         }
+    }
+
+    @Test
+    fun assessAndRecommendationsDisableGenericRetry() {
+        assertTrue(
+            method("assessBarcode").getAnnotation(Headers::class.java).value
+                .contains("X-CanMakan-No-Retry: true"),
+        )
+        assertTrue(
+            method("getRecommendations").getAnnotation(Headers::class.java).value
+                .contains("X-CanMakan-No-Retry: true"),
+        )
     }
 
     private fun method(name: String) = CanMakanApiService::class.java.declaredMethods.single {

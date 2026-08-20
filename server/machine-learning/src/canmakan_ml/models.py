@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 
 class ProductPayload(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     barcode: str
     product_name: str | None = None
     brand: str | None = None
@@ -26,6 +29,8 @@ class ProductPayload(BaseModel):
 
 
 class ProfileHintsPayload(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     prefer_low_sugar: bool = False
     milk_substitute_discovery: bool = False
     flour_substitute_discovery: bool = False

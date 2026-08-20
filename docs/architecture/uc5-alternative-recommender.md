@@ -1,7 +1,7 @@
 # UC5 — Alternative Product Recommender
 
 **Audience:** backend, mobile, and ML teammates  
-**Status:** Implemented (Tier A catalog + Tier C content-based ML)  
+**Status:** Implemented (Tier A catalog + Tier C recall expansion + Python/Java ranking)  
 **How to PDF:** Open this file in Cursor / VS Code / GitHub → Print → Save as PDF  
 (Or paste Mermaid blocks into [mermaid.live](https://mermaid.live) for PNG/SVG exports.)
 
@@ -15,10 +15,10 @@ The recommender is **profile-aware and safety-first**:
 
 1. **Discovery** — find catalog candidates (same category, then curated substitute tags, then optional ML expansion).
 2. **Safety filter** — run each candidate through `DietaryRuleEngine` and `AlternativeCandidateFilter`.
-3. **Ranking** — order SAFE (or profile-tolerant WARNING) candidates; hybrid cosine + hand-tuned boosts when ML is enabled.
+3. **Ranking** — order SAFE (or profile-tolerant WARNING) candidates: **Python TF-IDF** (`POST /rank`) when `ml.enabled=true` and `ranker-url` is set → else Java `MlContentBasedRanker` when `ml.enabled=true` → else `AlternativeProductRanker` heuristics.
 4. **Return top 5** — log to `recommendation_logs` (UC17 history) and respond to mobile.
 
-UC5 does **not** generate a new verdict. It reuses the same rule engine as assess, with recommendation-specific acceptance rules for intolerance profiles.
+UC5 does **not** generate a new verdict. It reuses `DietaryRuleEngine` with recommendation-specific acceptance rules for intolerance profiles. Catalog scoring calls `assessForRecommendation`, which resolves ingredients from the local knowledge base only (no Tavily) and caches identical ingredient/label rows within one request. Scan/assess still may use Tavily for unresolved OFF labels.
 
 **UC17 boundary:** listing past recommendation sessions is a separate read API. UC5 only writes logs at recommendation time.
 
@@ -31,7 +31,7 @@ UC5 does **not** generate a new verdict. It reuses the same rule engine as asses
 3. If verdict is **WARNING** or **UNSAFE**, mobile calls  
    `GET /api/profiles/{profileId}/recommendations?sourceBarcode=&scanId=`.
 4. Backend loads source product from catalog, profile restriction rules, and prior SAFE scan barcodes.
-5. Backend discovers candidates (Tier A → Tier C if needed), filters, ranks, logs, returns up to 5 alternatives.
+5. Backend discovers candidates (Tier A → Tier C if needed), filters, ranks (Python → Java → heuristic), logs, returns up to 5 alternatives.
 
 ```mermaid
 flowchart TB
@@ -62,8 +62,9 @@ flowchart TB
   end
 
   subgraph rank [Ranking]
+    Python[PythonTfidfRankClient POST /rank]
     Heuristic[AlternativeProductRanker]
-    MLRank[MlContentBasedRanker]
+    MLRank[MlContentBasedRanker Java fallback]
     Prior[Prior SAFE scan boost]
   end
 
@@ -86,10 +87,13 @@ flowchart TB
   ML --> Rules
   Rules --> Engine
   Engine --> Filter
-  Filter --> Heuristic
-  Filter --> MLRank
-  Prior --> Heuristic
+  Filter -->|ml.enabled true| Python
+  Filter -->|ml.enabled false| Heuristic
+  Python -->|down or unconfigured| MLRank
+  Prior --> Python
   Prior --> MLRank
+  Prior --> Heuristic
+  Python --> Logs
   Heuristic --> Logs
   MLRank --> Logs
   Logs --> Detail
@@ -103,9 +107,9 @@ flowchart TB
 |------|--------|--------------|------|
 | **Tier A — same category** | `AlternativeProductQueryService.findSameCategoryCandidates` | Default first step | Up to 50 rows sharing `main_category_en` (source excluded) |
 | **Tier A — substitute tags** | `SubstituteDiscoveryProfiles` + `findSubstituteTagCandidates` / `findExpandedSubstituteCandidates` | Same-category pool empty or all rejected | Curated `category_tags`, optional `labels_tags`, sibling categories |
-| **Tier C — ML sparse** | `MlSparseCatalogRecommender` | Fewer than 5 acceptable candidates **and** `canmakan.recommendation.ml.enabled=true` | Expanded tag slice by catalog popularity, capped at 50 |
+| **Tier C — ML sparse** | `MlSparseCatalogRecommender` | Fewer than 5 acceptable candidates **and** `canmakan.recommendation.ml.enabled=true` | Tag-expanded slice in SQL popularity order (`unique_scans_n`, `completeness`), capped at 50. For milk, flour, bread, cereal, and peanut profiles, **narrow** discovery limits label/sibling expansion to tag recall only. |
 
-Logged `discoveryTier` values: `TIER_A_CATALOG` (default) or `TIER_C_ML_SPARSE` when ML expansion contributed candidates.
+Logged `discoveryTier` values: `TIER_A_CATALOG` (default) or `TIER_C_ML_SPARSE` when ML expansion contributed candidates. Tier C expands **recall** only; ranking cosine runs in Python or Java rankers, not in `MlSparseCatalogRecommender`.
 
 ### Source routing exceptions
 
@@ -171,7 +175,7 @@ Tag coverage is extended offline via `server/machine-learning/scripts/audit_subs
 
 ## Safety filter
 
-Every candidate passes through the same verdict machinery as assess, then recommendation-specific gates.
+Every candidate is scored with `DietaryRuleEngine.assessForRecommendation` (same verdict rules as assess, local catalog ingredients only — no Tavily), then recommendation-specific gates.
 
 ```mermaid
 flowchart LR
@@ -205,7 +209,29 @@ Catalog hardening rejects obvious same-category triggers (e.g. another cow-milk 
 
 ## Ranking
 
-When `canmakan.recommendation.ml.ranker-url` is set, Spring calls the **Python TF-IDF rank service** (`POST /rank`) on SAFE candidates only. On failure or empty URL, Java `MlContentBasedRanker` is used when `ml.enabled=true`; otherwise `AlternativeProductRanker` heuristics apply.
+Ranking runs **after** `filterAcceptable` — only SAFE (or profile-tolerant WARNING) candidates are scored.
+
+```mermaid
+flowchart LR
+  Filtered[SAFE candidates]
+  MlOn{ml.enabled?}
+  Py{ranker-url set?}
+  Python[PythonTfidfRankClient]
+  MLRank[MlContentBasedRanker]
+  Heuristic[AlternativeProductRanker]
+
+  Filtered --> MlOn
+  MlOn -->|no| Heuristic
+  MlOn -->|yes| Py
+  Py -->|yes| Python
+  Py -->|no| MLRank
+  Python -->|error or empty| MLRank
+  Python --> Top5[Top 5 + log]
+  MLRank --> Top5
+  Heuristic --> Top5
+```
+
+When `canmakan.recommendation.ml.ranker-url` is set **and** `ml.enabled=true`, Spring calls the **Python TF-IDF rank service** (`POST /rank`) first. On failure or empty response, Java `MlContentBasedRanker` runs. When `ml.enabled=false`, only `AlternativeProductRanker` heuristics apply (Python is skipped even if `ranker-url` is set).
 
 ### Python rank service (`canmakan_ml`)
 
@@ -230,15 +256,15 @@ Train: `server/machine-learning/scripts/train_ranker.py`. Local API: `uvicorn ca
 |--------|--------|
 | Same-category order | `1.0 − position × 0.01` |
 | Substitute-tag order | `0.95 − position × 0.01` |
-| Beverage tag match | `+0.03` |
+| `secondaryIncludeTags` match (e.g. oat/soy drinks) | `+0.03` |
 | Nut-butter profile + `en:nut-butters` | `+0.02` |
 | Deprioritized cooking tag | `−0.10` |
 | Milk substitute pack-size proximity | `PackSizeParser.weightedBoost` |
 | Prior SAFE scan of candidate | `+0.10` (cap `0.99`) |
 
-### ML hybrid ranker (`MlContentBasedRanker`)
+### ML hybrid ranker (`MlContentBasedRanker`) — Java fallback
 
-Sparse **TF-IDF cosine similarity** (via `ProductFeatureEncoder` / optional `product_feature_vectors.json` artifact) plus hand-tuned boosts:
+Used when Python is unavailable or `ranker-url` is empty. Sparse **TF-IDF cosine similarity** (via `ProductFeatureEncoder` / optional `product_feature_vectors.json` artifact) plus hand-tuned boosts:
 
 ```
 score = min(0.99,
@@ -258,24 +284,28 @@ flowchart TB
   subgraph offline [Offline batch — server/machine-learning]
     SQL[01_products.sql]
     Export[export_products.py]
-    Build[build_vectors.py]
-    Artifact[product_feature_vectors.json]
-    SQL --> Export --> Build --> Artifact
+    Train[train_ranker.py]
+    Joblib[tfidf_ranker.joblib]
+    Legacy[build_vectors.py optional]
+    Vectors[product_feature_vectors.json legacy]
+    SQL --> Export --> Train --> Joblib
+    Export --> Legacy --> Vectors
   end
 
-  subgraph online [Online Java]
-    Store[ProductFeatureVectorStore]
-    Encoder[ProductFeatureEncoder]
-    Cosine[CosineSimilarity]
-    Ranker[MlContentBasedRanker]
-    Artifact --> Store
-    Store --> Encoder
-    Encoder --> Cosine
-    Cosine --> Ranker
+  subgraph online [Online request path]
+    Svc[RecommendationService]
+    PyClient[PythonTfidfRankClient]
+    PyAPI[canmakan_ml FastAPI POST /rank]
+    JavaRank[MlContentBasedRanker fallback]
+    Joblib --> PyAPI
+    Svc --> PyClient
+    PyClient --> PyAPI
+    PyClient -->|fallback| JavaRank
+    Vectors --> JavaRank
   end
 ```
 
-Python does **not** run in the request path. See `server/machine-learning/README.md` for the offline pipeline.
+See `server/machine-learning/README.md` for train, Docker, and GHCR deploy. Legacy `product_feature_vectors.json` supports Java inline encoding and `evaluate.py` only; production ranking should use the same `tfidf_ranker.joblib` artifact as Python.
 
 ---
 
@@ -303,7 +333,7 @@ GET /api/profiles/{profileId}/recommendations
 - **Response:** `AlternativeProductResponse` — `sourceBarcode` + up to 5 `AlternativeProductDto` (barcode, name, brand, `matchReason`, `score`).
 - **Empty:** valid response when source missing, ineligible, or no SAFE candidates.
 
-`matchReason` examples: `category_match`, `substitute_category`, `substitute_pack_size`, `prior_safe_scan`, `ml_similarity`, `ml_nutrition_match`, `ml_unsweetened_substitute`, `ml_pack_size_match`, `ml_prior_safe_scan`.
+`matchReason` examples: `category_match`, `substitute_category`, `substitute_category_cooking`, `substitute_pack_size`, `prior_safe_scan`, `ml_similarity`, `ml_nutrition_match`, `ml_unsweetened_substitute`, `ml_pack_size_match`, `ml_prior_safe_scan`.
 
 ---
 
@@ -311,11 +341,14 @@ GET /api/profiles/{profileId}/recommendations
 
 | Property | Default | Effect |
 |----------|---------|--------|
-| `canmakan.recommendation.ml.enabled` | `true` | Tier C discovery + `MlContentBasedRanker`; `false` → Tier A heuristic only |
-| `canmakan.recommendation.ml.artifact-path` | empty | Optional path to `product_feature_vectors.json`; inline encoding when unset |
+| `canmakan.recommendation.ml.enabled` | `true` | Tier C recall expansion + Java `MlContentBasedRanker` fallback; `false` → Tier A discovery + heuristic rank only |
+| `canmakan.recommendation.ml.ranker-url` | empty | Python rank service base URL (e.g. `http://canmakan-ml:8091`). Empty → skip Python; use Java/heuristic rankers |
+| `canmakan.recommendation.ml.ranker-connect-timeout-ms` | `500` | HTTP connect timeout for Python rank client |
+| `canmakan.recommendation.ml.ranker-read-timeout-ms` | `2000` | HTTP read timeout for Python rank client |
+| `canmakan.recommendation.ml.artifact-path` | empty | Optional path to `product_feature_vectors.json` for Java `MlContentBasedRanker`; inline encoding when unset |
 | `canmakan.recommendation.llm.enabled` | `false` | LLM discovery service exists but is **not** on the MVP path |
 
-Environment overrides: `CANMAKAN_RECOMMENDATION_ML_ENABLED`, `CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH`.
+Environment overrides: `CANMAKAN_RECOMMENDATION_ML_ENABLED`, `CANMAKAN_RECOMMENDATION_ML_RANKER_URL`, `CANMAKAN_RECOMMENDATION_ML_RANKER_CONNECT_TIMEOUT_MS`, `CANMAKAN_RECOMMENDATION_ML_RANKER_READ_TIMEOUT_MS`, `CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH`.
 
 ---
 
@@ -333,24 +366,27 @@ UC17 reads grouped history via `GET /api/profiles/{profileId}/recommendation-his
 |------|------|
 | `product/recommendation/RecommendationController.java` | HTTP entry |
 | `product/recommendation/RecommendationService.java` | Orchestration: discover → filter → rank → log |
-| `product/recommendation/AlternativeProductQueryService.java` | Same-category and tag-based catalog queries |
-| `product/recommendation/SubstituteDiscoveryProfiles.java` | Curated source → substitute tag profiles |
-| `product/recommendation/AlternativeCandidateFilter.java` | Profile-tolerant acceptance + catalog hardening |
-| `product/recommendation/AlternativeProductRanker.java` | Tier A heuristic ranking |
-| `product/recommendation/MlSparseCatalogRecommender.java` | Tier C cosine discovery inside tag slice |
-| `product/recommendation/MlContentBasedRanker.java` | Hybrid ML ranking |
-| `product/recommendation/ProductFeatureEncoder.java` | Sparse vectors (artifact or inline) |
-| `product/recommendation/PackSizeParser.java` | Milk pack-size proximity |
-| `product/recommendation/RecommendationLogService.java` | UC17 write side |
+| `product/recommendation/catalog/AlternativeProductQueryService.java` | Same-category and tag-based catalog queries |
+| `product/recommendation/filter/SubstituteDiscoveryProfiles.java` | Curated source → substitute tag profiles |
+| `product/recommendation/filter/AlternativeCandidateFilter.java` | Profile-tolerant acceptance + catalog hardening |
+| `product/recommendation/ranking/PythonTfidfRankClient.java` | Online Python rank HTTP client |
+| `product/recommendation/ranking/AlternativeProductRanker.java` | Tier A heuristic ranking |
+| `product/recommendation/ranking/MlSparseCatalogRecommender.java` | Tier C tag recall expansion (SQL popularity order) |
+| `product/recommendation/ranking/MlContentBasedRanker.java` | Java TF-IDF ranking fallback |
+| `product/recommendation/ranking/ProductFeatureEncoder.java` | Sparse vectors for Java ranker (artifact or inline) |
+| `product/recommendation/filter/PackSizeParser.java` | Milk pack-size proximity |
+| `product/recommendation/history/RecommendationLogService.java` | UC17 write side |
 | `client/mobile/.../scan/ScannerViewModel.kt` | SAFE skip + alternatives fetch |
 | `client/mobile/.../verdict/ProductDetailScreen.kt` | Alternatives tab UI |
-| `server/machine-learning/scripts/build_vectors.py` | Offline TF-IDF artifact |
+| `server/machine-learning/scripts/train_ranker.py` | Train `tfidf_ranker.joblib` (primary rank artifact) |
+| `server/machine-learning/scripts/build_vectors.py` | Legacy `product_feature_vectors.json` (Java fallback / evaluate) |
 
 ---
 
 ## Out of scope (by design)
 
 - Generating alternatives from Open Food Facts at request time (catalog is local DB)
+- Tavily / web search while scoring catalog alternatives (scan/assess fallback only)
 - LLM-owned substitute discovery on the MVP path (`LlmRecommendationDiscoveryService` disabled by default)
 - Replacing `DietaryRuleEngine` verdict authority
 - Recommendation history UI (UC17)

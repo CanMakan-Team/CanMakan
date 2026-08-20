@@ -2,6 +2,15 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      force_backend:
+        description: Rebuild and push canmakan-backend even if path filters would skip it
+        type: boolean
+        default: true
+      force_ml:
+        description: Retrain tfidf_ranker.joblib, rebuild, and push canmakan-ml even if path filters would skip it
+        type: boolean
+        default: true
   pull_request:
     branches: [main, develop]
   push:
@@ -20,10 +29,10 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
+      backend: ${{ steps.resolved.outputs.backend }}
       web: ${{ steps.filter.outputs.web }}
       mobile: ${{ steps.filter.outputs.mobile }}
-      machine-learning: ${{ steps.filter.outputs.machine-learning }}
+      machine-learning: ${{ steps.resolved.outputs.machine-learning }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7.0.1
@@ -47,6 +56,28 @@ jobs:
             machine-learning:
               - 'server/machine-learning/**'
               - 'server/backend/src/main/resources/01_products.sql'
+
+      - name: Resolve stack builds
+        id: resolved
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FORCE_BACKEND: ${{ github.event.inputs.force_backend }}
+          FORCE_ML: ${{ github.event.inputs.force_ml }}
+          FILTER_BACKEND: ${{ steps.filter.outputs.backend }}
+          FILTER_ML: ${{ steps.filter.outputs.machine-learning }}
+        run: |
+          backend="${FILTER_BACKEND}"
+          ml="${FILTER_ML}"
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            if [ "${FORCE_BACKEND}" = "true" ]; then
+              backend=true
+            fi
+            if [ "${FORCE_ML}" = "true" ]; then
+              ml=true
+            fi
+          fi
+          echo "backend=${backend}" >> "$GITHUB_OUTPUT"
+          echo "machine-learning=${ml}" >> "$GITHUB_OUTPUT"
 
   # Path filters skip image Trivy jobs. develop still has Code Scanning
   # categories trivy-image and trivy-ml-image. Without a SARIF upload on the
@@ -413,7 +444,9 @@ jobs:
           category: trivy-image
 
       - name: Push backend image to GHCR
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        if: >
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker push "${BACKEND_IMAGE}"
@@ -516,7 +549,9 @@ jobs:
           category: trivy-ml-image
 
       - name: Push ML image to GHCR
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        if: >
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker push "${ML_IMAGE}"

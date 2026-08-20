@@ -4,6 +4,9 @@ import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
 import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfile;
 import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfiles;
 import com.canmakan.backend.product.verdict.RestrictionRule;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -16,6 +19,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -30,15 +34,20 @@ public class PythonTfidfRankClient {
 
     private final RestClient restClient;
     private final SubstituteDiscoveryProfiles discoveryProfiles;
+    private final ObjectMapper objectMapper;
     private final String rankerUrl;
 
     @Autowired
     public PythonTfidfRankClient(
             SubstituteDiscoveryProfiles discoveryProfiles,
+            ObjectMapper objectMapper,
             @Value("${canmakan.recommendation.ml.ranker-url:}") String rankerUrl,
             @Value("${canmakan.recommendation.ml.ranker-connect-timeout-ms:500}") long connectTimeoutMs,
             @Value("${canmakan.recommendation.ml.ranker-read-timeout-ms:2000}") long readTimeoutMs) {
         this.discoveryProfiles = discoveryProfiles;
+        this.objectMapper = objectMapper == null
+                ? new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                : objectMapper;
         this.rankerUrl = rankerUrl == null ? "" : rankerUrl.trim();
         if (this.rankerUrl.isEmpty()) {
             this.restClient = null;
@@ -53,12 +62,27 @@ public class PythonTfidfRankClient {
         }
     }
 
+    PythonTfidfRankClient(
+            SubstituteDiscoveryProfiles discoveryProfiles,
+            String rankerUrl,
+            long connectTimeoutMs,
+            long readTimeoutMs) {
+        this(
+                discoveryProfiles,
+                new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false),
+                rankerUrl,
+                connectTimeoutMs,
+                readTimeoutMs);
+    }
+
     /**
      * Package-private constructor for tests that inject a {@link RestClient} bound to
      * {@link org.springframework.test.web.client.MockRestServiceServer}.
      */
     PythonTfidfRankClient(SubstituteDiscoveryProfiles discoveryProfiles, RestClient restClient) {
         this.discoveryProfiles = discoveryProfiles;
+        this.objectMapper =
+                new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         this.rankerUrl = restClient != null ? "http://localhost" : "";
         this.restClient = restClient;
     }
@@ -90,13 +114,19 @@ public class PythonTfidfRankClient {
                 toProfileHints(rules, priorSafeBarcodes, substituteProfile));
 
         try {
-            PythonTfidfRankResponse response = Objects.requireNonNull(
+            // Boot 4 RestClient uses Jackson 3; Jackson 2 @JsonNaming would otherwise be ignored
+            // and Python would score empty camelCase payloads as 0.
+            String requestJson = objectMapper.writeValueAsString(request);
+            String responseJson = Objects.requireNonNull(
                     restClient.post()
                             .uri("/rank")
-                            .body(request)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .body(requestJson)
                             .retrieve()
-                            .body(PythonTfidfRankResponse.class),
+                            .body(String.class),
                     "Python rank response body was null");
+            PythonTfidfRankResponse response =
+                    objectMapper.readValue(responseJson, PythonTfidfRankResponse.class);
 
             List<AlternativeProductRanker.RankedAlternative> ranked = new ArrayList<>();
             if (response.ranked() == null) {
@@ -113,7 +143,7 @@ public class PythonTfidfRankClient {
                         item.matchReason() == null ? "ml_similarity" : item.matchReason()));
             }
             return ranked;
-        } catch (RestClientException exception) {
+        } catch (RestClientException | JsonProcessingException exception) {
             throw new PythonTfidfRankClientException("Python rank service call failed", exception);
         }
     }

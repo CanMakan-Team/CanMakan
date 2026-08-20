@@ -11,7 +11,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -30,18 +33,19 @@ public class AllergenRelationshipLookupFallback {
     private static final Duration TAVILY_TIMEOUT = Duration.ofSeconds(10);
     /** Upper bound on unresolved names included in the single Tavily query. */
     private static final int MAX_EXTERNAL_INGREDIENTS = 8;
-    /** Tavily returns HTTP 432 when the account's plan usage quota is exhausted. */
-    private static final int TAVILY_PLAN_LIMIT_STATUS = 432;
+    /** Tavily 432 = plan cap; 433 = pay-as-you-go cap. Both mean stop calling until restart. */
+    private static final Set<Integer> TAVILY_LIMIT_STATUSES = Set.of(432, 433);
     private static final String TAVILY_PLAN_LIMIT_MESSAGE =
-        "Tavily plan limit exceeded (HTTP 432); skipping remaining lookups";
+        "Tavily plan or PAYGO limit exceeded; skipping remaining lookups";
 
     private final WebClient.Builder webClientBuilder;
     @Value("${app.api.tavily.key:${TAVILY_API_KEY:mock_key_value}}")
     private final String tavilyApiKey;
     @Value("${app.api.tavily.url:${TAVILY_API_URL:https://tavily.com}}")
     private final String tavilyUrl;
-    /** Once Tavily reports a plan-limit 432, further calls fail the same way until restart. */
+    /** Once Tavily reports a plan-limit 432/433, further calls fail the same way until restart. */
     private volatile boolean tavilyPlanLimitReached;
+    private final ConcurrentHashMap<String, String> searchCache = new ConcurrentHashMap<>();
 
     public AllergenRelationshipLookupFallback(
             WebClient.Builder webClientBuilder,
@@ -99,7 +103,16 @@ public class AllergenRelationshipLookupFallback {
                 MAX_EXTERNAL_INGREDIENTS);
         }
 
-        return searchOnce(capped);
+        String cacheKey = cacheKey(capped);
+        String cached = searchCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        String grounding = searchOnce(capped);
+        if (grounding != null && !grounding.isBlank()) {
+            searchCache.put(cacheKey, grounding);
+        }
+        return grounding;
     }
 
     /**
@@ -132,7 +145,7 @@ public class AllergenRelationshipLookupFallback {
                 ingredients);
             return grounding;
         } catch (WebClientResponseException e) {
-            if (e.getStatusCode().value() == TAVILY_PLAN_LIMIT_STATUS) {
+            if (isPlanLimitStatus(e.getStatusCode().value())) {
                 tavilyPlanLimitReached = true;
                 log.warn(TAVILY_PLAN_LIMIT_MESSAGE);
                 return "";
@@ -166,6 +179,12 @@ public class AllergenRelationshipLookupFallback {
         }
 
         String trimmedName = productName.trim();
+        String cacheKey = "product:" + trimmedName.toLowerCase(Locale.ROOT);
+        String cached = searchCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
         log.info("Calling Tavily product-name allergen lookup for \"{}\"", trimmedName);
 
         String query = "List the common food allergens present in the product \""
@@ -196,9 +215,12 @@ public class AllergenRelationshipLookupFallback {
                 "Tavily product-name lookup for \"{}\" returned {} character(s)",
                 trimmedName,
                 text.length());
+            if (!text.isBlank()) {
+                searchCache.put(cacheKey, text);
+            }
             return text;
         } catch (WebClientResponseException e) {
-            if (e.getStatusCode().value() == TAVILY_PLAN_LIMIT_STATUS) {
+            if (isPlanLimitStatus(e.getStatusCode().value())) {
                 tavilyPlanLimitReached = true;
                 log.warn(TAVILY_PLAN_LIMIT_MESSAGE);
                 return "";
@@ -231,16 +253,28 @@ public class AllergenRelationshipLookupFallback {
         Throwable current = error;
         while (current != null) {
             if (current instanceof WebClientResponseException responseException
-                    && responseException.getStatusCode().value() == TAVILY_PLAN_LIMIT_STATUS) {
+                    && isPlanLimitStatus(responseException.getStatusCode().value())) {
                 return true;
             }
             String message = current.getMessage();
-            if (message != null && message.contains("status code [432]")) {
+            if (message != null
+                    && (message.contains("status code [432]") || message.contains("status code [433]"))) {
                 return true;
             }
             current = current.getCause();
         }
         return false;
+    }
+
+    private static boolean isPlanLimitStatus(int status) {
+        return TAVILY_LIMIT_STATUSES.contains(status);
+    }
+
+    private static String cacheKey(List<String> ingredients) {
+        return ingredients.stream()
+            .map(name -> name.trim().toLowerCase(Locale.ROOT))
+            .sorted()
+            .collect(Collectors.joining("|"));
     }
 
     private static boolean isConfiguredApiKey(String apiKey) {

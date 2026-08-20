@@ -72,26 +72,7 @@ public class DietaryRuleEngine {
      * @return the resulting {@link SafetyVerdict}
      */
     public SafetyVerdict assess(List<RestrictionRule> rules, ProductData product) {
-        if (!hasUsableIngredientData(product)) {
-            Finding f = new Finding(
-                    INCOMPLETE_DATA,
-                    Finding.SUBJECT_UNKNOWN,
-                    "No reliable ingredient data for this product - please verify the physical label."
-            );
-            return SafetyVerdict.warning(f.reason(), List.of(f));
-        }
-
-        List<RestrictionRule> activeRules = filterKnownRules(rules);
-
-        IngredientResolutionOutcome outcome = resolveIngredients(product.ingredients());
-        ProductData enriched = new ProductData(product.barcode(), outcome.resolved(),
-                product.ingredientsText(), product.labelTags(), product.tracesTags(),
-                product.nutrition(), true);
-
-        List<Finding> findings = runCheckers(activeRules, enriched);
-        findings.addAll(crossContaminationFindings(activeRules, enriched));
-
-        return decide(activeRules, findings, outcome.unresolvedNames());
+        return assess(rules, product, true);
     }
 
     private static boolean hasUsableIngredientData(ProductData product) {
@@ -108,14 +89,16 @@ public class DietaryRuleEngine {
      * allergen are known-safe (not UNRESOLVED). Resolution runs in a single batch call so the
      * resolver can share expensive lookups instead of one round trip per item.
      */
-    private IngredientResolutionOutcome resolveIngredients(List<Ingredient> ingredients) {
+    private IngredientResolutionOutcome resolveIngredients(
+            List<Ingredient> ingredients, boolean allowExternalSearch) {
         List<String> namesToResolve = new ArrayList<>();
         for (Ingredient ing : ingredients) {
             if (isUnresolvedRoot(ing)) {
                 namesToResolve.add(ing.ingredientName());
             }
         }
-        Map<String, IngredientResolution> resolutions = resolver.resolveAll(namesToResolve);
+        Map<String, IngredientResolution> resolutions =
+                resolver.resolveAll(namesToResolve, allowExternalSearch);
 
         List<String> unresolvedNames = new ArrayList<>();
         List<Ingredient> resolved = new ArrayList<>();
@@ -181,8 +164,9 @@ public class DietaryRuleEngine {
 
     /**
      * Recommendation-specific assessment for sparse catalog rows. Ingredient resolution runs
-     * only when {@code ingredients_text} is present; otherwise tags, allergens, nutrition,
-     * and traces are evaluated without treating missing ingredients as incomplete data.
+     * only when {@code ingredients_text} is present, and never calls Tavily. Otherwise tags,
+     * allergens, nutrition, and traces are evaluated without treating missing ingredients as
+     * incomplete data.
      */
     public SafetyVerdict assessForRecommendation(List<RestrictionRule> rules, ProductData product) {
         if (product == null) {
@@ -194,9 +178,32 @@ public class DietaryRuleEngine {
             return SafetyVerdict.warning(finding.reason(), List.of(finding));
         }
         if (hasIngredientText(product)) {
-            return assess(rules, product);
+            return assess(rules, product, false);
         }
         return assessWithoutIngredients(rules, product);
+    }
+
+    private SafetyVerdict assess(
+            List<RestrictionRule> rules, ProductData product, boolean allowExternalSearch) {
+        if (!hasUsableIngredientData(product)) {
+            Finding f = new Finding(
+                    INCOMPLETE_DATA,
+                    Finding.SUBJECT_UNKNOWN,
+                    "No reliable ingredient data for this product - please verify the physical label."
+            );
+            return SafetyVerdict.warning(f.reason(), List.of(f));
+        }
+
+        List<RestrictionRule> activeRules = filterKnownRules(rules);
+        IngredientResolutionOutcome outcome =
+                resolveIngredients(product.ingredients(), allowExternalSearch);
+        ProductData enriched = new ProductData(product.barcode(), outcome.resolved(),
+                product.ingredientsText(), product.labelTags(), product.tracesTags(),
+                product.nutrition(), true);
+
+        List<Finding> findings = runCheckers(activeRules, enriched);
+        findings.addAll(crossContaminationFindings(activeRules, enriched));
+        return decide(activeRules, findings, outcome.unresolvedNames());
     }
 
     private SafetyVerdict assessWithoutIngredients(List<RestrictionRule> rules, ProductData product) {
