@@ -1,9 +1,9 @@
 # Rule ID	Threshold	Regex / Target (Optional)
-# Threshold options: IGNORE, WARN, FAIL
+# Threshold options: IGNORE, INFO, WARN, FAIL
 
 # Exclude static files from CSP / anti-clickjacking rules (URL-scoped)
-10038	OUTOFSCOPE	https?://.*\.web\.app/(robots\.txt|sitemap\.xml).*
-10020	OUTOFSCOPE	https?://.*\.web\.app/(robots\.txt|sitemap\.xml).*
+10038	IGNORE	https://.*\.web\.app/(robots\.txt|sitemap\.xml).*
+10020	IGNORE	https://.*\.web\.app/(robots\.txt|sitemap\.xml).*
 
-# Ignore informational timestamps or non-critical headers on static files
-10096	IGNORE	(Timestamp Disclosure)
+# Globally ignore Timestamp Disclosure 
+10096	IGNORE
