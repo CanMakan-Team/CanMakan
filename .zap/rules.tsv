@@ -1,0 +1,11 @@
+# Rule ID	Threshold	Regex / Target (Optional)
+# Threshold options: IGNORE, INFO, WARN, FAIL
+
+# 10038: Content Security Policy (CSP) Header Not Set
+10038	WARN	https?://.*\.web\.app/(robots\.txt|sitemap\.xml).*
+
+# 10020: Missing Anti-clickjacking Header (X-Frame-Options / frame-ancestors)
+10020	WARN	https?://.*\.web\.app/(robots\.txt|sitemap\.xml).*
+
+# Ignore informational timestamps or non-critical headers on static files
+10096	IGNORE
