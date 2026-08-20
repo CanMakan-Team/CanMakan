@@ -22,7 +22,7 @@ jobs:
         uses: zaproxy/action-baseline@v0.15.0
         with:
           target: 'https://canmakan-staging.web.app'
-          rules_file_name: '.zap./rules.tsv'
+          rules_file_name: '.zap/rules.tsv'
           issue_title: 'DAST Vulnerability Report - Web Staging'
           token: ${{ secrets.GITHUB_TOKEN }}
           fail_action: false
