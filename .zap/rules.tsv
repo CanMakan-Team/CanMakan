@@ -1,13 +1,14 @@
 # Rule ID	Threshold	Regex / Target (Optional)
 # 10038: CSP missing on non-HTML assets
-10038	IGNORE	https://canmakan-staging\.(web\.app|firebaseapp\.com)/(robots\.txt|sitemap\.xml).*
+10038	OUTOFSCOPE	https://canmakan-staging\.(web\.app|firebaseapp\.com)/(robots\.txt|sitemap\.xml).*
 
 # 10020: Anti-clickjacking on non-HTML assets
-10020	IGNORE	https://canmakan-staging\.(web\.app|firebaseapp\.com)/(robots\.txt|sitemap\.xml).*
+10020	OUTOFSCOPE	https://canmakan-staging\.(web\.app|firebaseapp\.com)/(robots\.txt|sitemap\.xml).*
 
 # 10027: False-positive keyword matching in minified production bundles
-10027	IGNORE
+10027	IGNORE	(Information Disclosure - Suspicious Comments)
 
-# 10015 & 10050: Standard caching notifications on static assets
-10015	IGNORE
-10050	IGNORE
+# Standard caching notifications on static assets
+10015	IGNORE	(Re-examine Cache-control Directives)
+10050	IGNORE	(Retrieved from Cache)
+10049	IGNORE	(Storable and Cacheable Content)
