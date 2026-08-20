@@ -87,9 +87,9 @@ flowchart TB
   ML --> Rules
   Rules --> Engine
   Engine --> Filter
-  Filter --> Python
+  Filter -->|ml.enabled true| Python
+  Filter -->|ml.enabled false| Heuristic
   Python -->|down or unconfigured| MLRank
-  MLRank -->|ml.enabled false| Heuristic
   Prior --> Python
   Prior --> MLRank
   Prior --> Heuristic
