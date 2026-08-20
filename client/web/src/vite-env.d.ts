@@ -7,6 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_NGROK_SKIP_BROWSER_WARNING?: string
   readonly VITE_APP_VERSION?: string
   readonly VITE_APP_ENV?: string
+  readonly VITE_AMPLITUDE_API_KEY?: string
 }
 
 declare module '@mascot/*.png' {

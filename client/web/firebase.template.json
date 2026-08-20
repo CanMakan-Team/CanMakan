@@ -1,13 +1,19 @@
 {
   "hosting": {
     "public": "dist",
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
     "headers": [
       {
         "source": "**/*.html",
         "headers": [
           {
             "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self'; connect-src 'self' {{ env.VITE_API_BASE_URL }} https://securetoken.googleapis.com https://identitytoolkit.googleapis.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:;"
+            "value": "default-src 'self'; script-src 'self'; connect-src 'self' {{ env.VITE_API_BASE_URL }} https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://api.amplitude.com https://api2.amplitude.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:;"
           }
         ]
       }
