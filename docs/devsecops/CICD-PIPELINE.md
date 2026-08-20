@@ -139,7 +139,7 @@ Since continuous dynamic and stress testing disrupt development workflows and ex
 
 `on.workflow_run` of workflow name `CI`, `types: completed`, `branches: [main, develop]`. Deploy proceeds when that CI run was a `push` or `workflow_dispatch` (not a pull-request CI run) and `backend-jar` and/or `ml-image` exists. GitHub evaluates this file from the **default branch**.
 
-**Manual rebuild and deploy:** Actions → **CI** → **Run workflow** on `develop` (staging) or `main` (production). Leave `force_backend` on (default) so path filters cannot skip the image build. CI pushes GHCR, then **Deploy Backend to AWS EC2** starts from that run.
+**Manual rebuild and deploy:** Actions → **CI** → **Run workflow** on `develop` (staging) or `main` (production). Leave `force_backend` and `force_ml` on (both default true) so path filters cannot skip the images. `force_ml` retrains `tfidf_ranker.joblib` from `01_products.sql`, pushes `canmakan-ml`, then **Deploy Backend to AWS EC2** starts from that run.
 
 
 | Job                | When                       | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
