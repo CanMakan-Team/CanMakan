@@ -17,6 +17,7 @@ import com.canmakan.backend.product.recommendation.ranking.MlSparseCatalogRecomm
 import com.canmakan.backend.product.recommendation.ranking.ProductFeatureEncoder;
 import com.canmakan.backend.product.recommendation.ranking.ProductFeatureVectorStore;
 import com.canmakan.backend.product.recommendation.ranking.PythonTfidfRankClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -77,7 +78,11 @@ class RecommendationServiceTest {
         mlSparseCatalogRecommender = new MlSparseCatalogRecommender(
                 queryService, featureEncoder, new SubstituteDiscoveryProfiles());
         PythonTfidfRankClient pythonTfidfRankClient = new PythonTfidfRankClient(
-                new SubstituteDiscoveryProfiles(), "", 500, 2000);
+                new SubstituteDiscoveryProfiles(),
+                new ObjectMapper(),
+                "",
+                500L,
+                2000L);
         recommendationService = new RecommendationService(
                 restrictionRuleLoader,
                 queryService,
