@@ -5,6 +5,7 @@ import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryPro
 import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfiles;
 import com.canmakan.backend.product.verdict.RestrictionRule;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -44,7 +45,9 @@ public class PythonTfidfRankClient {
             @Value("${canmakan.recommendation.ml.ranker-connect-timeout-ms:500}") long connectTimeoutMs,
             @Value("${canmakan.recommendation.ml.ranker-read-timeout-ms:2000}") long readTimeoutMs) {
         this.discoveryProfiles = discoveryProfiles;
-        this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
+        this.objectMapper = objectMapper == null
+                ? new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                : objectMapper;
         this.rankerUrl = rankerUrl == null ? "" : rankerUrl.trim();
         if (this.rankerUrl.isEmpty()) {
             this.restClient = null;
@@ -64,7 +67,12 @@ public class PythonTfidfRankClient {
             String rankerUrl,
             long connectTimeoutMs,
             long readTimeoutMs) {
-        this(discoveryProfiles, new ObjectMapper(), rankerUrl, connectTimeoutMs, readTimeoutMs);
+        this(
+                discoveryProfiles,
+                new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false),
+                rankerUrl,
+                connectTimeoutMs,
+                readTimeoutMs);
     }
 
     /**
@@ -73,7 +81,8 @@ public class PythonTfidfRankClient {
      */
     PythonTfidfRankClient(SubstituteDiscoveryProfiles discoveryProfiles, RestClient restClient) {
         this.discoveryProfiles = discoveryProfiles;
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper =
+                new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         this.rankerUrl = restClient != null ? "http://localhost" : "";
         this.restClient = restClient;
     }
