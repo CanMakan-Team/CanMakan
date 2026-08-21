@@ -282,10 +282,11 @@ jobs:
       - name: Run Trivy config scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:
-          # scan-ref is .github/workflows, so files appear as ci.yml (not
-          # .github/workflows/ci.yml). Add patterns so the GHA checker still matches.
-          TRIVY_MISCONFIG_SCANNERS: github-actions
-          TRIVY_FILE_PATTERNS: github-actions:.*\.ya?ml
+          # Trivy 0.70 (trivy-action v0.36.0) has no github-actions scanner.
+          # Invalid names fall back to defaults and detect 0 files. yaml is valid
+          # and file-patterns make *.yml / *.yaml under scan-ref count as YAML.
+          TRIVY_MISCONFIG_SCANNERS: yaml
+          TRIVY_FILE_PATTERNS: yaml:.*\.ya?ml
         with:
           scan-type: 'config'
           scan-ref: '.github/workflows'
