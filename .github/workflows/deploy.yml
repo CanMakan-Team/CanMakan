@@ -127,7 +127,7 @@ jobs:
       CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH: ${{ secrets.CANMAKAN_RECOMMENDATION_ML_ARTIFACT_PATH }}
       CANMAKAN_RECOMMENDATION_LLM_ENABLED: ${{ secrets.CANMAKAN_RECOMMENDATION_LLM_ENABLED }}
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           sparse-checkout: |
@@ -155,7 +155,7 @@ jobs:
           echo "ml_fallback=ghcr.io/${owner}/canmakan-ml:${BRANCH}" >> "$GITHUB_OUTPUT"
 
       - name: Ensure remote deploy directory exists
-        uses: appleboy/ssh-action@v1.2.5
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
@@ -163,7 +163,7 @@ jobs:
           script: mkdir -p /home/ubuntu/app
 
       - name: Deploy backend and ML containers
-        uses: appleboy/ssh-action@v1.2.5
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           BACKEND_IMAGE: ${{ steps.image.outputs.backend }}
           ML_IMAGE: ${{ steps.image.outputs.ml }}
