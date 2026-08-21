@@ -16,6 +16,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -194,7 +195,9 @@ public class LlmRecommendationDiscoveryService {
     }
 
     private static String extractContent(ChatResponse chatResponse) {
-        if (chatResponse == null || chatResponse.getResult() == null) {
+        if (chatResponse == null
+                || chatResponse.getResult() == null
+                || chatResponse.getResult().getOutput() == null) {
             return "";
         }
         return Objects.toString(chatResponse.getResult().getOutput().getText(), "");
@@ -228,7 +231,8 @@ public class LlmRecommendationDiscoveryService {
         if (chatResponse == null) {
             return null;
         }
-        return chatResponse.getMetadata().getUsage();
+        ChatResponseMetadata metadata = chatResponse.getMetadata();
+        return metadata == null ? null : metadata.getUsage();
     }
 
     private static String nullToEmpty(String value) {
