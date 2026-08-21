@@ -8,8 +8,8 @@ test-results/
 coverage/
 
 # Known test/demo fixtures. Gitleaks already allowlists the JWT string; Semgrep
-# generic-secret / bcrypt rules flag the shared demo password hash in user seeds
-# and the Spring sample hash used as a dummy password_hash in repository tests.
+# generic-secret / bcrypt / reflection rules flag dummy hashes, the test JWT
+# in Spring test properties, and Class.forName on a hardcoded test class list.
 # Other resource SQL (schema, catalog) stays in SAST.
 server/backend/src/test/resources/application-*.properties
 server/backend/src/main/resources/04_roles_users.sql
@@ -20,3 +20,5 @@ server/backend/src/test/java/com/canmakan/backend/admin/AdminConsumerTrendsRunti
 server/backend/src/test/java/com/canmakan/backend/admin/AdminUsersRuntimeIntegrationTest.java
 server/backend/src/test/java/com/canmakan/backend/admin/UserAccountManagementMySqlIntegrationTest.java
 server/backend/src/test/java/com/canmakan/backend/user/UserAccountRepositoryTest.java
+server/backend/src/test/java/com/canmakan/backend/shared/security/SecurityAuthorizationHttpTest.java
+server/backend/src/test/java/com/canmakan/backend/analytics/Uc7IsolatedDatabaseTest.java

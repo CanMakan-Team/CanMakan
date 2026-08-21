@@ -53,7 +53,7 @@ class SecurityAuthorizationHttpTest {
         TestPropertyValues.of(
             "app.security.jwt.issuer=canmakan-test",
             "app.security.jwt.access-ttl=15m",
-            "app.security.jwt.signing-secret=dGVzdC1vbmx5LXNpZ25pbmcta2V5LTMyLWJ5dGVzISE=", // nosemgrep: generic.secrets.security.detected-generic-secret
+            "app.security.jwt.signing-secret=dGVzdC1vbmx5LXNpZ25pbmcta2V5LTMyLWJ5dGVzISE=",
             "app.security.refresh.ttl=7d",
             "app.security.refresh.cookie-name=canmakan_refresh",
             "app.security.refresh.cookie-secure=false",
