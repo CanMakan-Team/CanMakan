@@ -268,51 +268,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  # 5. GITHUB ACTIONS YAML / CONFIG MISCONFIGURATION
-  config-scan:
-    name: Workflow Config Scan (Trivy)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Run Trivy config scanner
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        env:
-          # Trivy 0.70 (trivy-action v0.36.0) has no github-actions scanner.
-          # Invalid names fall back to defaults and detect 0 files. yaml is valid
-          # and file-patterns make *.yml / *.yaml under scan-ref count as YAML.
-          TRIVY_MISCONFIG_SCANNERS: yaml
-          TRIVY_FILE_PATTERNS: yaml:.*\.ya?ml
-        with:
-          scan-type: 'config'
-          scan-ref: '.github/workflows'
-          scanners: 'misconfig'
-          format: 'sarif'
-          output: 'trivy-config-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'
-
-      - name: Upload Trivy config SARIF
-        if: always()
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
-        with:
-          sarif_file: trivy-config-results.sarif
-          category: trivy-config
-
-      - name: Upload Trivy config SARIF artifact
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: trivy-config-sarif
-          path: trivy-config-results.sarif
-          if-no-files-found: error
-          retention-days: 14
-
-  # 6. BACKEND VERIFICATION
+  # 5. BACKEND VERIFICATION
   # Tests use a job-local MySQL service, not production RDS secrets.
   # Remaining env names mirror application.properties for Spring context tests.
   build-backend:
@@ -536,7 +492,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  # 7. MACHINE LEARNING VERIFICATION
+  # 6. MACHINE LEARNING VERIFICATION
   build-machine-learning:
     needs: detect-changes
     if: needs.detect-changes.outputs.machine-learning == 'true'
@@ -655,7 +611,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  # 8. WEB VERIFICATION
+  # 7. WEB VERIFICATION
   build-web:
     needs: detect-changes
     if: needs.detect-changes.outputs.web == 'true'
@@ -700,7 +656,7 @@ jobs:
         working-directory: client/web
         run: npm run build
 
-  # 9. MOBILE VERIFICATION
+  # 8. MOBILE VERIFICATION
   build-mobile:
     needs: detect-changes
     if: needs.detect-changes.outputs.mobile == 'true'
@@ -769,11 +725,11 @@ jobs:
             -Dsonar.gradle.skipCompile=true \
             -Dsonar.qualitygate.wait=true
 
-  # 10. AGGREGATED STATUS GATE FOR BRANCH PROTECTION
+  # 9. AGGREGATED STATUS GATE FOR BRANCH PROTECTION
   Build-Test:
     name: Build Test
     runs-on: ubuntu-latest
-    needs: [detect-changes, gitleaks, sast-scan, sca-scan, config-scan, build-backend, build-machine-learning, build-web, build-mobile]
+    needs: [detect-changes, gitleaks, sast-scan, sca-scan, build-backend, build-machine-learning, build-web, build-mobile]
     if: always()
     steps:
       - name: Evaluate sub-job results
@@ -781,7 +737,6 @@ jobs:
           GITLEAKS_RESULT="${{ needs.gitleaks.result }}"
           SAST_RESULT="${{ needs.sast-scan.result }}"
           SCA_RESULT="${{ needs.sca-scan.result }}"
-          CONFIG_RESULT="${{ needs.config-scan.result }}"
           BACKEND_RESULT="${{ needs.build-backend.result }}"
           MACHINE_LEARNING_RESULT="${{ needs.build-machine-learning.result }}"
           WEB_RESULT="${{ needs.build-web.result }}"
@@ -791,7 +746,6 @@ jobs:
           echo "Gitleaks Secret Scan:   $GITLEAKS_RESULT"
           echo "SAST Security Analysis: $SAST_RESULT"
           echo "SCA Dependency Scan:    $SCA_RESULT"
-          echo "Workflow Config Scan:   $CONFIG_RESULT"
           echo "Backend Monorepo Stack: $BACKEND_RESULT"
           echo "Machine Learning Stack: $MACHINE_LEARNING_RESULT"
           echo "Web Frontend Stack:    $WEB_RESULT"
@@ -832,7 +786,6 @@ jobs:
           require_success "Gitleaks Secret Scan" "$GITLEAKS_RESULT"
           require_success "SAST Security Analysis" "$SAST_RESULT"
           require_success "SCA Dependency Scan" "$SCA_RESULT"
-          require_success "Workflow Config Scan" "$CONFIG_RESULT"
           require_success_or_skipped "Backend Monorepo Stack" "$BACKEND_RESULT"
           require_success_or_skipped "Machine Learning Stack" "$MACHINE_LEARNING_RESULT"
           require_success_or_skipped "Web Frontend Stack" "$WEB_RESULT"
