@@ -6,3 +6,11 @@ build/
 playwright-report/
 test-results/
 coverage/
+
+# Known test/demo fixtures. Gitleaks already allowlists the JWT string; Semgrep
+# generic-secret / bcrypt rules flag the shared demo password hash in user seeds.
+# Other resource SQL (schema, catalog) stays in SAST.
+server/backend/src/test/resources/application-*.properties
+server/backend/src/main/resources/04_roles_users.sql
+server/backend/src/main/resources/12_demo_retention_data.sql
+server/backend/src/main/resources/13_demo_signups_data.sql
