@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Run ZAP Baseline Scan (Web)
-        uses: zaproxy/action-baseline@v0.15.0
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
         with:
           target: 'https://canmakan-staging.web.app'
           rules_file_name: '.zap/rules.tsv'
@@ -29,7 +29,7 @@ jobs:
           artifact_name: 'zap-web-scan-report'
 
       - name: Upload Web Scan Reports
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: zap-web-reports
@@ -45,10 +45,10 @@ jobs:
     environment: staging 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Run ZAP API Scan (Backend)
-        uses: zaproxy/action-api-scan@v0.10.0
+        uses: zaproxy/action-api-scan@5158fe4d9d8fcc75ea204db81317cce7f9e5453d # v0.10.0
         env:
           ZAP_AUTH_HEADER: Authorization
           ZAP_AUTH_HEADER_VALUE: "Bearer ${{ secrets.DAST_TEST_JWT }}"
@@ -62,7 +62,7 @@ jobs:
           artifact_name: 'zap-api-scan-report'
 
       - name: Upload API Scan Reports
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: zap-api-reports
