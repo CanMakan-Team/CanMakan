@@ -39,11 +39,18 @@ final class VerdictText {
         if (phrase == null || phrase.isBlank()) {
             return "";
         }
-        return phrase
-            .replaceAll("(?i)\\ben:", "")
-            .replace('_', ' ')
-            .replaceAll("\\s*,\\s*", ", ")
-            .replaceAll("\\s+", " ")
-            .trim();
+        String[] parts = phrase.split(",", -1);
+        StringBuilder cleaned = new StringBuilder();
+        for (String part : parts) {
+            String label = humanizeTag(part);
+            if (label.isEmpty()) {
+                continue;
+            }
+            if (!cleaned.isEmpty()) {
+                cleaned.append(", ");
+            }
+            cleaned.append(label);
+        }
+        return cleaned.toString();
     }
 }

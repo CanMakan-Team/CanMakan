@@ -13,7 +13,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -132,20 +131,11 @@ public class LlmRecommendationDiscoveryService {
         Map<String, CatalogProduct> resolved = new LinkedHashMap<>();
         int rejected = 0;
         for (LlmRecommendationCandidatePayload.Candidate candidate : payload.candidates()) {
-            if (candidate == null || candidate.barcode() == null || candidate.barcode().isBlank()) {
+            CatalogProduct catalogProduct = resolveCandidate(source, candidate);
+            if (catalogProduct == null) {
                 rejected++;
-                continue;
-            }
-            String barcode = candidate.barcode().trim();
-            if (barcode.equals(source.getBarcode())) {
-                rejected++;
-                continue;
-            }
-            Optional<CatalogProduct> catalogProduct = catalogProductRepository.findById(barcode);
-            if (catalogProduct.isPresent()) {
-                resolved.putIfAbsent(barcode, catalogProduct.get());
             } else {
-                rejected++;
+                resolved.putIfAbsent(catalogProduct.getBarcode(), catalogProduct);
             }
         }
 
@@ -163,15 +153,45 @@ public class LlmRecommendationDiscoveryService {
                 auditJson);
     }
 
+    private CatalogProduct resolveCandidate(
+            CatalogProduct source,
+            LlmRecommendationCandidatePayload.Candidate candidate) {
+        if (candidate == null || candidate.barcode() == null || candidate.barcode().isBlank()) {
+            return null;
+        }
+        String barcode = candidate.barcode().trim();
+        if (barcode.equals(source.getBarcode())) {
+            return null;
+        }
+        return catalogProductRepository.findById(barcode).orElse(null);
+    }
+
     private LlmRecommendationCandidatePayload parsePayload(String rawJson) throws JsonProcessingException {
         if (rawJson == null || rawJson.isBlank()) {
             return new LlmRecommendationCandidatePayload(List.of());
         }
-        String trimmed = rawJson.trim();
-        if (trimmed.startsWith("```")) {
-            trimmed = trimmed.replaceAll("^```(?:json)?\\s*", "").replaceAll("\\s*```$", "");
+        return objectMapper.readValue(stripMarkdownFence(rawJson.trim()), LlmRecommendationCandidatePayload.class);
+    }
+
+    private static String stripMarkdownFence(String trimmed) {
+        if (!trimmed.startsWith("```")) {
+            return trimmed;
         }
-        return objectMapper.readValue(trimmed, LlmRecommendationCandidatePayload.class);
+        int start = 3;
+        if (trimmed.regionMatches(true, 3, "json", 0, 4)) {
+            start = 7;
+        }
+        while (start < trimmed.length() && Character.isWhitespace(trimmed.charAt(start))) {
+            start++;
+        }
+        int end = trimmed.length();
+        if (trimmed.endsWith("```")) {
+            end -= 3;
+        }
+        while (end > start && Character.isWhitespace(trimmed.charAt(end - 1))) {
+            end--;
+        }
+        return trimmed.substring(start, end);
     }
 
     private static String extractContent(ChatResponse chatResponse) {

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 
@@ -52,7 +53,7 @@ public class ScanFeedbackService {
         feedback.setPositive(isPositive);
         feedback.setUserComments(blankToNull(userComments));
         feedback.setResolved(false);
-        feedback.setCreatedAt(LocalDateTime.now());
+        feedback.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
 
         ScanFeedback saved = scanFeedbackRepository.save(feedback);
         return toResponse(saved);

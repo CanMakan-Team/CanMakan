@@ -19,7 +19,6 @@ import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -98,12 +97,12 @@ public class SecurityConfig {
             // is authenticated with a Bearer JWT (Authorization header, never auto-attached) and the
             // only cookie in play (the refresh token) is SameSite=Lax, so it isn't sent on cross-site
             // requests either. Safe to disable for this stateless, non-cookie-authenticated API.
-            .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf.disable()) // NOSONAR java:S4502 - Bearer JWT API, not cookie session auth
             .cors(cors -> cors.configurationSource(corsConfigurationSource))
-            .formLogin(AbstractHttpConfigurer::disable)
-            .httpBasic(AbstractHttpConfigurer::disable)
+            .formLogin(formLogin -> formLogin.disable()) // NOSONAR java:S1612 - AbstractHttpConfigurer::disable fails Eclipse @NonNull conversion
+            .httpBasic(httpBasic -> httpBasic.disable()) // NOSONAR java:S1612 - AbstractHttpConfigurer::disable fails Eclipse @NonNull conversion
             .logout(logout -> logout.disable())
-            .requestCache(AbstractHttpConfigurer::disable)
+            .requestCache(requestCache -> requestCache.disable()) // NOSONAR java:S1612 - AbstractHttpConfigurer::disable fails Eclipse @NonNull conversion
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(exceptions -> exceptions

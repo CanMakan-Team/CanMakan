@@ -1,5 +1,6 @@
 package com.canmakan.backend.product.recommendation.ranking;
 
+import com.canmakan.backend.product.model.Nutrition;
 import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
 import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfile;
 import com.canmakan.backend.product.recommendation.filter.SubstituteDiscoveryProfiles;
@@ -265,6 +266,103 @@ class MlContentBasedRankerTest {
         double query = encoder.encodeQuery(peanutButter).getOrDefault("peanut", 0.0);
         assertTrue(full > 0.0);
         assertTrue(query < full);
+    }
+
+    @Test
+    void priorSafeAndNullRulesCoverMatchReasonsAndNutritionGuard() {
+        CatalogProduct source = plantMilkWithNutrition(
+                "100",
+                "Almond Plant Drink",
+                "Almond-based drinks",
+                "Filtered water, almonds",
+                "en:almond-based-drinks",
+                new BigDecimal("4.0"),
+                new BigDecimal("0.05"));
+        CatalogProduct priorSafe = plantMilk(
+                "safe",
+                "Prior Safe Soy",
+                "Home Soy",
+                "Soy-based drinks",
+                "Soy milk",
+                "en:soy-based-drinks");
+
+        List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rank(
+                source,
+                List.of(priorSafe),
+                null,
+                Set.of("safe"));
+
+        assertEquals("ml_prior_safe_scan", ranked.getFirst().matchReason());
+    }
+
+    @Test
+    void cookingCreamDeprioritizeLowersScore() {
+        SubstituteDiscoveryProfile freshMilksProfile =
+                new SubstituteDiscoveryProfiles().forSourceCategory("Fresh milks").orElseThrow();
+        CatalogProduct source = farmhouseFreshMilk();
+        CatalogProduct drink = plantMilk(
+                "drink",
+                "Soya Milk",
+                "Home Soy",
+                "Soy-based drinks",
+                "Soy milk",
+                "en:dairy-substitutes,en:milk-substitutes,en:soy-based-drinks");
+        CatalogProduct cookingCream = plantMilk(
+                "cook",
+                "Soy Cooking Cream",
+                "Home Soy",
+                "Plant-based creams for cooking",
+                "Soy",
+                "en:plant-based-creams-for-cooking");
+
+        List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rank(
+                source,
+                List.of(cookingCream, drink),
+                List.of(),
+                Set.of(),
+                freshMilksProfile);
+
+        assertEquals("drink", ranked.getFirst().product().getBarcode());
+    }
+
+    @Test
+    void nutritionSimilarityReturnsZeroWhenNutritionDisappearsAfterPairCheck() {
+        Nutrition complete = new Nutrition(
+                new BigDecimal("4.0"), new BigDecimal("0.05"), null, null, null, null);
+        Nutrition incomplete = new Nutrition(null, null, null, null, null, null);
+        CatalogProduct source = new FlipNutritionProduct("src", complete, incomplete);
+        CatalogProduct candidate = new FlipNutritionProduct("cand", complete, incomplete);
+
+        List<AlternativeProductRanker.RankedAlternative> ranked = ranker.rank(
+                source,
+                List.of(candidate),
+                List.of(new RestrictionRule("LOW_SUGAR", RestrictionCategory.DIET, RestrictionSeverity.PREFERENCE)),
+                Set.of());
+
+        assertEquals(1, ranked.size());
+        assertEquals("ml_nutrition_match", ranked.getFirst().matchReason());
+    }
+
+    private static final class FlipNutritionProduct extends CatalogProduct {
+        private final Nutrition first;
+        private final Nutrition later;
+        private int toNutritionCalls;
+
+        private FlipNutritionProduct(String barcode, Nutrition first, Nutrition later) {
+            setBarcode(barcode);
+            setProductName("Flip Nutrition");
+            setMainCategoryEn("Almond-based drinks");
+            setIngredientsText("Filtered water, almonds");
+            setCategoryTags("en:almond-based-drinks");
+            this.first = first;
+            this.later = later;
+        }
+
+        @Override
+        public Nutrition toNutrition() {
+            toNutritionCalls++;
+            return toNutritionCalls <= 2 ? first : later;
+        }
     }
 
     private static CatalogProduct farmhouseFreshMilk() {

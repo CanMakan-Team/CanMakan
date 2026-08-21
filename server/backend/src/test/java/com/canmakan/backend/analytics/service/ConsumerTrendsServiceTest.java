@@ -141,6 +141,9 @@ class ConsumerTrendsServiceTest {
     @Test
     @DisplayName("rejects invalid date pairs, ranges, future dates, and limits")
     void rejectsInvalidRequestsBeforeQuerying() {
+        LocalDate invertedEnd = TODAY.minusDays(1);
+        LocalDate tooWideStart = TODAY.minusDays(90);
+        LocalDate futureEnd = TODAY.plusDays(1);
         assertAll(
                 () -> assertThrows(
                         ConsumerTrendsValidationException.class,
@@ -152,15 +155,15 @@ class ConsumerTrendsServiceTest {
                 ),
                 () -> assertThrows(
                         ConsumerTrendsValidationException.class,
-                        () -> service.generateTrends(TODAY, TODAY.minusDays(1), 10)
+                        () -> service.generateTrends(TODAY, invertedEnd, 10)
                 ),
                 () -> assertThrows(
                         ConsumerTrendsValidationException.class,
-                        () -> service.generateTrends(TODAY.minusDays(90), TODAY, 10)
+                        () -> service.generateTrends(tooWideStart, TODAY, 10)
                 ),
                 () -> assertThrows(
                         ConsumerTrendsValidationException.class,
-                        () -> service.generateTrends(TODAY, TODAY.plusDays(1), 10)
+                        () -> service.generateTrends(TODAY, futureEnd, 10)
                 ),
                 () -> assertThrows(
                         ConsumerTrendsValidationException.class,
@@ -328,9 +331,10 @@ class ConsumerTrendsServiceTest {
     @Test
     @DisplayName("rejects a category longer than the verified database field")
     void rejectsOversizedCategoryBeforeQuerying() {
+        String oversizedCategory = "x".repeat(1001);
         assertThrows(
                 ConsumerTrendsValidationException.class,
-                () -> service.generateTrends(TODAY, TODAY, 10, "x".repeat(1001))
+                () -> service.generateTrends(TODAY, TODAY, 10, oversizedCategory)
         );
 
         verifyNoInteractions(repository);
@@ -626,7 +630,9 @@ class ConsumerTrendsServiceTest {
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(response).isNotNull();
-        assertThat(exposedFields).doesNotContain(
+        assertThat(exposedFields)
+                .isNotEmpty()
+                .doesNotContain(
                 "scanId",
                 "userId",
                 "profileId",

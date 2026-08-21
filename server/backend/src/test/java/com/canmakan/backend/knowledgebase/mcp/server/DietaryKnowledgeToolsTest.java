@@ -33,6 +33,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /*
@@ -413,7 +415,8 @@ class DietaryKnowledgeToolsTest {
         CrossContaminationResult result = crossContaminationTool.analyse(
             "May contain traces. Nutrition information. Contains eggplant extract.");
 
-        assertThat(result.allergens()).doesNotContain("NUTS", "EGG");
+        assertThat(result.mayContain()).isFalse();
+        assertThat(result.allergens()).isEmpty();
     }
 
     /** Test cases for the allergen relationship tool. */
@@ -656,7 +659,7 @@ class DietaryKnowledgeToolsTest {
         tool.lookup("HALAL");
         tool.lookup("halal");
 
-        org.mockito.Mockito.verify(isolatedRepo, org.mockito.Mockito.times(1))
+        verify(isolatedRepo, times(1))
                 .findByCodeIgnoreCase("HALAL");
     }
 

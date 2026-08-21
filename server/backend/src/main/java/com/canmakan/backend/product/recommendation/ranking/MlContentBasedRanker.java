@@ -1,5 +1,6 @@
 package com.canmakan.backend.product.recommendation.ranking;
 
+import com.canmakan.backend.product.model.Nutrition;
 import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
 import com.canmakan.backend.product.recommendation.filter.CategoryTagParser;
 import com.canmakan.backend.product.recommendation.filter.PackSizeParser;
@@ -129,18 +130,29 @@ public class MlContentBasedRanker {
     }
 
     private static BigDecimal resolveSugarsPer100g(CatalogProduct product) {
-        return product.toNutrition().sugarsPer100g();
+        Nutrition nutrition = nutritionOf(product);
+        return nutrition == null ? null : nutrition.sugarsPer100g();
     }
 
     private static BigDecimal resolveSodiumPer100g(CatalogProduct product) {
-        return product.toNutrition().sodiumPer100g();
+        Nutrition nutrition = nutritionOf(product);
+        return nutrition == null ? null : nutrition.sodiumPer100g();
+    }
+
+    private static Nutrition nutritionOf(CatalogProduct product) {
+        return product == null ? null : product.toNutrition();
     }
 
     private static double nutritionSimilarity(CatalogProduct source, CatalogProduct candidate) {
-        double sugarDelta = Math.abs(
-                resolveSugarsPer100g(source).doubleValue() - resolveSugarsPer100g(candidate).doubleValue());
-        double sodiumDelta = Math.abs(
-                resolveSodiumPer100g(source).doubleValue() - resolveSodiumPer100g(candidate).doubleValue());
+        BigDecimal sourceSugar = resolveSugarsPer100g(source);
+        BigDecimal candidateSugar = resolveSugarsPer100g(candidate);
+        BigDecimal sourceSodium = resolveSodiumPer100g(source);
+        BigDecimal candidateSodium = resolveSodiumPer100g(candidate);
+        if (sourceSugar == null || candidateSugar == null || sourceSodium == null || candidateSodium == null) {
+            return 0.0;
+        }
+        double sugarDelta = Math.abs(sourceSugar.doubleValue() - candidateSugar.doubleValue());
+        double sodiumDelta = Math.abs(sourceSodium.doubleValue() - candidateSodium.doubleValue());
         double sugarSim = 1.0 - Math.min(1.0, sugarDelta / MAX_SUGAR_RANGE_G);
         double sodiumSim = 1.0 - Math.min(1.0, sodiumDelta / MAX_SODIUM_RANGE_G);
         return ((sugarSim + sodiumSim) / 2.0) * NUTRITION_WEIGHT;
