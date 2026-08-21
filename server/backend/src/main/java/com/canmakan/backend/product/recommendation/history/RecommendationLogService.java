@@ -3,6 +3,7 @@ package com.canmakan.backend.product.recommendation.history;
 import com.canmakan.backend.product.recommendation.discovery.RecommendationDiscoveryAudit;
 import com.canmakan.backend.product.recommendation.discovery.RecommendationDiscoveryTier;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -53,7 +54,7 @@ public class RecommendationLogService {
         );
         log.setVerdictAtRecommendation("SAFE");
         log.setShownToUser(entry.shownToUser());
-        log.setCreatedAt(LocalDateTime.now());
+        log.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
 
         return saveAlternativeSafely(log);
     }
@@ -97,7 +98,7 @@ public class RecommendationLogService {
         log.setLlmCandidatesJson(audit.llmCandidatesJson());
         log.setCandidatesAccepted(Math.max(audit.candidatesAccepted(), 0));
         log.setCandidatesRejected(Math.max(audit.candidatesRejected(), 0));
-        log.setCreatedAt(LocalDateTime.now());
+        log.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
 
         return saveAuditSafely(log);
     }

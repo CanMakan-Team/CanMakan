@@ -169,7 +169,7 @@ public class AssessmentOrchestrator {
             long ruleLatencyMs
     ) {
         try {
-            Scan scan = scanService.record(
+            Scan scan = scanService.saveScan(
                     userId, request.profileId(), request.barcode(), verdict, productName);
             Long scanId = scan == null ? null : scan.getId();
             if (scanId == null) {

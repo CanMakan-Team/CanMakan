@@ -162,7 +162,7 @@ class ScanHistoryRepositoryTest {
             List.of(new Finding("DAIRY", "Skimmed milk powder", "Contains milk"))
         );
 
-        Scan saved = scanService.record(3L, PROFILE_MICHAEL_TAN, barcode, verdict, "Nutella");
+        Scan saved = scanService.saveScan(3L, PROFILE_MICHAEL_TAN, barcode, verdict, "Nutella");
         entityManager.flush();
         entityManager.clear();
 

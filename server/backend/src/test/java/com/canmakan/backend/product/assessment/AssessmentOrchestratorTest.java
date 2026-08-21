@@ -88,7 +88,7 @@ class AssessmentOrchestratorTest {
         SafetyVerdict safe = SafetyVerdict.safe("ok", List.of());
         when(llmEscalationService.escalate(any(), any(), any(), any()))
                 .thenReturn(new TieredOutcome(safe, ExecutionTier.TIER_1_RULES, null));
-        when(scanService.record(any(), any(), any(), any(), any())).thenReturn(scan(100L));
+        when(scanService.saveScan(any(), any(), any(), any(), any())).thenReturn(scan(100L));
 
         AssessmentResponse response = orchestrator.assess(7L, REQUEST);
 
@@ -108,7 +108,7 @@ class AssessmentOrchestratorTest {
                 .thenReturn(new TieredOutcome(
                         SafetyVerdict.unsafe("resolved to dairy", List.of()),
                         ExecutionTier.TIER_3_LLM, evidence));
-        when(scanService.record(any(), any(), any(), any(), any())).thenReturn(scan(100L));
+        when(scanService.saveScan(any(), any(), any(), any(), any())).thenReturn(scan(100L));
 
         AssessmentResponse response = orchestrator.assess(7L, REQUEST);
 
@@ -126,7 +126,7 @@ class AssessmentOrchestratorTest {
                 .thenReturn(new TieredOutcome(
                         SafetyVerdict.warning("uncertain", List.of()),
                         ExecutionTier.TIER_1_RULES, null));
-        when(scanService.record(any(), any(), any(), any(), any())).thenReturn(scan(100L));
+        when(scanService.saveScan(any(), any(), any(), any(), any())).thenReturn(scan(100L));
 
         AssessmentResponse response = orchestrator.assess(7L, REQUEST);
 
@@ -156,7 +156,7 @@ class AssessmentOrchestratorTest {
         when(llmEscalationService.escalate(any(), any(), any(), any()))
                 .thenReturn(new TieredOutcome(
                         SafetyVerdict.safe("ok", List.of()), ExecutionTier.TIER_1_RULES, null));
-        when(scanService.record(any(), any(), any(), any(), any()))
+        when(scanService.saveScan(any(), any(), any(), any(), any()))
                 .thenThrow(new DataIntegrityViolationException("fk_scans_product"));
 
         AssessmentResponse response = orchestrator.assess(7L, REQUEST);

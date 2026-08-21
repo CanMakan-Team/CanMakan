@@ -4,8 +4,6 @@ import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
 import java.math.BigDecimal;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Parses pack / serving volume from catalog quantity fields for milk substitute ranking.
@@ -15,16 +13,6 @@ public final class PackSizeParser {
     public static final double PACK_SIZE_WEIGHT = 0.08;
     private static final double MAX_PACK_RANGE_ML = 1000.0;
     private static final double MIN_PACK_MATCH_SIMILARITY = 0.85;
-
-    private static final Pattern MILLILITRE_PATTERN = Pattern.compile(
-            "(\\d+(?:[.,]\\d+)?)\\s*(ml|mL|millilitre?s?|milliliter?s?)",
-            Pattern.CASE_INSENSITIVE);
-    private static final Pattern LITRE_PATTERN = Pattern.compile(
-            "(\\d+(?:[.,]\\d+)?)\\s*(l|litre?s?|liter?s?)(?![a-z])",
-            Pattern.CASE_INSENSITIVE);
-    private static final Pattern CENTILITRE_PATTERN = Pattern.compile(
-            "(\\d+(?:[.,]\\d+)?)\\s*(cl)",
-            Pattern.CASE_INSENSITIVE);
 
     private PackSizeParser() {
     }
@@ -53,19 +41,31 @@ public final class PackSizeParser {
             return Optional.empty();
         }
         String normalized = raw.trim().toLowerCase(Locale.ROOT).replace(',', '.');
-        Matcher millilitreMatcher = MILLILITRE_PATTERN.matcher(normalized);
-        if (millilitreMatcher.find()) {
-            return Optional.of(parseAmount(millilitreMatcher.group(1)));
+        int index = 0;
+        while (index < normalized.length() && !Character.isDigit(normalized.charAt(index))) {
+            index++;
         }
-        Matcher litreMatcher = LITRE_PATTERN.matcher(normalized);
-        if (litreMatcher.find()) {
-            return Optional.of(parseAmount(litreMatcher.group(1)) * 1000.0);
+        if (index >= normalized.length()) {
+            return Optional.empty();
         }
-        Matcher centilitreMatcher = CENTILITRE_PATTERN.matcher(normalized);
-        if (centilitreMatcher.find()) {
-            return Optional.of(parseAmount(centilitreMatcher.group(1)) * 10.0);
+        int amountStart = index;
+        while (index < normalized.length()) {
+            char character = normalized.charAt(index);
+            if (!Character.isDigit(character) && character != '.') {
+                break;
+            }
+            index++;
         }
-        return Optional.empty();
+        double amount;
+        try {
+            amount = Double.parseDouble(normalized.substring(amountStart, index));
+        } catch (NumberFormatException exception) {
+            return Optional.empty();
+        }
+        while (index < normalized.length() && Character.isWhitespace(normalized.charAt(index))) {
+            index++;
+        }
+        return volumeMlForUnit(amount, normalized.substring(index));
     }
 
     /**
@@ -89,6 +89,26 @@ public final class PackSizeParser {
         return similarity(source, candidate) >= MIN_PACK_MATCH_SIMILARITY;
     }
 
+    private static Optional<Double> volumeMlForUnit(double amount, String unit) {
+        if (unit.startsWith("ml") || unit.startsWith("millilitre") || unit.startsWith("milliliter")) {
+            return Optional.of(amount);
+        }
+        if (unit.startsWith("cl")) {
+            return Optional.of(amount * 10.0);
+        }
+        if (unit.startsWith("litre") || unit.startsWith("liter") || isBareLitre(unit)) {
+            return Optional.of(amount * 1000.0);
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isBareLitre(String unit) {
+        if (unit.isEmpty() || unit.charAt(0) != 'l') {
+            return false;
+        }
+        return unit.length() == 1 || !Character.isLetter(unit.charAt(1));
+    }
+
     private static Optional<Double> resolveServingQuantityMl(BigDecimal servingQuantity) {
         if (servingQuantity == null) {
             return Optional.empty();
@@ -98,9 +118,5 @@ public final class PackSizeParser {
             return Optional.empty();
         }
         return Optional.of(value);
-    }
-
-    private static double parseAmount(String raw) {
-        return Double.parseDouble(raw.replace(',', '.'));
     }
 }

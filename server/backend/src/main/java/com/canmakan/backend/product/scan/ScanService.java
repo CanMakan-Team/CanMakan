@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 /**
@@ -46,7 +47,7 @@ public class ScanService {
      * @return the saved {@link Scan}
      */
     @Transactional
-    public Scan record(
+    public Scan saveScan(
             Long userId,
             Long profileId,
             String barcode,
@@ -62,7 +63,7 @@ public class ScanService {
         scan.setVerdict(verdict.toScansVerdict());
         scan.setAiExplanation(verdict.explanation());
         scan.setFindingsJson(toJson(verdict.findings()));
-        scan.setScannedAt(LocalDateTime.now());
+        scan.setScannedAt(LocalDateTime.now(ZoneOffset.UTC));
         return scanRepository.save(scan);
     }
 

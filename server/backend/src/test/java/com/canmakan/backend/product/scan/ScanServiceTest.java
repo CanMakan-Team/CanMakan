@@ -45,7 +45,7 @@ class ScanServiceTest {
     void insertsCatalogStubWhenBarcodeMissingFromProducts() {
         when(scanProductRepository.existsById("3017620422003")).thenReturn(false);
 
-        scanService.record(
+        scanService.saveScan(
                 1L,
                 1L,
                 "3017620422003",
@@ -64,7 +64,7 @@ class ScanServiceTest {
     void skipsCatalogInsertWhenProductAlreadyExists() {
         when(scanProductRepository.existsById("3017620422003")).thenReturn(true);
 
-        scanService.record(
+        scanService.saveScan(
                 1L,
                 1L,
                 "3017620422003",
