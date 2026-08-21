@@ -385,12 +385,19 @@ jobs:
           MYSQL_DB: canmakan
           MYSQL_USERNAME: root
           MYSQL_PASSWORD: root
-          JWT_SIGNING_SECRET: dGVzdC1vbmx5LXNpZ25pbmcta2V5LTMyLWJ5dGVzISE=
           CANMAKAN_AI_ENABLED: "false"
           CANMAKAN_RECOMMENDATION_LLM_ENABLED: "false"
           TAVILY_API_KEY: local-dev-placeholder
           CANMAKAN_EMAIL_RESEND_ENABLED: "false"
-        run: mvn -B clean verify
+        run: |
+          # Same allowlisted test JWT as src/test/resources (not the job-level deploy secret).
+          JWT_SIGNING_SECRET="$(sed -n 's/^app.security.jwt.signing-secret=//p' src/test/resources/application-dev.properties | tr -d '\r')"
+          if [ -z "${JWT_SIGNING_SECRET}" ]; then
+            echo "Missing app.security.jwt.signing-secret in test application-dev.properties"
+            exit 1
+          fi
+          export JWT_SIGNING_SECRET
+          mvn -B clean verify
 
       - name: SonarCloud backend
         if: env.SONAR_TOKEN != ''
