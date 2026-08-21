@@ -6,3 +6,9 @@ build/
 playwright-report/
 test-results/
 coverage/
+
+# Known test/demo fixtures. Gitleaks already allowlists the JWT string; Semgrep
+# generic-secret / bcrypt rules flag seed SQL. All backend resource SQL is seed
+# (schema, catalog, demo users), not application SAST.
+server/backend/src/test/resources/application-*.properties
+server/backend/src/main/resources/*.sql
