@@ -41,31 +41,40 @@ public final class PackSizeParser {
             return Optional.empty();
         }
         String normalized = raw.trim().toLowerCase(Locale.ROOT).replace(',', '.');
-        int index = 0;
-        while (index < normalized.length() && !Character.isDigit(normalized.charAt(index))) {
-            index++;
-        }
-        if (index >= normalized.length()) {
-            return Optional.empty();
-        }
-        int amountStart = index;
-        while (index < normalized.length()) {
-            char character = normalized.charAt(index);
-            if (!Character.isDigit(character) && character != '.') {
-                break;
+        int searchFrom = 0;
+        while (searchFrom < normalized.length()) {
+            int index = searchFrom;
+            while (index < normalized.length() && !Character.isDigit(normalized.charAt(index))) {
+                index++;
             }
-            index++;
+            if (index >= normalized.length()) {
+                return Optional.empty();
+            }
+            int amountStart = index;
+            while (index < normalized.length()) {
+                char character = normalized.charAt(index);
+                if (!Character.isDigit(character) && character != '.') {
+                    break;
+                }
+                index++;
+            }
+            double amount;
+            try {
+                amount = Double.parseDouble(normalized.substring(amountStart, index));
+            } catch (NumberFormatException exception) {
+                return Optional.empty();
+            }
+            int unitStart = index;
+            while (unitStart < normalized.length() && Character.isWhitespace(normalized.charAt(unitStart))) {
+                unitStart++;
+            }
+            Optional<Double> volume = volumeMlForUnit(amount, normalized.substring(unitStart));
+            if (volume.isPresent()) {
+                return volume;
+            }
+            searchFrom = index == amountStart ? index + 1 : index;
         }
-        double amount;
-        try {
-            amount = Double.parseDouble(normalized.substring(amountStart, index));
-        } catch (NumberFormatException exception) {
-            return Optional.empty();
-        }
-        while (index < normalized.length() && Character.isWhitespace(normalized.charAt(index))) {
-            index++;
-        }
-        return volumeMlForUnit(amount, normalized.substring(index));
+        return Optional.empty();
     }
 
     /**
