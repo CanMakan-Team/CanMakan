@@ -1,10 +1,14 @@
 package com.canmakan.backend.product.recommendation.discovery;
 
+import com.canmakan.backend.knowledgebase.model.RestrictionCategory;
 import com.canmakan.backend.product.recommendation.catalog.CatalogProduct;
 import com.canmakan.backend.product.recommendation.catalog.CatalogProductRepository;
 import com.canmakan.backend.product.recommendation.dto.RecommendationRequest;
 import com.canmakan.backend.product.recommendation.history.RecommendationLogService;
+import com.canmakan.backend.product.verdict.RestrictionRule;
+import com.canmakan.backend.product.verdict.RestrictionSeverity;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -13,6 +17,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Optional;
@@ -103,6 +108,112 @@ class LlmRecommendationDiscoveryServiceTest {
 
         assertTrue(candidates.isEmpty());
         verify(chatClient, never()).prompt();
+        assertFalse(disabled.isEnabled());
+        assertTrue(discoveryService.isEnabled());
+    }
+
+    @Test
+    void returnsEmptyWhenRequestOrSourceMissing() {
+        assertTrue(discoveryService.discoverCandidates(null, product("888", "Milk"), List.of()).isEmpty());
+        assertTrue(discoveryService.discoverCandidates(
+                new RecommendationRequest(3L, "888", 10L), null, List.of()).isEmpty());
+        verify(chatClient, never()).prompt();
+    }
+
+    @Test
+    void returnsEmptyWhenProviderCallFails() {
+        when(callResponseSpec.chatResponse()).thenThrow(new RuntimeException("timeout"));
+
+        List<CatalogProduct> candidates = discoveryService.discoverCandidates(
+                new RecommendationRequest(3L, "8888200602857", 10L),
+                product("8888200602857", "Farmhouse Fresh Milk"),
+                List.of(new RestrictionRule("DAIRY", RestrictionCategory.ALLERGEN, RestrictionSeverity.INTOLERANCE)));
+
+        assertTrue(candidates.isEmpty());
+        verify(recommendationLogService, never()).recordDiscoveryAudit(any());
+    }
+
+    @Test
+    void parsesMarkdownFencedJsonAndSkipsSourceBarcode() {
+        CatalogProduct source = product("8888200602857", "Farmhouse Fresh Milk");
+        CatalogProduct substitute = product("8850025000521", "Soya Milk Unsweetened");
+        ChatResponse response = chatResponse("""
+                ```json
+                {"candidates":[
+                  {"barcode":"8888200602857","productName":"Same","brand":"","reason":"self"},
+                  {"barcode":"   ","productName":"Blank","brand":"","reason":""},
+                  {"barcode":"8850025000521","productName":"Soya Milk Unsweetened","brand":"Home Soy","reason":"dairy free"}
+                ]}
+                ```
+                """);
+        when(callResponseSpec.chatResponse()).thenReturn(response);
+        when(catalogProductRepository.findById("8850025000521")).thenReturn(Optional.of(substitute));
+
+        List<CatalogProduct> candidates = discoveryService.discoverCandidates(
+                new RecommendationRequest(3L, "8888200602857", 10L),
+                source,
+                null);
+
+        assertEquals(1, candidates.size());
+        assertEquals("8850025000521", candidates.getFirst().getBarcode());
+    }
+
+    @Test
+    void skipsAuditWhenScanIdMissingAndHandlesEmptyChatResponse() {
+        when(callResponseSpec.chatResponse()).thenReturn(new ChatResponse(List.of()));
+
+        List<CatalogProduct> candidates = discoveryService.discoverCandidates(
+                new RecommendationRequest(3L, "8888200602857", null),
+                product("8888200602857", "Farmhouse Fresh Milk"),
+                List.of());
+
+        assertTrue(candidates.isEmpty());
+        verify(recommendationLogService, never()).recordDiscoveryAudit(any());
+    }
+
+    @Test
+    void usesEmptyAuditJsonWhenPayloadCannotBeSerialized() {
+        ObjectMapper mapper = new ObjectMapper() {
+            @Override
+            public String writeValueAsString(Object value) throws com.fasterxml.jackson.core.JsonProcessingException {
+                throw JsonMappingException.from((com.fasterxml.jackson.core.JsonParser) null, "fail");
+            }
+        };
+        ChatResponse response = chatResponse("""
+                {"candidates":[{"barcode":"8850025000521","productName":"Soya","brand":"Home","reason":"ok"}]}
+                """);
+        when(callResponseSpec.chatResponse()).thenReturn(response);
+        when(catalogProductRepository.findById("8850025000521"))
+                .thenReturn(Optional.of(product("8850025000521", "Soya")));
+
+        LlmRecommendationDiscoveryService service = new LlmRecommendationDiscoveryService(
+                chatClient,
+                catalogProductRepository,
+                recommendationLogService,
+                mapper,
+                true,
+                "gpt-4o-mini");
+
+        List<CatalogProduct> candidates = service.discoverCandidates(
+                new RecommendationRequest(3L, "8888200602857", 10L),
+                product("8888200602857", "Farmhouse Fresh Milk"),
+                List.of());
+
+        assertEquals(1, candidates.size());
+        verify(recommendationLogService).recordDiscoveryAudit(any());
+    }
+
+    @Test
+    void recordsAuditWhenChatResponseIsNull() {
+        when(callResponseSpec.chatResponse()).thenReturn(null);
+
+        List<CatalogProduct> candidates = discoveryService.discoverCandidates(
+                new RecommendationRequest(3L, "8888200602857", 10L),
+                product("8888200602857", "Farmhouse Fresh Milk"),
+                List.of());
+
+        assertTrue(candidates.isEmpty());
+        verify(recommendationLogService).recordDiscoveryAudit(any());
     }
 
     private static CatalogProduct product(String barcode, String name) {
@@ -117,9 +228,9 @@ class LlmRecommendationDiscoveryServiceTest {
     private static ChatResponse chatResponse(String json) {
         AssistantMessage message = new AssistantMessage(json);
         Generation generation = new Generation(message);
-        Usage usage = org.mockito.Mockito.mock(Usage.class);
-        org.mockito.Mockito.when(usage.getPromptTokens()).thenReturn(100);
-        org.mockito.Mockito.when(usage.getCompletionTokens()).thenReturn(20);
+        Usage usage = mock(Usage.class);
+        when(usage.getPromptTokens()).thenReturn(100);
+        when(usage.getCompletionTokens()).thenReturn(20);
         ChatResponseMetadata metadata = ChatResponseMetadata.builder().usage(usage).build();
         return new ChatResponse(List.of(generation), metadata);
     }
