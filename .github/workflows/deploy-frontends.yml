@@ -193,11 +193,13 @@ jobs:
           KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           MOBILE_BASE_URL: ${{ secrets.MOBILE_BASE_URL }}
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_SUFFIX: ${{ github.ref == 'refs/heads/main' && 'PROD' || 'STG' }}
         run: |
           ./gradlew assembleRelease \
             -PBASE_URL="$MOBILE_BASE_URL" \
-            -PversionCode=${{ github.run_number }} \
-            -PversionName="1.0.${{ github.run_number }}-${{ github.ref == 'refs/heads/main' && 'PROD' || 'STG' }}"
+            -PversionCode="$VERSION_CODE" \
+            -PversionName="1.0.${VERSION_CODE}-${VERSION_SUFFIX}"
 
       - name: Shred Decoded Keystore
         if: always()

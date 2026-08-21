@@ -385,6 +385,7 @@ jobs:
           MYSQL_DB: canmakan
           MYSQL_USERNAME: root
           MYSQL_PASSWORD: root
+          # nosemgrep: generic.secrets.security.detected-generic-secret -- same allowlisted CI/test JWT as application-*.properties
           JWT_SIGNING_SECRET: dGVzdC1vbmx5LXNpZ25pbmcta2V5LTMyLWJ5dGVzISE=
           CANMAKAN_AI_ENABLED: "false"
           CANMAKAN_RECOMMENDATION_LLM_ENABLED: "false"

@@ -70,7 +70,7 @@ class Uc7IsolatedDatabaseTest {
     })
     @DisplayName("every MySQL-backed UC7 test installs the guard before context refresh")
     void everyMysqlTestRegistersProtectedInitialization(String testClassName) throws Exception {
-        Class<?> testClass = Class.forName(testClassName);
+        Class<?> testClass = Class.forName(testClassName); // nosemgrep: java.lang.security.audit.unsafe-reflection.unsafe-reflection
         ContextConfiguration contextConfiguration =
                 testClass.getAnnotation(ContextConfiguration.class);
         SpringBootTest springBootTest = testClass.getAnnotation(SpringBootTest.class);
