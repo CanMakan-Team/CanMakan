@@ -3,6 +3,7 @@ package com.canmakan.backend.shared.security;
 import com.canmakan.backend.user.repository.AuthenticationAccountView;
 import com.canmakan.backend.user.repository.UserAccountRepository;
 import java.util.Locale;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -19,12 +20,10 @@ public class AuthUserDetailsService implements UserDetailsService {
 
     @Override
     public AuthUserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        String normalizedEmail = normalizeEmail(username);
-        AuthenticationAccountView account = userAccountRepository
-            .findAuthenticationAccountByEmail(normalizedEmail)
-            .orElseThrow(() -> new UsernameNotFoundException(ACCOUNT_NOT_FOUND));
-
-        return buildUserDetails(account);
+        return userAccountRepository
+            .findAuthenticationAccountByEmail(normalizeEmail(username))
+            .flatMap(AuthUserDetailsService::toUserDetails)
+            .orElseThrow(AuthUserDetailsService::accountNotFound);
     }
 
     public AuthUserDetails loadUserById(Long userId) throws UsernameNotFoundException {
@@ -32,30 +31,34 @@ public class AuthUserDetailsService implements UserDetailsService {
         // instead of short-circuiting before the database call. A malformed id simply matches
         // no row and falls through to the same exception as a genuine "not found" case, so the
         // response timing and outcome cannot be used to distinguish input formats from real ids.
-        AuthenticationAccountView account = userAccountRepository
+        return userAccountRepository
             .findAuthenticationAccountById(userId)
-            .orElseThrow(() -> new UsernameNotFoundException(ACCOUNT_NOT_FOUND));
-
-        return buildUserDetails(account);
+            .flatMap(AuthUserDetailsService::toUserDetails)
+            .orElseThrow(AuthUserDetailsService::accountNotFound);
     }
 
-    private static AuthUserDetails buildUserDetails(AuthenticationAccountView account) {
-        try {
-            String accountEmail = normalizeEmail(account.getEmail());
-            if (accountEmail.isBlank()) {
-                throw new IllegalStateException("Account record is missing an email");
-            }
-            SystemRole systemRole = SystemRole.fromDatabaseName(account.getRoleName());
-            AuthenticatedPrincipal principal = new AuthenticatedPrincipal(
-                account.getUserId(),
-                accountEmail,
-                Boolean.TRUE.equals(account.getActive()),
-                systemRole
-            );
-            return new AuthUserDetails(principal, account.getPasswordHash());
-        } catch (IllegalArgumentException | IllegalStateException | NullPointerException exception) {
-            throw new UsernameNotFoundException(ACCOUNT_NOT_FOUND, exception);
+    private static Optional<AuthUserDetails> toUserDetails(AuthenticationAccountView account) {
+        String accountEmail = normalizeEmail(account.getEmail());
+        if (accountEmail.isBlank()) {
+            return Optional.empty();
         }
+        SystemRole systemRole;
+        try {
+            systemRole = SystemRole.fromDatabaseName(account.getRoleName());
+        } catch (IllegalArgumentException ignored) {
+            return Optional.empty();
+        }
+        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(
+            account.getUserId(),
+            accountEmail,
+            Boolean.TRUE.equals(account.getActive()),
+            systemRole
+        );
+        return Optional.of(new AuthUserDetails(principal, account.getPasswordHash()));
+    }
+
+    private static UsernameNotFoundException accountNotFound() {
+        return new UsernameNotFoundException(ACCOUNT_NOT_FOUND);
     }
 
     // Normalizes without rejecting a null/blank input so callers funnel every case, malformed or
