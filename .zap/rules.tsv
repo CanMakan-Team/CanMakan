@@ -6,7 +6,7 @@
 10020	OUTOFSCOPE	https://canmakan-staging\.(web\.app|firebaseapp\.com)/(robots\.txt|sitemap\.xml).*
 
 # 10055: Accept style-src 'unsafe-inline' for React/Vite (Global Ignore)
-10055	IGNORE
+10055	IGNORE  (CSP: style-src unsafe-inline)
 
 # 10027: False-positive keyword matching in minified production bundles
 10027	IGNORE	(Information Disclosure - Suspicious Comments)
