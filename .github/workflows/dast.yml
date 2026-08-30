@@ -2,9 +2,9 @@ name: DAST (OWASP ZAP)
 
 on:
   workflow_dispatch:
-  schedule:
+  # schedule:
     # Runs daily at 2:00 AM SGT (18:00 UTC)
-    - cron: '0 18 * * *'
+    # - cron: '0 18 * * *'
 
 permissions:
   issues: write
