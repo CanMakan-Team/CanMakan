@@ -1,5 +1,5 @@
-# version: 2
-# updates:
+version: 2
+updates:
 #   # Web (React + Vite)
 #   - package-ecosystem: "npm"
 #     directory: "/client/web"
